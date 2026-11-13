@@ -39,27 +39,33 @@
 
   <!-- ===== Editor ===== -->
   <section id="editor" class="screen hidden">
-    <header class="ed-top">
-      <button class="icon-btn" id="btnBack" title="Voltar"><span data-icon="back"></span></button>
-      <input id="noteTitle" class="title-input" spellcheck="false">
-      <div class="spacer"></div>
-      <span id="edSync" class="sync-pill small"></span>
-      <button class="icon-btn" id="btnUndo" title="Desfazer (toque com 2 dedos)"><span data-icon="undo"></span></button>
-      <button class="icon-btn" id="btnRedo" title="Refazer (toque com 3 dedos)"><span data-icon="redo"></span></button>
-      <button class="icon-btn toggle" id="btnFinger" title="Escrever com o dedo"><span data-icon="hand"></span></button>
-      <button class="icon-btn" id="btnPages" title="Páginas e modelo"><span data-icon="grid"></span></button>
-      <button class="icon-btn" id="btnExport" title="Exportar"><span data-icon="download"></span></button>
-      <button class="icon-btn" id="btnEdSettings" title="Configurações"><span data-icon="settings"></span></button>
-    </header>
-    <div class="ed-tools" id="toolbar"></div>
-    <div class="ed-options" id="toolOptions"></div>
     <div id="stage">
       <canvas id="cMain"></canvas>
       <canvas id="cLive"></canvas>
       <div id="overlay"></div>
       <div id="selBar" class="sel-bar hidden"></div>
-      <div class="hud"><button id="hudZoom" class="hud-btn">100%</button><span id="hudPage" class="hud-btn"></span></div>
     </div>
+    <!-- Cromo flutuante (estilo Notewise) -->
+    <div class="chrome ch-topleft">
+      <button class="cbtn round" id="btnBack" title="Voltar"><span data-icon="arrowLeft"></span></button>
+      <div class="cpill">
+        <button class="cbtn" id="btnPages" title="Páginas e modelo"><span data-icon="pages"></span></button>
+        <button class="cbtn" id="btnAddPage" title="Adicionar página"><span data-icon="addPage"></span></button>
+        <button class="cbtn" id="btnExport" title="Exportar"><span data-icon="download"></span></button>
+        <input id="noteTitle" class="title-input" spellcheck="false" title="Título da nota">
+      </div>
+    </div>
+    <div class="chrome ch-topright">
+      <div class="cpill">
+        <span id="edSync" class="sync-pill small"></span>
+        <button class="cbtn" id="hudPage" title="Páginas">1 / 1</button>
+        <button class="cbtn" id="hudZoom" title="Zoom">100%</button>
+        <button class="cbtn" id="btnEdSettings" title="Configurações"><span data-icon="more"></span></button>
+      </div>
+    </div>
+    <nav class="chrome rail" id="rail"></nav>
+    <nav class="chrome subrail" id="subrail"></nav>
+    <div class="chrome tool-panel hidden" id="toolPanel"></div>
   </section>
 </div>
 
@@ -74,6 +80,7 @@
 <script src="js/pdf.js"></script>
 <script src="js/drive.js"></script>
 <script src="js/editor.js"></script>
+<script src="js/toolbar.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/library.js"></script>
 <script src="js/plugins.js"></script>

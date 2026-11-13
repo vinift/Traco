@@ -1,7 +1,7 @@
 'use strict';
 /* ===== Inicialização e navegação ===== */
 const App = {
-  version: '0.1.0',
+  version: '0.2.0',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -32,10 +32,8 @@ const App = {
     $('#libSearch').addEventListener('input', (e) => { Library.query = e.target.value; Library.render(); });
     $('#libSync').onclick = $('#edSync').onclick = () => Drive.onPillClick();
     $('#btnBack').onclick = () => this.closeNote();
-    $('#btnUndo').onclick = () => Editor.undo();
-    $('#btnRedo').onclick = () => Editor.redo();
-    $('#btnFinger').onclick = () => { const S = Store.settings; S.fingerDraws = !S.fingerDraws; Store.saveSettings(); $('#btnFinger').classList.toggle('on', S.fingerDraws); toast(S.fingerDraws ? 'Dedo escreve (use 2 dedos para mover)' : 'Dedo só navega', 1600); };
     $('#btnPages').onclick = () => pagesPanel();
+    $('#btnAddPage').onclick = () => { if (Editor.note.mode === 'infinite') return toast('Notas em tela infinita não têm páginas'); Editor.addPage(Editor.currentPageIndex()); toast('Página adicionada', 1200); };
     $('#btnExport').onclick = (e) => exportMenu(e.currentTarget);
     $('#noteTitle').addEventListener('change', () => Editor.markChanged());
     $('#hudZoom').onclick = (e) => menu(e.currentTarget, [

@@ -31,14 +31,21 @@ const DB = {
   keys(store) { return this.mem ? Promise.resolve([...this.mem[store].keys()]) : this._req(store, 'readonly', (s) => s.getAllKeys()); },
 };
 
-const DEFAULT_TEMPLATE = { type: 'lines', spacing: 32, thickness: 1, color: '#a9bcd6', opacity: 1, paper: '#ffffff', margin: true, marginColor: '#f19a9a', top: 80 };
+const DEFAULT_TEMPLATE = { type: 'lines', spacing: 32, thickness: 1, color: '#a9bcd6', opacity: 1, paper: '#fbf9f3', margin: true, marginColor: '#f19a9a', top: 80 };
 const PAGE_SIZES = {
   a4: { label: 'A4 retrato', w: 794, h: 1123 }, a4l: { label: 'A4 paisagem', w: 1123, h: 794 },
   letter: { label: 'Carta', w: 816, h: 1056 }, a5: { label: 'A5', w: 559, h: 794 },
   wide: { label: 'Widescreen 16:9', w: 1280, h: 720 }, custom: { label: 'Personalizado', w: 900, h: 1200 },
 };
 const DEFAULT_SETTINGS = {
-  fingerDraws: false, palmGuard: true, pressure: true, stabilizer: 0.35, shapeHold: true, theme: 'auto',
+  fingerDraws: false, palmGuard: true, pressure: true, pressureSens: 0.6, stabilizer: 0.35, shapeHold: true, scribbleErase: true, lowLatency: false, theme: 'auto',
+  colorPresets: {
+    pen: ['#111827', '#4b5563', '#2563eb', '#0d9488', '#16a34a', '#dc2626', '#ea580c', '#7c3aed'],
+    highlighter: ['#fde047', '#86efac', '#7dd3fc', '#f9a8d4', '#fdba74', '#c4b5fd'],
+  },
+  widthPresets: {
+    pen: [1, 1.5, 2, 2.5, 3, 4, 6], highlighter: [8, 12, 18, 24, 32], shape: [1, 2, 3, 5], text: [14, 18, 22, 28, 36], eraser: [8, 14, 24, 40, 64],
+  },
   tools: {
     pen: { color: '#111827', width: 2.5 },
     highlighter: { color: '#fde047', width: 18, opacity: 0.4 },

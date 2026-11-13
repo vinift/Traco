@@ -2,19 +2,44 @@
 /* ===== Ferramentas próprias (plugins em JavaScript) ===== */
 const EXAMPLE_PLUGINS = [
   {
-    id: 'ex-data', name: 'Carimbo de data', enabled: true, builtin: true,
-    code: `// Toque na página para inserir a data de hoje.
+    id: 'ex-data', name: 'Carimbo de data', enabled: true, builtin: true, ver: 2,
+    code: `// Toque na página para inserir a data. Personalize o texto no painel de ajustes da ferramenta.
+const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const PADRAO = { formato: 'Aula dia {dd}/{mm}/{aaaa}', size: 20, color: '#2563eb', bold: true };
+const MODELOS = ['Aula dia {dd}/{mm}/{aaaa}', 'Aula {dd}/{mm} — {Dia}', '{Dia}, {dd} de {mes} de {aaaa}', '{dd}/{mm}/{aaaa}', 'Revisão — {dd} de {mes}'];
+const cfg = (api) => Object.assign({}, PADRAO, api.store.get('cfg') || {});
+function formatar(f, d = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0'), cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const v = { Dia: cap(DIAS[d.getDay()]), dia: DIAS[d.getDay()], dd: pad(d.getDate()), d: d.getDate(), mm: pad(d.getMonth() + 1), m: d.getMonth() + 1,
+    Mes: cap(MESES[d.getMonth()]), mes: MESES[d.getMonth()], aaaa: d.getFullYear(), aa: String(d.getFullYear()).slice(2), hh: pad(d.getHours()), min: pad(d.getMinutes()) };
+  return f.replace(/\{(Dia|dia|dd|d|mm|m|Mes|mes|aaaa|aa|hh|min)\}/g, (_, k) => v[k]);
+}
 Traco.registerTool({
   id: 'carimbo-data', name: 'Carimbo de data', icon: '📅',
-  hint: 'Toque na página para inserir a data de hoje.',
   onUp(p, api) {
-    const d = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-    api.addText(p.x, p.y - 12, d.charAt(0).toUpperCase() + d.slice(1), { size: 18, color: '#2563eb', bold: true });
-  }
+    const c = cfg(api), txt = formatar(c.formato);
+    api.addText(p.x, p.y - c.size * 0.6, txt, { size: c.size, color: c.color, bold: c.bold, w: Math.max(120, txt.length * c.size * 0.62) });
+  },
+  renderOptions(box, api) {
+    const { el, slider, switchRow, colorSection } = Traco.ui;
+    const c = cfg(api), save = () => api.store.set('cfg', c);
+    const prev = el('div', { style: { padding: '12px', borderRadius: '14px', background: 'var(--ch2)', margin: '4px 0 12px', fontWeight: c.bold ? 600 : 400, color: c.color, fontSize: Math.min(26, c.size) + 'px' } }, formatar(c.formato));
+    const upd = () => { prev.textContent = formatar(c.formato); prev.style.color = c.color; prev.style.fontWeight = c.bold ? 600 : 400; prev.style.fontSize = Math.min(26, c.size) + 'px'; save(); };
+    const inp = el('input', { class: 'tp-input', value: c.formato, spellcheck: 'false' });
+    inp.addEventListener('input', () => { c.formato = inp.value; upd(); });
+    const chips = el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '8px 0' } });
+    for (const m of MODELOS) chips.append(el('button', { class: 'btn', style: { height: '32px', fontSize: '12.5px', padding: '0 10px' }, onclick: () => { c.formato = m; inp.value = m; upd(); } }, formatar(m)));
+    box.append(el('div', { class: 'tp-sec' }, 'Prévia'), prev, el('div', { class: 'tp-sec' }, 'Texto do carimbo'), inp, chips,
+      el('p', { style: { fontSize: '12px', color: 'var(--chmuted)', margin: '4px 0 8px' } }, 'Códigos: {dd} dia · {mm} mês · {aaaa} ano · {aa} ano curto · {Dia}/{dia} dia da semana · {Mes}/{mes} mês por extenso · {hh}:{min} hora'),
+      slider('Tamanho', c.size, 10, 60, 1, (v) => v, (v) => { c.size = v; upd(); }),
+      switchRow('Negrito', null, c.bold, (v) => { c.bold = v; upd(); }),
+      colorSection('Cor', c.color, (v) => { c.color = v; upd(); }));
+  },
 });`,
   },
   {
-    id: 'ex-laser', name: 'Ponteiro laser', enabled: true, builtin: true,
+    id: 'ex-laser', name: 'Ponteiro laser', enabled: true, builtin: true, ver: 1,
     code: `// Rastro vermelho que some sozinho — ótimo para apresentar ou explicar.
 let trail = [], timer = null;
 function loop(api) {
@@ -44,7 +69,8 @@ Traco.registerTool({
   id: 'meu-id', name: 'Nome', icon: '⭐' (emoji) ou nome de ícone interno,
   hint: 'texto da barra de opções',
   onDown(p, api), onMove(p, api), onUp(p, api),   // p = {x, y, pressure, screenX, screenY}
-  renderOptions(container, api)                     // opcional
+  renderOptions(container, api)                     // opcional: conteúdo do painel de ajustes
+  Traco.ui: el, icon, toast, openModal, askText, slider, switchRow, colorSection
 })
 Traco.registerAction({ id, name, icon, run(api) })   // botão que executa uma vez
 Traco.registerRenderer('meuTipo', (ctx, elemento) => {...}) // desenhar elementos próprios
@@ -65,6 +91,10 @@ const Plugins = {
   init() {
     const S = Store.settings;
     if (!S.pluginsSeeded) { S.plugins = EXAMPLE_PLUGINS.map((p) => ({ ...p })).concat(S.plugins || []); S.pluginsSeeded = true; Store.saveSettings(); }
+    for (const ex of EXAMPLE_PLUGINS) { // atualiza plugins de exemplo que você não editou
+      const p = S.plugins.find((x) => x.id === ex.id);
+      if (p && !p.edited && (p.ver || 1) < ex.ver) { p.code = ex.code; p.ver = ex.ver; p.name = ex.name; Store.saveSettings(); }
+    }
     this.loadAll();
   },
   loadAll() {
@@ -78,14 +108,18 @@ const Plugins = {
       registerAction(def) { if (!def || !def.run) throw new Error('registerAction precisa de run()'); def.owner = p.id; self.actions.push(def); },
       registerRenderer(type, fn) { self.renderers[type] = fn; },
       uid, clamp,
+      ui: { el, icon, toast, openModal, askText, colorPop, PALETTE,
+        slider: (label, val, min, max, step, fmt, on) => UI.sliderRows(label, val, min, max, step, fmt, on)[0],
+        switchRow: (label, hint, val, on) => UI.switchRow(label, hint, val, on),
+        colorSection: (label, cur, on) => UI.colorSection(label, cur, on, PALETTE, false) },
     };
     try { new Function('Traco', '"use strict";\n' + p.code)(T); }
     catch (e) { console.error(e); this.errors[p.id] = e.message; }
   },
-  api(pi) {
+  api(pi, owner = 'geral') {
     const note = Editor.note, page = note.pages[pi] || note.pages[0], S = Store.settings;
     const add = (e) => { e.id = e.id || uid(); Editor.recAdd(page, e); Editor.opCommit(); return e.id; };
-    const ownerData = (S.pluginData = S.pluginData || {});
+    const all = (S.pluginData = S.pluginData || {}); const ownerData = (all[owner] = all[owner] && typeof all[owner] === 'object' ? all[owner] : {});
     return {
       note, page, pageIndex: pi, color: S.tools.pen.color, width: S.tools.pen.width, zoom: Editor.cam.z,
       addElement: add,
@@ -102,5 +136,5 @@ const Plugins = {
       store: { get: (k) => ownerData[k], set: (k, v) => { ownerData[k] = v; Store.saveSettings(); } },
     };
   },
-  runAction(a) { try { a.run(this.api(Editor.currentPageIndex())); } catch (e) { toast('Erro: ' + e.message, 4000); } },
+  runAction(a) { try { a.run(this.api(Editor.currentPageIndex(), a.owner)); } catch (e) { toast('Erro: ' + e.message, 4000); } },
 };

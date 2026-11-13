@@ -97,6 +97,14 @@ const ICONS = {
   bold: '<path d="M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z"/>',
   move: '<path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/>',
   refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
+  arrowLeft: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
+  pages: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  addPage: '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/>',
+  chevLeft: '<path d="m15 18-6-6 6-6"/>',
+  chevRight: '<path d="m9 18 6-6-6-6"/>',
+  tune: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  minus: '<path d="M5 12h14"/>',
+  scribble: '<path d="M3 17c2-6 4-6 5 0s3 6 4 0 3-6 4 0 3 6 5 0"/>',
   laser: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
 };
 function icon(name) {
@@ -114,7 +122,7 @@ function toast(msg, ms = 2400) {
 }
 
 /* ===== Modais ===== */
-function openModal({ title, body, buttons = [], wide = false, onClose }) {
+function openModal({ title, body, buttons = [], wide = false, onClose, focus = false }) {
   return new Promise((resolve) => {
     const back = el('div', { class: 'modal-back' });
     const m = el('div', { class: 'modal' + (wide ? ' wide' : '') });
@@ -131,14 +139,14 @@ function openModal({ title, body, buttons = [], wide = false, onClose }) {
     back.append(m);
     back.addEventListener('pointerdown', (e) => { if (e.target === back) close(undefined); });
     $('#modalRoot').append(back);
-    const f = m.querySelector('input,select,textarea'); if (f && f.type !== 'color' && f.type !== 'checkbox') setTimeout(() => f.focus(), 50);
+    if (focus) { const f = m.querySelector('input,select,textarea'); if (f) setTimeout(() => f.focus(), 50); }
   });
 }
 async function askText(title, value = '', label = '') {
   const inp = el('input', { type: 'text', value });
   const body = el('div', { class: 'field' }, label ? el('label', {}, label) : null, inp);
   inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') body.closest('.modal').querySelector('.btn.primary').click(); });
-  return openModal({ title, body, buttons: [{ label: 'Cancelar' }, { label: 'OK', cls: 'primary', action: () => inp.value.trim() || false }] });
+  return openModal({ title, body, focus: true, buttons: [{ label: 'Cancelar' }, { label: 'OK', cls: 'primary', action: () => inp.value.trim() || false }] });
 }
 function confirmBox(title, msg, okLabel = 'Confirmar', danger = false) {
   return openModal({ title, body: el('p', {}, msg), buttons: [{ label: 'Cancelar', value: false }, { label: okLabel, cls: danger ? 'primary danger-bg' : 'primary', value: true }] });

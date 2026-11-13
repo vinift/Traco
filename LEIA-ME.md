@@ -52,15 +52,16 @@ O Client Secret é opcional, mas recomendado. Sem ele, o Google pede para recone
 |---|---|
 | Escrever | Caneta (Focus Pen). Com o botão de mão ligado, o dedo também escreve |
 | Rolar / zoom | 1 dedo arrasta; pinça com 2 dedos dá zoom |
-| Desfazer / refazer | Toque com 2 dedos / toque com 3 dedos |
+| Desfazer / refazer | Botões no topo da barra lateral, ou toque com 2 dedos / 3 dedos |
+| Espessura e cor | A segunda barra mostra as espessuras (com o número) e as cores salvas. Tocar numa espessura muda só a espessura; tocar numa cor muda só a cor. **+** salva a atual; segure um item para remover |
+| Ajustes da ferramenta | Toque de novo na ferramenta ativa (ou no ícone de ajustes): espessura com − / + de 0,5, sensibilidade à pressão, estabilização, formas e rabiscar para apagar |
+| Rabiscar para apagar | Com a caneta, rabisque em zigue-zague por cima do que quer apagar |
 | Forma perfeita | Desenhe à mão e **segure a caneta parada** no fim do traço |
 | Selecionar | Laço: contorne os itens ou toque em um. Arraste para mover; a bolinha no canto redimensiona |
-| Favoritos de caneta | Botão **+** salva a cor e a espessura atuais. Segure um favorito para remover |
+| Carimbo de data | Ferramenta 📅: toque na página. No painel de ajustes você muda o texto, ex.: `Aula dia {dd}/{mm}` |
 | Régua / transferidor | Arraste com 1 dedo e gire com 2. A caneta "gruda" na borda |
-| Botão lateral da caneta | Vira borracha (dá para mudar nas Configurações) |
-| Modelos | Ícone de grade: tipo, espaçamento, espessura, intensidade, cores e "Meus modelos" |
-| Páginas | Ícone de grade ou indicador "1 / 5": adicionar, duplicar, mover, excluir, inserir PDF |
-| Exportar | Ícone de download: PDF da nota, PNG da página ou compartilhar |
+| Páginas e modelos | Botões no canto superior esquerdo: páginas/modelo, nova página e exportar |
+| Baixa latência | Configurações → Escrita. Deixa a tinta mais rápida; se notar algo estranho, desligue |
 
 ## Ferramentas próprias (plugins)
 

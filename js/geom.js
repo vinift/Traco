@@ -240,3 +240,40 @@ function recognizeShape(flat) {
   if (eErr < 0.2) return { kind: 'ellipse', x1, y1, x2, y2 };
   return null;
 }
+
+/* ===== Rabiscar para apagar ===== */
+// Um rabisco é um zigue-zague: muitas inversões de direção num espaço pequeno.
+function isScribble(flat) {
+  const n = flat.length / 3; if (n < 12) return false;
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity, len = 0;
+  for (let i = 0; i < n; i++) { const x = flat[i * 3], y = flat[i * 3 + 1]; x1 = Math.min(x1, x); x2 = Math.max(x2, x); y1 = Math.min(y1, y); y2 = Math.max(y2, y); if (i) len += Math.hypot(x - flat[i * 3 - 3], y - flat[i * 3 - 2]); }
+  const w = x2 - x1, h = y2 - y1; if (w + h < 12) return false;
+  const rev = (axis) => { // conta inversões ignorando tremidas pequenas
+    let dir = 0, acc = 0, count = 0, last = flat[axis];
+    const thr = Math.max(4, (axis ? h : w) * 0.25);
+    for (let i = 1; i < n; i++) {
+      const v = flat[i * 3 + axis], d = v - last; last = v;
+      if (!d) continue; const sg = Math.sign(d);
+      if (sg === dir || dir === 0) { acc += Math.abs(d); dir = sg; }
+      else if (acc >= thr) { count++; dir = sg; acc = Math.abs(d); }
+      else { dir = sg; acc = Math.abs(d); }
+    }
+    return count;
+  };
+  const r = Math.max(rev(0), rev(1));
+  return r >= 4 && len > 2.6 * (w + h);
+}
+function scribbleTargets(elements, flat) {
+  const n = flat.length / 3; let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (let i = 0; i < n; i++) { x1 = Math.min(x1, flat[i * 3]); x2 = Math.max(x2, flat[i * 3]); y1 = Math.min(y1, flat[i * 3 + 1]); y2 = Math.max(y2, flat[i * 3 + 1]); }
+  const sb = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+  const out = [];
+  for (const e of elements) {
+    const b = elBBox(e); if (!rectsHit(b, sb)) continue;
+    let hits = 0;
+    for (let i = 0; i < n && hits < 3; i += 1) if (hitElement(e, flat[i * 3], flat[i * 3 + 1], 2)) hits++;
+    const inside = b.x >= sb.x - 4 && b.y >= sb.y - 4 && b.x + b.w <= sb.x + sb.w + 4 && b.y + b.h <= sb.y + sb.h + 4;
+    if (hits >= 3 || (hits >= 1 && inside)) out.push(e);
+  }
+  return out;
+}

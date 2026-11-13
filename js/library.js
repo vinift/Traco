@@ -103,9 +103,10 @@ async function openSettings(focus) {
     el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
       chk('Ignorar a palma da mão (toques são ignorados enquanto a caneta está perto da tela)', 'palmGuard'),
       chk('Escrever com o dedo (o mesmo que o botão de mão no editor)', 'fingerDraws'),
-      chk('Sensibilidade à pressão da caneta', 'pressure'),
+      chk('Rabiscar para apagar (zigue-zague com a caneta por cima do que quer apagar)', 'scribbleErase'),
+      UI.slider('Sensibilidade à pressão', 0, 1, 0.05, S.pressureSens ?? 0.6, (v) => { S.pressureSens = v; S.pressure = v > 0; Store.saveSettings(); }, (v) => (v === 0 ? 'sem' : Math.round(v * 100) + '%')),
       chk('Reconhecer formas ao segurar a caneta parada no fim do traço', 'shapeHold'),
-      UI.check('Modo de baixa latência (desligue se a tinta piscar ou aparecer atrás do papel)', S.lowLatency !== false, (v) => { S.lowLatency = v; Store.saveSettings(); toast('Reabra o app para aplicar'); }),
+      UI.check('Modo de baixa latência (a tinta aparece mais rápido; reabra o app depois de mudar)', S.lowLatency === true, (v) => { S.lowLatency = v; Store.saveSettings(); toast('Reabra o app para aplicar'); }),
       UI.slider('Suavização do traço', 0, 0.9, 0.05, S.stabilizer, (v) => { S.stabilizer = v; Store.saveSettings(); }, (v) => Math.round(v * 100) + '%'),
       el('div', { class: 'row' }, el('div', { class: 'field' }, el('label', {}, 'Botão lateral da caneta'), pb), el('div', { class: 'field' }, el('label', {}, 'Tema do app'), th)))));
   // --- Modelo padrão
@@ -143,7 +144,6 @@ async function openSettings(focus) {
     el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, B('Exportar tudo', '', exportAll), B('Importar arquivo de backup', '', importAll))));
   body.append(el('p', { class: 'lbl-sm', style: { textAlign: 'center' } }, 'Traço Notas · versão ' + App.version));
   const done = openModal({ title: 'Configurações', body, wide: true, buttons: [{ label: 'Fechar', cls: 'primary', action: () => { saveDrive(); if (Editor.note) { UI.buildToolbar(); UI.renderOptions(); } } }] });
-  if (focus === 'drive') setTimeout(() => cid.focus(), 80);
   return done;
 }
 async function editPlugin(p) {
@@ -159,7 +159,7 @@ async function editPlugin(p) {
   code.style.height = '320px';
   const ok = await openModal({ title: p ? 'Editar plugin' : 'Novo plugin', wide: true, body: el('div', {}, el('div', { class: 'field' }, el('label', {}, 'Nome'), name), el('div', { class: 'field' }, el('label', {}, 'Código'), code), el('pre', { style: { whiteSpace: 'pre-wrap', fontSize: '11.5px', color: 'var(--muted)' } }, PLUGIN_DOC)), buttons: [{ label: 'Cancelar', value: false }, { label: 'Salvar', cls: 'primary', value: true }] });
   if (!ok) return;
-  if (p) { p.name = name.value; p.code = code.value; } else S.plugins.push({ id: uid(), name: name.value, code: code.value, enabled: true });
+  if (p) { if (p.code !== code.value) p.edited = true; p.name = name.value; p.code = code.value; } else S.plugins.push({ id: uid(), name: name.value, code: code.value, enabled: true });
   Store.saveSettings(); Plugins.loadAll();
   const target = p || S.plugins[S.plugins.length - 1];
   toast(Plugins.errors[target.id] ? 'Plugin com erro: ' + Plugins.errors[target.id] : 'Plugin salvo', 4000);

@@ -9,8 +9,11 @@ const Editor = {
 
   init() {
     this.stage = $('#stage'); this.cMain = $('#cMain'); this.cLive = $('#cLive'); this.overlay = $('#overlay');
-    this.ctx = this.cMain.getContext('2d', { alpha: false });
-    this.lctx = this.cLive.getContext('2d', Store.settings.lowLatency === false ? {} : { desynchronized: true });
+    // Baixa latência: o canvas principal (opaco) fica "dessincronizado" e a tinta da caneta é desenhada direto nele.
+    // Um canvas transparente dessincronizado deixava a tela preta em alguns tablets Android.
+    this.lowLat = Store.settings.lowLatency === true;
+    this.ctx = this.cMain.getContext('2d', this.lowLat ? { alpha: false, desynchronized: true } : { alpha: false });
+    this.lctx = this.cLive.getContext('2d');
     const s = this.stage;
     s.addEventListener('pointerdown', (e) => this.onDown(e));
     s.addEventListener('pointermove', (e) => this.onMove(e));
@@ -124,6 +127,8 @@ const Editor = {
       }
       ctx.restore();
     });
+    const a = this.action;
+    if (this.lowLat && a && a.kind === 'draw' && a.tool === 'pen' && !a.shape && a.pts.length) { this.pageTf(ctx, a.pi); ctx.fillStyle = a.color; ctx.fill(buildPenPath(a.pts, a.width)); }
     this.drawSelection(); this.updateHud(); this.positionText();
   },
   selElements() { if (!this.sel) return []; const p = this.pageById(this.sel.pageId); return p ? p.elements.filter((e) => this.sel.ids.has(e.id)) : []; },
@@ -189,7 +194,7 @@ const Editor = {
     }
     this.undoStack.push(op); this.sel = null; this.markChanged(); this.requestRender();
   },
-  updateUndoBtns() { $('#btnUndo').disabled = !this.undoStack.length; $('#btnRedo').disabled = !this.redoStack.length; },
+  updateUndoBtns() { const u = $('#btnUndo'), r = $('#btnRedo'); if (u) u.disabled = !this.undoStack.length; if (r) r.disabled = !this.redoStack.length; },
 
   /* ---------- Entrada ---------- */
   pt(e) { return { x: e.clientX - this.rect.left, y: e.clientY - this.rect.top }; },
@@ -198,6 +203,8 @@ const Editor = {
     if (!this.note) return;
     this.rect = this.stage.getBoundingClientRect();
     if (this.textEl && e.target === this.textEl) return;
+    if (e.target.closest && e.target.closest('#selBar')) return; // botões da seleção não iniciam novo laço
+    if (UI.panelOpen) UI.closePanel();
     try { this.stage.setPointerCapture(e.pointerId); } catch (_) {}
     const p = this.pt(e); const rec = { ...p, sx: p.x, sy: p.y, type: e.pointerType, t0: performance.now() };
     this.pointers.set(e.pointerId, rec);
@@ -347,7 +354,7 @@ const Editor = {
     if (a.snap) p = Instruments.project(a.snap, p);
     const w = this.toWorld(p.x, p.y), l = this.local(a.pi, w.x, w.y);
     let pr = 0.5;
-    if (ev.pointerType === 'pen' && Store.settings.pressure && a.tool === 'pen') pr = ev.pressure || 0.5;
+    if (ev.pointerType === 'pen' && a.tool === 'pen' && (Store.settings.pressureSens ?? 0.6) > 0) pr = mapPressure(ev.pressure || 0.5);
     const n = a.pts.length;
     if (n) {
       const lx = a.pts[n - 3], ly = a.pts[n - 2], lp = a.pts[n - 1];
@@ -368,6 +375,7 @@ const Editor = {
     a.shape = { id: uid(), type: 'shape', color: a.color, width: Math.max(1, a.width * 0.9), fill: null, ...r };
     a.shapeAnchor = r.kind === 'line' ? null : { x1: r.x1, y1: r.y1 };
     if (navigator.vibrate) navigator.vibrate(12);
+    if (this.lowLat) this.requestRender();
     this.drawLiveStroke();
   },
   updateHeldShape(l) {
@@ -386,7 +394,8 @@ const Editor = {
     }
     const n = a.pts.length / 3; const from = Math.max(0, a.drawn - 1);
     if (n - from < 1) return;
-    c.fillStyle = a.color; c.fill(buildPenPath(a.pts.slice(from * 3), a.width));
+    const tc = this.lowLat ? this.ctx : c; if (this.lowLat) this.pageTf(tc, a.pi);
+    tc.fillStyle = a.color; tc.fill(buildPenPath(a.pts.slice(from * 3), a.width));
     a.drawn = n;
   },
   endDraw(a) {
@@ -395,6 +404,10 @@ const Editor = {
     if (a.shape) { this.recAdd(page, a.shape); this.opCommit(); return; }
     if (a.raw && !a.snap) { const n = a.pts.length; if (Math.hypot(a.pts[n - 3] - a.raw.x, a.pts[n - 2] - a.raw.y) > 0.5) a.pts.push(a.raw.x, a.raw.y, a.pts[n - 1]); }
     if (!a.pts.length) return;
+    if (a.tool === 'pen' && !a.snap && Store.settings.scribbleErase && isScribble(a.pts)) {
+      const targets = scribbleTargets(page.elements, a.pts);
+      if (targets.length) { for (const e of targets) this.recRemove(page, e); this.sel = null; this.opCommit(); return; }
+    }
     const pts = a.pts.map((v, i) => (i % 3 === 2 ? Math.round(v * 100) / 100 : r2(v)));
     const el = { id: uid(), type: 'stroke', tool: a.tool, color: a.color, width: a.width, pts };
     if (a.tool === 'highlighter') { el.opacity = a.opacity; if (a.snap) el.cap = 'butt'; }
@@ -585,7 +598,7 @@ const Editor = {
   callPlugin(fn, e, p) {
     const a = this.action, t = a.plugin; if (!t[fn]) return;
     const w = this.toWorld(p.x, p.y), l = this.local(a.pi, w.x, w.y);
-    try { t[fn]({ x: l.x, y: l.y, pressure: e.pressure || 0.5, pointerType: e.pointerType, screenX: p.x, screenY: p.y }, Plugins.api(a.pi)); }
+    try { t[fn]({ x: l.x, y: l.y, pressure: e.pressure || 0.5, pointerType: e.pointerType, screenX: p.x, screenY: p.y }, Plugins.api(a.pi, t.owner)); }
     catch (err) { console.error(err); toast('Erro no plugin ' + t.name + ': ' + err.message, 4000); }
   },
 
