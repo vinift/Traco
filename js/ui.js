@@ -353,7 +353,7 @@ async function pagesPanel() { PageManager.open(); }
 const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 function snippet(text, q) { const t = text.replace(/\s+/g, ' '), i = norm(t).indexOf(norm(q)); const a = Math.max(0, i - 30); return (a ? '…' : '') + t.slice(a, i + q.length + 50) + (i + q.length + 50 < t.length ? '…' : ''); }
 function noteSearchPop(anchor) {
-  const n = Editor.note; const inp = el('input', { class: 'tp-input', placeholder: 'Buscar textos e post-its desta nota', style: { marginBottom: '8px' } });
+  const n = Editor.note; const inp = el('input', { class: 'tp-input', placeholder: 'Buscar nesta nota (textos e escrita à mão)', style: { marginBottom: '8px' } });
   const list = el('div', { style: { maxHeight: '50vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' } });
   const run = () => {
     list.innerHTML = ''; const q = inp.value.trim(); if (!q) return;
@@ -362,7 +362,11 @@ function noteSearchPop(anchor) {
       if (e.type !== 'text' || !norm(e.text).includes(norm(q)) || k > 60) return; k++;
       list.append(el('button', { class: 'pm-res', onclick: () => { closePop(); Editor.focusElement(i, e.id); } }, el('b', {}, n.mode === 'infinite' ? 'Nota' : `Pág. ${i + 1}`), ' ', snippet(e.text, q)));
     }));
-    if (!k) list.append(el('p', { style: { color: 'var(--chmuted)', margin: '6px 2px' } }, 'Nada encontrado nos textos digitados. A escrita à mão ainda não é pesquisável.'));
+    n.pages.forEach((p, i) => {
+      if (!p.ocr || !p.ocr.text || !norm(p.ocr.text).includes(norm(q)) || k > 60) return; k++;
+      list.append(el('button', { class: 'pm-res', onclick: () => { closePop(); Editor.goToPage(i); } }, el('b', {}, (n.mode === 'infinite' ? 'Nota' : `Pág. ${i + 1}`) + ' ✍'), ' ', snippet(p.ocr.text, q)));
+    });
+    if (!k) list.append(el('p', { style: { color: 'var(--chmuted)', margin: '6px 2px' } }, OCR.enabled() ? 'Nada encontrado. A escrita à mão é lida em segundo plano alguns segundos depois de você parar de escrever (precisa de internet).' : 'Nada encontrado nos textos digitados. Ligue a leitura da escrita à mão nas Configurações para buscar também nela.'));
   };
   inp.addEventListener('input', run);
   const pop = openPop(anchor, el('div', { style: { width: 'min(380px, 86vw)' } }, inp, list));

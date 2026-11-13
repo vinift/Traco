@@ -30,6 +30,7 @@ const Editor = {
     window.addEventListener('contextmenu', (e) => { if (e.pointerType === 'pen' && (this.note || PenCapture.active)) { e.preventDefault(); this.firePenSig('pen:ctx'); } }, true);
     this.saveDebounced = debounce(() => this.saveNow(), 900);
     this.thumbDebounced = debounce(() => this.updateThumb(), 8000);
+    this.ocrDebounced = debounce(() => OCR.scheduleNote(this.note), 12000);
   },
 
   /* ---------- Abrir / salvar ---------- */
@@ -46,12 +47,12 @@ const Editor = {
     return true;
   },
   async close() {
-    this.commitText(); await this.saveNow(); await this.updateThumb();
+    this.commitText(); this.ocrDebounced.cancel(); await this.saveNow(); await this.updateThumb(); OCR.scheduleNote(this.note);
     Instruments.hideAll(); this.note = null;
   },
   markChanged() {
     if (!this.note) return;
-    this.note.updated = Date.now(); this.saveDebounced(); this.thumbDebounced(); this.updateUndoBtns();
+    this.note.updated = Date.now(); this.saveDebounced(); this.thumbDebounced(); this.ocrDebounced(); this.updateUndoBtns();
   },
   async saveNow() {
     if (!this.note) return; this.saveDebounced.cancel();

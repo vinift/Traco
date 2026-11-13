@@ -67,6 +67,29 @@ const Library = {
     if (!ok) return; const n = await Store.getNote(h.id); n.folderId = sel.value || null; await Store.putNote(n); this.render();
   },
   async newFolder() { const n = await askText('Nova pasta', '', 'Nome da pasta (ex.: Direito Penal I)'); if (!n) return; Store.folders.push({ id: uid(), name: n }); await Store.saveFolders(); Drive.schedule(); this.render(); },
+  importMenu(anchor) {
+    menu(anchor, [
+      { label: 'PDF (apostilas, leis, artigos)', icon: 'file', run: () => this.importPdf() },
+      { label: 'Notas do Notewise (.notewise ou .zip)', icon: 'layers', run: () => this.importNotewise() },
+      { label: 'Cópia de segurança do Traço (.json)', icon: 'download', run: () => importAll() },
+    ]);
+  },
+  async importNotewise() {
+    const f = await pickFile(''); if (!f) return;
+    if (!/\.(notewise|zip)$/i.test(f.name)) return toast('Escolha um arquivo .notewise ou o .zip exportado pelo Notewise', 4000);
+    toast('Importando do Notewise…', 20000);
+    try {
+      const res = await importNotewiseFile(f, (i, t, n) => toast(`Importando ${i} de ${t}: ${n.split('/').pop()}`, 20000));
+      const ok = res.filter((r) => r.note), bad = res.filter((r) => r.error);
+      const st = ok.reduce((a, r) => { for (const k in r.stats) a[k] = (a[k] || 0) + r.stats[k]; return a; }, {});
+      this.render(); toast('', 1);
+      const body = el('div', {}, el('p', {}, `${ok.length} nota(s) importada(s): ${st.pages || 0} páginas, ${st.strokes || 0} traços, ${st.highlights || 0} marca-textos, ${st.shapes || 0} formas e ${st.images || 0} imagens.`),
+        st.skipped ? el('p', { class: 'lbl-sm' }, `${st.skipped} item(ns) de tipos que o Traço ainda não reconhece (ex.: caixas de texto ou PDFs do Notewise) foram ignorados. Mande um exemplo para eu adicionar.`) : null,
+        bad.length ? el('p', { style: { color: 'var(--danger)' } }, 'Com erro: ' + bad.map((b) => b.error).join('; ')) : null);
+      const go = await openModal({ title: 'Importação concluída', body, buttons: [{ label: 'Fechar', value: false }, ok.length === 1 ? { label: 'Abrir nota', cls: 'primary', value: true } : null].filter(Boolean) });
+      if (go && ok[0]) App.openNote(ok[0].note.id);
+    } catch (e) { console.error(e); toast('Não foi possível importar: ' + e.message, 6000); }
+  },
   async importPdf() {
     const f = await pickFile('application/pdf'); if (!f) return;
     toast('Importando PDF…', 10000);
@@ -122,6 +145,19 @@ async function openSettings(focus) {
       UI.slider('Suavização do traço', 0, 0.9, 0.05, S.stabilizer, (v) => { S.stabilizer = v; Store.saveSettings(); }, (v) => Math.round(v * 100) + '%'),
       el('div', { class: 'row' }, el('div', { class: 'field' }, el('label', {}, 'Tema do app'), th)))));
   body.append(penMapSection());
+  S.ocr = S.ocr || { enabled: true, lang: 'pt_BR' };
+  const ocrLang = el('select', {}, ...[['pt_BR', 'Português (Brasil)'], ['pt_PT', 'Português (Portugal)'], ['en', 'Inglês'], ['es', 'Espanhol'], ['fr', 'Francês'], ['it', 'Italiano'], ['de', 'Alemão'], ['la', 'Latim']].map(([v, n]) => el('option', { value: v }, n)));
+  ocrLang.value = S.ocr.lang || 'pt_BR'; ocrLang.addEventListener('change', () => { S.ocr.lang = ocrLang.value; Store.saveSettings(); });
+  const ocrStatus = el('p', {});
+  body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Leitura da escrita à mão (OCR)'),
+    el('p', {}, 'O app lê os traços da caneta para você buscar palavras escritas à mão, copiar o texto e converter a escrita em texto digitado (selecione com o laço). Os traços são enviados ao serviço de reconhecimento de escrita do Google, que é gratuito mas não oficial e pode mudar sem aviso.'),
+    UI.check('Ler a escrita automaticamente para a busca (precisa de internet)', S.ocr.enabled !== false, (v) => { S.ocr.enabled = v; Store.saveSettings(); }),
+    el('div', { class: 'row', style: { marginTop: '10px' } }, el('div', { class: 'field' }, el('label', {}, 'Idioma da escrita'), ocrLang)),
+    el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, B('Ler todas as notas agora', '', async () => {
+      if (!navigator.onLine) return toast('Precisa de internet');
+      try { await OCR.indexAll((i, t) => { ocrStatus.textContent = `Lendo notas… ${i} de ${t}`; }); ocrStatus.textContent = '✅ Todas as notas foram lidas.'; }
+      catch (e) { ocrStatus.textContent = '⚠️ Não foi possível ler: ' + e.message; }
+    })), ocrStatus));
   // --- Modelo padrão
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Modelo padrão para novas notas'),
     el('button', { class: 'btn', onclick: async () => {

@@ -99,7 +99,7 @@ const Store = {
     note.updated = note.updated || Date.now();
     await DB.put('notes', note);
     const h = this.heads[note.id] || {};
-    const texts = []; note.pages.forEach((pg, i) => pg.elements.forEach((e) => { if (e.type === 'text' && e.text) texts.push([i, e.id, e.text.slice(0, 400)]); }));
+    const texts = []; note.pages.forEach((pg, i) => { pg.elements.forEach((e) => { if (e.type === 'text' && e.text) texts.push([i, e.id, e.text.slice(0, 400)]); }); if (pg.ocr && pg.ocr.text) texts.push([i, '', pg.ocr.text.slice(0, 1500)]); });
     this.heads[note.id] = { id: note.id, title: note.title, folderId: note.folderId || null, created: note.created, updated: note.updated, mode: note.mode, pages: note.pages.length, thumb: h.thumb || null, hasPdf: note.pages.some((p) => p.pdf), texts: texts.slice(0, 300) };
     await this.saveHeads();
     if (sync) { this.dirty.notes[note.id] = 1; this.dirty.pdfs[note.id] = Date.now(); this.dirty.lib = true; await this.saveDirty(); Drive.schedule(); }

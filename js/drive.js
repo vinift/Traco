@@ -132,6 +132,23 @@ const Drive = {
     const nf = await this.createFolder(name, root, { traco: 'folder', folderId });
     await this.setEntry('f:' + folderId, { id: nf.id, parent: root, name }); return nf.id;
   },
+  async ensureNoteDir(note) { // Traço Notas › pasta › título da nota (pasta) › arquivos
+    const parent = await this.ensureNoteFolder(note.folderId), name = safeName(note.title), key = 'd:' + note.id, e = this.entry(key);
+    if (e) {
+      try {
+        const g = await this.api('GET', `https://www.googleapis.com/drive/v3/files/${e.id}?fields=id,name,parents,trashed`);
+        if (!g.trashed) {
+          const cur = (g.parents || [])[0], meta = {}; if (g.name !== name) meta.name = name;
+          const mv = cur && cur !== parent ? `?addParents=${parent}&removeParents=${cur}` : '';
+          if (meta.name || mv) await this.api('PATCH', `https://www.googleapis.com/drive/v3/files/${e.id}${mv}`, { body: JSON.stringify(meta), headers: { 'Content-Type': 'application/json' } });
+          if (mv || meta.name) await this.setEntry(key, { id: e.id, parent, name });
+          return e.id;
+        }
+      } catch (er) { if (er.status !== 404) throw er; }
+    }
+    const f = await this.createFolder(name, parent, { traco: 'notedir', noteId: note.id });
+    await this.setEntry(key, { id: f.id, parent, name }); return f.id;
+  },
   /* cria ou atualiza um arquivo; renomeia e move de pasta quando preciso */
   async upsert(key, { name, mime, data, parent, props }) {
     const e = this.entry(key); const b = 'traco' + uid();
@@ -167,7 +184,11 @@ const Drive = {
     delete Store.driveMap[key]; await Store.saveDriveMap();
   },
   async migrateLayout() { // organização antiga (tudo solto na raiz) → nova
-    if (this.cfg.layoutV === 3) return;
+    if (this.cfg.layoutV === 3) { // v3 → v4: cada nota ganha a própria pasta
+      for (const id of Object.keys(Store.heads)) { Store.dirty.notes[id] = 1; if (this.entry('p:' + id)) Store.dirty.pdfs[id] = Store.dirty.pdfs[id] || 1; }
+      await Store.saveDirty(); this.cfg.layoutV = 4; Store.saveSettings(); return;
+    }
+    if (this.cfg.layoutV === 4) return;
     const root = await this.ensureFolder(), data = await this.ensureDataFolder();
     for (const key of Object.keys(Store.driveMap)) {
       const v = Store.driveMap[key]; if (typeof v !== 'string') continue;
@@ -178,7 +199,7 @@ const Drive = {
     }
     for (const id of Object.keys(Store.heads)) { Store.dirty.notes[id] = 1; Store.dirty.pdfs[id] = 1; } // reenvia com nomes legíveis
     Store.dirty.lib = true; await Store.saveDirty();
-    this.cfg.layoutV = 3; Store.saveSettings();
+    this.cfg.layoutV = 4; Store.saveSettings();
   },
 
   /* ---- Sincronização ---- */
@@ -200,7 +221,7 @@ const Drive = {
       }
       for (const id of Object.keys(d.notes)) {
         const note = await Store.getNote(id);
-        if (note) await this.upsert('n:' + id, { name: safeName(note.title) + '.traco', mime: 'application/json', data: JSON.stringify(note), parent: await this.ensureNoteFolder(note.folderId), props: { traco: 'nota', noteId: id } });
+        if (note) await this.upsert('n:' + id, { name: safeName(note.title) + '.traco', mime: 'application/json', data: JSON.stringify(note), parent: await this.ensureNoteDir(note), props: { traco: 'nota', noteId: id } });
         delete d.notes[id]; await Store.saveDirty();
       }
       let pdfWait = false;
@@ -209,10 +230,10 @@ const Drive = {
         const editing = window.Editor && Editor.note && Editor.note.id === id;
         if (editing && Date.now() - (Editor.note.updated || 0) < 120000) { pdfWait = true; continue; } // espera você parar de escrever
         const note = await Store.getNote(id);
-        if (note) { this.setStatus('busy', 'gerando PDF'); const pdf = await exportNotePdf(note); await this.upsert('p:' + id, { name: safeName(note.title) + '.pdf', mime: 'application/pdf', data: pdf, parent: await this.ensureNoteFolder(note.folderId), props: { traco: 'pdf', noteId: id } }); }
+        if (note) { this.setStatus('busy', 'gerando PDF'); const pdf = await exportNotePdf(note); await this.upsert('p:' + id, { name: safeName(note.title) + '.pdf', mime: 'application/pdf', data: pdf, parent: await this.ensureNoteDir(note), props: { traco: 'pdf', noteId: id } }); }
         delete d.pdfs[id]; await Store.saveDirty();
       }
-      for (const id of Object.keys(d.deleted)) { await this.trash('n:' + id); await this.trash('p:' + id); delete d.deleted[id]; await Store.saveDirty(); }
+      for (const id of Object.keys(d.deleted)) { await this.trash('n:' + id); await this.trash('p:' + id); await this.trash('d:' + id); delete d.deleted[id]; await Store.saveDirty(); }
       if (d.lib) {
         const heads = {}; for (const [k, v] of Object.entries(Store.heads)) heads[k] = { ...v, thumb: undefined, texts: undefined };
         await this.upsert('lib', { name: 'biblioteca.json', mime: 'application/json', data: JSON.stringify({ v: 1, folders: Store.folders, heads, groups: Store.settings.presetGroups, saved: Date.now() }), parent: data, props: { traco: 'lib' } });

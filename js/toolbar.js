@@ -311,6 +311,10 @@ const UI = {
     B('cut', 'Recortar', () => Editor.cutSel());
     B('plus', 'Duplicar', () => Editor.duplicateSel());
     B('front', 'Trazer para frente', () => Editor.orderSel(true));
+    if (Editor.selElements().some((e) => e.type === 'stroke' && e.tool === 'pen')) {
+      B('ocr', 'Reconhecer texto (copiar ou converter)', () => recognizeSelection());
+      B('align', 'Alinhar a escrita na horizontal', () => straightenSelection());
+    }
     const d = B('trash', 'Excluir', () => Editor.deleteSel()); d.style.color = 'var(--danger)';
   },
 

@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.3.0',
+  version: '0.4.0',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -37,7 +37,7 @@ const App = {
   wire() {
     on(['btnNewNote', 'btnNewNote2'], async () => { const n = await newNoteDialog(Library.folder); if (n) this.openNote(n.id); });
     on(['btnNewFolder'], () => Library.newFolder());
-    on(['btnImportPdf'], () => Library.importPdf());
+    on(['btnImportPdf'], (e) => Library.importMenu(e.currentTarget));
     on(['btnSettings', 'btnEdSettings'], () => openSettings());
     $('#libSearch').addEventListener('input', (e) => { Library.query = e.target.value; Library.render(); });
     on(['libSync', 'edSync'], () => Drive.onPillClick());
