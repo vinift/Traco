@@ -1,7 +1,9 @@
 'use strict';
 /* ===== Inicialização e navegação ===== */
+/* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
+function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.2.0',
+  version: '0.2.1',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -25,23 +27,23 @@ const App = {
   },
   async closeNote() { await Editor.close(); Library.show(); },
   wire() {
-    $('#btnNewNote').onclick = $('#btnNewNote2').onclick = async () => { const n = await newNoteDialog(Library.folder); if (n) this.openNote(n.id); };
-    $('#btnNewFolder').onclick = () => Library.newFolder();
-    $('#btnImportPdf').onclick = () => Library.importPdf();
-    $('#btnSettings').onclick = $('#btnEdSettings').onclick = () => openSettings();
+    on(['btnNewNote', 'btnNewNote2'], async () => { const n = await newNoteDialog(Library.folder); if (n) this.openNote(n.id); });
+    on(['btnNewFolder'], () => Library.newFolder());
+    on(['btnImportPdf'], () => Library.importPdf());
+    on(['btnSettings', 'btnEdSettings'], () => openSettings());
     $('#libSearch').addEventListener('input', (e) => { Library.query = e.target.value; Library.render(); });
-    $('#libSync').onclick = $('#edSync').onclick = () => Drive.onPillClick();
-    $('#btnBack').onclick = () => this.closeNote();
-    $('#btnPages').onclick = () => pagesPanel();
-    $('#btnAddPage').onclick = () => { if (Editor.note.mode === 'infinite') return toast('Notas em tela infinita não têm páginas'); Editor.addPage(Editor.currentPageIndex()); toast('Página adicionada', 1200); };
-    $('#btnExport').onclick = (e) => exportMenu(e.currentTarget);
+    on(['libSync', 'edSync'], () => Drive.onPillClick());
+    on(['btnBack'], () => this.closeNote());
+    on(['btnPages'], () => pagesPanel());
+    on(['btnAddPage'], () => { if (Editor.note.mode === 'infinite') return toast('Notas em tela infinita não têm páginas'); Editor.addPage(Editor.currentPageIndex()); toast('Página adicionada', 1200); });
+    on(['btnExport'], (e) => exportMenu(e.currentTarget));
     $('#noteTitle').addEventListener('change', () => Editor.markChanged());
-    $('#hudZoom').onclick = (e) => menu(e.currentTarget, [
+    on(['hudZoom'], (e) => menu(e.currentTarget, [
       { label: 'Ajustar à largura', icon: 'fit', run: () => Editor.fitWidth() },
       { label: '100%', icon: 'search', run: () => Editor.zoomAt(Editor.W / 2, Editor.H / 2, 1 / Editor.cam.z) },
       { label: '200%', icon: 'search', run: () => Editor.zoomAt(Editor.W / 2, Editor.H / 2, 2 / Editor.cam.z) },
-    ]);
-    $('#hudPage').onclick = () => pagesPanel();
+    ]));
+    on(['hudPage'], () => pagesPanel());
     window.addEventListener('pagehide', () => { if (Editor.note) Editor.saveNow(); });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && Editor.note) Editor.saveNow(); });
   },
