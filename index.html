@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1f2937">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Traço Notas</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<!--APP-START-->
+<div id="app">
+  <!-- ===== Biblioteca ===== -->
+  <section id="library" class="screen">
+    <header class="lib-head">
+      <div class="brand"><span class="logo"></span>Traço</div>
+      <div class="search"><span data-icon="search"></span><input id="libSearch" type="search" placeholder="Buscar notas"></div>
+      <div class="lib-actions">
+        <span id="libSync" class="sync-pill" title="Backup no Google Drive"></span>
+        <button class="btn ghost" id="btnNewFolder"><span data-icon="folder"></span><span class="lbl">Nova pasta</span></button>
+        <button class="btn ghost" id="btnImportPdf"><span data-icon="file"></span><span class="lbl">Importar PDF</span></button>
+        <button class="btn primary" id="btnNewNote"><span data-icon="plus"></span><span class="lbl">Nova nota</span></button>
+        <button class="icon-btn" id="btnSettings" title="Configurações"><span data-icon="settings"></span></button>
+      </div>
+    </header>
+    <nav id="crumbs" class="crumbs"></nav>
+    <main class="lib-body">
+      <div id="folderGrid" class="folder-grid"></div>
+      <div id="noteGrid" class="note-grid"></div>
+      <div id="libEmpty" class="empty hidden">
+        <p>Nenhuma nota aqui ainda.</p>
+        <button class="btn primary" id="btnNewNote2"><span data-icon="plus"></span>Criar a primeira nota</button>
+      </div>
+    </main>
+  </section>
+
+  <!-- ===== Editor ===== -->
+  <section id="editor" class="screen hidden">
+    <header class="ed-top">
+      <button class="icon-btn" id="btnBack" title="Voltar"><span data-icon="back"></span></button>
+      <input id="noteTitle" class="title-input" spellcheck="false">
+      <div class="spacer"></div>
+      <span id="edSync" class="sync-pill small"></span>
+      <button class="icon-btn" id="btnUndo" title="Desfazer (toque com 2 dedos)"><span data-icon="undo"></span></button>
+      <button class="icon-btn" id="btnRedo" title="Refazer (toque com 3 dedos)"><span data-icon="redo"></span></button>
+      <button class="icon-btn toggle" id="btnFinger" title="Escrever com o dedo"><span data-icon="hand"></span></button>
+      <button class="icon-btn" id="btnPages" title="Páginas e modelo"><span data-icon="grid"></span></button>
+      <button class="icon-btn" id="btnExport" title="Exportar"><span data-icon="download"></span></button>
+      <button class="icon-btn" id="btnEdSettings" title="Configurações"><span data-icon="settings"></span></button>
+    </header>
+    <div class="ed-tools" id="toolbar"></div>
+    <div class="ed-options" id="toolOptions"></div>
+    <div id="stage">
+      <canvas id="cMain"></canvas>
+      <canvas id="cLive"></canvas>
+      <div id="overlay"></div>
+      <div id="selBar" class="sel-bar hidden"></div>
+      <div class="hud"><button id="hudZoom" class="hud-btn">100%</button><span id="hudPage" class="hud-btn"></span></div>
+    </div>
+  </section>
+</div>
+
+<div id="modalRoot"></div>
+<div id="popRoot"></div>
+<div id="toast" class="toast hidden"></div>
+<input type="file" id="filePick" class="hidden">
+<script src="js/util.js"></script>
+<script src="js/store.js"></script>
+<script src="js/geom.js"></script>
+<script src="js/render.js"></script>
+<script src="js/pdf.js"></script>
+<script src="js/drive.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/library.js"></script>
+<script src="js/plugins.js"></script>
+<script src="js/app.js"></script>
+<!--APP-END-->
+</body>
+</html>
