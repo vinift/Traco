@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.2.1',
+  version: '0.2.2',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -16,7 +16,14 @@ const App = {
     Library.show();
     if (back && Store.heads[back]) this.openNote(back);
     if (Drive.configured() && Drive.hasAuth()) Drive.schedule();
-    if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch((e) => console.warn('SW', e));
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      const hadController = !!navigator.serviceWorker.controller; let reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', async () => { // versão nova instalada: recarrega uma vez
+        if (!hadController || reloaded) return; reloaded = true;
+        if (Editor.note) await Editor.saveNow(); location.reload();
+      });
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch((e) => console.warn('SW', e));
+    }
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   },
   applyTheme() { const t = Store.settings.theme; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = t; },
