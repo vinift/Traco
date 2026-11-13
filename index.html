@@ -8,7 +8,7 @@
 <title>Traço Notas</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/app.css?v=0.2.2">
+<link rel="stylesheet" href="css/app.css?v=0.3.0">
 </head>
 <body>
 <!--APP-START-->
@@ -49,8 +49,10 @@
     <div class="chrome ch-topleft">
       <button class="cbtn round" id="btnBack" title="Voltar"><span data-icon="arrowLeft"></span></button>
       <div class="cpill">
-        <button class="cbtn" id="btnPages" title="Páginas e modelo"><span data-icon="pages"></span></button>
+        <button class="cbtn" id="btnPages" title="Páginas"><span data-icon="pages"></span></button>
         <button class="cbtn" id="btnAddPage" title="Adicionar página"><span data-icon="addPage"></span></button>
+        <button class="cbtn" id="btnSearch" title="Buscar na nota"><span data-icon="search"></span></button>
+        <button class="cbtn" id="btnTemplate" title="Modelo de página"><span data-icon="grid"></span></button>
         <button class="cbtn" id="btnExport" title="Exportar"><span data-icon="download"></span></button>
         <input id="noteTitle" class="title-input" spellcheck="false" title="Título da nota">
       </div>
@@ -58,6 +60,8 @@
     <div class="chrome ch-topright">
       <div class="cpill">
         <span id="edSync" class="sync-pill small"></span>
+        <button class="cbtn" id="btnBookmark" title="Marcar esta página"><span data-icon="bookmark"></span></button>
+        <button class="cbtn" id="btnRead" title="Modo leitura"><span data-icon="eye"></span></button>
         <button class="cbtn" id="hudPage" title="Páginas">1 / 1</button>
         <button class="cbtn" id="hudZoom" title="Zoom">100%</button>
         <button class="cbtn" id="btnEdSettings" title="Configurações"><span data-icon="more"></span></button>
@@ -73,18 +77,18 @@
 <div id="popRoot"></div>
 <div id="toast" class="toast hidden"></div>
 <input type="file" id="filePick" class="hidden">
-<script src="js/util.js?v=0.2.2"></script>
-<script src="js/store.js?v=0.2.2"></script>
-<script src="js/geom.js?v=0.2.2"></script>
-<script src="js/render.js?v=0.2.2"></script>
-<script src="js/pdf.js?v=0.2.2"></script>
-<script src="js/drive.js?v=0.2.2"></script>
-<script src="js/editor.js?v=0.2.2"></script>
-<script src="js/toolbar.js?v=0.2.2"></script>
-<script src="js/ui.js?v=0.2.2"></script>
-<script src="js/library.js?v=0.2.2"></script>
-<script src="js/plugins.js?v=0.2.2"></script>
-<script src="js/app.js?v=0.2.2"></script>
+<script src="js/util.js?v=0.3.0"></script>
+<script src="js/store.js?v=0.3.0"></script>
+<script src="js/geom.js?v=0.3.0"></script>
+<script src="js/render.js?v=0.3.0"></script>
+<script src="js/pdf.js?v=0.3.0"></script>
+<script src="js/drive.js?v=0.3.0"></script>
+<script src="js/editor.js?v=0.3.0"></script>
+<script src="js/toolbar.js?v=0.3.0"></script>
+<script src="js/ui.js?v=0.3.0"></script>
+<script src="js/library.js?v=0.3.0"></script>
+<script src="js/plugins.js?v=0.3.0"></script>
+<script src="js/app.js?v=0.3.0"></script>
 <!--APP-END-->
 </body>
 </html>
