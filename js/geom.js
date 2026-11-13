@@ -76,20 +76,23 @@ function elPath(e) {
   _pathCache.set(e, p); return p;
 }
 function textFont(e) { return `${e.bold ? '600 ' : ''}${e.size}px system-ui,-apple-system,Roboto,sans-serif`; }
+const STICKY_PAD = 16;
 function layoutText(e) {
   let L = _textCache.get(e); if (L) return L;
   measureCtx.font = textFont(e);
   const lines = [];
   for (const para of (e.text || '').split('\n')) {
     const words = para.split(/(\s+)/); let cur = '';
+    const maxW = e.sticky ? e.w - 2 * STICKY_PAD : e.w;
     for (const w of words) {
       const t = cur + w;
-      if (measureCtx.measureText(t).width > e.w && cur.trim()) { lines.push(cur.replace(/\s+$/, '')); cur = w.replace(/^\s+/, ''); }
+      if (measureCtx.measureText(t).width > maxW && cur.trim()) { lines.push(cur.replace(/\s+$/, '')); cur = w.replace(/^\s+/, ''); }
       else cur = t;
     }
     lines.push(cur);
   }
-  L = { lines, lh: e.size * 1.3, h: Math.max(1, lines.length) * e.size * 1.3 };
+  const th = Math.max(1, lines.length) * e.size * 1.3;
+  L = { lines, lh: e.size * 1.3, h: e.sticky ? Math.max(e.minH || e.w, th + 2 * STICKY_PAD) : th };
   _textCache.set(e, L); return L;
 }
 function elBBox(e) {
@@ -108,6 +111,11 @@ function elBBox(e) {
   } else if (e.type === 'text') { b = { x: e.x, y: e.y, w: e.w, h: layoutText(e).h }; }
   else if (e.type === 'image') b = { x: e.x, y: e.y, w: e.w, h: e.h };
   else if (e.bbox) b = e.bbox; else b = { x: e.x || 0, y: e.y || 0, w: e.w || 10, h: e.h || 10 };
+  if (e.rot && hasRot(e)) { // caixa envolvente da versão girada
+    const c = rawCenter(e); let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    for (const [px, py] of [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]) { const q = rotPt(px, py, c.x, c.y, e.rot); x1 = Math.min(x1, q[0]); x2 = Math.max(x2, q[0]); y1 = Math.min(y1, q[1]); y2 = Math.max(y2, q[1]); }
+    b = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+  }
   _bboxCache.set(e, b); return b;
 }
 function bboxUnion(list) {
@@ -123,6 +131,11 @@ function distSeg(px, py, ax, ay, bx, by) {
 }
 /* Pontos de amostra do contorno de uma forma (para borracha e laço) */
 function shapeSamples(e) {
+  const out = shapeSamplesRaw(e);
+  if (!e.rot || !hasRot(e)) return out;
+  const c = rawCenter(e); return out.map(([x, y]) => rotPt(x, y, c.x, c.y, e.rot));
+}
+function shapeSamplesRaw(e) {
   const out = [];
   if (e.kind === 'poly') { for (let i = 0; i < e.pts.length; i += 2) out.push([e.pts[i], e.pts[i + 1]]); if (e.closed) out.push([e.pts[0], e.pts[1]]); return out; }
   if (e.kind === 'line' || e.kind === 'arrow') { for (let t = 0; t <= 1; t += 0.05) out.push([e.x1 + (e.x2 - e.x1) * t, e.y1 + (e.y2 - e.y1) * t]); return out; }
@@ -139,6 +152,8 @@ function shapeSamples(e) {
 function hitElement(e, x, y, tol) {
   const b = elBBox(e);
   if (x < b.x - tol || x > b.x + b.w + tol || y < b.y - tol || y > b.y + b.h + tol) return false;
+  let ux = x, uy = y; // ponto no referencial sem rotação
+  if (e.rot && hasRot(e)) { const c = rawCenter(e); [ux, uy] = rotPt(x, y, c.x, c.y, -e.rot); }
   if (e.type === 'stroke') {
     const p = e.pts, n = p.length / 3, wr = (e.tool === 'pen' ? penRadius(e.width, 0.6) : e.width / 2) + tol;
     if (n === 1) return Math.hypot(x - p[0], y - p[1]) <= wr;
@@ -146,12 +161,13 @@ function hitElement(e, x, y, tol) {
     return false;
   }
   if (e.type === 'shape') {
-    if (e.fill && e.kind !== 'line' && e.kind !== 'arrow') { measureCtx.setTransform(1, 0, 0, 1, 0, 0); if (measureCtx.isPointInPath(elPath(e), x, y)) return true; }
+    if (e.fill && e.kind !== 'line' && e.kind !== 'arrow') { measureCtx.setTransform(1, 0, 0, 1, 0, 0); if (measureCtx.isPointInPath(elPath(e), ux, uy)) return true; }
     const s = shapeSamples(e), wr = e.width / 2 + tol;
     for (let i = 1; i < s.length; i++) if (distSeg(x, y, s[i - 1][0], s[i - 1][1], s[i][0], s[i][1]) <= wr) return true;
     return false;
   }
-  return true; // texto e imagem: dentro da caixa
+  const rb = rawBox(e); // texto e imagem: dentro da caixa
+  return ux >= rb.x - tol && ux <= rb.x + rb.w + tol && uy >= rb.y - tol && uy <= rb.y + rb.h + tol;
 }
 function pointInPoly(x, y, poly) {
   let inside = false;
@@ -180,7 +196,7 @@ function transformEl(e, f) { // f: {sx, sy, ox, oy, dx, dy}  x' = ox + (x-ox)*sx
     if (e.kind === 'poly') { n.pts = e.pts.map((v, i) => r2(i % 2 ? Y(v) : X(v))); }
     else { n.x1 = X(e.x1); n.y1 = Y(e.y1); n.x2 = X(e.x2); n.y2 = Y(e.y2); }
     if (s !== 1) n.width = e.width * s;
-  } else if (e.type === 'text') { n.x = X(e.x); n.y = Y(e.y); n.w = Math.max(20, e.w * f.sx); if (f.sx !== 1 || f.sy !== 1) n.size = Math.max(4, e.size * f.sy); }
+  } else if (e.type === 'text') { n.x = X(e.x); n.y = Y(e.y); n.w = Math.max(20, e.w * f.sx); if (f.sx !== 1 || f.sy !== 1) { n.size = Math.max(4, e.size * f.sy); if (e.minH) n.minH = e.minH * f.sy; } }
   else if (e.type === 'image') { n.x = X(e.x); n.y = Y(e.y); n.w = e.w * f.sx; n.h = e.h * f.sy; }
   else { if (n.x != null) { n.x = X(e.x); n.y = Y(e.y); } }
   return n;
@@ -242,38 +258,93 @@ function recognizeShape(flat) {
 }
 
 /* ===== Rabiscar para apagar ===== */
-// Um rabisco é um zigue-zague: muitas inversões de direção num espaço pequeno.
+// Rabisco = vai e volta várias vezes sobre a MESMA região, cruzando quase toda a largura (ou altura) a cada passada.
+// A letra cursiva avança para a direita, então as passadas não se sobrepõem — isso evita apagar por engano.
 function isScribble(flat) {
-  const n = flat.length / 3; if (n < 12) return false;
+  const n = flat.length / 3; if (n < 14) return false;
   let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity, len = 0;
   for (let i = 0; i < n; i++) { const x = flat[i * 3], y = flat[i * 3 + 1]; x1 = Math.min(x1, x); x2 = Math.max(x2, x); y1 = Math.min(y1, y); y2 = Math.max(y2, y); if (i) len += Math.hypot(x - flat[i * 3 - 3], y - flat[i * 3 - 2]); }
-  const w = x2 - x1, h = y2 - y1; if (w + h < 12) return false;
-  const rev = (axis) => { // conta inversões ignorando tremidas pequenas
-    let dir = 0, acc = 0, count = 0, last = flat[axis];
-    const thr = Math.max(4, (axis ? h : w) * 0.25);
+  const w = x2 - x1, h = y2 - y1; if (w + h < 16) return false;
+  const passes = (axis) => { // passadas longas ao longo de um eixo (com histerese para ignorar tremidas)
+    const ext = axis ? h : w; if (ext < 12) return { n: 0, drift: Infinity };
+    const thr = ext * 0.12; let dir = 0, ex = flat[axis], exC = flat[1 - axis]; const turns = [[ex, exC]];
     for (let i = 1; i < n; i++) {
-      const v = flat[i * 3 + axis], d = v - last; last = v;
-      if (!d) continue; const sg = Math.sign(d);
-      if (sg === dir || dir === 0) { acc += Math.abs(d); dir = sg; }
-      else if (acc >= thr) { count++; dir = sg; acc = Math.abs(d); }
-      else { dir = sg; acc = Math.abs(d); }
+      const v = flat[i * 3 + axis], c = flat[i * 3 + 1 - axis];
+      if (!dir) { if (Math.abs(v - ex) > thr) { dir = Math.sign(v - ex); ex = v; exC = c; } continue; }
+      if ((v - ex) * dir > 0) { ex = v; exC = c; } else if (Math.abs(v - ex) > thr) { turns.push([ex, exC]); dir = -dir; ex = v; exC = c; }
     }
-    return count;
+    turns.push([ex, exC]);
+    const long = []; for (let k = 1; k < turns.length; k++) { const L = Math.abs(turns[k][0] - turns[k - 1][0]); if (L >= ext * 0.55) long.push(Math.abs(turns[k][1] - turns[k - 1][1])); }
+    return { n: long.length, drift: long.length ? long.reduce((s2, d) => s2 + d, 0) / long.length : Infinity };
   };
-  const r = Math.max(rev(0), rev(1));
-  return r >= 4 && len > 2.6 * (w + h);
+  const H = passes(0), V = passes(1);
+  const okH = H.n >= 5 && H.drift < Math.max(14, h * 0.45);           // vai-e-volta horizontal
+  const okV = V.n >= 5 && V.drift < Math.max(14, w * 0.3) && w / Math.max(h, 1) < 2.2; // vai-e-volta vertical, compacto
+  return (okH || okV) && len > 3.2 * (w + h);
 }
+// Apaga tudo o que estiver majoritariamente dentro da área do rabisco, mesmo sem encostar
 function scribbleTargets(elements, flat) {
-  const n = flat.length / 3; let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
-  for (let i = 0; i < n; i++) { x1 = Math.min(x1, flat[i * 3]); x2 = Math.max(x2, flat[i * 3]); y1 = Math.min(y1, flat[i * 3 + 1]); y2 = Math.max(y2, flat[i * 3 + 1]); }
+  const P = []; for (let i = 0; i < flat.length; i += 3) P.push([flat[i], flat[i + 1]]);
+  const hull = convexHull(P); if (hull.length < 3) return [];
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity; for (const [x, y] of hull) { x1 = Math.min(x1, x); x2 = Math.max(x2, x); y1 = Math.min(y1, y); y2 = Math.max(y2, y); }
   const sb = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
   const out = [];
   for (const e of elements) {
     const b = elBBox(e); if (!rectsHit(b, sb)) continue;
-    let hits = 0;
-    for (let i = 0; i < n && hits < 3; i += 1) if (hitElement(e, flat[i * 3], flat[i * 3 + 1], 2)) hits++;
-    const inside = b.x >= sb.x - 4 && b.y >= sb.y - 4 && b.x + b.w <= sb.x + sb.w + 4 && b.y + b.h <= sb.y + sb.h + 4;
-    if (hits >= 3 || (hits >= 1 && inside)) out.push(e);
+    if (e.type === 'image') continue; // imagens só com a borracha
+    let hits = 0; for (let i = 0; i < P.length && hits < 3; i += 2) if (hitElement(e, P[i][0], P[i][1], 2)) hits++;
+    if (hits >= 3 || elInLasso(e, hull)) out.push(e);
   }
   return out;
+}
+
+/* ===== Rotação ===== */
+function rotPt(x, y, cx, cy, a) { const c = Math.cos(a), s = Math.sin(a), dx = x - cx, dy = y - cy; return [cx + dx * c - dy * s, cy + dx * s + dy * c]; }
+function hasRot(e) { return e.type === 'image' || e.type === 'text' || (e.type === 'shape' && e.kind !== 'line' && e.kind !== 'arrow' && e.kind !== 'poly'); }
+function rawBox(e) {
+  if (e.type === 'text') return { x: e.x, y: e.y, w: e.w, h: layoutText(e).h };
+  if (e.type === 'image') return { x: e.x, y: e.y, w: e.w, h: e.h };
+  const g = shapeGeom(e); return { x: g.x1, y: g.y1, w: g.w, h: g.h };
+}
+function rawCenter(e) { const b = rawBox(e); return { x: b.x + b.w / 2, y: b.y + b.h / 2 }; }
+function rotateEl(e, ang, cx, cy) {
+  const R = (x, y) => rotPt(x, y, cx, cy, ang), n = { ...e };
+  if (e.type === 'stroke') { const p = e.pts.slice(); for (let i = 0; i < p.length; i += 3) { const q = R(p[i], p[i + 1]); p[i] = r2(q[0]); p[i + 1] = r2(q[1]); } n.pts = p; return n; }
+  if (e.type === 'shape' && e.kind === 'poly') { const p = e.pts.slice(); for (let i = 0; i < p.length; i += 2) { const q = R(p[i], p[i + 1]); p[i] = r2(q[0]); p[i + 1] = r2(q[1]); } n.pts = p; return n; }
+  if (e.type === 'shape' && (e.kind === 'line' || e.kind === 'arrow')) { const a = R(e.x1, e.y1), b = R(e.x2, e.y2); n.x1 = a[0]; n.y1 = a[1]; n.x2 = b[0]; n.y2 = b[1]; return n; }
+  if (hasRot(e)) {
+    const c = rawCenter(e), q = R(c.x, c.y), dx = q[0] - c.x, dy = q[1] - c.y;
+    if (e.type === 'shape') { n.x1 = e.x1 + dx; n.x2 = e.x2 + dx; n.y1 = e.y1 + dy; n.y2 = e.y2 + dy; } else { n.x = e.x + dx; n.y = e.y + dy; }
+    n.rot = ((e.rot || 0) + ang) % (Math.PI * 2); if (Math.abs(n.rot) < 1e-4) delete n.rot;
+  }
+  return n;
+}
+/* Alinha linhas a 0°, 45°, 90°… quando estão perto desses ângulos */
+function snapAngle(x1, y1, x2, y2, tolDeg = 7) {
+  if (Store.settings.angleSnap === false) return [x2, y2];
+  const ang = Math.atan2(y2 - y1, x2 - x1), step = Math.PI / 4, sn = Math.round(ang / step) * step;
+  if (Math.abs(ang - sn) > tolDeg * Math.PI / 180) return [x2, y2];
+  const L = Math.hypot(x2 - x1, y2 - y1); return [x1 + L * Math.cos(sn), y1 + L * Math.sin(sn)];
+}
+/* Tipos de linha */
+const LINE_TYPES = [['solid', 'Sólida'], ['dot', 'Pontilhada'], ['long', 'Traço longo'], ['short', 'Traço curto'], ['dashdot', 'Ponto e traço'], ['mixed', 'Traços mistos']];
+function dashPattern(dash, w) {
+  const u = Math.max(w, 1.5);
+  switch (dash) {
+    case 'dot': return [0.001, u * 2.4];
+    case 'long': return [u * 7, u * 3];
+    case 'short': return [u * 2.5, u * 2.5];
+    case 'dashdot': return [u * 6, u * 2.5, 0.001, u * 2.5];
+    case 'mixed': return [u * 7, u * 2.5, u * 2.5, u * 2.5];
+    default: return [];
+  }
+}
+/* Envoltória convexa (para a área do rabisco) */
+function convexHull(P) {
+  const pts = P.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]); if (pts.length < 3) return pts;
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const p of pts) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  for (let i = pts.length - 1; i >= 0; i--) { const p = pts[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
 }

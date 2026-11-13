@@ -52,14 +52,18 @@ const DEFAULT_SETTINGS = {
     eraser: { mode: 'stroke', size: 14, onlyHl: false },
     shape: { kind: 'rect', color: '#111827', width: 2.5, fill: false, fillColor: '#bfdbfe' },
     text: { color: '#111827', size: 22, bold: false },
+    sticky: { bg: '#fde68a', color: '#1f2937', size: 18 },
   },
+  angleSnap: true, straightAlways: false,
+  penMap: { 'pen:2': 'eraser', 'pen:32': 'eraser' },
+  presetGroups: null,
   presets: {
     pen: [{ color: '#111827', width: 2 }, { color: '#2563eb', width: 2.5 }, { color: '#dc2626', width: 2.5 }, { color: '#16a34a', width: 4 }],
     highlighter: [{ color: '#fde047', width: 18 }, { color: '#86efac', width: 18 }, { color: '#f9a8d4', width: 18 }],
   },
   template: { ...DEFAULT_TEMPLATE }, pageSize: 'a4', layout: 'pages',
   myTemplates: [],
-  drive: { clientId: '', clientSecret: '', enabled: false, folderId: null, lastSync: 0, auto: true },
+  drive: { clientId: '', clientSecret: '', enabled: false, folderId: null, lastSync: 0, auto: true, pdf: true, layout: 2 },
   plugins: [],
 };
 
@@ -72,11 +76,21 @@ const Store = {
     this.heads = (await DB.get('meta', 'heads')) || {};
     this.folders = (await DB.get('meta', 'folders')) || [];
     this.driveMap = (await DB.get('meta', 'driveMap')) || {};
-    this.dirty = mergeDeep({ notes: {}, blobs: {}, deleted: {} }, (await DB.get('meta', 'dirty')) || {});
+    this.dirty = mergeDeep({ notes: {}, blobs: {}, deleted: {}, pdfs: {}, folders: {} }, (await DB.get('meta', 'dirty')) || {});
+    const S = this.settings;
+    if (!S.presetGroups || !S.presetGroups.length) { // migra predefinições antigas para o grupo "Geral"
+      S.presetGroups = [{ id: 'default', name: 'Geral', colors: clone(S.colorPresets), widths: clone(S.widthPresets) }];
+      this.saveSettings();
+    }
+    if (S.penButton && !S.penMapMigrated) { S.penMap = { 'pen:2': S.penButton === 'none' ? undefined : S.penButton, 'pen:32': 'eraser' }; if (!S.penMap['pen:2']) delete S.penMap['pen:2']; S.penMapMigrated = true; this.saveSettings(); }
+    for (const t of ['pen', 'shape']) if (!S.tools[t].dash) S.tools[t].dash = 'solid';
   },
   saveSettings: debounce(function () { DB.put('meta', clone(Store.settings), 'settings'); }, 300),
   saveHeads() { return DB.put('meta', this.heads, 'heads'); },
-  saveFolders() { this.markLib(); return DB.put('meta', this.folders, 'folders'); },
+  saveFolders() { this.markLib(); for (const f of this.folders) this.dirty.folders[f.id] = 1; this.saveDirty(); return DB.put('meta', this.folders, 'folders'); },
+  group(id) { const G = this.settings.presetGroups; return G.find((g) => g.id === id) || G[0]; },
+  folderOf(note) { return note && note.folderId ? this.folders.find((f) => f.id === note.folderId) : null; },
+  activeGroup(note) { const f = this.folderOf(note); return this.group((note && note.groupId) || (f && f.groupId) || 'default'); },
   saveDriveMap() { return DB.put('meta', this.driveMap, 'driveMap'); },
   saveDirty() { return DB.put('meta', this.dirty, 'dirty'); },
   markLib() { this.dirty.lib = true; this.saveDirty(); },
@@ -85,9 +99,10 @@ const Store = {
     note.updated = note.updated || Date.now();
     await DB.put('notes', note);
     const h = this.heads[note.id] || {};
-    this.heads[note.id] = { id: note.id, title: note.title, folderId: note.folderId || null, created: note.created, updated: note.updated, mode: note.mode, pages: note.pages.length, thumb: h.thumb || null, hasPdf: note.pages.some((p) => p.pdf) };
+    const texts = []; note.pages.forEach((pg, i) => pg.elements.forEach((e) => { if (e.type === 'text' && e.text) texts.push([i, e.id, e.text.slice(0, 400)]); }));
+    this.heads[note.id] = { id: note.id, title: note.title, folderId: note.folderId || null, created: note.created, updated: note.updated, mode: note.mode, pages: note.pages.length, thumb: h.thumb || null, hasPdf: note.pages.some((p) => p.pdf), texts: texts.slice(0, 300) };
     await this.saveHeads();
-    if (sync) { this.dirty.notes[note.id] = 1; this.dirty.lib = true; await this.saveDirty(); Drive.schedule(); }
+    if (sync) { this.dirty.notes[note.id] = 1; this.dirty.pdfs[note.id] = Date.now(); this.dirty.lib = true; await this.saveDirty(); Drive.schedule(); }
   },
   async setThumb(id, thumb) { if (this.heads[id]) { this.heads[id].thumb = thumb; await this.saveHeads(); } },
   async deleteNote(id) {

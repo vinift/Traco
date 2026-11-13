@@ -105,6 +105,12 @@ const ICONS = {
   tune: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
   minus: '<path d="M5 12h14"/>',
   scribble: '<path d="M3 17c2-6 4-6 5 0s3 6 4 0 3-6 4 0 3 6 5 0"/>',
+  sticky: '<path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9l7-7V5a2 2 0 0 0-2-2h-3"/><path d="M14 21v-5a2 2 0 0 1 2-2h5"/>',
+  bookmark: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  layers: '<path d="m12 2 10 5-10 5L2 7Z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/>',
+  checkSq: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/>',
+  up: '<path d="m18 15-6-6-6 6"/>', down: '<path d="m6 9 6 6 6-6"/>',
   laser: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
 };
 function icon(name) {
@@ -160,7 +166,8 @@ function openPop(anchor, content, { onClose } = {}) {
   const r = anchor.getBoundingClientRect();
   const pw = pop.offsetWidth, ph = pop.offsetHeight;
   let x = r.left + r.width / 2 - pw / 2, y = r.bottom + 8;
-  if (y + ph > innerHeight - 8) y = Math.max(8, r.top - ph - 8);
+  if (anchor.closest && anchor.closest('#subrail,#rail')) { x = r.right + 12; y = clamp(r.top - 12, 8, innerHeight - ph - 8); } // barras laterais: abre à direita
+  else if (y + ph > innerHeight - 8) y = Math.max(8, r.top - ph - 8);
   pop.style.left = clamp(x, 8, innerWidth - pw - 8) + 'px'; pop.style.top = y + 'px';
   back.addEventListener('pointerdown', () => closePop());
   openPop._close = onClose;

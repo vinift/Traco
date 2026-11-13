@@ -43,8 +43,12 @@ function drawTemplate(ctx, tpl, vis, z, bounded) {
 
 function drawElement(ctx, e) {
   ctx.save();
+  if (e.rot && hasRot(e)) { const c = rawCenter(e); ctx.translate(c.x, c.y); ctx.rotate(e.rot); ctx.translate(-c.x, -c.y); }
   if (e.type === 'stroke') {
-    if (e.tool === 'pen') { ctx.globalAlpha = e.opacity ?? 1; ctx.fillStyle = e.color; ctx.fill(elPath(e), 'nonzero'); }
+    if (e.tool === 'pen' && e.dash && e.dash !== 'solid') {
+      ctx.globalAlpha = e.opacity ?? 1; ctx.strokeStyle = e.color; ctx.lineWidth = e.width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.setLineDash(dashPattern(e.dash, e.width)); ctx.stroke(buildPolyPath(e.pts));
+    } else if (e.tool === 'pen') { ctx.globalAlpha = e.opacity ?? 1; ctx.fillStyle = e.color; ctx.fill(elPath(e), 'nonzero'); }
     else {
       ctx.globalAlpha = e.opacity ?? 0.4; ctx.globalCompositeOperation = 'multiply';
       ctx.strokeStyle = e.color; ctx.lineWidth = e.width; ctx.lineCap = e.cap || 'round'; ctx.lineJoin = 'round'; ctx.stroke(elPath(e));
@@ -52,11 +56,22 @@ function drawElement(ctx, e) {
   } else if (e.type === 'shape') {
     const p = elPath(e); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.globalAlpha = e.opacity ?? 1;
     if (e.fill && e.kind !== 'line' && e.kind !== 'arrow') { ctx.fillStyle = e.fill; ctx.fill(p); }
-    if (e.width > 0) { ctx.strokeStyle = e.color; ctx.lineWidth = e.width; ctx.stroke(p); }
+    if (e.width > 0) {
+      ctx.strokeStyle = e.color; ctx.lineWidth = e.width;
+      if (e.dash && e.dash !== 'solid') { ctx.setLineDash(dashPattern(e.dash, e.width)); if (e.kind === 'arrow') { ctx.stroke(buildShapePath({ ...e, kind: 'line' })); ctx.setLineDash([]); ctx.stroke(arrowHead(e)); } else ctx.stroke(p); }
+      else ctx.stroke(p);
+    }
   } else if (e.type === 'text') {
     const L = layoutText(e); ctx.font = textFont(e); ctx.fillStyle = e.color; ctx.textBaseline = 'top';
-    if (e.bg) { ctx.fillStyle = e.bg; ctx.fillRect(e.x - 4, e.y - 2, e.w + 8, L.h + 4); ctx.fillStyle = e.color; }
-    L.lines.forEach((ln, i) => ctx.fillText(ln, e.x, e.y + i * L.lh + e.size * 0.12));
+    let tx = e.x, ty = e.y;
+    if (e.sticky) { // post-it
+      const h = L.h, f = Math.min(26, e.w * 0.14);
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.18)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3; ctx.fillStyle = e.bg || '#fde68a';
+      ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + e.w, e.y); ctx.lineTo(e.x + e.w, e.y + h - f); ctx.lineTo(e.x + e.w - f, e.y + h); ctx.lineTo(e.x, e.y + h); ctx.closePath(); ctx.fill(); ctx.restore();
+      ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.beginPath(); ctx.moveTo(e.x + e.w, e.y + h - f); ctx.lineTo(e.x + e.w - f, e.y + h - f); ctx.lineTo(e.x + e.w - f, e.y + h); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = e.color; tx += STICKY_PAD; ty += STICKY_PAD;
+    } else if (e.bg) { ctx.fillStyle = e.bg; ctx.fillRect(e.x - 4, e.y - 2, e.w + 8, L.h + 4); ctx.fillStyle = e.color; }
+    L.lines.forEach((ln, i) => ctx.fillText(ln, tx, ty + i * L.lh + e.size * 0.12));
   } else if (e.type === 'image') {
     const bmp = ImgCache.get(e.blobId);
     if (bmp) ctx.drawImage(bmp, e.x, e.y, e.w, e.h);
@@ -112,4 +127,10 @@ function drawTemplatePreview(cv, tpl, w, h) {
   const ctx = cv.getContext('2d'); ctx.setTransform(s * dpr, 0, 0, s * dpr, 0, 0);
   ctx.fillStyle = tpl.paper || '#fff'; ctx.fillRect(0, 0, w, h);
   drawTemplate(ctx, tpl, { x: 0, y: 0, w, h }, s, true);
+}
+
+function arrowHead(e) {
+  const p = new Path2D(), a = Math.atan2(e.y2 - e.y1, e.x2 - e.x1), L = Math.max(10, e.width * 4.5);
+  p.moveTo(e.x2 - L * Math.cos(a - 0.45), e.y2 - L * Math.sin(a - 0.45)); p.lineTo(e.x2, e.y2); p.lineTo(e.x2 - L * Math.cos(a + 0.45), e.y2 - L * Math.sin(a + 0.45));
+  return p;
 }

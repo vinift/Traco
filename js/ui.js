@@ -220,44 +220,153 @@ async function newNoteDialog(folderId) {
   return note;
 }
 
-/* ===== Painel de páginas e modelo ===== */
-async function pagesPanel() {
-  const n = Editor.note, cur = Editor.currentPageIndex(), curPage = n.pages[cur];
+/* ===== Modelo de página ===== */
+async function templateModal(pageIdx = null) {
+  const n = Editor.note, cur = pageIdx ?? Editor.currentPageIndex(), curPage = n.pages[cur];
   const te = templateEditor(curPage.template || n.template, { w: curPage.w, h: curPage.h });
-  let scope = 'all';
-  const body = el('div', {});
-  body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Modelo de página'), te.el,
-    n.mode === 'pages' ? el('div', { class: 'field' }, el('label', {}, 'Aplicar em'), UI.seg([['all', 'Todas as páginas'], ['cur', `Só a página ${cur + 1}`]], scope, (v) => (scope = v))) : null,
-    el('button', { class: 'btn primary', onclick: () => {
-      const t = te.get();
-      if (scope === 'all' || n.mode === 'infinite') { n.template = t; n.pages.forEach((p) => { if (!p.pdf) p.template = null; }); }
-      else curPage.template = t;
-      Editor.markChanged(); Editor.requestRender(); toast('Modelo aplicado');
-    } }, 'Aplicar modelo')));
-  if (n.mode === 'pages') {
-    const list = el('div', { class: 'page-list' });
-    const acts = el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' } });
-    const close = () => $('#modalRoot').innerHTML = '';
-    const A = (label, ic, fn) => { const b = el('button', { class: 'btn', onclick: fn }); b.innerHTML = icon(ic) + label; acts.append(b); };
-    A('Nova página', 'plus', () => { Editor.addPage(cur); close(); });
-    A('Duplicar', 'copy', () => { Editor.duplicatePage(cur); close(); });
-    A('Subir', 'back', () => { Editor.movePage(cur, -1); close(); });
-    A('Descer', 'download', () => { Editor.movePage(cur, 1); close(); });
-    A('Inserir PDF', 'file', async () => { const f = await pickFile('application/pdf'); if (!f) return; close(); toast('Importando PDF…', 8000); try { const pages = await importPdfFile(f); n.pages.splice(cur + 1, 0, ...pages); Editor.afterPagesChanged(); Editor.goToPage(cur + 1); toast(`${pages.length} página(s) inseridas`); } catch (e) { toast('Erro ao abrir PDF: ' + e.message, 5000); } });
-    A('Excluir página', 'trash', async () => { if (await confirmBox('Excluir página', `Excluir a página ${cur + 1}? Isso não pode ser desfeito.`, 'Excluir', true)) { Editor.deletePage(cur); close(); } });
-    body.append(el('div', { class: 'set-sec' }, el('h3', {}, `Páginas (atual: ${cur + 1} de ${n.pages.length})`), acts, list));
-    (async () => {
-      for (let i = 0; i < n.pages.length; i++) {
-        const box = el('div', { class: 'pg' + (i === cur ? ' on' : ''), onclick: () => { Editor.goToPage(i); close(); } }, el('span', {}, String(i + 1)));
-        list.append(box);
-      }
-      for (let i = 0; i < n.pages.length && list.isConnected !== false; i++) {
-        const cv = await renderPageCanvas(n, n.pages[i], 1, { maxW: 120 }); const img = el('img', { src: cv.toDataURL('image/jpeg', 0.6) });
-        list.children[i] && list.children[i].prepend(img);
-      }
-    })();
-  }
-  await openModal({ title: 'Páginas e modelo', body, wide: true, buttons: [{ label: 'Fechar', cls: 'primary' }] });
+  let scope = pageIdx != null ? 'cur' : 'all';
+  const body = el('div', {}, te.el, n.mode === 'pages' ? el('div', { class: 'field' }, el('label', {}, 'Aplicar em'), UI.seg([['all', 'Todas as páginas'], ['cur', `Só a página ${cur + 1}`]], scope, (v) => (scope = v))) : null);
+  const ok = await openModal({ title: 'Modelo de página', body, wide: true, buttons: [{ label: 'Cancelar', value: false }, { label: 'Aplicar', cls: 'primary', value: true }] });
+  if (!ok) return;
+  const t = te.get();
+  if (scope === 'all' || n.mode === 'infinite') { n.template = t; n.pages.forEach((p) => { if (!p.pdf) p.template = null; }); } else curPage.template = t;
+  Editor.markChanged(); Editor.requestRender(); toast('Modelo aplicado', 1200);
+}
+
+/* ===== Caixa de páginas (estilo Notewise) ===== */
+const PageThumbs = new Map();
+function pageSig(p, n) { const L = p.elements.length; return [L, L ? p.elements[L - 1].id : '', JSON.stringify(p.template || n.template), p.pdf ? p.pdf.index : ''].join('|'); }
+async function pageThumb(n, p) {
+  const sig = pageSig(p, n), c = PageThumbs.get(p.id); if (c && c.sig === sig) return c.url;
+  const cv = await renderPageCanvas(n, p, 1, { maxW: 180 }); const url = cv.toDataURL('image/jpeg', 0.7);
+  PageThumbs.set(p.id, { sig, url }); return url;
+}
+const PageManager = {
+  root: null, filter: 'all', selecting: false, selected: new Set(),
+  open() {
+    const n = Editor.note; if (n.mode === 'infinite') return templateModal();
+    Editor.commitText(); this.selecting = false; this.selected.clear();
+    this.root = el('div', { class: 'pm-back', onpointerdown: (e) => { if (e.target === this.root) this.close(); } });
+    $('#modalRoot').append(this.root); this.render();
+  },
+  close() { if (this.root) this.root.remove(); this.root = null; Editor.afterPagesChanged(); },
+  render() {
+    const n = Editor.note, cur = Editor.currentPageIndex(); const box = el('div', { class: 'pm' });
+    const B = (ic, title, fn, cls = '') => { const b = el('button', { class: 'cbtn ' + cls, title, onclick: fn }); b.innerHTML = icon(ic); return b; };
+    const filt = el('select', { class: 'pm-filter' }, el('option', { value: 'all' }, 'Todas as páginas'), el('option', { value: 'bm' }, 'Marcadores'));
+    filt.value = this.filter; filt.onchange = () => { this.filter = filt.value; this.render(); };
+    const head = el('div', { class: 'pm-head' }, iconEl('pages'), filt, el('span', { class: 'sp' }),
+      B('grid', 'Modelo de página', () => { this.close(); templateModal(); }),
+      B('file', 'Inserir PDF no fim', () => this.insertPdf()),
+      B('plus', 'Nova página no fim', () => { n.pages.push(newPage(n.pages[n.pages.length - 1].pdf ? 794 : n.pages[n.pages.length - 1].w, n.pages[n.pages.length - 1].pdf ? 1123 : n.pages[n.pages.length - 1].h)); Editor.markChanged(); this.render(); }),
+      B('checkSq', this.selecting ? 'Sair da seleção' : 'Selecionar páginas', () => { this.selecting = !this.selecting; this.selected.clear(); this.render(); }, this.selecting ? 'soft-on' : ''),
+      B('x', 'Fechar', () => this.close()));
+    box.append(head);
+    if (this.selecting) {
+      const nsel = this.selected.size;
+      const A = (label, fn, danger) => el('button', { class: 'btn' + (danger ? ' danger' : ''), disabled: !nsel && label !== 'Selecionar todas', onclick: fn }, label);
+      box.append(el('div', { class: 'pm-actions' }, el('b', {}, nsel ? `${nsel} selecionada(s)` : 'Toque nas páginas para selecionar'), el('span', { class: 'sp' }),
+        A('Selecionar todas', () => { n.pages.forEach((p) => this.selected.add(p.id)); this.render(); }),
+        A('Marcar', () => { const all = n.pages.filter((p) => this.selected.has(p.id)); const v = !all.every((p) => p.bookmark); all.forEach((p) => (p.bookmark = v)); Editor.markChanged(); this.render(); }),
+        A('Duplicar', () => { const ids = [...this.selected]; for (const id of ids) { const i = n.pages.findIndex((p) => p.id === id); const c = clone(n.pages[i]); c.id = uid(); c.elements.forEach((e) => (e.id = uid())); n.pages.splice(i + 1, 0, c); } Editor.markChanged(); this.selected.clear(); this.render(); }),
+        A('Excluir', async () => {
+          if (this.selected.size >= n.pages.length) return toast('A nota precisa de pelo menos uma página');
+          if (!(await confirmBox('Excluir páginas', `Excluir ${this.selected.size} página(s)? Isso não pode ser desfeito.`, 'Excluir', true))) return;
+          n.pages = n.pages.filter((p) => !this.selected.has(p.id)); Editor.undoStack = []; Editor.redoStack = []; Editor.sel = null; Editor.markChanged(); this.selected.clear(); this.render();
+        }, true)));
+    }
+    const grid = el('div', { class: 'pm-grid' });
+    n.pages.forEach((p, i) => {
+      if (this.filter === 'bm' && !p.bookmark) return;
+      const img = el('img', { alt: '' });
+      const bm = el('button', { class: 'pm-bm' + (p.bookmark ? ' on' : ''), title: p.bookmark ? 'Remover marcador' : 'Marcar página', onclick: (e) => { e.stopPropagation(); p.bookmark = !p.bookmark; Editor.markChanged(); this.render(); } }); bm.innerHTML = icon('bookmark');
+      const thumb = el('div', { class: 'pm-thumb' + (i === cur ? ' cur' : '') + (this.selected.has(p.id) ? ' sel' : ''), style: { aspectRatio: `${p.w}/${p.h}` } }, img, bm);
+      if (this.selecting) thumb.append(el('span', { class: 'pm-check' }, this.selected.has(p.id) ? '✓' : ''));
+      const mb = el('button', { class: 'pm-num', onclick: (e) => { e.stopPropagation(); this.pageMenu(mb, i); } }, String(i + 1), iconEl('down'));
+      const card = el('div', { class: 'pm-card' }, thumb, mb); card.dataset.id = p.id;
+      this.dragify(card, () => {
+        if (this.selecting) { this.selected.has(p.id) ? this.selected.delete(p.id) : this.selected.add(p.id); this.render(); }
+        else { const idx = n.pages.indexOf(p); this.close(); Editor.goToPage(idx); }
+      });
+      grid.append(card);
+      pageThumb(n, p).then((u) => (img.src = u)).catch(() => {});
+    });
+    if (!grid.childElementCount) grid.append(el('p', { style: { color: 'var(--chmuted)' } }, 'Nenhuma página marcada. Toque no marcador de uma página para encontrá-la aqui depois.'));
+    box.append(grid, el('div', { class: 'pm-hint' }, 'Toque para abrir · segure e arraste para mudar a ordem · ▾ para mais opções'));
+    this.root.innerHTML = ''; this.root.append(box);
+  },
+  dragify(card, tap) { // segurar e arrastar para reordenar
+    let t = null, drag = false, sx = 0, sy = 0, id = null;
+    card.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.pm-num,.pm-bm')) return;
+      sx = e.clientX; sy = e.clientY; id = e.pointerId; drag = false; card.setPointerCapture(id);
+      t = setTimeout(() => { if (this.filter === 'all') { drag = true; card.classList.add('drag'); if (navigator.vibrate) navigator.vibrate(10); } }, 380);
+    });
+    card.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== id) return;
+      if (!drag) { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 10) { clearTimeout(t); t = null; } return; }
+      card.style.visibility = 'hidden'; const over = document.elementFromPoint(e.clientX, e.clientY); card.style.visibility = '';
+      const target = over && over.closest('.pm-card'); if (!target || target === card) return;
+      const r = target.getBoundingClientRect(); if (e.clientX < r.left + r.width / 2) target.before(card); else target.after(card);
+    });
+    const end = (e) => {
+      if (e.pointerId !== id) return; clearTimeout(t); id = null;
+      if (drag) {
+        card.classList.remove('drag'); drag = false; const n = Editor.note;
+        const order = $$('.pm-card', card.parentNode).map((c) => n.pages.find((p) => p.id === c.dataset.id)).filter(Boolean);
+        if (order.length === n.pages.length) { n.pages = order; Editor.markChanged(); }
+        this.render();
+      } else if (t !== null || Math.hypot(e.clientX - sx, e.clientY - sy) < 10) tap();
+      t = null;
+    };
+    card.addEventListener('pointerup', end); card.addEventListener('pointercancel', (e) => { clearTimeout(t); id = null; drag = false; card.classList.remove('drag'); });
+  },
+  pageMenu(anchor, i) {
+    const n = Editor.note, p = n.pages[i];
+    const blank = () => newPage(p.pdf ? 794 : p.w, p.pdf ? 1123 : p.h, p.pdf ? null : p.template ? clone(p.template) : null);
+    menu(anchor, [
+      { label: 'Abrir página', icon: 'eye', run: () => { this.close(); Editor.goToPage(i); } },
+      { label: 'Nova página antes', icon: 'up', run: () => { n.pages.splice(i, 0, blank()); Editor.markChanged(); this.render(); } },
+      { label: 'Nova página depois', icon: 'down', run: () => { n.pages.splice(i + 1, 0, blank()); Editor.markChanged(); this.render(); } },
+      { label: 'Duplicar', icon: 'copy', run: () => { const c = clone(p); c.id = uid(); c.elements.forEach((e) => (e.id = uid())); n.pages.splice(i + 1, 0, c); Editor.markChanged(); this.render(); } },
+      { label: 'Mover para o início', icon: 'up', run: () => { n.pages.splice(i, 1); n.pages.unshift(p); Editor.markChanged(); this.render(); } },
+      { label: 'Mover para o fim', icon: 'down', run: () => { n.pages.splice(i, 1); n.pages.push(p); Editor.markChanged(); this.render(); } },
+      { label: p.bookmark ? 'Remover marcador' : 'Marcar página', icon: 'bookmark', run: () => { p.bookmark = !p.bookmark; Editor.markChanged(); this.render(); } },
+      { label: 'Modelo desta página…', icon: 'grid', run: () => { this.close(); templateModal(i); } },
+      '-',
+      { label: 'Excluir página', icon: 'trash', danger: true, run: async () => {
+        if (n.pages.length <= 1) return toast('A nota precisa de pelo menos uma página');
+        if (!(await confirmBox('Excluir página', `Excluir a página ${i + 1}? Isso não pode ser desfeito.`, 'Excluir', true))) return;
+        n.pages.splice(i, 1); Editor.undoStack = []; Editor.redoStack = []; Editor.sel = null; Editor.markChanged(); this.render();
+      } },
+    ]);
+  },
+  async insertPdf() {
+    const f = await pickFile('application/pdf'); if (!f) return; toast('Importando PDF…', 8000);
+    try { const pages = await importPdfFile(f); Editor.note.pages.push(...pages); Editor.markChanged(); toast(`${pages.length} página(s) inseridas`); this.render(); }
+    catch (e) { toast('Erro ao abrir PDF: ' + e.message, 5000); }
+  },
+};
+async function pagesPanel() { PageManager.open(); }
+
+/* ===== Busca ===== */
+const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+function snippet(text, q) { const t = text.replace(/\s+/g, ' '), i = norm(t).indexOf(norm(q)); const a = Math.max(0, i - 30); return (a ? '…' : '') + t.slice(a, i + q.length + 50) + (i + q.length + 50 < t.length ? '…' : ''); }
+function noteSearchPop(anchor) {
+  const n = Editor.note; const inp = el('input', { class: 'tp-input', placeholder: 'Buscar textos e post-its desta nota', style: { marginBottom: '8px' } });
+  const list = el('div', { style: { maxHeight: '50vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' } });
+  const run = () => {
+    list.innerHTML = ''; const q = inp.value.trim(); if (!q) return;
+    let k = 0;
+    n.pages.forEach((p, i) => p.elements.forEach((e) => {
+      if (e.type !== 'text' || !norm(e.text).includes(norm(q)) || k > 60) return; k++;
+      list.append(el('button', { class: 'pm-res', onclick: () => { closePop(); Editor.focusElement(i, e.id); } }, el('b', {}, n.mode === 'infinite' ? 'Nota' : `Pág. ${i + 1}`), ' ', snippet(e.text, q)));
+    }));
+    if (!k) list.append(el('p', { style: { color: 'var(--chmuted)', margin: '6px 2px' } }, 'Nada encontrado nos textos digitados. A escrita à mão ainda não é pesquisável.'));
+  };
+  inp.addEventListener('input', run);
+  const pop = openPop(anchor, el('div', { style: { width: 'min(380px, 86vw)' } }, inp, list));
+  pop.style.background = 'var(--ch)'; pop.style.color = 'var(--chfg)'; setTimeout(() => inp.focus(), 50);
 }
 
 /* ===== Exportação ===== */
