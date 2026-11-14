@@ -102,6 +102,10 @@ O Client Secret é opcional, mas recomendado. Sem ele, o Google pede para recone
 | Carimbo de data | Ferramenta 📅: toque na página. No painel de ajustes você muda o texto, ex.: `Aula dia {dd}/{mm}` |
 | Baixa latência | Configurações → Escrita. Deixa a tinta mais rápida; se notar algo estranho, desligue |
 
+## Desempenho em notas grandes (v0.9.4)
+
+A página é desenhada em blocos de 512 px que ficam guardados na memória. Ao rolar, o app só copia os blocos prontos em vez de redesenhar todos os traços, e por isso fica fluido mesmo em notas com muito material. No zoom, os blocos do nível anterior são esticados por um instante e, cerca de 0,2 s depois de soltar os dedos, são redesenhados na resolução exata. A qualidade final é idêntica à de antes (conferido pixel a pixel). Ao editar, só o trecho alterado é redesenhado.
+
 ## PDF em alta qualidade
 
 O PDF de cada nota (no Drive e em Exportar) sai em 300 dpi. Páginas que vieram de um PDF mantêm o PDF original (texto nítido e selecionável) com as suas anotações por cima. Os prints do laço também saem em alta resolução (até 4096 px no lado maior).

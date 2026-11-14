@@ -22,7 +22,7 @@ const Editor = {
     s.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
     s.addEventListener('contextmenu', (e) => e.preventDefault());
     new ResizeObserver(() => { if (this.note) { this.resize(); } }).observe(s);
-    ImgCache.onReady = () => this.requestRender();
+    ImgCache.onReady = () => { this.imgEpoch = (this.imgEpoch || 0) + 1; this.requestRender(); };
     PdfCache.onReady = () => this.requestRender();
     window.addEventListener('keydown', (e) => this.onKey(e));
     // atalhos dos botões da caneta (capturados antes de tudo)
@@ -38,6 +38,7 @@ const Editor = {
   async open(id) {
     const note = await Store.getNote(id); if (!note) { toast('Nota não encontrada'); return false; }
     if (fixNotewiseHeights(note)) { await Store.putNote(note); Store.setThumb(note.id, await makeThumb(note)); } // corrige notas importadas antes (grade meia linha fora)
+    this.resetTiles(); this._prevZ = undefined;
     this.note = note; this.undoStack = []; this.redoStack = []; this.sel = null; this.selTf = null; this.action = null; this.editingId = null;
     this.readOnly = false; $('#editor').classList.remove('reading'); { const rb = $('#btnRead'); if (rb) rb.classList.remove('soft-on'); }
     $('#noteTitle').value = note.title;
@@ -52,7 +53,7 @@ const Editor = {
   },
   async close() {
     this.commitText(); this.ocrDebounced.cancel(); this.viewDebounced.cancel(); await this.saveView(); await this.saveNow(); await this.updateThumb(); OCR.scheduleNote(this.note);
-    Instruments.hideAll(); this.note = null;
+    Instruments.hideAll(); this.note = null; this.resetTiles(); // libera a memória dos blocos
   },
   markChanged() {
     if (!this.note) return;
@@ -150,6 +151,11 @@ const Editor = {
     const selActive = this.sel && this.selTf; if (selActive) for (const id of this.sel.ids) skip.add(id);
     const att = selActive && this.action && this.action.attached && !this.selTf.free ? this.action.attached : null; if (att) for (const id of att) skip.add(id);
     const pv = this.tPreview; if (pv) { for (const id of pv.map.keys()) skip.add(id); for (const x of pv.removed) skip.add(x.id); }
+    // zoom em andamento: usa os blocos já prontos (esticados) e redesenha nítido quando o zoom para
+    const now = performance.now(); this.frameNo = (this.frameNo || 0) + 1;
+    if (this._prevZ !== undefined && this._prevZ !== z) { this._zoomAt = now; clearTimeout(this._zT); this._zT = setTimeout(() => this.requestRender(), 230); }
+    this._prevZ = z;
+    const st = { t0: now, rendered: 0, zooming: now - (this._zoomAt || 0) < 200 }; let allDone = true;
     note.pages.forEach((page, i) => {
       const o = this.layout[i];
       const pr = inf ? vis : { x: o.x, y: o.y, w: page.w, h: page.h };
@@ -161,7 +167,9 @@ const Editor = {
         ctx.beginPath(); ctx.rect(0, 0, page.w, page.h); ctx.clip();
         const x1 = Math.max(0, lv.x), y1 = Math.max(0, lv.y); lv = { x: x1, y: y1, w: Math.min(page.w, lv.x + lv.w) - x1, h: Math.min(page.h, lv.y + lv.h) - y1 };
       }
-      drawPageContent(ctx, note, page, lv, z, { dpr: d, skip });
+      const direct = this.noTiles || (skip.size && page.elements.some((e) => skip.has(e.id))); // item sendo movido/editado nesta página: desenho direto
+      if (direct) drawPageContent(ctx, note, page, lv, z, { dpr: d, skip });
+      else if (!this.drawPageTiled(ctx, page, i, o, vis, st)) allDone = false;
       if (this.textEl && this.textCtx && this.textCtx.page === page && this.textCtx.el.sticky) { const te = this.textCtx.el, h = layoutText(te).h; drawElement(ctx, { ...te, text: '', spans: undefined, minH: Math.max(te.minH || te.w, h) }); } // post-it em edição
       if (selActive && this.sel.pageId === page.id) {
         const t = this.selTf;
@@ -180,6 +188,9 @@ const Editor = {
     const a = this.action;
     if (this.lowLat && a && a.kind === 'draw' && a.tool === 'pen' && a.inc && !a.shape && a.pts.length) { this.pageTf(ctx, a.pi); ctx.fillStyle = a.color; ctx.fill(buildRadiiPath(a.pts, penRadii(a.pts, a.width, a.pen))); }
     this.drawSelection(); this.drawGuides(); this.updateHud(); this.positionText(); this.placePull(); this.updateScroll();
+    if (!allDone && !st.zooming) this.requestRender(); // ainda há blocos a desenhar: continua no próximo quadro
+    this._drawnCam = { ...this.cam }; this._drawnComplete = allDone && !st.zooming;
+    this.evictTiles(); if (allDone && !st.zooming) this.schedulePrefetch();
     if (this._lastCam !== `${this.cam.x}|${this.cam.y}|${this.cam.z}`) { this._lastCam = `${this.cam.x}|${this.cam.y}|${this.cam.z}`; this.viewDebounced(); }
   },
   selElements() { if (!this.sel) return []; const p = this.pageById(this.sel.pageId); return p ? p.elements.filter((e) => this.sel.ids.has(e.id)) : []; },
