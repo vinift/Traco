@@ -119,17 +119,9 @@ Traço Notas/
 
 ### Modelos do Notewise
 
-A importação lê a densidade da grade de cada página: densidade 6 = quadradinhos maiores (40 × 34 linhas), densidade 7 = quadradinhos menores (50 × 43 linhas). Para trocar à mão, use **Modelo de página → Grade · densidade 6** ou **Grade · densidade 7**.
+A importação reproduz a grade de cada página do Notewise: o tamanho do quadradinho vem da densidade (6 = maior, 7 = médio, 8 = menor) e a grade fica centralizada na folha, como no Notewise. Páginas redimensionadas no Notewise são ajustadas pela própria escrita: o app mede onde a base das letras está e encaixa a grade nela.
 
-### Modelo idêntico ao do Notewise (a partir de PDF)
-
-Se as linhas de uma nota importada não baterem com as do Notewise:
-
-1. No Notewise, crie uma nota vazia com o mesmo modelo (pauta, grade ou pontos) e exporte em PDF.
-2. No Traço, abra a nota importada → **Modelo de página** → **Importar de um PDF…** e escolha esse PDF. O app copia a posição exata de cada linha ou ponto.
-3. Em "Aplicar em", escolha **Todas as notas importadas com este modelo do Notewise**. Todas as páginas que usavam esse modelo são trocadas (dá para desfazer na nota aberta), e as próximas importações já vêm com ele.
-
-O mesmo botão aparece em Configurações → Modelo padrão, para usar o modelo nas notas novas.
+Para trocar à mão, use **Modelo de página → Grade · densidade 6** ou **Grade · densidade 7**. Também dá para usar **Importar de um PDF…** com o PDF de uma página vazia (vale para páginas do mesmo tamanho do PDF).
 
 Dica: arquivos grandes (centenas de MB) podem levar um ou dois minutos. Se o Google Drive estiver ligado, os PDFs também vão para o backup, então a primeira sincronização demora mais.
 

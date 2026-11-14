@@ -112,21 +112,3 @@ function customGridLines(tpl, page, axis) {
   const ds = arr.slice(1).map((v, i) => v - arr[i]).sort((a, b) => a - b), s = ds[ds.length >> 1];
   return { o: arr[0] * k, s: s * k };
 }
-
-/* aplica o modelo em todas as páginas importadas com o mesmo modelo do Notewise e lembra para as próximas importações */
-async function applyTemplateToNotewiseCode(tpl, code, v, onProgress) {
-  const S = Store.settings; S.nwTplMap = S.nwTplMap || {};
-  S.nwTplMap[v != null ? code + '-' + v : String(code)] = clone(tpl); if (S.nwTplMap[String(code)] == null || v == null) S.nwTplMap[String(code)] = clone(tpl);
-  Store.saveSettings();
-  const match = (p) => !p.pdf && p.nw && p.nw.tpl === code && (v == null || p.nw.v == null || p.nw.v === v);
-  let pages = 0, notes = 0; const ids = Object.keys(Store.heads);
-  if (Editor.note) Editor.recTemplate(() => { for (const p of Editor.note.pages) if (match(p)) { p.template = clone(tpl); pages++; } });
-  for (let i = 0; i < ids.length; i++) {
-    const id = ids[i]; if (Editor.note && id === Editor.note.id) continue;
-    onProgress && onProgress(i + 1, ids.length);
-    const n = await Store.getNote(id); if (!n || n.importedFrom !== 'notewise') continue;
-    let ch = false; for (const p of n.pages) if (match(p)) { p.template = clone(tpl); pages++; ch = true; }
-    if (ch) { notes++; await Store.putNote(n); try { await Store.setThumb(n.id, await makeThumb(n)); } catch (_) {} }
-  }
-  return { pages, notes };
-}

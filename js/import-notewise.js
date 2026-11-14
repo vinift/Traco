@@ -131,9 +131,8 @@ async function convertNotewise(files, { folderId = null } = {}) {
     const pdf = pdfBlob ? { blobId: pdfBlob, index: pbGet(ref, 2) || 0 } : null;
     const s = pdf ? NW_PDF_S : NW_TARGET_W / PW;
     const bg = pbColor(pbGet(setup, 2)).hex, tplCode = pbGet(setup, 7), tplVar = pbGet(setup, 8);
-    const M0 = Store.settings.nwTplMap || {}, mapped = M0[tplCode + '-' + tplVar] || M0[String(tplCode)]; // modelo importado de PDF pelo usuário
     const tpl = nwTemplate(tplCode, tplVar, bg, s);
-    const page = { id: uid(), w: pdf ? Math.round(PW * s) : NW_TARGET_W, h: pdf ? Math.round(PH * s) : PH * s, template: pdf ? null : mapped ? { ...clone(mapped), paper: mapped.paper || bg } : tpl, pdf, elements: [], nw: { tpl: tplCode, v: tplVar, fx: 1 } };
+    const page = { id: uid(), w: pdf ? Math.round(PW * s) : NW_TARGET_W, h: pdf ? Math.round(PH * s) : PH * s, template: pdf ? null : tpl, pdf, elements: [], nw: { tpl: tplCode, v: tplVar, pw: PW, ph: PH, fx: 2 } };
     if (pdf) stats.pdfPages++; // altura sem arredondar: a grade do modelo é centralizada pela altura exata
     for (const ev of pbAll(P, 4)) {
       const E = pbParse(ev), M = pbMatrix(pbGet(E, 3));
@@ -226,6 +225,7 @@ async function convertNotewise(files, { folderId = null } = {}) {
       } catch (err) { console.warn('elemento ignorado', err); stats.skipped++; }
       if (locked) for (let k = n0; k < page.elements.length; k++) page.elements[k].lock = true;
     }
+    if (!pdf) nwAutoAlign(page);
     pages.push(page); stats.pages++;
   }
   if (!pages.length) throw new Error('nenhuma página encontrada');
@@ -236,19 +236,40 @@ async function convertNotewise(files, { folderId = null } = {}) {
   return { note, stats };
 }
 
-/* corrige notas importadas antes: altura arredondada (v0.8.3) e densidade da grade lida como tipo de modelo (v0.8.5) */
+/* corrige notas importadas antes da v0.8.6: descobre o tamanho original da página do Notewise e refaz a grade pela densidade
+   (regra conferida na escrita das suas notas: quadradinho = 220 − 20 × densidade, grade centralizada na folha) */
+const NW_SIZES = [[3480, 4000], [3500, 4000], [3480, 2408], [2480, 3508], [2478, 3507], [2479, 3506], [2125, 2952], [4960, 3508], [3480, 3000], [3480, 3600], [3980, 4000], [5000, 4000], [3200, 4000], [3600, 4000]];
 function fixNotewiseHeights(note) {
   if (!note || note.importedFrom !== 'notewise') return false;
   let changed = false;
   for (const p of note.pages) {
-    if (p.pdf) continue;
-    if (p.w === NW_TARGET_W && Number.isInteger(p.h)) for (const PW of [3480, 3500, 3200, 3600]) { const exact = 4000 * NW_TARGET_W / PW; if (Math.abs(p.h - exact) < 0.6) { p.h = exact; changed = true; break; } }
-    if (p.nw && !p.nw.fx && p.nw.tpl != null) {
-      p.nw.fx = 1; changed = true;
-      if (p.template && p.template.type !== 'custom') p.template = nwTemplate(p.nw.tpl, p.nw.v, p.template.paper, p.h / 4000); // s = 1000 / largura do Notewise
-    }
+    if (p.pdf || !p.nw || p.nw.tpl == null || (p.nw.fx || 0) >= 2) continue;
+    let PW = p.nw.pw, PH = p.nw.ph;
+    if (!PW) { let best = null; for (const [w, h] of NW_SIZES) { const d = Math.abs((h * NW_TARGET_W) / w - p.h); if (d < 1.2 && (!best || d < best.d)) best = { w, h, d }; } if (best) { PW = best.w; PH = best.h; } }
+    p.nw.fx = 2; changed = true;
+    if (!PW) continue; // tamanho desconhecido: deixa como está
+    const s = NW_TARGET_W / PW; p.w = NW_TARGET_W; p.h = PH * s; p.nw.pw = PW; p.nw.ph = PH;
+    const paper = (p.template && p.template.paper) || '#ffffff';
+    p.template = nwTemplate(p.nw.tpl, p.nw.v, paper, s); // inclusive páginas que receberam modelo de PDF de outro tamanho
+    nwAutoAlign(p);
   }
   return changed;
+}
+/* páginas redimensionadas no Notewise guardam a grade da folha original: mede a base das letras e desloca a grade para ela */
+function nwAutoAlign(p) {
+  const t = p.template; if (!t || !t.center || t.type === 'blank' || t.type === 'custom' || !p.nw || !p.nw.pw) return;
+  const g = Editor.gridLines({ ...t, dy: 0 }, p, 1); if (!g) return;
+  const sc = p.w / p.nw.pw; let c = 0, sn = 0, k = 0;
+  for (const e of p.elements) {
+    if (e.type !== 'stroke' || e.tool !== 'pen') continue;
+    let y0 = 1e9, y1 = -1e9, x0 = 1e9, x1 = -1e9;
+    for (let i = 0; i < e.pts.length; i += 3) { const x = e.pts[i], y = e.pts[i + 1]; if (y < y0) y0 = y; if (y > y1) y1 = y; if (x < x0) x0 = x; if (x > x1) x1 = x; }
+    const h = (y1 - y0) / sc; if (h < 15 || h > 70 || (x1 - x0) / sc > 200) continue; // só letras de tamanho normal
+    const a = (2 * Math.PI * (y1 - g.o)) / g.s; c += Math.cos(a); sn += Math.sin(a); k++;
+  }
+  if (k < 60 || Math.hypot(c, sn) / k < 0.6) return; // pouca escrita ou sem padrão claro
+  const dev = Math.atan2(sn, c) / (2 * Math.PI) + 0.02; // a base das letras fica ~2% acima da linha
+  if (Math.abs(dev) > 0.1) t.dy = dev * g.s;
 }
 
 /* ---- ponto de entrada: um .notewise ou um .zip com várias notas e pastas ---- */

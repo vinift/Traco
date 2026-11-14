@@ -94,6 +94,7 @@ const Store = {
       this.saveSettings();
     }
     if (S.penButton && !S.penMapMigrated) { S.penMap = { 'pen:2': S.penButton === 'none' ? undefined : S.penButton, 'pen:32': 'eraser' }; if (!S.penMap['pen:2']) delete S.penMap['pen:2']; S.penMapMigrated = true; this.saveSettings(); }
+    if (S.nwTplMap) { delete S.nwTplMap; this.saveSettings(); } // v0.8.6: modelos de PDF não são mais aplicados automaticamente nas importações
     if (!S.stabV8) { if ((S.stabilizer ?? 0) < 0.55) S.stabilizer = 0.55; S.stabV8 = true; this.saveSettings(); } // v0.8: estabilização mais forte por padrão
     for (const t of ['pen', 'shape']) if (!S.tools[t].dash) S.tools[t].dash = 'solid';
     if (S.nwDefaultSet && S.template && S.template.nw && (S.template.color === '#e8e8e8' || S.template.thickness === 1.25)) { S.template.color = '#f1f1f1'; S.template.thickness = 0.95; }

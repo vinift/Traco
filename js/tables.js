@@ -127,7 +127,7 @@ Object.assign(Editor, {
     if (tpl.type === 'custom') return customGridLines(tpl, page, axis);
     const s = +tpl.spacing; if (!s) return null;
     let o = 0;
-    if (tpl.center) { const L = axis ? page.h : page.w; const n = Math.floor((L - s) / s + 1e-3); o = (L - n * s) / 2; }
+    if (tpl.center) { const L = axis ? page.h : page.w; const n = Math.floor((L - s) / s + 1e-3); o = (L - n * s) / 2; if (axis && tpl.dy) o = ((o + +tpl.dy) % s + s) % s; }
     else if (axis && tpl.type === 'lines') o = +tpl.top || 0;
     if (!axis && tpl.type === 'lines') return null; // pauta só tem linhas horizontais
     return { o, s };

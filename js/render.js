@@ -29,6 +29,7 @@ function drawTemplate(ctx, tpl, vis, z, bounded, pw, ph) {
   if (tpl.center && bounded && pw && ph) {
     const nx = Math.floor((pw - s) / s + 1e-3), ny = Math.floor((ph - s) / s + 1e-3);
     ox = (pw - nx * s) / 2; oy = (ph - ny * s) / 2; xEnd = ox + nx * s + 0.01; yEnd = oy + ny * s + 0.01;
+    const dy = +tpl.dy || 0; if (dy) { oy += dy; yEnd += dy; if (oy - s > -0.01) { oy -= s; } yEnd = Math.min(yEnd, ph); } // deslocamento fino (páginas redimensionadas no Notewise)
   }
   const first = (v, o, st = s) => o + Math.max(0, Math.ceil((v - o) / st)) * st;
   ctx.beginPath();

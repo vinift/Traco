@@ -269,19 +269,11 @@ async function templateModal(pageIdx = null) {
   const n = Editor.note, cur = pageIdx ?? Editor.currentPageIndex(), curPage = n.pages[cur];
   const te = templateEditor(curPage.template || n.template, { w: curPage.w, h: curPage.h });
   let scope = pageIdx != null ? 'cur' : 'all';
-  const nwCode = !curPage.pdf && curPage.nw && curPage.nw.tpl != null ? curPage.nw.tpl : null;
   const opts = [['all', 'Todas as páginas'], ['cur', `Só a página ${cur + 1}`]];
-  if (nwCode != null) opts.push(['nw', 'Todas as notas importadas com este modelo do Notewise']);
-  const body = el('div', {}, te.el, n.mode === 'pages' ? el('div', { class: 'field' }, el('label', {}, 'Aplicar em'), UI.seg(opts, scope, (v) => (scope = v)),
-    nwCode != null ? el('p', { class: 'lbl-sm', style: { marginTop: '6px' } }, 'A última opção troca o modelo em todas as páginas importadas do Notewise que usavam o mesmo modelo desta página, e as próximas importações já virão com ele.') : null) : null);
+  const body = el('div', {}, te.el, n.mode === 'pages' ? el('div', { class: 'field' }, el('label', {}, 'Aplicar em'), UI.seg(opts, scope, (v) => (scope = v))) : null);
   const ok = await openModal({ title: 'Modelo de página', body, wide: true, buttons: [{ label: 'Cancelar', value: false }, { label: 'Aplicar', cls: 'primary', value: true }] });
   if (!ok) return;
   const t = te.get();
-  if (scope === 'nw') {
-    toast('Aplicando nas notas importadas…', 20000);
-    const r = await applyTemplateToNotewiseCode(t, nwCode, curPage.nw.v, (i, tot) => toast(`Aplicando nas notas importadas… ${i}/${tot}`, 20000));
-    toast(`Modelo aplicado em ${r.pages} página(s) de ${r.notes + 1} nota(s)`, 3000); Library.render && Library.render(); return;
-  }
   Editor.recTemplate(() => { if (scope === 'all' || n.mode === 'infinite') { n.template = t; n.pages.forEach((p) => { if (!p.pdf) p.template = null; }); } else curPage.template = t; });
   toast('Modelo aplicado · dá para desfazer', 1400);
 }
