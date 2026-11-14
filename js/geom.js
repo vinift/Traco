@@ -195,16 +195,20 @@ function elInLasso(e, poly) {
 /* Transformações — sempre retornam um novo objeto (invalida caches) */
 function transformEl(e, f) { // f: {sx, sy, ox, oy, dx, dy}  x' = ox + (x-ox)*sx + dx
   const X = (x) => f.ox + (x - f.ox) * f.sx + f.dx, Y = (y) => f.oy + (y - f.oy) * f.sy + f.dy;
-  const s = Math.sqrt(Math.abs(f.sx * f.sy));
+  const s = f.free ? 1 : Math.sqrt(Math.abs(f.sx * f.sy)); // redimensionar livre não engrossa linhas nem letras
   const n = { ...e };
   if (e.type === 'stroke') { const p = new Array(e.pts.length); for (let i = 0; i < p.length; i += 3) { p[i] = r2(X(e.pts[i])); p[i + 1] = r2(Y(e.pts[i + 1])); p[i + 2] = e.pts[i + 2]; } n.pts = p; if (s !== 1) n.width = e.width * s; }
   else if (e.type === 'shape') {
     if (e.kind === 'poly') { n.pts = e.pts.map((v, i) => r2(i % 2 ? Y(v) : X(v))); }
     else { n.x1 = X(e.x1); n.y1 = Y(e.y1); n.x2 = X(e.x2); n.y2 = Y(e.y2); }
     if (s !== 1) n.width = e.width * s;
-  } else if (e.type === 'text') { n.x = X(e.x); n.y = Y(e.y); n.w = Math.max(20, e.w * f.sx); if (f.sx !== 1 || f.sy !== 1) { n.size = Math.max(4, e.size * f.sy); if (e.minH) n.minH = e.minH * f.sy; } }
+  } else if (e.type === 'text') {
+    n.x = X(e.x); n.y = Y(e.y); n.w = Math.max(20, e.w * f.sx);
+    if (f.free) { if (e.sticky) n.minH = Math.max(40, (e.minH || e.w) * f.sy); }
+    else if (f.sx !== 1 || f.sy !== 1) { n.size = Math.max(4, e.size * f.sy); if (e.minH) n.minH = e.minH * f.sy; }
+  }
   else if (e.type === 'image') { n.x = X(e.x); n.y = Y(e.y); n.w = e.w * f.sx; n.h = e.h * f.sy; }
-  else if (e.type === 'table') { n.x = X(e.x); n.y = Y(e.y); n.w = e.w * f.sx; n.h = e.h * f.sy; if (s !== 1) n.bw = (e.bw || 1) * s; }
+  else if (e.type === 'table') { n.x = X(e.x); n.y = Y(e.y); n.w = e.w * f.sx; n.h = e.h * f.sy; if (s !== 1) n.bw = (e.bw || 1) * s; if (e.colW) n.colW = e.colW.map((v) => v * f.sx); if (e.rowH) n.rowH = e.rowH.map((v) => v * f.sy); }
   else { if (n.x != null) { n.x = X(e.x); n.y = Y(e.y); } }
   return n;
 }

@@ -218,7 +218,7 @@ function templateEditor(tplIn, size = { w: 794, h: 1123 }, { onNotewise } = {}) 
 /* ===== Nova nota ===== */
 async function newNoteDialog(folderId) {
   const S = Store.settings;
-  const title = el('input', { type: 'text', value: '', placeholder: 'Ex.: Direito Civil — Aula 3' });
+  const title = el('input', { type: 'text', value: '', placeholder: defaultNoteTitle() });
   let layout = S.layout || 'pages';
   const sizeSel = el('select', {}, ...Object.entries(PAGE_SIZES).map(([k, v]) => el('option', { value: k }, v.label)));
   sizeSel.value = S.pageSize || 'a4';
@@ -241,7 +241,7 @@ async function newNoteDialog(folderId) {
   const tpl = te.get(); const ps = PAGE_SIZES[sizeSel.value];
   const w = clamp(+wI.value || 794, 200, 4000), h0 = clamp(+hI.value || 1123, 200, 6000), h = ps && Math.abs(ps.h - h0) < 0.01 ? ps.h : h0;
   if (def.checked) { S.template = tpl; S.layout = layout; S.pageSize = sizeSel.value; Store.saveSettings(); }
-  const note = newNote({ title: title.value.trim() || 'Nota sem título', folderId, mode: layout, w, h, template: tpl });
+  const note = newNote({ title: title.value.trim() || defaultNoteTitle(), folderId, mode: layout, w, h, template: tpl });
   await Store.putNote(note);
   return note;
 }
@@ -416,3 +416,5 @@ async function exportPdfFlow(note, share = false) {
     downloadBlob(blob, name); toast('PDF gerado');
   } catch (e) { console.error(e); toast('Erro ao exportar: ' + e.message, 5000); }
 }
+
+function defaultNoteTitle(d = new Date()) { const p = (n) => String(n).padStart(2, '0'); return `Nova nota ${p(d.getDate())}/${p(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`; }

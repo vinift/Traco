@@ -133,7 +133,7 @@ const UI = {
     const sep = () => sr.append(el('div', { class: 'sep' }));
     const tune = () => { const b = el('button', { class: 'cbtn' + (this.panelOpen ? ' soft-on' : ''), title: 'Ajustes da ferramenta', onclick: () => this.togglePanel() }); b.innerHTML = icon('tune'); sr.append(b); };
     const groupBtn = (into = sr) => {
-      const g = this.group(); const b = el('button', { class: 'cbtn', title: 'Grupo de predefinições: ' + g.name, style: { fontSize: '11px', fontWeight: 700, background: 'var(--ch2)', width: '44px', height: '30px', borderRadius: '10px' } }, g.name.slice(0, 4));
+      const g = this.group(); const b = el('button', { class: 'cbtn', title: 'Grupo de predefinições: ' + g.name, style: { fontSize: '10.5px', fontWeight: 700, background: 'var(--ch2)', width: 'calc(var(--cb) + 2px)', height: '28px', borderRadius: '10px' } }, g.name.slice(0, 4));
       b.onclick = () => this.groupMenu(b); into.append(b);
     };
     const lineBtn = (into = sr) => { const b = el('button', { class: 'cbtn', title: 'Tipo de linha' }); b.innerHTML = lineTypeSvg(st.dash || 'solid', 26); b.onclick = () => this.lineTypePop(b); into.append(b); };
@@ -276,6 +276,11 @@ const UI = {
       p.append(...this.sliderRows('Sensibilidade à pressão', S.pressureSens ?? 0.6, 0, 1, 0.05, (v) => (v === 0 ? 'Sem' : Math.round(v * 100) + '%'), (v) => { S.pressureSens = v; S.pressure = v > 0; this.save(); upd(); }, false));
     }
     if (t === 'shape') p.append(this.switchRow('Alinhar linhas a 0°, 45° e 90°', null, S.angleSnap !== false, (v) => { S.angleSnap = v; this.save(); }));
+    if (t === 'highlighter') {
+      p.append(this.switchRow('Segure para ficar reto', 'Segure a caneta parada no fim do traço', S.hlHold !== false, (v) => { S.hlHold = v; this.save(); }));
+      p.append(this.switchRow('Sempre reto', 'Cada traço vira uma faixa reta do início ao fim', S.hlStraight, (v) => { S.hlStraight = v; this.save(); }));
+      p.append(this.switchRow('Alinhar a 0°, 45° e 90°', 'Faixas quase retas grudam na horizontal, vertical e diagonais', S.angleSnap !== false, (v) => { S.angleSnap = v; this.save(); }));
+    }
     if (t === 'pen' || t === 'highlighter') p.append(...this.sliderRows('Estabilização (suavizar)', S.stabilizer, 0, 0.9, 0.05, (v) => Math.round(v * 100) + '%', (v) => { S.stabilizer = v; this.save(); }, false));
     if (t === 'eraser') {
       p.append(this.switchRow('Apagar só marca-texto', 'Mantém a escrita da caneta', st.onlyHl, (v) => { st.onlyHl = v; this.save(); }));
@@ -401,6 +406,8 @@ const UI = {
   buildSelBar() {
     const bar = $('#selBar'); bar.innerHTML = '';
     const B = (ic, title, fn) => { const b = el('button', { class: 'icon-btn', title, onclick: fn }); b.innerHTML = icon(ic); bar.append(b); return b; };
+    const te = Editor.selTable(), ts = Editor.tsel;
+    if (te && ts && ts.id === te.id) return this.buildCellBar(bar, B, te, ts);
     const cb = B('palette', 'Mudar cor', () => colorPop(cb, '#000', (c) => Editor.recolorSel(c)));
     B('copy', 'Copiar', () => Editor.copySel());
     B('cut', 'Recortar', () => Editor.cutSel());
@@ -413,6 +420,34 @@ const UI = {
       B('align', 'Alinhar a escrita na horizontal', () => straightenSelection());
     }
     const d = B('trash', 'Excluir', () => Editor.deleteSel()); d.style.color = 'var(--danger)';
+  },
+
+  buildCellBar(bar, B, e, t) {
+    const sep = () => bar.append(el('span', { style: { width: '1px', alignSelf: 'stretch', background: 'var(--chline)', margin: '4px 2px' } }));
+    const nCells = (t.r2 - t.r1 + 1) * (t.c2 - t.c1 + 1), fullRows = t.c1 === 0 && t.c2 === e.cols - 1, fullCols = t.r1 === 0 && t.r2 === e.rows - 1;
+    const origins = () => { const out = []; for (let r = t.r1; r <= t.r2; r++) for (let c = t.c1; c <= t.c2; c++) { const m = (e.merges || []).find((m) => r >= m.r && r < m.r + m.rs && c >= m.c && c < m.c + m.cs); if (!m || (m.r === r && m.c === c)) out.push(r + ',' + c); } return out; };
+    const fb = B('fillCell', 'Cor das células', () => colorPop(fb, '#ede4fd', (c) => Editor.tableOp((e) => { const cf = { ...(e.cellFill || {}) }; for (const k of origins()) cf[k] = c; return { n: { ...e, cellFill: cf } }; }), ['#ede4fd', '#dbeafe', '#dcfce7', '#fef9c3', '#fee2e2', '#ffedd5', '#f3f4f6', '#ffffff'].concat(HL_PALETTE, PALETTE.slice(4, 16))));
+    B('x', 'Tirar a cor das células', () => Editor.tableOp((e) => { const cf = { ...(e.cellFill || {}) }; for (const k of origins()) delete cf[k]; return { n: { ...e, cellFill: cf } }; }));
+    sep();
+    if (nCells > 1) B('merge', 'Agrupar (mesclar) células', () => Editor.tableOp((e) => { const M = (e.merges || []).filter((m) => !(m.r >= t.r1 && m.r + m.rs - 1 <= t.r2 && m.c >= t.c1 && m.c + m.cs - 1 <= t.c2)); M.push({ r: t.r1, c: t.c1, rs: t.r2 - t.r1 + 1, cs: t.c2 - t.c1 + 1 }); return { n: { ...e, merges: M } }; }));
+    if ((e.merges || []).some((m) => m.r <= t.r2 && m.r + m.rs - 1 >= t.r1 && m.c <= t.c2 && m.c + m.cs - 1 >= t.c1)) B('split', 'Desagrupar células', () => Editor.tableOp((e) => ({ n: { ...e, merges: (e.merges || []).filter((m) => !(m.r <= t.r2 && m.r + m.rs - 1 >= t.r1 && m.c <= t.c2 && m.c + m.cs - 1 >= t.c1)) } })));
+    sep();
+    B('rowAbove', 'Inserir linha acima', () => Editor.tableOp((e) => ({ ...Tables.insertRows(e, t.r1), tsel: { r1: t.r1 + 1, r2: t.r2 + 1 } })));
+    B('rowBelow', 'Inserir linha abaixo', () => Editor.tableOp((e) => Tables.insertRows(e, t.r2 + 1)));
+    B('colLeft', 'Inserir coluna à esquerda', () => Editor.tableOp((e) => ({ ...Tables.insertCols(e, t.c1), tsel: { c1: t.c1 + 1, c2: t.c2 + 1 } })));
+    B('colRight', 'Inserir coluna à direita', () => Editor.tableOp((e) => Tables.insertCols(e, t.c2 + 1)));
+    sep();
+    if (t.r2 > t.r1 || t.c2 > t.c1) B('distribute', 'Igualar tamanhos (linhas e colunas selecionadas)', () => Editor.tableOp((e) => {
+      const { cw, rh } = Tables.dims(e), ncw = cw.slice(), nrh = rh.slice();
+      if (t.r2 > t.r1) { const avg = rh.slice(t.r1, t.r2 + 1).reduce((a, b) => a + b, 0) / (t.r2 - t.r1 + 1); for (let r = t.r1; r <= t.r2; r++) nrh[r] = avg; }
+      if (t.c2 > t.c1) { const avg = cw.slice(t.c1, t.c2 + 1).reduce((a, b) => a + b, 0) / (t.c2 - t.c1 + 1); for (let c = t.c1; c <= t.c2; c++) ncw[c] = avg; }
+      return { n: { ...e, colW: ncw, rowH: nrh } };
+    }));
+    if (!fullCols || t.mode === 'row') { const d = B('delRow', t.r2 > t.r1 ? 'Excluir linhas' : 'Excluir linha', () => Editor.tableOp((e) => { const r = Tables.deleteRows(e, t.r1, t.r2); return r && { ...r, keepSel: false }; })); d.style.color = 'var(--danger)'; }
+    if (!fullRows || t.mode === 'col') { const d = B('delCol', t.c2 > t.c1 ? 'Excluir colunas' : 'Excluir coluna', () => Editor.tableOp((e) => { const r = Tables.deleteCols(e, t.c1, t.c2); return r && { ...r, keepSel: false }; })); d.style.color = 'var(--danger)'; }
+    sep();
+    B('table', 'Ajustes da tabela', () => this.openTableEdit(e.id));
+    B('check', 'Concluir seleção de células', () => { Editor.tsel = null; this.buildSelBar(); Editor.requestRender(); });
   },
 
   /* ---------- auxiliares usados nos diálogos ---------- */
@@ -461,3 +496,5 @@ const Clips = {
   async remove(id) { await this.save(((await DB.get('meta', 'clips')) || []).filter((c) => c.id !== id)); },
   async clear() { await this.save(((await DB.get('meta', 'clips')) || []).filter((c) => c.pin)); },
 };
+
+function applyBarSize() { const b = Store.settings.barSize || 'compact', e = $('#editor'); e.classList.toggle('bar-compact', b === 'compact'); e.classList.toggle('bar-mini', b === 'mini'); }

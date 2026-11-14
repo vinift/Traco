@@ -84,14 +84,28 @@ function drawElement(ctx, e) {
     if (bmp) ctx.drawImage(bmp, e.x, e.y, e.w, e.h);
     else { ctx.fillStyle = 'rgba(120,130,150,.15)'; ctx.fillRect(e.x, e.y, e.w, e.h); }
   } else if (e.type === 'table') {
-    const g = tableGrid(e), bw = e.bw || 1;
+    const g = tableGrid(e), bw = e.bw || 1, bc = e.bc || '#7c3aed', M = e.merges || [];
+    const span = (r, c) => M.find((m) => r >= m.r && r < m.r + m.rs && c >= m.c && c < m.c + m.cs);
     if (e.fill) { ctx.fillStyle = e.fill; ctx.fillRect(e.x, e.y, e.w, e.h); }
-    ctx.fillStyle = e.bc || '#7c3aed'; ctx.globalAlpha = 0.18; // cabeçalhos com um tom da cor da borda
+    ctx.fillStyle = bc; ctx.globalAlpha = 0.18; // cabeçalhos com um tom da cor da borda
     if (e.hRow) ctx.fillRect(e.x, g.ys[0], e.w, g.ys[1] - g.ys[0]);
     if (e.hCol) ctx.fillRect(g.xs[0], e.hRow ? g.ys[1] : e.y, g.xs[1] - g.xs[0], e.hRow ? e.y + e.h - g.ys[1] : e.h);
-    ctx.globalAlpha = 1; ctx.strokeStyle = e.bc || '#7c3aed'; ctx.lineWidth = bw; ctx.lineCap = 'square'; ctx.beginPath();
-    for (const x of g.xs) { ctx.moveTo(x, e.y); ctx.lineTo(x, e.y + e.h); }
-    for (const y of g.ys) { ctx.moveTo(e.x, y); ctx.lineTo(e.x + e.w, y); }
+    ctx.globalAlpha = 1;
+    for (const [k, col] of Object.entries(e.cellFill || {})) { // cor por célula (ou bloco mesclado)
+      const [r, c] = k.split(',').map(Number); if (r >= e.rows || c >= e.cols) continue;
+      const m = span(r, c); if (m && (m.r !== r || m.c !== c)) continue;
+      const r2_ = m ? m.r + m.rs : r + 1, c2_ = m ? m.c + m.cs : c + 1;
+      ctx.fillStyle = col; ctx.fillRect(g.xs[c], g.ys[r], g.xs[c2_] - g.xs[c], g.ys[r2_] - g.ys[r]);
+    }
+    ctx.strokeStyle = bc; ctx.lineWidth = bw; ctx.lineCap = 'square'; ctx.beginPath();
+    for (let i = 0; i <= e.rows; i++) for (let j = 0; j < e.cols; j++) { // linhas horizontais, pulando as células mescladas
+      if (i > 0 && i < e.rows) { const m = span(i - 1, j); if (m && i < m.r + m.rs) continue; }
+      ctx.moveTo(g.xs[j], g.ys[i]); ctx.lineTo(g.xs[j + 1], g.ys[i]);
+    }
+    for (let j = 0; j <= e.cols; j++) for (let i = 0; i < e.rows; i++) {
+      if (j > 0 && j < e.cols) { const m = span(i, j - 1); if (m && j < m.c + m.cs) continue; }
+      ctx.moveTo(g.xs[j], g.ys[i]); ctx.lineTo(g.xs[j], g.ys[i + 1]);
+    }
     ctx.stroke();
   } else if (Plugins.renderers[e.type]) {
     try { Plugins.renderers[e.type](ctx, e); } catch (err) { console.warn(err); }

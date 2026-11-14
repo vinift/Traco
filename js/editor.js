@@ -30,6 +30,7 @@ const Editor = {
     window.addEventListener('contextmenu', (e) => { if (e.pointerType === 'pen' && (this.note || PenCapture.active)) { e.preventDefault(); this.firePenSig('pen:ctx'); } }, true);
     this.saveDebounced = debounce(() => this.saveNow(), 900);
     this.thumbDebounced = debounce(() => this.updateThumb(), 8000);
+    this.viewDebounced = debounce(() => this.saveView(), 1500);
     this.ocrDebounced = debounce(() => OCR.scheduleNote(this.note), 12000);
   },
 
@@ -41,13 +42,15 @@ const Editor = {
     $('#noteTitle').value = note.title;
     this.desk = getComputedStyle(document.documentElement).getPropertyValue('--desk').trim() || '#d9dde3';
     this.computeLayout(); this.resize(true);
-    if (note.view) { this.cam = { ...note.view }; this.clampCam(); } else this.fitWidth();
+    const views = (await DB.get('meta', 'views')) || {}; const v = views[note.id] || note.view; // continua de onde parou
+    if (v) { this.cam = { ...v }; this.clampCam(); } else this.fitWidth();
+    applyBarSize();
     UI.buildToolbar(); UI.renderOptions(); this.updateUndoBtns(); Instruments.sync();
     this.requestRender();
     return true;
   },
   async close() {
-    this.commitText(); this.ocrDebounced.cancel(); await this.saveNow(); await this.updateThumb(); OCR.scheduleNote(this.note);
+    this.commitText(); this.ocrDebounced.cancel(); this.viewDebounced.cancel(); await this.saveView(); await this.saveNow(); await this.updateThumb(); OCR.scheduleNote(this.note);
     Instruments.hideAll(); this.note = null;
   },
   markChanged() {
@@ -58,6 +61,12 @@ const Editor = {
     if (!this.note) return; this.saveDebounced.cancel();
     this.note.view = { ...this.cam }; this.note.title = $('#noteTitle').value.trim() || 'Nota sem título';
     await Store.putNote(this.note);
+  },
+  async saveView() { // posição de leitura salva à parte (não dispara backup no Drive)
+    if (!this.note) return; const views = (await DB.get('meta', 'views')) || {};
+    views[this.note.id] = { ...this.cam, page: this.currentPageIndex(), at: Date.now() };
+    const keys = Object.keys(views); if (keys.length > 400) keys.sort((a, b) => views[a].at - views[b].at).slice(0, keys.length - 400).forEach((k) => delete views[k]);
+    await DB.put('meta', views, 'views');
   },
   async updateThumb() { if (!this.note) return; const t = await makeThumb(this.note); if (t) await Store.setThumb(this.note.id, t); },
 
@@ -114,6 +123,8 @@ const Editor = {
     const vis = { x: this.cam.x, y: this.cam.y, w: this.W / z, h: this.H / z };
     const skip = new Set(); if (this.editingId) skip.add(this.editingId);
     const selActive = this.sel && this.selTf; if (selActive) for (const id of this.sel.ids) skip.add(id);
+    const att = selActive && this.action && this.action.attached && !this.selTf.free ? this.action.attached : null; if (att) for (const id of att) skip.add(id);
+    const pv = this.tPreview; if (pv) { for (const id of pv.map.keys()) skip.add(id); for (const x of pv.removed) skip.add(x.id); }
     note.pages.forEach((page, i) => {
       const o = this.layout[i];
       const pr = inf ? vis : { x: o.x, y: o.y, w: page.w, h: page.h };
@@ -129,15 +140,22 @@ const Editor = {
       if (this.textEl && this.textCtx && this.textCtx.page === page && this.textCtx.el.sticky) drawElement(ctx, { ...this.textCtx.el, text: '' }); // post-it em edição
       if (selActive && this.sel.pageId === page.id) {
         const t = this.selTf;
-        if (t.rot != null) { ctx.translate(t.cx, t.cy); ctx.rotate(t.rot); ctx.translate(-t.cx, -t.cy); }
-        else { ctx.translate(t.ox + t.dx, t.oy + t.dy); ctx.scale(t.sx, t.sy); ctx.translate(-t.ox, -t.oy); }
-        for (const e of page.elements) if (this.sel.ids.has(e.id)) drawElement(ctx, e);
+        if (t.free) { for (const e of page.elements) if (this.sel.ids.has(e.id)) drawElement(ctx, transformEl(e, t)); }
+        else {
+          if (t.rot != null) { ctx.translate(t.cx, t.cy); ctx.rotate(t.rot); ctx.translate(-t.cx, -t.cy); }
+          else { ctx.translate(t.ox + t.dx, t.oy + t.dy); ctx.scale(t.sx, t.sy); ctx.translate(-t.ox, -t.oy); }
+          for (const e of page.elements) if (this.sel.ids.has(e.id) || (att && att.has(e.id))) drawElement(ctx, e);
+        }
+      }
+      if (pv && this.sel && this.sel.pageId === page.id) { // prévia da tabela (linha/coluna redimensionada, escrita acompanhando)
+        for (const e of page.elements) { const n = pv.map.get(e.id); if (n) drawElement(ctx, n); }
       }
       ctx.restore();
     });
     const a = this.action;
     if (this.lowLat && a && a.kind === 'draw' && a.tool === 'pen' && a.dash === 'solid' && !a.shape && a.pts.length) { this.pageTf(ctx, a.pi); ctx.fillStyle = a.color; ctx.fill(buildPenPath(a.pts, a.width)); }
-    this.drawSelection(); this.updateHud(); this.positionText();
+    this.drawSelection(); this.drawGuides(); this.updateHud(); this.positionText();
+    if (this._lastCam !== `${this.cam.x}|${this.cam.y}|${this.cam.z}`) { this._lastCam = `${this.cam.x}|${this.cam.y}|${this.cam.z}`; this.viewDebounced(); }
   },
   selElements() { if (!this.sel) return []; const p = this.pageById(this.sel.pageId); return p ? p.elements.filter((e) => this.sel.ids.has(e.id)) : []; },
   selScreenBox() {
@@ -161,9 +179,11 @@ const Editor = {
     ctx.beginPath(); ctx.moveTo(rx, box.y); ctx.lineTo(rx, ry + 11); ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(rx, ry, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.arc(rx, ry, 5, -Math.PI * 0.9, Math.PI * 0.4); ctx.stroke();
+    if (this.ratioLabel) { ctx.fillStyle = '#ec4899'; ctx.font = '600 12px system-ui'; ctx.textAlign = 'right'; ctx.fillText(this.ratioLabel, box.x + box.w - 14, box.y + box.h + 22); }
     if (this.selTf && this.selTf.rot != null) { ctx.fillStyle = '#7c3aed'; ctx.font = '600 13px system-ui'; ctx.textAlign = 'center'; ctx.fillText(Math.round(this.selTf.rot * 180 / Math.PI) + '°', rx, ry - 18); }
     ctx.restore();
-    if (this.selTf) { bar.classList.add('hidden'); return; }
+    if (!this.selTf && !this.tPreview) this.drawTableOverlay(box);
+    if (this.selTf || this.tPreview) { bar.classList.add('hidden'); return; }
     if (bar.classList.contains('hidden') || bar.dataset.n !== String(this.sel.ids.size)) UI.buildSelBar();
     bar.classList.remove('hidden'); bar.dataset.n = this.sel.ids.size;
     const bw = bar.offsetWidth, bh = bar.offsetHeight;
@@ -231,7 +251,7 @@ const Editor = {
       const drawingTouch = this.action && this.action.ptype === 'touch';
       if (!this.gesture && !drawingTouch && this.touchIds().length === 1 && this.sel && !this.readOnly) { // dedo também move, redimensiona e gira a seleção
         const k = this.selHit(p);
-        if (k) { rec.drawing = true; this.action = { pid: e.pointerId, ptype: 'touch', tool: 'lasso', sx: p.x, sy: p.y, kind: k, start: p, box: this.selScreenBox() }; return; }
+        if (k) { rec.drawing = true; this.action = { pid: e.pointerId, ptype: 'touch', tool: 'lasso', sx: p.x, sy: p.y, kind: k, start: p, box: this.selScreenBox() }; if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
       }
       if (Store.settings.fingerDraws && !this.readOnly && !this.gesture && !drawingTouch && this.touchIds().length === 1) { rec.drawing = true; this.startAction(e, p); return; }
       if (drawingTouch) { const ap = this.pointers.get(this.action.pid); this.cancelAction(); if (ap) ap.drawing = false; }
@@ -342,13 +362,15 @@ const Editor = {
     if (a.kind === 'erase') { this.eraseAt(a.last, w); a.last = w; this.drawEraserCursor(p); return; }
     if (a.kind === 'lasso') { a.pts.push([p.x, p.y]); this.drawLasso(); return; }
     if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate') return this.moveSel(p);
+    if (a.kind === 'tableact') return this.moveTableAct(p);
     if (a.kind === 'shape') return this.moveShape(w);
     if (a.kind === 'table') return this.moveTable(w);
     if (a.kind === 'plugin') return this.callPlugin('onMove', e, p);
   },
   endAction(e) {
-    const a = this.action; if (!a) return; this.action = null;
+    const a = this.action; if (!a) return; this.action = null; this._lastAction = a;
     const rec = [...this.pointers.values()].find((r) => r.drawing); if (rec) rec.drawing = false;
+    if (a.kind === 'tableact') return this.endTableAct();
     if (a.kind === 'draw') return this.endDraw(a);
     if (a.kind === 'erase') { this.clearLive(); this.opCommit(); return; }
     if (a.kind === 'lasso') return this.endLasso(a);
@@ -362,7 +384,7 @@ const Editor = {
     const a = this.action; this.action = null; if (!a) return;
     clearTimeout(a.holdT); this.clearLive();
     if (a.kind === 'erase' || a.kind === 'plugin') this.opCommit();
-    if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate') { this.selTf = null; }
+    if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate' || a.kind === 'tableact') { this.selTf = null; this.tPreview = null; this.guides = null; }
     this.requestRender();
   },
 
@@ -374,7 +396,8 @@ const Editor = {
     const a = this.action = { ...base, kind: 'draw', pi, pts: [], color: st.color, width: st.width, opacity: base.tool === 'highlighter' ? st.opacity ?? 0.4 : 1, drawn: 0, snap: Instruments.snapFor(p), hold: { x: p.x, y: p.y } };
     a.dash = base.tool === 'pen' ? st.dash || 'solid' : 'solid';
     a.inf = inf; this.addDrawPoint(e);
-    if (base.tool === 'pen' && Store.settings.straightAlways && !a.snap) { // sempre linhas retas
+    const S0 = Store.settings;
+    if (((base.tool === 'pen' && S0.straightAlways) || (base.tool === 'highlighter' && S0.hlStraight)) && !a.snap) { // sempre linhas retas
       const q = a.pts; a.straight = true;
       a.shape = { id: uid(), type: 'shape', kind: 'line', x1: q[0], y1: q[1], x2: q[0], y2: q[1], color: a.color, width: a.width, fill: null, dash: a.dash };
     }
@@ -396,13 +419,17 @@ const Editor = {
     } else a.pts.push(l.x, l.y, pr);
     a.raw = l;
     // reconhecimento de forma ao segurar
-    if (a.tool === 'pen' && Store.settings.shapeHold && !a.snap && !a.shape) {
+    if (((a.tool === 'pen' && Store.settings.shapeHold) || (a.tool === 'highlighter' && Store.settings.hlHold !== false)) && !a.snap && !a.shape) {
       if (Math.hypot(p.x - a.hold.x, p.y - a.hold.y) > 5) { a.hold = { x: p.x, y: p.y }; clearTimeout(a.holdT); a.holdT = setTimeout(() => this.tryRecognize(), 600); }
     } else if (a.shape) this.updateHeldShape(l);
   },
   tryRecognize() {
     const a = this.action; if (!a || a.kind !== 'draw' || a.pts.length < 12) return;
-    const r = recognizeShape(a.pts); if (!r) return;
+    let r = recognizeShape(a.pts);
+    if (a.tool === 'highlighter') { // marca-texto: segurar só endireita a linha
+      const n = a.pts.length; r = { kind: 'line', x1: a.pts[0], y1: a.pts[1], x2: a.pts[n - 3], y2: a.pts[n - 2] };
+    }
+    if (!r) return;
     if (r.kind === 'line') [r.x2, r.y2] = snapAngle(r.x1, r.y1, r.x2, r.y2);
     a.shape = { id: uid(), type: 'shape', color: a.color, width: Math.max(1, a.width * 0.9), fill: null, dash: a.dash, ...r };
     a.shapeAnchor = r.kind === 'line' ? null : { x1: r.x1, y1: r.y1 };
@@ -410,6 +437,7 @@ const Editor = {
     if (this.lowLat) this.requestRender();
     this.drawLiveStroke();
   },
+  hlLine(a) { const sh = a.shape; return { id: sh.id, type: 'stroke', tool: 'highlighter', color: a.color, width: a.width, opacity: a.opacity, cap: 'butt', pts: [r2(sh.x1), r2(sh.y1), 0.5, r2(sh.x2), r2(sh.y2), 0.5] }; },
   updateHeldShape(l) {
     const a = this.action, s = a.shape;
     if (s.kind === 'poly') return;
@@ -419,7 +447,7 @@ const Editor = {
   },
   drawLiveStroke() {
     const a = this.action, c = this.lctx;
-    if (a.shape) { this.clearLive(); this.pageTf(c, a.pi); drawElement(c, a.shape); return; }
+    if (a.shape) { this.clearLive(); this.pageTf(c, a.pi); drawElement(c, a.tool === 'highlighter' ? this.hlLine(a) : a.shape); return; }
     this.pageTf(c, a.pi);
     if (a.tool === 'pen' && a.dash !== 'solid') {
       this.clearLive(); this.pageTf(c, a.pi);
@@ -440,7 +468,7 @@ const Editor = {
   endDraw(a) {
     clearTimeout(a.holdT); this.clearLive();
     const page = this.note.pages[a.pi];
-    if (a.shape && !(a.straight && Math.hypot(a.shape.x2 - a.shape.x1, a.shape.y2 - a.shape.y1) < 2)) { this.recAdd(page, a.shape); this.opCommit(); return; }
+    if (a.shape && !(a.straight && Math.hypot(a.shape.x2 - a.shape.x1, a.shape.y2 - a.shape.y1) < 2)) { this.recAdd(page, a.tool === 'highlighter' ? this.hlLine(a) : a.shape); this.opCommit(); return; }
     if (a.raw && !a.snap) { const n = a.pts.length; if (Math.hypot(a.pts[n - 3] - a.raw.x, a.pts[n - 2] - a.raw.y) > 0.5) a.pts.push(a.raw.x, a.raw.y, a.pts[n - 1]); }
     if (!a.pts.length) return;
     if (a.tool === 'pen' && !a.snap && Store.settings.scribbleErase && isScribble(a.pts)) {
@@ -485,7 +513,8 @@ const Editor = {
   /* --- Laço / seleção --- */
   startLasso(base, p, w) {
     const k = this.sel && this.selHit(p);
-    if (k) { this.action = { ...base, kind: k, start: p, box: this.selScreenBox() }; return; }
+    if (k) { this.action = { ...base, kind: k, start: p, box: this.selScreenBox() }; if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
+    this.tsel = null;
     this.sel = null; this.requestRender();
     const pi = this.pageIndexAt(w.x, w.y, true);
     this.action = { ...base, kind: 'lasso', pi, pts: [[p.x, p.y]] };
@@ -494,6 +523,8 @@ const Editor = {
     const box = this.selScreenBox(); if (!box) return null;
     if (Math.hypot(p.x - (box.x + box.w), p.y - (box.y + box.h)) < 28) return 'scale';
     if (Math.hypot(p.x - (box.x + box.w / 2), p.y - (box.y - 34)) < 24) return 'rotate';
+    const te = this.selTable();
+    if (te) { const h = this.tableHit(te, p); this._thit = h; return h ? (h.k === 'tmove' ? 'move' : 'tableact') : null; }
     if (p.x >= box.x && p.x <= box.x + box.w && p.y >= box.y && p.y <= box.y + box.h) return 'move';
     return null;
   },
@@ -517,28 +548,6 @@ const Editor = {
     }
     this.sel = ids.length ? { pageId: page.id, ids: new Set(ids) } : null;
     this.requestRender();
-  },
-  moveSel(p) {
-    const a = this.action, z = this.cam.z;
-    const b = bboxUnion(this.selElements());
-    if (a.kind === 'move') this.selTf = { ox: b.x, oy: b.y, sx: 1, sy: 1, dx: (p.x - a.start.x) / z, dy: (p.y - a.start.y) / z };
-    else if (a.kind === 'rotate') {
-      const c = { x: a.box.x + a.box.w / 2, y: a.box.y + a.box.h / 2 };
-      let ang = Math.atan2(p.y - c.y, p.x - c.x) - Math.atan2(a.start.y - c.y, a.start.x - c.x);
-      const sn = Math.round(ang / (Math.PI / 12)) * (Math.PI / 12); if (Math.abs(ang - sn) < 0.05) ang = sn; // gruda a cada 15°
-      this.selTf = { ox: b.x, oy: b.y, sx: 1, sy: 1, dx: 0, dy: 0, rot: ang, cx: b.x + b.w / 2, cy: b.y + b.h / 2 };
-    } else {
-      const bw = a.box.w, bh = a.box.h;
-      const s = Math.max(0.05, Math.max((bw + (p.x - a.start.x)) / bw, (bh + (p.y - a.start.y)) / bh));
-      this.selTf = { ox: b.x, oy: b.y, sx: s, sy: s, dx: 0, dy: 0 };
-    }
-    this.requestRender();
-  },
-  endMoveSel() {
-    const t = this.selTf; this.selTf = null; if (!t) return this.requestRender();
-    const page = this.pageById(this.sel.pageId);
-    for (const e of this.selElements()) this.recReplace(page, e, t.rot != null ? rotateEl(e, t.rot, t.cx, t.cy) : transformEl(e, t));
-    this.opCommit();
   },
   deleteSel() { const page = this.pageById(this.sel.pageId); for (const e of this.selElements()) this.recRemove(page, e); this.sel = null; this.opCommit(); },
   copySel(record = true) { const els = this.selElements(); if (!els.length) return; this.clip = clone(els); if (record) { Clips.add(els); toast(`${els.length} item(ns) copiado(s) · salvo na biblioteca`, 1400); } UI.renderOptions(); },

@@ -63,7 +63,8 @@ const DEFAULT_SETTINGS = {
     sticky: { bg: '#fde68a', color: '#1f2937', size: 18 },
     table: { cols: 3, rows: 6, hRow: true, hCol: true, bw: 2, bc: '#7c3aed', fill: null },
   },
-  angleSnap: true, straightAlways: false, userName: 'Vinicius', libSort: { by: 'name', dir: 1 }, libView: 'grid', sideClosed: false,
+  angleSnap: true, straightAlways: false, hlHold: true, hlStraight: false, barSize: 'compact',
+  snapPage: true, snapObjects: true, snapAngle: true, snapRatio: true, userName: 'Vinicius', libSort: { by: 'name', dir: 1 }, libView: 'grid', sideClosed: false,
   penMap: { 'pen:2': 'eraser', 'pen:32': 'eraser' },
   presetGroups: null,
   presets: {

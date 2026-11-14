@@ -23,6 +23,7 @@ const Library = {
   render() {
     const S = this.S, q = this.query.trim();
     $('#hello').textContent = S.userName ? `Olá, ${S.userName}` : 'Olá!';
+    const ver = $('#libVersion'); if (ver) ver.textContent = 'Versão ' + App.version;
     $('#library').classList.toggle('side-closed', !!S.sideClosed);
     $$('.side-item[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === this.view && !q && (this.view !== 'home' || !this.folder)));
     // pastas na barra lateral
@@ -238,6 +239,18 @@ async function openSettings(focus) {
   // --- Escrita
   const chk = (label, key, after) => UI.check(label, S[key], (v) => { S[key] = v; Store.saveSettings(); after && after(v); });
   const th = el('select', {}, el('option', { value: 'auto' }, 'Automático'), el('option', { value: 'light' }, 'Claro'), el('option', { value: 'dark' }, 'Escuro')); th.value = S.theme || 'auto'; th.addEventListener('change', () => { S.theme = th.value; Store.saveSettings(); App.applyTheme(); });
+  const bar = UI.seg([['normal', 'Normal'], ['compact', 'Compacta'], ['mini', 'Bem compacta']], S.barSize || 'compact', (v) => { S.barSize = v; Store.saveSettings(); applyBarSize(); });
+  body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Aparência e barras'),
+    el('div', { class: 'field' }, el('label', {}, 'Largura das barras laterais do editor (mais estreitas deixam mais espaço para escrever)'), bar),
+    el('div', { class: 'field' }, el('label', {}, 'Tema do app'), th)));
+  body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Ajustes automáticos'),
+    el('p', {}, 'Ao mover, redimensionar ou girar formas, textos, post-its, imagens e tabelas, o app ajuda a alinhar e mostra uma linha-guia rosa.'),
+    el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
+      UI.check('Diretrizes da página: margens, centro e pauta/grade do modelo', S.snapPage !== false, (v) => { S.snapPage = v; Store.saveSettings(); }),
+      UI.check('Outros objetos: bordas e centros dos objetos próximos', S.snapObjects !== false, (v) => { S.snapObjects = v; Store.saveSettings(); }),
+      UI.check('Ângulo: girar grudando a cada 15° (0°, 45°, 90°…)', S.snapAngle !== false, (v) => { S.snapAngle = v; Store.saveSettings(); }),
+      UI.check('Proporção: ao redimensionar, grudar em 1:1 ou na proporção original', S.snapRatio !== false, (v) => { S.snapRatio = v; Store.saveSettings(); }),
+      UI.check('Linhas retas da caneta e do marca-texto grudam em 0°, 45° e 90°', S.angleSnap !== false, (v) => { S.angleSnap = v; Store.saveSettings(); }))));
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Escrita e caneta'),
     el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
       chk('Ignorar a palma da mão (toques são ignorados enquanto a caneta está perto da tela)', 'palmGuard'),
@@ -247,7 +260,7 @@ async function openSettings(focus) {
       chk('Reconhecer formas ao segurar a caneta parada no fim do traço', 'shapeHold'),
       UI.check('Modo de baixa latência (a tinta aparece mais rápido; reabra o app depois de mudar)', S.lowLatency === true, (v) => { S.lowLatency = v; Store.saveSettings(); toast('Reabra o app para aplicar'); }),
       UI.slider('Suavização do traço', 0, 0.9, 0.05, S.stabilizer, (v) => { S.stabilizer = v; Store.saveSettings(); }, (v) => Math.round(v * 100) + '%'),
-      el('div', { class: 'row' }, el('div', { class: 'field' }, el('label', {}, 'Tema do app'), th)))));
+      )));
   body.append(penMapSection());
   S.ocr = S.ocr || { enabled: true, lang: 'pt_BR' };
   const ocrLang = el('select', {}, ...[['pt_BR', 'Português (Brasil)'], ['pt_PT', 'Português (Portugal)'], ['en', 'Inglês'], ['es', 'Espanhol'], ['fr', 'Francês'], ['it', 'Italiano'], ['de', 'Alemão'], ['la', 'Latim']].map(([v, n]) => el('option', { value: v }, n)));
@@ -295,9 +308,36 @@ async function openSettings(focus) {
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Cópia local'),
     el('p', {}, 'Um arquivo único com todas as notas, imagens e PDFs, para guardar onde quiser ou levar para outro aparelho.'),
     el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, B('Exportar tudo', '', exportAll), B('Importar arquivo de backup', '', importAll))));
-  body.append(el('p', { class: 'lbl-sm', style: { textAlign: 'center' } }, 'Traço Notas · versão ' + App.version));
-  const done = openModal({ title: 'Configurações', body, wide: true, buttons: [{ label: 'Fechar', cls: 'primary', action: () => { saveDrive(); if (Editor.note) { UI.buildToolbar(); UI.renderOptions(); } } }] });
-  return done;
+  body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Sobre'), el('p', {}, `Traço Notas · versão ${App.version}`), el('p', {}, 'Caderno digital feito sob medida: escrita com caneta, PDFs, tabelas, importação do Notewise e backup no seu Google Drive. As notas ficam guardadas no aparelho.')));
+  return settingsPage(body, focus, () => { saveDrive(); applyBarSize(); if (Editor.note) { UI.buildToolbar(); UI.renderOptions(); Editor.requestRender(); } });
+}
+const SET_ORDER = [['Você', 'home'], ['Aparência e barras', 'palette'], ['Escrita e caneta', 'pen'], ['Ajustes automáticos', 'fit'], ['Botões da caneta (Focus Pen)', 'hand'], ['Leitura da escrita à mão (OCR)', 'ocr'], ['Backup automático no Google Drive', 'cloud'], ['Modelo padrão para novas notas', 'grid'], ['Ferramentas próprias (plugins)', 'plug'], ['Cópia local', 'download'], ['Sobre', 'star']];
+function settingsPage(body, focus, onClose) {
+  return new Promise((resolve) => {
+    const secs = [...body.querySelectorAll(':scope > .set-sec')];
+    const byTitle = new Map(secs.map((x) => [x.querySelector('h3').textContent, x]));
+    const content = el('div', { class: 'sp-content' }), nav = el('nav', { class: 'sp-nav' });
+    const ordered = SET_ORDER.filter(([t]) => byTitle.has(t)).concat(secs.map((x) => [x.querySelector('h3').textContent, 'settings']).filter(([t]) => !SET_ORDER.some(([o]) => o === t)));
+    for (const [t, ic] of ordered) {
+      const sec = byTitle.get(t); sec.id = 'sec-' + uid(); const h = sec.querySelector('h3'); h.prepend(iconEl(ic)); content.append(sec);
+      const b = el('button', { class: 'sp-item', onclick: () => { content.scrollTo({ top: sec.offsetTop - 12, behavior: 'smooth' }); } }, iconEl(ic), el('span', {}, t.replace(' (Focus Pen)', '').replace(' (OCR)', '').replace('Backup automático no ', '').replace(' para novas notas', '').replace(' (plugins)', '')));
+      b.dataset.sec = sec.id; nav.append(b);
+    }
+    const close = () => { page.remove(); onClose && onClose(); resolve(); };
+    const back = el('button', { class: 'cbtn round', title: 'Voltar', onclick: close }); back.innerHTML = icon('arrowLeft');
+    const page = el('div', { class: 'settings-page' },
+      el('header', { class: 'sp-head' }, back, el('h1', {}, 'Configurações'), el('span', { class: 'sp-ver' }, 'v' + App.version)),
+      el('div', { class: 'sp-body' }, nav, content));
+    content.addEventListener('scroll', () => { // destaca a seção visível
+      let cur = null; for (const sec of content.children) if (sec.offsetTop - content.scrollTop < 140) cur = sec.id;
+      $$('.sp-item', nav).forEach((b) => b.classList.toggle('on', b.dataset.sec === cur));
+    });
+    document.body.append(page);
+    setTimeout(() => {
+      content.dispatchEvent(new Event('scroll'));
+      if (focus === 'drive') { const d = [...content.children].find((x) => x.querySelector('h3').textContent.includes('Google Drive')); if (d) content.scrollTo({ top: d.offsetTop - 12 }); }
+    }, 30);
+  });
 }
 async function editPlugin(p) {
   const S = Store.settings;

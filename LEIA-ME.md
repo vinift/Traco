@@ -54,7 +54,11 @@ O Client Secret é opcional, mas recomendado. Sem ele, o Google pede para recone
 | Biblioteca | Tudo o que você copia (formas, imagens, tabelas, escrita) fica guardado no botão de biblioteca da barra lateral. Toque para colar; segure para fixar no topo ou remover |
 | Modelo Notewise | Notas novas já nascem com a folha 3480 × 4000 e a grade clara do Notewise. Em "Modelo de página" você encontra os modelos do Notewise (Grade, Linha, Ponto, Em branco) e as 6 cores de papel |
 | Tela inicial | Pastas coloridas com subpastas. O **+** roxo cria nota, pasta ou importa. Use ↑ Nome para ordenar, o ícone de lista para trocar a visualização e ✓ para selecionar vários itens e mover ou excluir |
-| Tabela | Ferramenta de tabela: arraste na página (ou toque) para criar. Para mudar colunas, linhas, cabeçalhos e cores depois, selecione-a com o laço e toque em "Ajustes da tabela" |
+| Tabela | Ferramenta de tabela: arraste na página (ou toque) para criar. Selecione-a com o laço: as faixas roxas em cima e à esquerda selecionam colunas e linhas (arraste para pegar várias); toque numa célula e arraste para selecionar células. A barra de células tem cor de fundo, agrupar (mesclar), inserir linha/coluna, igualar tamanhos e excluir |
+| Aumentar só uma linha ou coluna | Com a tabela selecionada, arraste a linha divisória. A escrita das células seguintes acompanha. Ao mover ou redimensionar a tabela, a escrita de dentro vai junto |
+| Ajustes automáticos | Ao mover ou redimensionar objetos aparece uma linha-guia rosa: gruda nas margens, no centro e na grade da página, em outros objetos, a cada 15° ao girar e em 1:1 ou na proporção original. Cada ajuste liga e desliga em Configurações → Ajustes automáticos |
+| Barras mais finas | Configurações → Aparência e barras: Normal, Compacta ou Bem compacta |
+| Continuar de onde parou | Cada nota reabre na última página em que você estava |
 | Formas padrão | Retângulos, elipses e triângulos quase perfeitos viram quadrado, círculo e triângulo equilátero |
 | Drive | Toque no indicador de backup para abrir a pasta da nota no Google Drive |
 | Escrever | Caneta (Focus Pen). Com o botão de mão ligado, o dedo também escreve |
@@ -63,7 +67,7 @@ O Client Secret é opcional, mas recomendado. Sem ele, o Google pede para recone
 | Espessura e cor | Na segunda barra, espessuras (com o número) e cores ficam lado a lado. Tocar numa espessura muda só a espessura; numa cor, só a cor. **Arraste** para cima ou para baixo para reordenar. **+** salva a atual; segure um item parado para mostrar o × e remover |
 | Grupos de predefinições | Botão com o nome do grupo no topo da segunda barra: troque de grupo, crie um grupo por matéria ou defina o padrão da pasta. Na biblioteca: menu da pasta → Grupo de predefinições |
 | Tipo de linha | Ícone de curva na segunda barra (caneta e formas): sólida, pontilhada, traço longo/curto, ponto e traço, mistos |
-| Linhas retas | Segure a caneta parada no fim do traço, ou ligue "Sempre fazer linhas retas" no painel da caneta. Linhas grudam em 0°, 45° e 90° |
+| Linhas retas | Segure a caneta parada no fim do traço, ou ligue "Sempre fazer linhas retas" no painel da caneta. Linhas grudam em 0°, 45° e 90°. O marca-texto tem as mesmas opções no painel dele |
 | Ajustes da ferramenta | Toque de novo na ferramenta ativa (ou no ícone de ajustes): espessura com − / + de 0,5, pressão, estabilização e mais |
 | Rabiscar para apagar | Com a caneta, rabisque em vai-e-volta sobre o que quer apagar: tudo dentro da área some |
 | Selecionar | Laço: contorne os itens ou toque em um. Arraste para mover, bolinha do canto para redimensionar e alça de cima para girar, com a caneta ou com o dedo |
