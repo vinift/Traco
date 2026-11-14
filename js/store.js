@@ -36,7 +36,7 @@ const DEFAULT_TEMPLATE = { type: 'lines', spacing: 32, thickness: 1, color: '#a9
    linha ~4,5 unidades em cinza bem claro, centralizada. No Traço a folha tem 1000 de largura. */
 const NW_SCALE = 1000 / 3480;
 const NW_BASE = { spacing: 100 * NW_SCALE, thickness: 0.95, color: '#f1f1f1', opacity: 1, paper: '#ffffff', margin: false, marginColor: '#f19a9a', top: 0, center: true, nw: true };
-const NOTEWISE_TEMPLATES = { grid: { ...NW_BASE, type: 'grid' }, lines: { ...NW_BASE, type: 'lines' }, dots: { ...NW_BASE, type: 'dots', thickness: 1.6, color: '#c9c9c9' }, blank: { ...NW_BASE, type: 'blank' } };
+const NOTEWISE_TEMPLATES = { grid: { ...NW_BASE, type: 'grid', nwDensity: 6 }, grid7: { ...NW_BASE, type: 'grid', spacing: 80 * NW_SCALE, nwDensity: 7 }, lines: { ...NW_BASE, type: 'lines' }, dots: { ...NW_BASE, type: 'dots', thickness: 1.6, color: '#c9c9c9' }, blank: { ...NW_BASE, type: 'blank' } };
 const NOTEWISE_PAPERS = [['#ffffff', 'Branco'], ['#f8f6e9', 'Creme'], ['#d8c5a4', 'Bege'], ['#dbe3ee', 'Azul-claro'], ['#2e2e2e', 'Cinza-escuro'], ['#000000', 'Preto']];
 const isDarkPaper = (c) => { const m = /^#?([0-9a-f]{6})$/i.exec(c || ''); if (!m) return false; const n = parseInt(m[1], 16); return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 < 110; };
 const PAGE_SIZES = {

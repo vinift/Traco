@@ -153,7 +153,7 @@ function templateEditor(tplIn, size = { w: 794, h: 1123 }, { onNotewise } = {}) 
   // modelos prontos do Notewise
   const nwRow = el('div', { class: 'nw-row' });
   const syncPick = () => $$('button', pick).forEach((b, i) => b.classList.toggle('on', TPL_TYPES[i][0] === tpl.type));
-  for (const [k, n] of [['grid', 'Grade'], ['lines', 'Linha'], ['dots', 'Ponto'], ['blank', 'Em branco']]) {
+  for (const [k, n] of [['grid', 'Grade · densidade 6'], ['grid7', 'Grade · densidade 7'], ['lines', 'Linha'], ['dots', 'Ponto'], ['blank', 'Em branco']]) {
     nwRow.append(el('button', { type: 'button', class: 'btn', onclick: () => {
       const paper = tpl.paper; Object.assign(tpl, clone(NOTEWISE_TEMPLATES[k])); tpl.paper = paper || '#ffffff';
       if (isDarkPaper(tpl.paper)) tpl.color = '#3a3a3a';

@@ -117,7 +117,11 @@ Traço Notas/
 2. No Traço, toque em **Importar → Notas do Notewise** e escolha o arquivo.
 3. Tudo vira item editável no Traço: PDFs anotados (com o PDF original de fundo), traços, marca-texto, formas (retângulo, elipse, triângulo, linha, seta e arco, com tipo de linha e preenchimento), imagens, caixas de texto, tabelas (com larguras, alturas e células mescladas), comentários (viram post-its) e itens bloqueados. As pastas do ZIP viram pastas no Traço.
 
-### Modelo idêntico ao do Notewise
+### Modelos do Notewise
+
+A importação lê a densidade da grade de cada página: densidade 6 = quadradinhos maiores (40 × 34 linhas), densidade 7 = quadradinhos menores (50 × 43 linhas). Para trocar à mão, use **Modelo de página → Grade · densidade 6** ou **Grade · densidade 7**.
+
+### Modelo idêntico ao do Notewise (a partir de PDF)
 
 Se as linhas de uma nota importada não baterem com as do Notewise:
 

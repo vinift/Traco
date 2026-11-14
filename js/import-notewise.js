@@ -82,7 +82,16 @@ const NW_TARGET_W = 1000; // largura das páginas de caderno importadas (as de P
 const NW_PT = 300 / 72; // o Notewise usa 300 dpi: unidades por ponto tipográfico
 const NW_PDF_S = 96 / 300; // páginas de PDF: unidades do Notewise → pixels do Traço (96 dpi)
 const NW_DASH = { 1: 'solid', 2: 'long', 3: 'dot', 4: 'short', 5: 'dashdot', 6: 'mixed' };
-const NW_TPL = { 6: 'grid', 7: 'lines', 8: 'dots' };
+/* fundo das páginas: campo 7 = densidade (6 → quadradinho de 100, 7 → 80…), campo 8 = tipo (1 = grade, 2 = linha, 3 = ponto, 4/5 = sem modelo) */
+const NW_KIND = { 1: 'grid', 2: 'lines', 3: 'dots', 4: 'blank', 5: 'blank' };
+const NW_DENSITY = { 6: 100, 7: 80 }; // medidos em PDFs do Notewise (folha 3480 × 4000)
+function nwSpacing(d) { return NW_DENSITY[d] || clamp(220 - 20 * (d || 6), 40, 200); }
+function nwTemplate(density, kind, bg, s) {
+  const base = NOTEWISE_TEMPLATES[NW_KIND[kind] || 'grid']; // sem o tipo (notas importadas antes): grade
+  const tpl = { ...base, paper: bg || '#ffffff', spacing: nwSpacing(density) * s, thickness: (base.type === 'dots' ? base.thickness : 0.95) * s / NW_SCALE, nwDensity: density };
+  if (isDarkPaper(tpl.paper)) tpl.color = '#3a3a3a';
+  return tpl;
+}
 const EMPTY = new Uint8Array();
 const pbMsg = (fs, f) => pbParse(pbGet(fs, f) || EMPTY);
 function nwRgba(c) { if (c.a >= 0.999) return c.hex; const n = parseInt(c.hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${Math.round(c.a * 100) / 100})`; }
@@ -123,10 +132,8 @@ async function convertNotewise(files, { folderId = null } = {}) {
     const s = pdf ? NW_PDF_S : NW_TARGET_W / PW;
     const bg = pbColor(pbGet(setup, 2)).hex, tplCode = pbGet(setup, 7), tplVar = pbGet(setup, 8);
     const M0 = Store.settings.nwTplMap || {}, mapped = M0[tplCode + '-' + tplVar] || M0[String(tplCode)]; // modelo importado de PDF pelo usuário
-    const base = NOTEWISE_TEMPLATES[NW_TPL[tplCode] || 'blank'];
-    const tpl = { ...base, paper: bg, spacing: 100 * s, thickness: (base.type === 'dots' ? base.thickness : 0.95) * s / NW_SCALE };
-    if (isDarkPaper(bg)) tpl.color = '#3a3a3a';
-    const page = { id: uid(), w: pdf ? Math.round(PW * s) : NW_TARGET_W, h: pdf ? Math.round(PH * s) : PH * s, template: pdf ? null : mapped ? { ...clone(mapped), paper: mapped.paper || bg } : tpl, pdf, elements: [], nw: { tpl: tplCode, v: tplVar } };
+    const tpl = nwTemplate(tplCode, tplVar, bg, s);
+    const page = { id: uid(), w: pdf ? Math.round(PW * s) : NW_TARGET_W, h: pdf ? Math.round(PH * s) : PH * s, template: pdf ? null : mapped ? { ...clone(mapped), paper: mapped.paper || bg } : tpl, pdf, elements: [], nw: { tpl: tplCode, v: tplVar, fx: 1 } };
     if (pdf) stats.pdfPages++; // altura sem arredondar: a grade do modelo é centralizada pela altura exata
     for (const ev of pbAll(P, 4)) {
       const E = pbParse(ev), M = pbMatrix(pbGet(E, 3));
@@ -229,13 +236,17 @@ async function convertNotewise(files, { folderId = null } = {}) {
   return { note, stats };
 }
 
-/* notas importadas antes da v0.8.3 tinham a altura da página arredondada, o que deslocava a grade meia linha */
+/* corrige notas importadas antes: altura arredondada (v0.8.3) e densidade da grade lida como tipo de modelo (v0.8.5) */
 function fixNotewiseHeights(note) {
   if (!note || note.importedFrom !== 'notewise') return false;
   let changed = false;
   for (const p of note.pages) {
-    if (p.pdf || p.w !== NW_TARGET_W || !Number.isInteger(p.h)) continue;
-    for (const PW of [3480, 3500, 3200, 3600]) { const exact = 4000 * NW_TARGET_W / PW; if (Math.abs(p.h - exact) < 0.6) { p.h = exact; changed = true; break; } }
+    if (p.pdf) continue;
+    if (p.w === NW_TARGET_W && Number.isInteger(p.h)) for (const PW of [3480, 3500, 3200, 3600]) { const exact = 4000 * NW_TARGET_W / PW; if (Math.abs(p.h - exact) < 0.6) { p.h = exact; changed = true; break; } }
+    if (p.nw && !p.nw.fx && p.nw.tpl != null) {
+      p.nw.fx = 1; changed = true;
+      if (p.template && p.template.type !== 'custom') p.template = nwTemplate(p.nw.tpl, p.nw.v, p.template.paper, p.h / 4000); // s = 1000 / largura do Notewise
+    }
   }
   return changed;
 }
