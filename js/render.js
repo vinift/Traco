@@ -120,9 +120,12 @@ function drawElement(ctx, e) {
 function drawPageContent(ctx, note, page, vis, z, opts = {}) {
   const bounded = note.mode !== 'infinite';
   const tpl = page.template || note.template;
-  if (bounded) { ctx.fillStyle = page.pdf ? '#ffffff' : tpl.paper || '#fff'; ctx.fillRect(0, 0, page.w, page.h); }
+  if (opts.annot) { // só as anotações (fundo transparente), para ir por cima do PDF original
+    if (page.template && page.template.type !== 'blank') drawTemplate(ctx, page.template, vis, z, bounded, page.w, page.h);
+  } else if (bounded) { ctx.fillStyle = page.pdf ? '#ffffff' : tpl.paper || '#fff'; ctx.fillRect(0, 0, page.w, page.h); }
   else { ctx.fillStyle = tpl.paper || '#fff'; ctx.fillRect(vis.x, vis.y, vis.w, vis.h); }
-  if (page.pdf) {
+  if (opts.annot) { /* fundo já tratado */ }
+  else if (page.pdf) {
     const bmp = opts.pdfBitmap || PdfCache.bitmap(page.pdf, z * (opts.dpr || 1));
     if (bmp) ctx.drawImage(bmp, 0, 0, page.w, page.h);
     if (page.template && page.template.type !== 'blank') drawTemplate(ctx, page.template, vis, z, bounded, page.w, page.h);
@@ -135,7 +138,7 @@ function drawPageContent(ctx, note, page, vis, z, opts = {}) {
 }
 
 /* Renderiza uma página isolada num canvas (miniaturas, exportação) */
-async function renderPageCanvas(note, page, scale, { maxW, area } = {}) {
+async function renderPageCanvas(note, page, scale, { maxW, area, annot = false } = {}) {
   let region = { x: 0, y: 0, w: page.w, h: page.h };
   if (area) region = area; // recorte (print do laço)
   else if (note.mode === 'infinite') {
@@ -148,9 +151,9 @@ async function renderPageCanvas(note, page, scale, { maxW, area } = {}) {
   const ctx = cv.getContext('2d');
   for (const e of page.elements) if (e.type === 'image') await ImgCache.load(e.blobId);
   await Fonts.ensure(page.elements);
-  let pdfBitmap = null; if (page.pdf) pdfBitmap = await PdfCache.render(page.pdf, Math.min(3, Math.max(scale, 0.5)));
+  let pdfBitmap = null; if (page.pdf && !annot) pdfBitmap = await PdfCache.render(page.pdf, Math.min(4, Math.max(scale, 0.5)));
   ctx.setTransform(scale, 0, 0, scale, -region.x * scale, -region.y * scale);
-  drawPageContent(ctx, note, page, region, scale, { pdfBitmap });
+  drawPageContent(ctx, note, page, region, scale, { pdfBitmap, annot });
   return cv;
 }
 async function makeThumb(note) {

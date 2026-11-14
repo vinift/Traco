@@ -542,3 +542,34 @@ code.k{background:var(--panel2);padding:2px 6px;border-radius:6px;font-size:12px
 .vscroll.drag .vs-bubble{opacity:1}
 #editor.reading .vscroll{display:block}
 .vscroll.show,.vscroll.drag{pointer-events:auto}
+
+/* ===== v0.9.3 — Escala das barras vale para todas (topo, seleção, texto, espessuras, rolagem) ===== */
+#editor{--cr:50px;--tfs:15px;--sbb:38px;--sbi:19px;--ptop:62px;--pill-pad:3px}
+#editor.bar-compact{--cr:44px;--tfs:14px;--sbb:34px;--sbi:17px;--ptop:55px;--pill-pad:2px}
+#editor.bar-mini{--cr:38px;--tfs:13px;--sbb:30px;--sbi:16px;--ptop:48px;--pill-pad:2px}
+#editor .cpill{padding:var(--pill-pad) 6px;border-radius:calc(var(--cb) / 2 + 4px)}
+#editor .cpill .cbtn{width:var(--cb);height:var(--cb);border-radius:calc(var(--cb) / 2)}
+#editor .cpill .cbtn svg.ic{width:var(--ci);height:var(--ci)}
+#editor .cbtn.round{width:var(--cr);height:var(--cr);border-radius:calc(var(--cr) / 2)}
+#editor .cbtn.round svg.ic{width:var(--ci);height:var(--ci)}
+#editor .cpill .title-input{font-size:var(--tfs);padding:4px 6px}
+#editor .cpill #hudZoom,#editor .cpill #hudPage{font-size:calc(var(--tfs) - 2px);padding:0 8px}
+#editor .ch-topleft{gap:calc(var(--cb) / 5)}
+#editor .rail{top:calc(max(10px,env(safe-area-inset-top,0px)) + var(--ptop))}
+#editor .subrail{top:calc(max(10px,env(safe-area-inset-top,0px)) + var(--ptop) + var(--cb) * 1.6)}
+#editor .tool-panel{top:calc(max(10px,env(safe-area-inset-top,0px)) + var(--ptop))}
+#editor .vscroll{top:calc(max(10px,env(safe-area-inset-top,0px)) + var(--ptop) + 2px)}
+#editor .sel-bar .icon-btn{width:var(--sbb);height:var(--sbb);border-radius:calc(var(--sbb) / 2)}
+#editor .sel-bar svg.ic{width:var(--sbi);height:var(--sbi)}
+#editor .sel-bar{padding:3px;border-radius:calc(var(--sbb) / 2 + 4px)}
+#editor .text-bar .icon-btn{width:var(--sbb);height:var(--sbb);font-size:calc(var(--sbi) - 1px)}
+#editor .text-bar .icon-btn.wide{width:auto}
+#editor .text-bar .tb-font{font-size:calc(var(--tfs) - 1px)}
+#editor .hbar{padding:3px 8px 3px 3px;border-radius:calc(var(--cb) / 2 + 4px);gap:2px}
+#editor .hbar .wchip{height:calc(var(--wch) + 2px);width:var(--wcw)}
+#editor .hbar .wchip .ln{width:calc(var(--wcw) - 16px)}
+#editor .hbar .addb{width:calc(var(--cb) - 6px);height:calc(var(--cb) - 6px)}
+#editor .hbar .cbtn svg.ic{width:var(--ci);height:var(--ci)}
+#editor .hbar .hgrip{height:var(--cb)}
+#editor .pull-hint .ph-ring{width:calc(var(--cb) + 4px);height:calc(var(--cb) + 4px)}
+#editor .cpill #hudZoom,#editor .cpill #hudPage{white-space:nowrap}

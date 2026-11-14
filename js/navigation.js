@@ -34,9 +34,9 @@ Object.assign(Editor, {
   },
 
   /* ---------- inércia: ao soltar o dedo, a folha continua deslizando e desacelera ---------- */
-  startInertia(samples) {
+  startInertia(samples, vertical = false) {
     const a = samples[0], b = samples[samples.length - 1], dt = Math.max(8, b[0] - a[0]);
-    let vx = (b[1] - a[1]) / dt, vy = (b[2] - a[2]) / dt; // unidades da página por ms
+    let vx = vertical ? 0 : (b[1] - a[1]) / dt, vy = (b[2] - a[2]) / dt; // unidades da página por ms
     const z = this.cam.z; if (Math.hypot(vx, vy) * z < 0.35) return; // movimento lento: para na hora
     const maxV = 6 / z; const sp = Math.hypot(vx, vy); if (sp > maxV) { vx *= maxV / sp; vy *= maxV / sp; }
     this.stopInertia(); let last = performance.now();

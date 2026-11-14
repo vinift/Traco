@@ -84,11 +84,53 @@ async function buildPdfFromCanvases(list) { // list: [{canvas, wPx, hPx}]
   push(x + `trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
   return new Blob(chunks, { type: 'application/pdf' });
 }
+/* PDF em alta qualidade: páginas de PDF entram como o PDF original (vetorial, texto nítido) com as anotações por cima em 300 dpi;
+   páginas de caderno viram imagem em 300 dpi. Sem o pdf-lib (ou em tela infinita) usa o gerador simples. */
+const PDF_DPI = 300;
+let _pdfLibP = null;
+function loadPdfLib() {
+  if (window.PDFLib) return Promise.resolve(window.PDFLib);
+  return (_pdfLibP = _pdfLibP || new Promise((res, rej) => { const s = document.createElement('script'); s.src = new URL('vendor/pdf-lib.min.js', document.baseURI).href; s.onload = () => (window.PDFLib ? res(window.PDFLib) : rej(new Error('pdf-lib'))); s.onerror = () => { _pdfLibP = null; rej(new Error('não consegui carregar o gerador de PDF')); }; document.head.append(s); }));
+}
+const canvasBytes = (cv, type, q) => new Promise((r) => cv.toBlob(async (b) => r(new Uint8Array(await b.arrayBuffer())), type, q));
 async function exportNotePdf(note, onProgress) {
+  let L = null; if (note.mode !== 'infinite') try { L = await loadPdfLib(); } catch (e) { console.warn(e); }
+  if (!L) return exportNotePdfRaster(note, onProgress);
+  const out = await L.PDFDocument.create(); out.setTitle(note.title || 'Nota'); out.setCreator('Traço Notas');
+  const srcs = new Map(), k = PDF_DPI / 96; // pixels por unidade da página (a página é medida a 96 dpi)
+  for (let i = 0; i < note.pages.length; i++) {
+    onProgress && onProgress(i + 1, note.pages.length);
+    const page = note.pages[i], wPt = page.w * 0.75, hPt = page.h * 0.75, sc = Math.min(k, 6000 / Math.max(page.w, page.h));
+    let done = false;
+    if (page.pdf) {
+      try {
+        let src = srcs.get(page.pdf.blobId);
+        if (src === undefined) { const blob = await Store.getBlob(page.pdf.blobId); src = blob ? await L.PDFDocument.load(new Uint8Array(await blob.arrayBuffer()), { ignoreEncryption: true }) : null; srcs.set(page.pdf.blobId, src); }
+        const sp = src && src.getPage(page.pdf.index);
+        if (sp && !(sp.getRotation().angle % 360)) {
+          const emb = await out.embedPage(sp), pg = out.addPage([wPt, hPt]);
+          pg.drawPage(emb, { x: 0, y: 0, width: wPt, height: hPt });
+          if (page.elements.length || (page.template && page.template.type !== 'blank')) {
+            const cv = await renderPageCanvas(note, page, sc, { annot: true });
+            pg.drawImage(await out.embedPng(await canvasBytes(cv, 'image/png')), { x: 0, y: 0, width: wPt, height: hPt });
+          }
+          done = true;
+        }
+      } catch (e) { console.warn('PDF original não pôde ser copiado; usando imagem', e); }
+    }
+    if (!done) { // caderno (ou PDF que não deu para copiar): imagem nítida da página inteira
+      const cv = await renderPageCanvas(note, page, sc);
+      const pg = out.addPage([wPt, hPt]); pg.drawImage(await out.embedJpg(await canvasBytes(cv, 'image/jpeg', 0.93)), { x: 0, y: 0, width: wPt, height: hPt });
+    }
+    await new Promise((r) => setTimeout(r, 0)); // deixa a tela respirar
+  }
+  return new Blob([await out.save()], { type: 'application/pdf' });
+}
+async function exportNotePdfRaster(note, onProgress) {
   const list = [];
   for (let i = 0; i < note.pages.length; i++) {
     onProgress && onProgress(i + 1, note.pages.length);
-    const page = note.pages[i]; const scale = Math.min(2, 2400 / Math.max(page.w, page.h));
+    const page = note.pages[i]; const scale = Math.min(PDF_DPI / 96, 5000 / Math.max(page.w, page.h));
     const cv = await renderPageCanvas(note, page, scale);
     list.push({ canvas: cv, wPx: cv.width / scale, hPx: cv.height / scale });
   }

@@ -57,7 +57,7 @@ O Client Secret é opcional, mas recomendado. Sem ele, o Google pede para recone
 | Tabela | Ferramenta de tabela: arraste na página (ou toque) para criar. Selecione-a com o laço: as faixas roxas em cima e à esquerda selecionam colunas e linhas (arraste para pegar várias); toque numa célula e arraste para selecionar células. A barra de células tem cor de fundo, agrupar (mesclar), inserir linha/coluna, igualar tamanhos e excluir |
 | Aumentar só uma linha ou coluna | Com a tabela selecionada, arraste a linha divisória. A escrita das células seguintes acompanha. Ao mover ou redimensionar a tabela, a escrita de dentro vai junto |
 | Ajustes automáticos | Ao mover ou redimensionar objetos aparece uma linha-guia rosa: gruda nas margens, no centro e na grade da página, em outros objetos, a cada 15° ao girar e em 1:1 ou na proporção original. Cada ajuste liga e desliga em Configurações → Ajustes automáticos |
-| Barras mais finas | Configurações → Aparência e barras: Normal, Compacta ou Bem compacta |
+| Barras mais finas | Configurações → Aparência e barras: Normal, Compacta ou Bem compacta. Vale para todas as barras: topo (nome e botões da nota), ferramentas, cores, espessuras, seleção, texto e rolagem |
 | Continuar de onde parou | Cada nota reabre na última página em que você estava |
 | Formas padrão | Retângulos, elipses e triângulos quase perfeitos viram quadrado, círculo e triângulo equilátero |
 | Drive | Toque no indicador de backup para abrir a pasta da nota no Google Drive |
@@ -101,6 +101,10 @@ O Client Secret é opcional, mas recomendado. Sem ele, o Google pede para recone
 | Busca | Lupa na nota busca nos textos digitados e post-its; a busca da biblioteca também procura dentro das notas |
 | Carimbo de data | Ferramenta 📅: toque na página. No painel de ajustes você muda o texto, ex.: `Aula dia {dd}/{mm}` |
 | Baixa latência | Configurações → Escrita. Deixa a tinta mais rápida; se notar algo estranho, desligue |
+
+## PDF em alta qualidade
+
+O PDF de cada nota (no Drive e em Exportar) sai em 300 dpi. Páginas que vieram de um PDF mantêm o PDF original (texto nítido e selecionável) com as suas anotações por cima. Os prints do laço também saem em alta resolução (até 4096 px no lado maior).
 
 ## Organização no Google Drive
 

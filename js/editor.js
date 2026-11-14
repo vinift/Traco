@@ -375,8 +375,12 @@ const Editor = {
       const [a, b] = this.zoomLimits(); const z = clamp(g.cam.z * dist / g.dist, a, b);
       const wx = g.cam.x + g.mid.x / g.cam.z, wy = g.cam.y + g.mid.y / g.cam.z;
       this.cam = { z, x: wx - mid.x / z, y: wy - mid.y / z };
-    } else {
-      const p = P[0]; this.cam = { z: g.cam.z, x: g.cam.x - (p.x - g.mid.x) / g.cam.z, y: g.cam.y - (p.y - g.mid.y) / g.cam.z };
+    } else { // 1 dedo: prioriza o movimento vertical (o horizontal só entra quando o dedo vai claramente para o lado)
+      const p = P[0], dx = p.x - g.mid.x, dy = p.y - g.mid.y;
+      if (!g.lock && Math.hypot(dx, dy) > 12) { g.lock = Math.abs(dy) >= Math.abs(dx) * 0.6 ? 'v' : 'free'; g.xoff = 0; }
+      if (g.lock === 'v' && Math.abs(dx) > 90 && Math.abs(dx) > Math.abs(dy) * 0.5) { g.lock = 'free'; g.xoff = dx; } // soltou para o lado de propósito
+      const ex = g.lock === 'free' ? dx - (g.xoff || 0) : 0;
+      this.cam = { z: g.cam.z, x: g.cam.x - ex / g.cam.z, y: g.cam.y - dy / g.cam.z };
     }
     if (P.length === 1) { const now = performance.now(); (g.vs = g.vs || []).push([now, this.cam.x, this.cam.y]); while (g.vs.length > 2 && now - g.vs[0][0] > 90) g.vs.shift(); } else g.vs = null;
     const over = P.length === 1 ? (this.cam.y - this.camMaxBase()) * this.cam.z : 0; // passou do fim da última página
@@ -386,7 +390,7 @@ const Editor = {
   endGesture() {
     const g = this.gesture; this.gesture = null; if (!g) return;
     if (this.pull) this.releasePull();
-    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs);
+    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v');
     const dt = performance.now() - g.t0;
     if (!g.moved && dt < 350) { if (g.max === 2) { this.undo(); toast('Desfeito', 900); } else if (g.max === 3) { this.redo(); toast('Refeito', 900); } else if (g.max === 1 && g.p0 && !this.readOnly) this.fingerTap(g.p0); }
   },
@@ -606,7 +610,7 @@ const Editor = {
     let x1 = Math.min(...loc.map((q) => q.x)), y1 = Math.min(...loc.map((q) => q.y)), x2 = Math.max(...loc.map((q) => q.x)), y2 = Math.max(...loc.map((q) => q.y));
     if (this.note.mode !== 'infinite') { x1 = Math.max(0, x1); y1 = Math.max(0, y1); x2 = Math.min(page.w, x2); y2 = Math.min(page.h, y2); }
     if (x2 - x1 < 4 || y2 - y1 < 4) return toast('Arraste para marcar a área do print');
-    const area = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 }, sc = Math.min(3, 2400 / Math.max(area.w, area.h));
+    const area = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 }, sc = clamp(4096 / Math.max(area.w, area.h), 2, 8); // print nítido: até 4096 px no lado maior
     const cv = await renderPageCanvas(this.note, page, sc, { area });
     const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
     const id = await Store.putBlob(blob);
