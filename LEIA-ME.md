@@ -115,9 +115,9 @@ Traço Notas/
 
 1. No Notewise, exporte uma nota (arquivo `.notewise`) ou várias notas e pastas de uma vez (arquivo `.zip`).
 2. No Traço, toque em **Importar → Notas do Notewise** e escolha o arquivo.
-3. Traços, cores, marca-texto, formas e imagens viram itens editáveis: dá para selecionar, mover, girar e apagar. As pastas do ZIP viram pastas no Traço.
+3. Tudo vira item editável no Traço: PDFs anotados (com o PDF original de fundo), traços, marca-texto, formas (retângulo, elipse, triângulo, linha, seta e arco, com tipo de linha e preenchimento), imagens, caixas de texto, tabelas (com larguras, alturas e células mescladas), comentários (viram post-its) e itens bloqueados. As pastas do ZIP viram pastas no Traço.
 
-Caixas de texto e PDFs anotados no Notewise ainda não são reconhecidos (a importação avisa quantos itens ignorou).
+Dica: arquivos grandes (centenas de MB) podem levar um ou dois minutos. Se o Google Drive estiver ligado, os PDFs também vão para o backup, então a primeira sincronização demora mais.
 
 ## Ferramentas próprias (plugins)
 

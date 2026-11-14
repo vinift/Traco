@@ -1,5 +1,5 @@
 /* Service worker: deixa o app funcionando offline */
-const VERSION = 'traco-v0.8.1';
+const VERSION = 'traco-v0.8.2';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/util.js', 'js/store.js', 'js/geom.js', 'js/render.js', 'js/pdf.js', 'js/drive.js', 'js/editor.js', 'js/toolbar.js', 'js/tables.js', 'js/richtext.js', 'js/ui.js', 'js/ocr.js', 'js/import-notewise.js', 'js/library.js', 'js/plugins.js', 'js/app.js',
   'vendor/pdf.min.mjs', 'vendor/pdf.worker.min.mjs', 'icons/icon-192.png', 'icons/icon-512.png', 'privacidade.html'];

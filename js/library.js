@@ -185,8 +185,8 @@ const Library = {
       const ok = res.filter((r) => r.note), bad = res.filter((r) => r.error);
       const st = ok.reduce((a, r) => { for (const k in r.stats) a[k] = (a[k] || 0) + r.stats[k]; return a; }, {});
       this.render(); toast('', 1);
-      const body = el('div', {}, el('p', {}, `${ok.length} nota(s) importada(s): ${st.pages || 0} páginas, ${st.strokes || 0} traços, ${st.highlights || 0} marca-textos, ${st.shapes || 0} formas e ${st.images || 0} imagens.`),
-        st.skipped ? el('p', { class: 'lbl-sm' }, `${st.skipped} item(ns) de tipos que o Traço ainda não reconhece (ex.: caixas de texto ou PDFs do Notewise) foram ignorados. Mande um exemplo para eu adicionar.`) : null,
+      const body = el('div', {}, el('p', {}, `${ok.length} nota(s) importada(s): ${st.pages || 0} páginas (${st.pdfPages || 0} de PDF), ${st.strokes || 0} traços, ${st.highlights || 0} marca-textos, ${st.shapes || 0} formas, ${st.texts || 0} textos, ${st.tables || 0} tabelas e ${st.images || 0} imagens.`),
+        st.skipped ? el('p', { class: 'lbl-sm' }, `${st.skipped} item(ns) de tipos que o Traço ainda não reconhece foram ignorados. Mande um exemplo para eu adicionar.`) : null,
         bad.length ? el('p', { style: { color: 'var(--danger)' } }, 'Com erro: ' + bad.map((b) => b.error).join('; ')) : null);
       const go = await openModal({ title: 'Importação concluída', body, buttons: [{ label: 'Fechar', value: false }, ok.length === 1 ? { label: 'Abrir nota', cls: 'primary', value: true } : null].filter(Boolean) });
       if (go && ok[0]) App.openNote(ok[0].note.id);
