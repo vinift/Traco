@@ -132,6 +132,7 @@ Object.assign(Editor, {
     return { o, s };
   },
   snap1(vals, targets, grid, tol) { // melhor ajuste de um eixo: vals = posições do objeto (borda, centro…)
+    if (this.action && this.action.noSnap) return null; // segundo dedo na tela: movimento livre
     let best = null;
     for (const v of vals) {
       for (const [t] of targets) { const d = t - v; if (Math.abs(d) < tol && (!best || Math.abs(d) < Math.abs(best.d))) best = { d, at: t }; }
@@ -160,22 +161,22 @@ Object.assign(Editor, {
       const sx = this.snap1([b.x + dx, b.x + b.w / 2 + dx, b.x + b.w + dx], a.tx, a.grid && this.gridLines(a.grid, a.page, 0), tol);
       const sy = this.snap1([b.y + dy, b.y + b.h / 2 + dy, b.y + b.h + dy], a.ty, a.grid && this.gridLines(a.grid, a.page, 1), tol);
       if (sx) dx += sx.d; if (sy) dy += sy.d;
-      this.setGuides(a, sx, sy);
+      this.setGuides(a, sx, sy); this.ratioLabel = a.noSnap ? 'livre' : null;
       this.selTf = { ox: b.x, oy: b.y, sx: 1, sy: 1, dx, dy };
     } else if (a.kind === 'rotate') {
       const c = { x: a.box.x + a.box.w / 2, y: a.box.y + a.box.h / 2 };
       let ang = Math.atan2(p.y - c.y, p.x - c.x) - Math.atan2(a.start.y - c.y, a.start.x - c.x);
-      if (this.snapOn('snapAngle')) { const sn = Math.round(ang / (Math.PI / 12)) * (Math.PI / 12); if (Math.abs(ang - sn) < 0.06) ang = sn; } // gruda a cada 15°
+      if (this.snapOn('snapAngle') && !a.noSnap) { const sn = Math.round(ang / (Math.PI / 12)) * (Math.PI / 12); if (Math.abs(ang - sn) < 0.06) ang = sn; } // gruda a cada 15°
       this.selTf = { ox: b.x, oy: b.y, sx: 1, sy: 1, dx: 0, dy: 0, rot: ang, cx: b.x + b.w / 2, cy: b.y + b.h / 2 };
     } else if (a.free) { // um objeto só: largura e altura livres
       const rb = a.rb; let w = Math.max(8 / z, rb.w + (p.x - a.start.x) / z), h = Math.max(8 / z, rb.h + (p.y - a.start.y) / z);
       const sx = this.snap1([rb.x + w], a.tx, a.grid && this.gridLines(a.grid, a.page, 0), tol), sy = this.snap1([rb.y + h], a.ty, a.grid && this.gridLines(a.grid, a.page, 1), tol);
       if (sx) w += sx.d; if (sy) h += sy.d;
       let label = null;
-      if (this.snapOn('snapRatio')) {
+      if (this.snapOn('snapRatio') && !a.noSnap) {
         for (const [r, lab] of [[1, '1:1'], [a.ratio, 'proporção original']]) { if (Math.abs(w / h - r) / r < 0.06) { h = w / r; label = lab; break; } }
       }
-      this.setGuides(a, sx, label ? null : sy); this.ratioLabel = label;
+      this.setGuides(a, sx, label ? null : sy); this.ratioLabel = a.noSnap ? 'livre' : label;
       const t = { ox: rb.x, oy: rb.y, sx: w / rb.w, sy: h / rb.h, dx: 0, dy: 0, free: true };
       if (a.el.type === 'table') { const n = transformEl(a.el, t); this.tPreview = Tables.relayout(a.page, a.el, n, null, null, a.page.elements.filter((x) => a.attached.has(x.id))); this.selTf = null; }
       else this.selTf = t;

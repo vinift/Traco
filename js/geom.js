@@ -35,6 +35,66 @@ function buildPenPath(pts, w, path = new Path2D(), from = 0) {
   }
   return path;
 }
+/* ---------- Tipos de caneta ---------- */
+const PEN_TYPES = [
+  ['ball', 'Esferográfica', 'Espessura constante, não reage à pressão'],
+  ['natural', 'Natural', 'Engrossa conforme a pressão da caneta'],
+  ['fountain', 'Caneta-tinteiro', 'Afina nas pontas e nos movimentos rápidos'],
+  ['calli', 'Caligrafia', 'Pena chanfrada: grossa ou fina conforme a direção'],
+  ['brush', 'Pincel', 'Variação forte com a pressão, para lettering'],
+  ['fine', 'Marcador fino', 'Espessura constante e pontas retas'],
+];
+function penKind(e) { return e.pen || 'natural'; } // traços antigos: comportamento natural (pressão)
+const CAPSULE_PENS = new Set(['ball', 'natural', 'fountain', 'brush']);
+function penRadii(pts, w, kind) {
+  const n = pts.length / 3, r = new Array(n);
+  if (kind === 'ball') { r.fill(w / 2); return r; }
+  if (kind === 'natural') { for (let i = 0; i < n; i++) r[i] = penRadius(w, pts[i * 3 + 2]); return r; }
+  const taperN = kind === 'brush' ? 9 : 6, tmin = kind === 'brush' ? 0.18 : 0.3;
+  let sf = 1;
+  for (let i = 0; i < n; i++) {
+    const p = clamp(pts[i * 3 + 2], 0, 1);
+    let base;
+    if (kind === 'brush') base = (w / 2) * (0.1 + 1.55 * Math.pow(p, 1.3));
+    else { // tinteiro: pressão moderada + velocidade (distância entre amostras)
+      const d = i ? Math.hypot(pts[i * 3] - pts[i * 3 - 3], pts[i * 3 + 1] - pts[i * 3 - 2]) : 0;
+      const target = clamp(1.25 - 0.3 * (d / Math.max(w, 0.5)), 0.5, 1.2); sf += (target - sf) * 0.35;
+      base = (w / 2) * (0.55 + 0.75 * p) * sf;
+    }
+    const t = Math.min(i, n - 1 - i), taper = n > 3 ? tmin + (1 - tmin) * Math.min(1, t / taperN) : 1;
+    r[i] = Math.min(base * taper, (w / 2) * 1.65);
+  }
+  return r;
+}
+function buildRadiiPath(pts, r, path = new Path2D(), from = 0) {
+  const n = pts.length / 3; if (!n) return path;
+  let px = pts[from * 3], py = pts[from * 3 + 1], pr = r[from];
+  if (from === 0) addCircle(path, px, py, pr);
+  for (let i = from + 1; i < n; i++) { const x = pts[i * 3], y = pts[i * 3 + 1]; addCircle(path, x, y, r[i]); addCapsule(path, px, py, pr, x, y, r[i]); px = x; py = y; pr = r[i]; }
+  return path;
+}
+/* caligrafia: a pena é um segmento inclinado (ângulo nib) arrastado ao longo do traço */
+function buildCalliPath(pts, w, nibDeg = 45, path = new Path2D()) {
+  const n = pts.length / 3; if (!n) return path;
+  const a = -nibDeg * Math.PI / 180, cx = Math.cos(a), cy = Math.sin(a), hair = Math.max(0.25, w * 0.06);
+  const half = (i) => (w / 2) * (0.8 + 0.5 * clamp(pts[i * 3 + 2], 0, 1));
+  const quad = (P) => { let ar = 0; for (let k = 0; k < 4; k++) { const u = P[k], v = P[(k + 1) % 4]; ar += u[0] * v[1] - v[0] * u[1]; } if (Math.abs(ar) < 1e-6) return; if (ar < 0) P.reverse(); path.moveTo(P[0][0], P[0][1]); for (let k = 1; k < 4; k++) path.lineTo(P[k][0], P[k][1]); path.closePath(); };
+  let x0 = pts[0], y0 = pts[1], h0 = half(0);
+  quad([[x0 - cx * h0 - cy * hair, y0 - cy * h0 + cx * hair], [x0 + cx * h0 - cy * hair, y0 + cy * h0 + cx * hair], [x0 + cx * h0 + cy * hair, y0 + cy * h0 - cx * hair], [x0 - cx * h0 + cy * hair, y0 - cy * h0 - cx * hair]]);
+  for (let i = 1; i < n; i++) {
+    const x = pts[i * 3], y = pts[i * 3 + 1], h = half(i);
+    quad([[x0 - cx * h0, y0 - cy * h0], [x0 + cx * h0, y0 + cy * h0], [x + cx * h, y + cy * h], [x - cx * h, y - cy * h]]);
+    addCapsule(path, x0, y0, hair, x, y, hair); // traço fino mínimo quando o movimento é paralelo à pena
+    x0 = x; y0 = y; h0 = h;
+  }
+  return path;
+}
+/* contorno (para preencher) ou linha (para o marcador fino) de um traço de caneta */
+function penStrokePath(pts, w, kind, nib) {
+  if (kind === 'calli') return buildCalliPath(pts, w, nib ?? 45);
+  if (kind === 'fine') return buildPolyPath(pts);
+  return buildRadiiPath(pts, penRadii(pts, w, kind));
+}
 function buildPolyPath(pts, path = new Path2D()) {
   const n = pts.length / 3; if (!n) return path;
   path.moveTo(pts[0], pts[1]);
@@ -71,7 +131,7 @@ function buildShapePath(e) {
 }
 function elPath(e) {
   let p = _pathCache.get(e); if (p) return p;
-  if (e.type === 'stroke') p = e.tool === 'pen' ? buildPenPath(e.pts, e.width) : buildPolyPath(e.pts);
+  if (e.type === 'stroke') p = e.tool === 'pen' ? penStrokePath(e.pts, e.width, penKind(e), e.nib) : buildPolyPath(e.pts);
   else if (e.type === 'shape') p = buildShapePath(e);
   _pathCache.set(e, p); return p;
 }
@@ -302,7 +362,7 @@ function scribbleTargets(elements, flat) {
   const out = [];
   for (const e of elements) {
     const b = elBBox(e); if (!rectsHit(b, sb)) continue;
-    if (e.type === 'image' || e.type === 'table') continue; // imagens e tabelas só com a borracha
+    if (e.type === 'image' || e.type === 'table' || e.lock) continue; // imagens, tabelas e bloqueados ficam
     let hits = 0; for (let i = 0; i < P.length && hits < 3; i += 2) if (hitElement(e, P[i][0], P[i][1], 2)) hits++;
     if (hits >= 3 || elInLasso(e, hull)) out.push(e);
   }
@@ -331,9 +391,9 @@ function rotateEl(e, ang, cx, cy) {
   return n;
 }
 /* Alinha linhas a 0°, 45°, 90°… quando estão perto desses ângulos */
-function snapAngle(x1, y1, x2, y2, tolDeg = 7) {
+function snapAngle(x1, y1, x2, y2, tolDeg = 8) { // linhas retas grudam a cada 15° (0°, 15°, 30°, 45°…)
   if (Store.settings.angleSnap === false) return [x2, y2];
-  const ang = Math.atan2(y2 - y1, x2 - x1), step = Math.PI / 4, sn = Math.round(ang / step) * step;
+  const ang = Math.atan2(y2 - y1, x2 - x1), step = Math.PI / 12, sn = Math.round(ang / step) * step;
   if (Math.abs(ang - sn) > tolDeg * Math.PI / 180) return [x2, y2];
   const L = Math.hypot(x2 - x1, y2 - y1); return [x1 + L * Math.cos(sn), y1 + L * Math.sin(sn)];
 }

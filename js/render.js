@@ -55,7 +55,8 @@ function drawElement(ctx, e) {
     if (e.tool === 'pen' && e.dash && e.dash !== 'solid') {
       ctx.globalAlpha = e.opacity ?? 1; ctx.strokeStyle = e.color; ctx.lineWidth = e.width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       ctx.setLineDash(dashPattern(e.dash, e.width)); ctx.stroke(buildPolyPath(e.pts));
-    } else if (e.tool === 'pen') { ctx.globalAlpha = e.opacity ?? 1; ctx.fillStyle = e.color; ctx.fill(elPath(e), 'nonzero'); }
+    } else if (e.tool === 'pen' && e.pen === 'fine') { ctx.globalAlpha = e.opacity ?? 1; ctx.strokeStyle = e.color; ctx.lineWidth = e.width; ctx.lineCap = 'butt'; ctx.lineJoin = 'round'; ctx.stroke(elPath(e)); }
+    else if (e.tool === 'pen') { ctx.globalAlpha = e.opacity ?? 1; ctx.fillStyle = e.color; ctx.fill(elPath(e), 'nonzero'); }
     else {
       ctx.globalAlpha = e.opacity ?? 0.4; ctx.globalCompositeOperation = 'multiply';
       ctx.strokeStyle = e.color; ctx.lineWidth = e.width; ctx.lineCap = e.cap || 'round'; ctx.lineJoin = 'round'; ctx.stroke(elPath(e));
@@ -132,9 +133,10 @@ function drawPageContent(ctx, note, page, vis, z, opts = {}) {
 }
 
 /* Renderiza uma página isolada num canvas (miniaturas, exportação) */
-async function renderPageCanvas(note, page, scale, { maxW } = {}) {
+async function renderPageCanvas(note, page, scale, { maxW, area } = {}) {
   let region = { x: 0, y: 0, w: page.w, h: page.h };
-  if (note.mode === 'infinite') {
+  if (area) region = area; // recorte (print do laço)
+  else if (note.mode === 'infinite') {
     const b = bboxUnion(page.elements) || { x: 0, y: 0, w: 800, h: 1000 };
     const m = 40; region = { x: b.x - m, y: b.y - m, w: Math.max(400, b.w + 2 * m), h: Math.max(300, b.h + 2 * m) };
   }

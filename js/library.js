@@ -250,7 +250,7 @@ async function openSettings(focus) {
       UI.check('Outros objetos: bordas e centros dos objetos próximos', S.snapObjects !== false, (v) => { S.snapObjects = v; Store.saveSettings(); }),
       UI.check('Ângulo: girar grudando a cada 15° (0°, 45°, 90°…)', S.snapAngle !== false, (v) => { S.snapAngle = v; Store.saveSettings(); }),
       UI.check('Proporção: ao redimensionar, grudar em 1:1 ou na proporção original', S.snapRatio !== false, (v) => { S.snapRatio = v; Store.saveSettings(); }),
-      UI.check('Linhas retas da caneta e do marca-texto grudam em 0°, 45° e 90°', S.angleSnap !== false, (v) => { S.angleSnap = v; Store.saveSettings(); }))));
+      UI.check('Linhas retas da caneta e do marca-texto grudam a cada 15°', S.angleSnap !== false, (v) => { S.angleSnap = v; Store.saveSettings(); }))));
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Escrita e caneta'),
     el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
       chk('Ignorar a palma da mão (toques são ignorados enquanto a caneta está perto da tela)', 'palmGuard'),

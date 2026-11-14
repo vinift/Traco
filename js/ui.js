@@ -255,8 +255,8 @@ async function templateModal(pageIdx = null) {
   const ok = await openModal({ title: 'Modelo de página', body, wide: true, buttons: [{ label: 'Cancelar', value: false }, { label: 'Aplicar', cls: 'primary', value: true }] });
   if (!ok) return;
   const t = te.get();
-  if (scope === 'all' || n.mode === 'infinite') { n.template = t; n.pages.forEach((p) => { if (!p.pdf) p.template = null; }); } else curPage.template = t;
-  Editor.markChanged(); Editor.requestRender(); toast('Modelo aplicado', 1200);
+  Editor.recTemplate(() => { if (scope === 'all' || n.mode === 'infinite') { n.template = t; n.pages.forEach((p) => { if (!p.pdf) p.template = null; }); } else curPage.template = t; });
+  toast('Modelo aplicado · dá para desfazer', 1400);
 }
 
 /* ===== Caixa de páginas (estilo Notewise) ===== */

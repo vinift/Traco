@@ -63,14 +63,18 @@ O Client Secret é opcional, mas recomendado. Sem ele, o Google pede para recone
 | Drive | Toque no indicador de backup para abrir a pasta da nota no Google Drive |
 | Escrever | Caneta (Focus Pen). Com o botão de mão ligado, o dedo também escreve |
 | Rolar / zoom | 1 dedo arrasta; pinça com 2 dedos dá zoom |
-| Desfazer / refazer | Botões no topo da barra lateral, toque com 2 dedos / 3 dedos, ou um botão da caneta (Configurações → Botões da caneta) |
+| Desfazer / refazer | Botões no topo da barra lateral, toque com 2 dedos / 3 dedos, ou um botão da caneta (Configurações → Botões da caneta). Também vale para mudanças no modelo da página |
 | Espessura e cor | Na segunda barra, espessuras (com o número) e cores ficam lado a lado. Tocar numa espessura muda só a espessura; numa cor, só a cor. **Arraste** para cima ou para baixo para reordenar. **+** salva a atual; segure um item parado para mostrar o × e remover |
 | Grupos de predefinições | Botão com o nome do grupo no topo da segunda barra: troque de grupo, crie um grupo por matéria ou defina o padrão da pasta. Na biblioteca: menu da pasta → Grupo de predefinições |
 | Tipo de linha | Ícone de curva na segunda barra (caneta e formas): sólida, pontilhada, traço longo/curto, ponto e traço, mistos |
-| Linhas retas | Segure a caneta parada no fim do traço, ou ligue "Sempre fazer linhas retas" no painel da caneta. Linhas grudam em 0°, 45° e 90°. O marca-texto tem as mesmas opções no painel dele |
+| Linhas retas | Segure a caneta parada no fim do traço, ou ligue "Sempre fazer linhas retas" no painel da caneta. Linhas grudam a cada 15° (0°, 15°, 30°, 45°…). O marca-texto tem as mesmas opções no painel dele |
 | Ajustes da ferramenta | Toque de novo na ferramenta ativa (ou no ícone de ajustes): espessura com − / + de 0,5, pressão, estabilização e mais |
 | Rabiscar para apagar | Com a caneta, rabisque em vai-e-volta sobre o que quer apagar: tudo dentro da área some |
 | Selecionar | Laço: contorne os itens ou toque em um. Arraste para mover, bolinha do canto para redimensionar e alça de cima para girar, com a caneta ou com o dedo |
+| Tipos de caneta | Botão de onda na segunda barra (ou painel da caneta): Esferográfica (padrão, sem pressão), Natural, Caneta-tinteiro, Caligrafia (com ângulo da pena ajustável), Pincel e Marcador fino |
+| Laço retangular e print | Na segunda barra do laço: laço livre, retangular ou câmera (print). O print recorta a área como imagem, vai para a Biblioteca (cole em qualquer nota) e pode ser baixado em PNG |
+| Bloquear objetos | Selecione e toque no cadeado: o item não move, não é apagado e o laço comum o ignora. Para mexer de novo, ligue o cadeado da segunda barra do laço ("Selecionar objetos bloqueados") e toque em Desbloquear |
+| Mover sem ajustes | Enquanto arrasta um objeto, encoste outro dedo na tela: a linha-guia some e o movimento fica livre |
 | Post-it | Ferramenta de nota adesiva: toque na página, escreva e mude a cor na segunda barra |
 | Páginas | Botão de grade no canto superior esquerdo: abrir, selecionar várias, duplicar, excluir, marcar, e segurar e arrastar para reordenar |
 | Marcadores | Botão de marcador no canto superior direito marca a página atual; na caixa de páginas, filtre por "Marcadores" |

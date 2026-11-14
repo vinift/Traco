@@ -26,6 +26,16 @@ function mapPressure(raw) {
   const s = Store.settings.pressureSens ?? 0.6;
   return clamp(0.5 + (raw - 0.5) * s * 1.8, 0.04, 1);
 }
+/* amostra de um tipo de caneta (ícone e prévia) */
+function penSample(kind, W, H, { color = 'currentColor', width, nib = 45, pad = 4 } = {}) {
+  const d = devicePixelRatio || 1, cv = el('canvas', { class: 'pen-sample', style: { width: W + 'px', height: H + 'px' } }); cv.width = W * d; cv.height = H * d;
+  const c = cv.getContext('2d'); c.scale(d, d);
+  const col = color === 'currentColor' ? getComputedStyle(document.documentElement).getPropertyValue('--chfg').trim() || '#222' : color;
+  const pts = [], N = Math.max(24, Math.round(W / 3));
+  for (let i = 0; i <= N; i++) { const u = i / N; pts.push(pad + u * (W - 2 * pad), H / 2 - Math.sin(u * Math.PI * 2) * (H / 2 - pad - 2) * 0.8, clamp(0.2 + 0.75 * Math.sin(u * Math.PI), 0, 1)); }
+  drawElement(c, { type: 'stroke', tool: 'pen', pen: kind, nib, color: col, width: width || Math.max(2, H / 9), pts });
+  return cv;
+}
 function lineTypeSvg(dash, size = 34) {
   const pat = { solid: '', dot: '0.1 4', long: '9 4', short: '4 4', dashdot: '8 3.5 0.1 3.5', mixed: '9 3 3 3' }[dash] || '';
   return `<svg width="${size}" height="${size * 0.7}" viewBox="0 0 40 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 24 C 16 24, 14 4, 34 4" stroke-dasharray="${pat}"/></svg>`;
@@ -137,7 +147,10 @@ const UI = {
       b.onclick = () => this.groupMenu(b); into.append(b);
     };
     const lineBtn = (into = sr) => { const b = el('button', { class: 'cbtn', title: 'Tipo de linha' }); b.innerHTML = lineTypeSvg(st.dash || 'solid', 26); b.onclick = () => this.lineTypePop(b); into.append(b); };
-    if (t === 'pen' || t === 'highlighter') { const top = el('div', { class: 'srow' }); sr.append(top); groupBtn(top); if (t === 'pen') lineBtn(top); sep(); this.presetCols(sr, t, t); sep(); tune(); }
+    if (t === 'pen' || t === 'highlighter') {
+      const top = el('div', { class: 'srow' }); sr.append(top); groupBtn(top); if (t === 'pen') lineBtn(top);
+      if (t === 'pen') { const k = st.type || 'ball', b = el('button', { class: 'cbtn pen-type-btn', title: 'Tipo de caneta: ' + PEN_TYPES.find((x) => x[0] === k)[1] }, penSample(k, 26, 22, { nib: st.nib })); b.onclick = () => this.penTypePop(b); sr.append(b); }
+      sep(); this.presetCols(sr, t, t); sep(); tune(); }
     else if (t === 'shape') {
       for (const [k, n] of SHAPE_KINDS) { const b = el('button', { class: 'cbtn shp' + (st.kind === k ? ' soft-on' : ''), title: n, onclick: () => { st.kind = k; this.save(); this.renderOptions(); } }); b.innerHTML = icon(k); sr.append(b); }
       sep(); const top = el('div', { class: 'srow' }); sr.append(top); lineBtn(top); sep(); this.presetCols(sr, 'shape', 'shape'); sep(); tune();
@@ -150,6 +163,12 @@ const UI = {
       for (const [m, n] of [['stroke', 'Traço'], ['area', 'Área']]) sr.append(el('button', { class: 'wchip' + (st.mode === m ? ' sel' : ''), title: n === 'Traço' ? 'Apaga o traço inteiro' : 'Apaga só a parte tocada', onclick: () => { st.mode = m; this.save(); this.refresh(); } }, el('span', { class: 'n', style: { fontSize: '11px' } }, n)));
       sep(); this.widthChips(sr, 'eraser'); sep(); tune();
     } else if (t === 'lasso') {
+      const L = S.tools.lasso;
+      for (const [m, ic, n] of [['free', 'lassoFree', 'Laço livre'], ['rect', 'lassoRect', 'Laço retangular'], ['shot', 'camera', 'Print da área (vai para a biblioteca)']]) {
+        const b = el('button', { class: 'cbtn' + (L.mode === m ? ' soft-on' : ''), title: n, onclick: () => { L.mode = m; this.save(); Editor.sel = null; Editor.requestRender(); this.renderOptions(); if (m === 'shot') toast('Arraste sobre a área para tirar o print', 1800); } }); b.innerHTML = icon(ic); sr.append(b);
+      }
+      sep();
+      const lk = el('button', { class: 'cbtn' + (L.locked ? ' soft-on' : ''), title: L.locked ? 'Selecionando também objetos bloqueados (toque para desligar)' : 'Selecionar objetos bloqueados', onclick: () => { L.locked = !L.locked; this.save(); this.renderOptions(); toast(L.locked ? 'O laço agora pega também objetos bloqueados' : 'Objetos bloqueados ficam de fora do laço', 1600); } }); lk.innerHTML = icon('lock'); sr.append(lk);
       if (Editor.clip) { const b = el('button', { class: 'cbtn', title: 'Colar', onclick: () => Editor.paste() }); b.innerHTML = icon('paste'); sr.append(b); }
     } else {
       const pt = Plugins.tools.find((x) => x.id === t);
@@ -248,6 +267,12 @@ const UI = {
     const upd = () => { this.renderOptions(); this.buildToolbar(); if (prev) this.drawPreview(prev, t); };
     if (t === 'pen' || t === 'highlighter') { prev = el('canvas', { class: 'tp-prev' }); p.append(prev); setTimeout(() => this.drawPreview(prev, t), 0); }
     const key = this.widthKey(t);
+    if (t === 'pen') {
+      const g = el('div', { class: 'pen-types' });
+      for (const [k, n] of PEN_TYPES) { const b = el('button', { class: (st.type || 'ball') === k ? 'on' : '', title: n, onclick: () => { st.type = k; this.save(); this.refresh(); } }, penSample(k, 74, 30, { nib: st.nib }), el('span', {}, n)); g.append(b); }
+      p.append(el('div', { class: 'tp-sec' }, 'Tipo de caneta'), g);
+      if (st.type === 'calli') p.append(...this.sliderRows('Ângulo da pena', st.nib ?? 45, 0, 90, 5, (v) => v + '°', (v) => { st.nib = v; this.save(); upd(); }, false));
+    }
     if (t === 'pen' || t === 'shape') {
       const seg = el('div', { class: 'tp-seg', style: { gridTemplateColumns: 'repeat(3,1fr)' } });
       for (const [k, n] of LINE_TYPES) { const b = el('button', { class: (st.dash || 'solid') === k ? 'on' : '', onclick: () => { st.dash = k; this.save(); this.refresh(); } }); b.innerHTML = lineTypeSvg(k, 28) + n; seg.append(b); }
@@ -271,15 +296,15 @@ const UI = {
     if (t === 'pen') {
       p.append(this.switchRow('Pressione e segure para desenhar forma', 'Desenhe e segure a caneta parada no fim', S.shapeHold, (v) => { S.shapeHold = v; this.save(); }));
       p.append(this.switchRow('Sempre fazer linhas retas', 'Cada traço vira uma linha reta do início ao fim', S.straightAlways, (v) => { S.straightAlways = v; this.save(); }));
-      p.append(this.switchRow('Alinhar linhas a 0°, 45° e 90°', 'Linhas quase retas grudam na horizontal, vertical e diagonais', S.angleSnap !== false, (v) => { S.angleSnap = v; this.save(); }));
+      p.append(this.switchRow('Alinhar linhas a cada 15°', 'Linhas retas grudam em 0°, 15°, 30°, 45°… (horizontal, vertical e diagonais)', S.angleSnap !== false, (v) => { S.angleSnap = v; this.save(); }));
       p.append(this.switchRow('Rabiscar para apagar', 'Rabisque em vai-e-volta por cima do que quer apagar', S.scribbleErase, (v) => { S.scribbleErase = v; this.save(); }));
       p.append(...this.sliderRows('Sensibilidade à pressão', S.pressureSens ?? 0.6, 0, 1, 0.05, (v) => (v === 0 ? 'Sem' : Math.round(v * 100) + '%'), (v) => { S.pressureSens = v; S.pressure = v > 0; this.save(); upd(); }, false));
     }
-    if (t === 'shape') p.append(this.switchRow('Alinhar linhas a 0°, 45° e 90°', null, S.angleSnap !== false, (v) => { S.angleSnap = v; this.save(); }));
+    if (t === 'shape') p.append(this.switchRow('Alinhar linhas a cada 15°', null, S.angleSnap !== false, (v) => { S.angleSnap = v; this.save(); }));
     if (t === 'highlighter') {
       p.append(this.switchRow('Segure para ficar reto', 'Segure a caneta parada no fim do traço', S.hlHold !== false, (v) => { S.hlHold = v; this.save(); }));
       p.append(this.switchRow('Sempre reto', 'Cada traço vira uma faixa reta do início ao fim', S.hlStraight, (v) => { S.hlStraight = v; this.save(); }));
-      p.append(this.switchRow('Alinhar a 0°, 45° e 90°', 'Faixas quase retas grudam na horizontal, vertical e diagonais', S.angleSnap !== false, (v) => { S.angleSnap = v; this.save(); }));
+      p.append(this.switchRow('Alinhar a cada 15°', 'Faixas retas grudam em 0°, 15°, 30°, 45°…', S.angleSnap !== false, (v) => { S.angleSnap = v; this.save(); }));
     }
     if (t === 'pen' || t === 'highlighter') p.append(...this.sliderRows('Estabilização (suavizar)', S.stabilizer, 0, 0.9, 0.05, (v) => Math.round(v * 100) + '%', (v) => { S.stabilizer = v; this.save(); }, false));
     if (t === 'eraser') {
@@ -390,7 +415,7 @@ const UI = {
     const st = Store.settings.tools[t], pts = [];
     for (let i = 0; i <= 60; i++) { const u = i / 60; const x = 30 + u * (r.width - 60), y = r.height / 2 - Math.sin(u * Math.PI * 1.6) * 22; pts.push(x, y, t === 'pen' ? mapPressure(0.15 + 0.75 * Math.sin(u * Math.PI)) : 0.5); }
     if (t === 'pen' && st.dash && st.dash !== 'solid') { c.strokeStyle = st.color; c.lineWidth = st.width; c.lineCap = 'round'; c.setLineDash(dashPattern(st.dash, st.width)); c.stroke(buildPolyPath(pts)); }
-    else if (t === 'pen') { c.fillStyle = st.color; c.fill(buildPenPath(pts, st.width)); }
+    else if (t === 'pen') drawElement(c, { type: 'stroke', tool: 'pen', pen: st.type || 'ball', nib: st.nib, color: st.color, width: st.width, pts });
     else { c.globalAlpha = st.opacity ?? 0.4; c.strokeStyle = st.color; c.lineWidth = st.width; c.lineCap = 'round'; c.lineJoin = 'round'; c.stroke(buildPolyPath(pts)); }
   },
   applyTextStyle(patch) {
@@ -408,11 +433,17 @@ const UI = {
     const B = (ic, title, fn) => { const b = el('button', { class: 'icon-btn', title, onclick: fn }); b.innerHTML = icon(ic); bar.append(b); return b; };
     const te = Editor.selTable(), ts = Editor.tsel;
     if (te && ts && ts.id === te.id) return this.buildCellBar(bar, B, te, ts);
+    if (Editor.selLocked()) { // bloqueados: só desbloquear ou copiar
+      B('unlock', 'Desbloquear', () => Editor.lockSel(false));
+      B('copy', 'Copiar', () => Editor.copySel());
+      return;
+    }
     const cb = B('palette', 'Mudar cor', () => colorPop(cb, '#000', (c) => Editor.recolorSel(c)));
     B('copy', 'Copiar', () => Editor.copySel());
     B('cut', 'Recortar', () => Editor.cutSel());
     B('plus', 'Duplicar', () => Editor.duplicateSel());
     B('front', 'Trazer para frente', () => Editor.orderSel(true));
+    B('lock', 'Bloquear (não move, não apaga e o laço comum ignora)', () => Editor.lockSel(true));
     const els = Editor.selElements();
     if (els.length === 1 && els[0].type === 'table') B('table', 'Ajustes da tabela', () => this.openTableEdit(els[0].id));
     if (Editor.selElements().some((e) => e.type === 'stroke' && e.tool === 'pen')) {
@@ -420,6 +451,27 @@ const UI = {
       B('align', 'Alinhar a escrita na horizontal', () => straightenSelection());
     }
     const d = B('trash', 'Excluir', () => Editor.deleteSel()); d.style.color = 'var(--danger)';
+  },
+
+  penTypePop(anchor) {
+    const st = Store.settings.tools.pen, box = el('div', { class: 'pen-types pop-list' });
+    for (const [k, n, d] of PEN_TYPES) box.append(el('button', { class: (st.type || 'ball') === k ? 'on' : '', onclick: () => { st.type = k; this.save(); closePop(); this.refresh(); } }, penSample(k, 74, 30, { nib: st.nib, color: st.color }), el('span', {}, el('b', {}, n), el('small', {}, d))));
+    openPop(anchor, box);
+  },
+  /* resultado do print do laço */
+  shotPop(img, blob, cv) {
+    const prev = el('img', { src: cv.toDataURL('image/png'), style: { maxWidth: '300px', maxHeight: '220px', borderRadius: '10px', border: '1px solid var(--line)', display: 'block', background: '#fff' } });
+    const name = () => safeName((Editor.note && Editor.note.title) || 'print') + ' — print.png';
+    const btn = (ic, label, fn, cls = '') => { const b = el('button', { class: 'btn ' + cls, onclick: fn }); b.innerHTML = icon(ic); b.append(label); return b; };
+    const box = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'stretch' } },
+      el('div', { style: { fontWeight: 600 } }, 'Print salvo na biblioteca'),
+      el('div', { class: 'lbl-sm' }, 'Abra a biblioteca na barra lateral (em qualquer nota) para colar.'), prev,
+      el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+        btn('download', 'Baixar PNG', () => downloadBlob(blob, name())),
+        btn('paste', 'Colar aqui', () => { closePop(); Store.settings.tools.lasso.mode = 'free'; UI.setTool('lasso', true); Editor.pasteElements([img]); }),
+        btn('check', 'OK', () => closePop(), 'primary')));
+    const r = { left: innerWidth / 2, right: innerWidth / 2, width: 0, top: innerHeight / 2 - 170, bottom: innerHeight / 2 - 170, height: 0 };
+    openPop({ getBoundingClientRect: () => r }, box);
   },
 
   buildCellBar(bar, B, e, t) {
@@ -471,10 +523,10 @@ const Clips = {
   MAX: 40,
   async all() { const l = (await DB.get('meta', 'clips')) || []; return l.sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || b.at - a.at); },
   async save(l) { await DB.put('meta', l, 'clips'); },
-  async add(els) {
-    const copy = clone(els), b = bboxUnion(copy); if (!b) return;
+  async add(els, label) {
+    const copy = clone(els).map((e) => { delete e.lock; return e; }), b = bboxUnion(copy); if (!b) return;
     const kinds = new Set(copy.map((e) => (e.type === 'stroke' ? 'escrita' : e.type === 'shape' ? 'forma' : e.type === 'image' ? 'imagem' : e.type === 'table' ? 'tabela' : 'texto')));
-    const entry = { id: uid(), at: Date.now(), els: copy, label: [...kinds].join(', '), thumb: await this.thumb(copy, b) };
+    const entry = { id: uid(), at: Date.now(), els: copy, label: label || [...kinds].join(', '), thumb: await this.thumb(copy, b) };
     let l = (await DB.get('meta', 'clips')) || [];
     const sig = JSON.stringify(copy.map((e) => [e.type, e.kind, e.blobId, e.pts ? e.pts.length : 0, Math.round(b.w), Math.round(b.h)]));
     l = l.filter((c) => c.sig !== sig); entry.sig = sig; // não repete o mesmo item

@@ -153,7 +153,7 @@ const Editor = {
       ctx.restore();
     });
     const a = this.action;
-    if (this.lowLat && a && a.kind === 'draw' && a.tool === 'pen' && a.dash === 'solid' && !a.shape && a.pts.length) { this.pageTf(ctx, a.pi); ctx.fillStyle = a.color; ctx.fill(buildPenPath(a.pts, a.width)); }
+    if (this.lowLat && a && a.kind === 'draw' && a.tool === 'pen' && a.inc && !a.shape && a.pts.length) { this.pageTf(ctx, a.pi); ctx.fillStyle = a.color; ctx.fill(buildRadiiPath(a.pts, penRadii(a.pts, a.width, a.pen))); }
     this.drawSelection(); this.drawGuides(); this.updateHud(); this.positionText();
     if (this._lastCam !== `${this.cam.x}|${this.cam.y}|${this.cam.z}`) { this._lastCam = `${this.cam.x}|${this.cam.y}|${this.cam.z}`; this.viewDebounced(); }
   },
@@ -172,6 +172,10 @@ const Editor = {
     const box = this.selScreenBox();
     if (!box) { this.sel = null; bar.classList.add('hidden'); return; }
     const ctx = this.ctx, d = this.dpr; ctx.setTransform(d, 0, 0, d, 0, 0);
+    if (this.selLocked()) { // seleção bloqueada: só a moldura e um cadeado
+      ctx.save(); ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
+      ctx.fillStyle = '#6b7280'; ctx.beginPath(); ctx.roundRect(box.x + box.w - 22, box.y - 26, 22, 20, 6); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6; ctx.strokeRect(box.x + box.w - 16, box.y - 18, 10, 7); ctx.beginPath(); ctx.arc(box.x + box.w - 11, box.y - 19, 3, Math.PI, 0); ctx.stroke(); ctx.restore();
+    } else {
     ctx.save(); ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(box.x + box.w, box.y + box.h, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.arc(box.x + box.w, box.y + box.h, 4, 0, Math.PI * 2); ctx.fill();
@@ -183,6 +187,7 @@ const Editor = {
     if (this.selTf && this.selTf.rot != null) { ctx.fillStyle = '#7c3aed'; ctx.font = '600 13px system-ui'; ctx.textAlign = 'center'; ctx.fillText(Math.round(this.selTf.rot * 180 / Math.PI) + '°', rx, ry - 18); }
     ctx.restore();
     if (!this.selTf && !this.tPreview) this.drawTableOverlay(box);
+    }
     if (this.selTf || this.tPreview) { bar.classList.add('hidden'); return; }
     if (bar.classList.contains('hidden') || bar.dataset.n !== String(this.sel.ids.size)) UI.buildSelBar();
     bar.classList.remove('hidden'); bar.dataset.n = this.sel.ids.size;
@@ -204,6 +209,10 @@ const Editor = {
   recAdd(page, el, i = page.elements.length) { this.opBegin(); page.elements.splice(i, 0, el); this.curOp.changes.push({ p: page.id, k: 'add', el, i }); },
   recRemove(page, el) { const i = page.elements.indexOf(el); if (i < 0) return; this.opBegin(); page.elements.splice(i, 1); this.curOp.changes.push({ p: page.id, k: 'rem', el, i }); },
   recReplace(page, old, el) { const i = page.elements.indexOf(old); if (i < 0) return; this.opBegin(); page.elements[i] = el; this.curOp.changes.push({ p: page.id, k: 'rep', old, el, i }); },
+  /* mudanças de modelo de página entram no desfazer/refazer */
+  tplSnap() { return { nt: clone(this.note.template), pages: this.note.pages.map((p) => [p.id, clone(p.template || null)]) }; },
+  tplApply(s) { this.note.template = clone(s.nt); for (const [id, t] of s.pages) { const p = this.pageById(id); if (p) p.template = clone(t); } },
+  recTemplate(fn) { const a = this.tplSnap(); fn(); const b = this.tplSnap(); if (JSON.stringify(a) === JSON.stringify(b)) return; this.opBegin(); this.curOp.changes.push({ k: 'tpl', a, b }); this.opCommit(); },
   opCommit() {
     const op = this.curOp; this.curOp = null;
     if (op && op.changes.length) { this.undoStack.push(op); if (this.undoStack.length > 300) this.undoStack.shift(); this.redoStack = []; this.markChanged(); }
@@ -212,7 +221,8 @@ const Editor = {
   undo() {
     this.commitText(); const op = this.undoStack.pop(); if (!op) return;
     for (let j = op.changes.length - 1; j >= 0; j--) {
-      const c = op.changes[j], page = this.pageById(c.p); if (!page) continue; const els = page.elements;
+      const c = op.changes[j]; if (c.k === 'tpl') { this.tplApply(c.a); continue; }
+      const page = this.pageById(c.p); if (!page) continue; const els = page.elements;
       if (c.k === 'add') { const i = els.findIndex((e) => e.id === c.el.id); if (i >= 0) els.splice(i, 1); }
       else if (c.k === 'rem') els.splice(Math.min(c.i, els.length), 0, c.el);
       else { const i = els.findIndex((e) => e.id === c.el.id); if (i >= 0) els[i] = c.old; }
@@ -222,6 +232,7 @@ const Editor = {
   redo() {
     const op = this.redoStack.pop(); if (!op) return;
     for (const c of op.changes) {
+      if (c.k === 'tpl') { this.tplApply(c.b); continue; }
       const page = this.pageById(c.p); if (!page) continue; const els = page.elements;
       if (c.k === 'add') els.splice(Math.min(c.i, els.length), 0, c.el);
       else if (c.k === 'rem') { const i = els.findIndex((e) => e.id === c.el.id); if (i >= 0) els.splice(i, 1); }
@@ -247,6 +258,12 @@ const Editor = {
     if (this.readOnly && e.pointerType !== 'touch') { rec.type = 'touch'; this.startGesture(); return; } // modo leitura: caneta só navega
     if (e.pointerType === 'pen' && (!(e.buttons & 1) || this.penClickHeld(e))) { rec.ignored = true; return; } // sem encostar (só botão) ou botão com atalho de clique: não desenha
     if (e.pointerType === 'touch') {
+      const tr = this.action && ['move', 'scale', 'rotate'].includes(this.action.kind) && this.action.pid !== e.pointerId;
+      if (tr) { // segundo dedo enquanto move/redimensiona: sem ajustes automáticos (palma grande é ignorada)
+        rec.ignored = true;
+        if (!(e.width > 48 || e.height > 48)) { rec.noSnap = true; this.action.noSnap = (this.action.noSnap || 0) + 1; const ap = this.pointers.get(this.action.pid); if (ap) this.moveSel({ x: ap.x, y: ap.y }); }
+        return;
+      }
       if (Store.settings.palmGuard && (this.penDown || performance.now() - this.lastPenSeen < 500)) { rec.ignored = true; return; }
       const drawingTouch = this.action && this.action.ptype === 'touch';
       if (!this.gesture && !drawingTouch && this.touchIds().length === 1 && this.sel && !this.readOnly) { // dedo também move, redimensiona e gira a seleção
@@ -279,6 +296,7 @@ const Editor = {
     const rec = this.pointers.get(e.pointerId); this.pointers.delete(e.pointerId);
     if (e.pointerType === 'pen') { this.penDown = false; this.lastPenSeen = performance.now(); }
     if (!rec) return;
+    if (rec.noSnap && this.action && this.action.noSnap) { this.action.noSnap--; const ap = this.pointers.get(this.action.pid); if (ap) this.moveSel({ x: ap.x, y: ap.y }); }
     if (this.action && this.action.pid === e.pointerId) { if (cancel) this.cancelAction(); else this.endAction(e); return; }
     if (this.gesture) {
       if (!this.touchIds().length) this.endGesture(); else this.rebaseGesture();
@@ -360,7 +378,7 @@ const Editor = {
     if (a.kind === 'draw') { for (const ev of evs) this.addDrawPoint(ev); this.drawLiveStroke(); return; }
     const p = this.pt(e), w = this.toWorld(p.x, p.y);
     if (a.kind === 'erase') { this.eraseAt(a.last, w); a.last = w; this.drawEraserCursor(p); return; }
-    if (a.kind === 'lasso') { a.pts.push([p.x, p.y]); this.drawLasso(); return; }
+    if (a.kind === 'lasso') { if (a.mode === 'free') a.pts.push([p.x, p.y]); else a.pts = [a.pts[0], [p.x, p.y]]; this.drawLasso(); return; }
     if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate') return this.moveSel(p);
     if (a.kind === 'tableact') return this.moveTableAct(p);
     if (a.kind === 'shape') return this.moveShape(w);
@@ -395,6 +413,7 @@ const Editor = {
     const st = Store.settings.tools[base.tool];
     const a = this.action = { ...base, kind: 'draw', pi, pts: [], color: st.color, width: st.width, opacity: base.tool === 'highlighter' ? st.opacity ?? 0.4 : 1, drawn: 0, snap: Instruments.snapFor(p), hold: { x: p.x, y: p.y } };
     a.dash = base.tool === 'pen' ? st.dash || 'solid' : 'solid';
+    if (base.tool === 'pen') { a.pen = st.type || 'ball'; a.nib = st.nib ?? 45; a.inc = a.dash === 'solid' && (a.pen === 'ball' || a.pen === 'natural'); }
     a.inf = inf; this.addDrawPoint(e);
     const S0 = Store.settings;
     if (((base.tool === 'pen' && S0.straightAlways) || (base.tool === 'highlighter' && S0.hlStraight)) && !a.snap) { // sempre linhas retas
@@ -454,6 +473,9 @@ const Editor = {
       c.save(); c.strokeStyle = a.color; c.lineWidth = a.width; c.lineCap = 'round'; c.lineJoin = 'round'; c.setLineDash(dashPattern(a.dash, a.width));
       c.stroke(buildPolyPath(a.pts)); c.restore(); return;
     }
+    if (a.tool === 'pen' && !a.inc) { // tinteiro, caligrafia, pincel e marcador fino: redesenha o traço inteiro
+      this.clearLive(); this.pageTf(c, a.pi); drawElement(c, { type: 'stroke', tool: 'pen', pen: a.pen, nib: a.nib, color: a.color, width: a.width, pts: a.pts }); return;
+    }
     if (a.tool === 'highlighter') {
       this.clearLive(); this.pageTf(c, a.pi);
       c.save(); c.globalAlpha = a.opacity; c.strokeStyle = a.color; c.lineWidth = a.width; c.lineCap = 'round'; c.lineJoin = 'round';
@@ -462,7 +484,7 @@ const Editor = {
     const n = a.pts.length / 3; const from = Math.max(0, a.drawn - 1);
     if (n - from < 1) return;
     const tc = this.lowLat ? this.ctx : c; if (this.lowLat) this.pageTf(tc, a.pi);
-    tc.fillStyle = a.color; tc.fill(buildPenPath(a.pts.slice(from * 3), a.width));
+    const seg = a.pts.slice(from * 3); tc.fillStyle = a.color; tc.fill(buildRadiiPath(seg, penRadii(seg, a.width, a.pen)));
     a.drawn = n;
   },
   endDraw(a) {
@@ -479,6 +501,7 @@ const Editor = {
     const el = { id: uid(), type: 'stroke', tool: a.tool, color: a.color, width: a.width, pts };
     if (a.tool === 'highlighter') { el.opacity = a.opacity; if (a.snap) el.cap = 'butt'; }
     if (a.tool === 'pen' && a.dash !== 'solid') el.dash = a.dash;
+    if (a.tool === 'pen') { el.pen = a.pen; if (a.pen === 'calli') el.nib = a.nib; }
     this.recAdd(page, el); this.opCommit();
   },
 
@@ -494,7 +517,7 @@ const Editor = {
       for (let i = page.elements.length - 1; i >= 0; i--) {
         const e = page.elements[i];
         if (st.onlyHl && !(e.type === 'stroke' && e.tool === 'highlighter')) continue;
-        if (e.type === 'table' || e.type === 'image') continue; // tabelas e imagens: apagar pelo laço (evita sumir ao apagar a escrita em cima)
+        if (e.type === 'table' || e.type === 'image' || e.lock) continue; // tabelas, imagens e bloqueados: apagar pelo laço (evita sumir ao apagar a escrita em cima)
         if (st.mode === 'area' && e.type === 'stroke') {
           const parts = eraseFromStroke(e, l.x, l.y, r);
           if (parts) { const idx = page.elements.indexOf(e); this.recRemove(page, e); parts.forEach((pp, k) => this.recAdd(page, pp, idx + k)); changed = true; }
@@ -512,15 +535,44 @@ const Editor = {
 
   /* --- Laço / seleção --- */
   startLasso(base, p, w) {
-    const k = this.sel && this.selHit(p);
+    const mode = (Store.settings.tools.lasso || {}).mode || 'free';
+    const k = mode !== 'shot' && this.sel && this.selHit(p);
     if (k) { this.action = { ...base, kind: k, start: p, box: this.selScreenBox() }; if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
     this.tsel = null;
     this.sel = null; this.requestRender();
     const pi = this.pageIndexAt(w.x, w.y, true);
-    this.action = { ...base, kind: 'lasso', pi, pts: [[p.x, p.y]] };
+    this.action = { ...base, kind: 'lasso', pi, pts: [[p.x, p.y]], mode };
+  },
+  lassoPoly(a) { // laço retangular/print: 4 cantos
+    if (a.mode === 'free' || a.pts.length < 2) return a.pts;
+    const [[x1, y1], [x2, y2]] = a.pts; return [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
+  },
+  selLocked() { return this.selElements().some((e) => e.lock); },
+  lockSel(on) {
+    const page = this.pageById(this.sel.pageId);
+    for (const e of this.selElements()) { const n = { ...e }; if (on) n.lock = true; else delete n.lock; this.recReplace(page, e, n); }
+    this.opCommit(); toast(on ? 'Bloqueado: não move, não apaga e não é selecionado pelo laço comum' : 'Desbloqueado', 1800);
+    if (on) this.sel = null; UI.buildSelBar(); this.requestRender();
+  },
+  /* print da área: recorta a página (com modelo, PDF e tudo) como imagem */
+  async captureArea(pi, poly) {
+    const page = this.note.pages[pi]; if (!page) return;
+    const loc = poly.map(([x, y]) => { const w = this.toWorld(x, y); return this.local(pi, w.x, w.y); });
+    let x1 = Math.min(...loc.map((q) => q.x)), y1 = Math.min(...loc.map((q) => q.y)), x2 = Math.max(...loc.map((q) => q.x)), y2 = Math.max(...loc.map((q) => q.y));
+    if (this.note.mode !== 'infinite') { x1 = Math.max(0, x1); y1 = Math.max(0, y1); x2 = Math.min(page.w, x2); y2 = Math.min(page.h, y2); }
+    if (x2 - x1 < 4 || y2 - y1 < 4) return toast('Arraste para marcar a área do print');
+    const area = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 }, sc = Math.min(3, 2400 / Math.max(area.w, area.h));
+    const cv = await renderPageCanvas(this.note, page, sc, { area });
+    const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
+    const id = await Store.putBlob(blob);
+    const img = { id: uid(), type: 'image', x: area.x, y: area.y, w: area.w, h: area.h, blobId: id };
+    await Clips.add([img], 'print');
+    this.lastShot = { img, blob };
+    UI.shotPop(img, blob, cv);
   },
   selHit(p) {
     const box = this.selScreenBox(); if (!box) return null;
+    if (this.selLocked()) return null; // bloqueados não se movem
     if (Math.hypot(p.x - (box.x + box.w), p.y - (box.y + box.h)) < 28) return 'scale';
     if (Math.hypot(p.x - (box.x + box.w / 2), p.y - (box.y - 34)) < 24) return 'rotate';
     const te = this.selTable();
@@ -530,26 +582,29 @@ const Editor = {
   },
   drawLasso() {
     const a = this.action, c = this.lctx, d = this.dpr; this.clearLive(); c.setTransform(d, 0, 0, d, 0, 0);
-    c.beginPath(); a.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.closePath();
+    c.beginPath(); this.lassoPoly(a).forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.closePath();
+    if (a.mode === 'shot') { c.fillStyle = 'rgba(236,72,153,.08)'; c.fill(); c.setLineDash([7, 4]); c.strokeStyle = '#ec4899'; c.lineWidth = 2; c.stroke(); c.setLineDash([]); return; }
     c.fillStyle = 'rgba(124,58,237,.08)'; c.fill(); c.setLineDash([5, 5]); c.strokeStyle = '#7c3aed'; c.lineWidth = 1.5; c.stroke(); c.setLineDash([]);
   },
   endLasso(a) {
     this.clearLive(); const page = this.note.pages[a.pi]; if (!page) return;
+    if (a.mode === 'shot') return this.captureArea(a.pi, this.lassoPoly(a));
+    const canSel = (e) => !e.lock || (Store.settings.tools.lasso || {}).locked;
     const toL = ([x, y]) => { const w = this.toWorld(x, y), l = this.local(a.pi, w.x, w.y); return [l.x, l.y]; };
     let len = 0; for (let i = 1; i < a.pts.length; i++) len += Math.hypot(a.pts[i][0] - a.pts[i - 1][0], a.pts[i][1] - a.pts[i - 1][1]);
     let ids = [];
     if (len < 14) { // toque: seleciona o elemento sob o dedo/caneta
       const [x, y] = toL(a.pts[0]);
-      for (let i = page.elements.length - 1; i >= 0; i--) if (hitElement(page.elements[i], x, y, 8 / this.cam.z)) { ids = [page.elements[i].id]; break; }
-      if (!ids.length) { const t = [...page.elements].reverse().find((e) => e.type === 'table' && x >= e.x && x <= e.x + e.w && y >= e.y && y <= e.y + e.h); if (t) ids = [t.id]; } // toque dentro da tabela
+      for (let i = page.elements.length - 1; i >= 0; i--) if (canSel(page.elements[i]) && hitElement(page.elements[i], x, y, 8 / this.cam.z)) { ids = [page.elements[i].id]; break; }
+      if (!ids.length) { const t = [...page.elements].reverse().find((e) => e.type === 'table' && canSel(e) && x >= e.x && x <= e.x + e.w && y >= e.y && y <= e.y + e.h); if (t) ids = [t.id]; } // toque dentro da tabela
     } else {
-      const poly = a.pts.map(toL);
-      ids = page.elements.filter((e) => elInLasso(e, poly)).map((e) => e.id);
+      const poly = this.lassoPoly(a).map(toL);
+      ids = page.elements.filter((e) => canSel(e) && elInLasso(e, poly)).map((e) => e.id);
     }
     this.sel = ids.length ? { pageId: page.id, ids: new Set(ids) } : null;
     this.requestRender();
   },
-  deleteSel() { const page = this.pageById(this.sel.pageId); for (const e of this.selElements()) this.recRemove(page, e); this.sel = null; this.opCommit(); },
+  deleteSel() { const page = this.pageById(this.sel.pageId); for (const e of this.selElements()) if (!e.lock) this.recRemove(page, e); this.sel = null; this.opCommit(); },
   copySel(record = true) { const els = this.selElements(); if (!els.length) return; this.clip = clone(els); if (record) { Clips.add(els); toast(`${els.length} item(ns) copiado(s) · salvo na biblioteca`, 1400); } UI.renderOptions(); },
   cutSel() { this.copySel(); this.deleteSel(); },
   duplicateSel() { const keep = this.clip; this.copySel(false); this.paste(20); this.clip = keep || this.clip; },
@@ -566,7 +621,7 @@ const Editor = {
   pasteElements(els) { const keep = this.clip; this.clip = clone(els); this.paste(); this.clip = keep; UI.renderOptions(); },
   recolorSel(color) {
     const page = this.pageById(this.sel.pageId);
-    for (const e of this.selElements()) if (['stroke', 'shape', 'text'].includes(e.type)) this.recReplace(page, e, { ...e, color });
+    for (const e of this.selElements()) if (!e.lock && ['stroke', 'shape', 'text'].includes(e.type)) this.recReplace(page, e, { ...e, color });
     this.opCommit();
   },
   orderSel(front) {
@@ -626,7 +681,7 @@ const Editor = {
   textAt(w) {
     const pi = this.pageIndexAt(w.x, w.y, this.note.mode === 'infinite'); if (pi < 0) return;
     const page = this.note.pages[pi], l = this.local(pi, w.x, w.y);
-    const hit = [...page.elements].reverse().find((e) => e.type === 'text' && hitElement(e, l.x, l.y, 4));
+    const hit = [...page.elements].reverse().find((e) => e.type === 'text' && !e.lock && hitElement(e, l.x, l.y, 4));
     const st = Store.settings.tools.text, sk = Store.settings.tools.sticky;
     let el;
     if (hit) el = hit;
