@@ -179,7 +179,6 @@ const Library = {
   },
   async importNotewise() {
     const f = await pickFile(''); if (!f) return;
-    if (!/\.(notewise|zip)$/i.test(f.name)) return toast('Escolha um arquivo .notewise ou o .zip exportado pelo Notewise', 4000);
     toast('Importando do Notewise…', 20000);
     try {
       const res = await importNotewiseFile(f, (i, t, n) => toast(`Importando ${i} de ${t}: ${n.split('/').pop()}`, 20000));

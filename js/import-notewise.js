@@ -6,28 +6,48 @@
 
 /* ---- leitor de ZIP mínimo (usa a descompressão nativa do navegador) ---- */
 async function readZip(blob) {
-  const buf = new Uint8Array(await blob.arrayBuffer()), dv = new DataView(buf.buffer);
-  let eocd = -1; for (let i = buf.length - 22; i >= Math.max(0, buf.length - 70000); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
-  if (eocd < 0) throw new Error('arquivo não é um ZIP válido');
-  const count = dv.getUint16(eocd + 10, true); let p = dv.getUint32(eocd + 16, true);
-  const entries = [];
-  for (let k = 0; k < count; k++) {
-    if (dv.getUint32(p, true) !== 0x02014b50) break;
-    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
-    const name = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + nlen));
-    entries.push({ name, method, csize, off }); p += 46 + nlen + xlen + clen;
-  }
+  const buf = new Uint8Array(await blob.arrayBuffer()), dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  if (!buf.length) throw new Error('o arquivo chegou vazio (0 bytes). Se ele está no Google Drive ou em outro app, baixe para a pasta Downloads do tablet e importe de lá');
+  const inflate = async (raw, method) => {
+    if (method === 0) return raw;
+    if (method !== 8) throw new Error('compressão ZIP não suportada (' + method + ')');
+    const ds = new DecompressionStream('deflate-raw');
+    return new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(ds)).arrayBuffer());
+  };
   const files = {};
-  for (const e of entries) {
-    if (e.name.endsWith('/')) continue;
-    const ln = dv.getUint16(e.off + 26, true), lx = dv.getUint16(e.off + 28, true), start = e.off + 30 + ln + lx;
-    const raw = buf.subarray(start, start + e.csize);
-    files[e.name] = { method: e.method, raw, async bytes() {
-      if (this.method === 0) return this.raw;
-      if (this.method !== 8) throw new Error('compressão ZIP não suportada');
-      const ds = new DecompressionStream('deflate-raw');
-      return new Uint8Array(await new Response(new Blob([this.raw]).stream().pipeThrough(ds)).arrayBuffer());
-    } };
+  let eocd = -1; for (let i = buf.length - 22; i >= Math.max(0, buf.length - 70000); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd >= 0) { // caminho normal: diretório central no fim do arquivo
+    const count = dv.getUint16(eocd + 10, true); let p = dv.getUint32(eocd + 16, true);
+    for (let k = 0; k < count && p + 46 <= buf.length; k++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) break;
+      const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+      const name = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + nlen)); p += 46 + nlen + xlen + clen;
+      if (name.endsWith('/') || off + 30 > buf.length) continue;
+      const ln = dv.getUint16(off + 26, true), lx = dv.getUint16(off + 28, true), start = off + 30 + ln + lx;
+      files[name] = { method, raw: buf.subarray(start, start + csize), bytes() { return inflate(this.raw, this.method); } };
+    }
+  }
+  if (!Object.keys(files).length) { // sem diretório central (arquivo cortado ou gravado de outro jeito): lê os cabeçalhos locais em sequência
+    let p = 0;
+    while (p + 30 <= buf.length && dv.getUint32(p, true) === 0x04034b50) {
+      const flags = dv.getUint16(p + 6, true), method = dv.getUint16(p + 8, true); let csize = dv.getUint32(p + 18, true);
+      const nlen = dv.getUint16(p + 26, true), xlen = dv.getUint16(p + 28, true), start = p + 30 + nlen + xlen;
+      const name = new TextDecoder().decode(buf.subarray(p + 30, p + 30 + nlen));
+      let next;
+      if ((flags & 8) && !csize) { // tamanho vem depois dos dados (descritor PK 07 08)
+        let q = start; csize = -1;
+        while (q + 16 <= buf.length) { if (dv.getUint32(q, true) === 0x08074b50 && dv.getUint32(q + 8, true) === q - start) { csize = q - start; break; } q++; }
+        if (csize < 0) break;
+        next = start + csize + 16;
+      } else next = start + csize + ((flags & 8) ? (dv.getUint32(start + csize, true) === 0x08074b50 ? 16 : 12) : 0);
+      if (!name.endsWith('/') && start + csize <= buf.length) files[name] = { method, raw: buf.subarray(start, start + csize), bytes() { return inflate(this.raw, this.method); } };
+      p = next;
+    }
+  }
+  if (!Object.keys(files).length) {
+    const head = [...buf.subarray(0, 8)].map((v) => v.toString(16).padStart(2, '0')).join(' ');
+    const looksText = buf.subarray(0, 200).every((v) => v === 9 || v === 10 || v === 13 || (v >= 32 && v < 127) || v >= 128);
+    throw new Error(`o arquivo não é um ZIP válido (${(buf.length / 1024).toFixed(1)} KB, começa com ${head}${looksText ? ': parece texto, talvez uma página da web ou um link em vez do arquivo' : ''}). Tente baixar o arquivo para a pasta Downloads do tablet e importar de lá`);
   }
   return files;
 }
