@@ -259,7 +259,7 @@ async function openSettings(focus) {
       UI.slider('Sensibilidade à pressão', 0, 1, 0.05, S.pressureSens ?? 0.6, (v) => { S.pressureSens = v; S.pressure = v > 0; Store.saveSettings(); }, (v) => (v === 0 ? 'sem' : Math.round(v * 100) + '%')),
       chk('Reconhecer formas ao segurar a caneta parada no fim do traço', 'shapeHold'),
       UI.check('Modo de baixa latência (a tinta aparece mais rápido; reabra o app depois de mudar)', S.lowLatency === true, (v) => { S.lowLatency = v; Store.saveSettings(); toast('Reabra o app para aplicar'); }),
-      UI.slider('Suavização do traço', 0, 0.9, 0.05, S.stabilizer, (v) => { S.stabilizer = v; Store.saveSettings(); }, (v) => Math.round(v * 100) + '%'),
+      UI.slider('Estabilização do traço (deixa a letra mais firme)', 0, 1, 0.05, S.stabilizer ?? 0.55, (v) => { S.stabilizer = v; Store.saveSettings(); }, (v) => Math.round(v * 100) + '%'),
       )));
   body.append(penMapSection());
   S.ocr = S.ocr || { enabled: true, lang: 'pt_BR' };

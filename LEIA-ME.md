@@ -75,6 +75,15 @@ O Client Secret é opcional, mas recomendado. Sem ele, o Google pede para recone
 | Laço retangular e print | Na segunda barra do laço: laço livre, retangular ou câmera (print). O print recorta a área como imagem, vai para a Biblioteca (cole em qualquer nota) e pode ser baixado em PNG |
 | Bloquear objetos | Selecione e toque no cadeado: o item não move, não é apagado e o laço comum o ignora. Para mexer de novo, ligue o cadeado da segunda barra do laço ("Selecionar objetos bloqueados") e toque em Desbloquear |
 | Mover sem ajustes | Enquanto arrasta um objeto, encoste outro dedo na tela: a linha-guia some e o movimento fica livre |
+| Barra de espessuras | As espessuras, o tipo de caneta e o tipo de linha ficam numa barra horizontal embaixo; as cores continuam na barra vertical. Arraste a barra de baixo pela alça (⋮) para qualquer lugar; toque duas vezes na alça para ela voltar |
+| Selecionar com o dedo | Com qualquer ferramenta, toque com o dedo numa forma, texto, post-it, imagem ou tabela: ela fica selecionada e a caneta continua escrevendo. Toque fora com o dedo para tirar a seleção |
+| Editar texto | Toque duas vezes no texto (dedo ou caneta) ou use o botão de texto da barra de seleção |
+| Formatação | Ao editar um texto aparece uma barra: fonte, negrito, itálico, sublinhado, tachado, cor, realce, alinhamento, listas (•, ☐ e 1.), tamanho e "alinhar às linhas do modelo". A formatação vale para o trecho selecionado |
+| Lista de tarefas | Toque numa caixinha ☐ (dedo ou caneta) para marcar ☑ |
+| Alinhar às linhas | Com essa opção, cada linha do texto fica sobre a pauta, a grade ou os pontos da página, e ao mover a caixa ela gruda nas linhas. Pode virar o padrão no painel da ferramenta de texto |
+| Conta-gotas | Selecione um traço, forma ou texto e toque no conta-gotas da barra de seleção: a cor, a espessura, o tipo de caneta e a fonte vão para a ferramenta |
+| Fontes | Sistema, Inter, Lora, Merriweather, Roboto Mono, Caveat, Patrick Hand, Dancing Script, Great Vibes, Bebas Neue e Playfair Display. Com internet, o app baixa as fontes uma vez e depois elas funcionam offline |
+| Estabilização | Painel da caneta ou Configurações → Escrita: quanto maior, mais firme fica a letra |
 | Post-it | Ferramenta de nota adesiva: toque na página, escreva e mude a cor na segunda barra |
 | Páginas | Botão de grade no canto superior esquerdo: abrir, selecionar várias, duplicar, excluir, marcar, e segurar e arrastar para reordenar |
 | Marcadores | Botão de marcador no canto superior direito marca a página atual; na caixa de páginas, filtre por "Marcadores" |

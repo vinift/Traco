@@ -70,7 +70,7 @@ function drawElement(ctx, e) {
       else ctx.stroke(p);
     }
   } else if (e.type === 'text') {
-    const L = layoutText(e); ctx.font = textFont(e); ctx.fillStyle = e.color; ctx.textBaseline = 'top';
+    const L = layoutText(e);
     let tx = e.x, ty = e.y;
     if (e.sticky) { // post-it
       const h = L.h, f = Math.min(26, e.w * 0.14);
@@ -78,8 +78,8 @@ function drawElement(ctx, e) {
       ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + e.w, e.y); ctx.lineTo(e.x + e.w, e.y + h - f); ctx.lineTo(e.x + e.w - f, e.y + h); ctx.lineTo(e.x, e.y + h); ctx.closePath(); ctx.fill(); ctx.restore();
       ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.beginPath(); ctx.moveTo(e.x + e.w, e.y + h - f); ctx.lineTo(e.x + e.w - f, e.y + h - f); ctx.lineTo(e.x + e.w - f, e.y + h); ctx.closePath(); ctx.fill();
       ctx.fillStyle = e.color; tx += STICKY_PAD; ty += STICKY_PAD;
-    } else if (e.bg) { ctx.fillStyle = e.bg; ctx.fillRect(e.x - 4, e.y - 2, e.w + 8, L.h + 4); ctx.fillStyle = e.color; }
-    L.lines.forEach((ln, i) => ctx.fillText(ln, tx, ty + i * L.lh + e.size * 0.12));
+    } else if (e.bg) { ctx.fillStyle = e.bg; ctx.fillRect(e.x - 4, e.y - 2, L.w + 8, L.h + 4); }
+    drawRichText(ctx, e, L, tx, ty);
   } else if (e.type === 'image') {
     const bmp = ImgCache.get(e.blobId);
     if (bmp) ctx.drawImage(bmp, e.x, e.y, e.w, e.h);
@@ -145,6 +145,7 @@ async function renderPageCanvas(note, page, scale, { maxW, area } = {}) {
   cv.width = Math.max(1, Math.round(region.w * scale)); cv.height = Math.max(1, Math.round(region.h * scale));
   const ctx = cv.getContext('2d');
   for (const e of page.elements) if (e.type === 'image') await ImgCache.load(e.blobId);
+  await Fonts.ensure(page.elements);
   let pdfBitmap = null; if (page.pdf) pdfBitmap = await PdfCache.render(page.pdf, Math.min(3, Math.max(scale, 0.5)));
   ctx.setTransform(scale, 0, 0, scale, -region.x * scale, -region.y * scale);
   drawPageContent(ctx, note, page, region, scale, { pdfBitmap });

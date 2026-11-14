@@ -35,6 +35,37 @@ function buildPenPath(pts, w, path = new Path2D(), from = 0) {
   }
   return path;
 }
+/* ---------- Estabilização ---------- */
+function smoothStroke(pts, s) { // passadas de média [1/4 1/2 1/4] em x e y, mantendo início e fim
+  const n = pts.length / 3, passes = Math.round(clamp(s, 0, 1) * 4); if (n < 4 || !passes) return pts;
+  for (let k = 0; k < passes; k++) {
+    let px = pts[0], py = pts[1];
+    for (let i = 1; i < n - 1; i++) {
+      const x = pts[i * 3], y = pts[i * 3 + 1];
+      pts[i * 3] = px * 0.25 + x * 0.5 + pts[(i + 1) * 3] * 0.25; pts[i * 3 + 1] = py * 0.25 + y * 0.5 + pts[(i + 1) * 3 + 1] * 0.25;
+      px = x; py = y;
+    }
+  }
+  return pts;
+}
+function splinePts(pts) { // Catmull-Rom: insere pontos nas curvas para o contorno não ficar quebrado
+  const n = pts.length / 3; if (n < 3) return pts;
+  const out = [];
+  for (let i = 0; i < n - 1; i++) {
+    const i0 = Math.max(0, i - 1), i2 = i + 1, i3 = Math.min(n - 1, i + 2);
+    const x0 = pts[i0 * 3], y0 = pts[i0 * 3 + 1], x1 = pts[i * 3], y1 = pts[i * 3 + 1], p1 = pts[i * 3 + 2], x2 = pts[i2 * 3], y2 = pts[i2 * 3 + 1], p2 = pts[i2 * 3 + 2], x3 = pts[i3 * 3], y3 = pts[i3 * 3 + 1];
+    out.push(x1, y1, p1);
+    const segs = Math.min(8, Math.floor(Math.hypot(x2 - x1, y2 - y1) / 1.2));
+    for (let j = 1; j < segs; j++) {
+      const t = j / segs, t2 = t * t, t3 = t2 * t;
+      const cx = 0.5 * (2 * x1 + (-x0 + x2) * t + (2 * x0 - 5 * x1 + 4 * x2 - x3) * t2 + (-x0 + 3 * x1 - 3 * x2 + x3) * t3);
+      const cy = 0.5 * (2 * y1 + (-y0 + y2) * t + (2 * y0 - 5 * y1 + 4 * y2 - y3) * t2 + (-y0 + 3 * y1 - 3 * y2 + y3) * t3);
+      out.push(cx, cy, p1 + (p2 - p1) * t);
+    }
+  }
+  out.push(pts[(n - 1) * 3], pts[(n - 1) * 3 + 1], pts[(n - 1) * 3 + 2]);
+  return out;
+}
 /* ---------- Tipos de caneta ---------- */
 const PEN_TYPES = [
   ['ball', 'Esferográfica', 'Espessura constante, não reage à pressão'],
@@ -91,9 +122,11 @@ function buildCalliPath(pts, w, nibDeg = 45, path = new Path2D()) {
 }
 /* contorno (para preencher) ou linha (para o marcador fino) de um traço de caneta */
 function penStrokePath(pts, w, kind, nib) {
-  if (kind === 'calli') return buildCalliPath(pts, w, nib ?? 45);
   if (kind === 'fine') return buildPolyPath(pts);
-  return buildRadiiPath(pts, penRadii(pts, w, kind));
+  if (kind === 'calli') return buildCalliPath(splinePts(pts), w, nib ?? 45);
+  const r = penRadii(pts, w, kind), q = pts.slice(); for (let i = 0; i < r.length; i++) q[i * 3 + 2] = r[i]; // raio calculado nos pontos reais (velocidade)
+  const sp = splinePts(q), rr = []; for (let i = 2; i < sp.length; i += 3) rr.push(sp[i]);
+  return buildRadiiPath(sp, rr);
 }
 function buildPolyPath(pts, path = new Path2D()) {
   const n = pts.length / 3; if (!n) return path;
@@ -135,26 +168,7 @@ function elPath(e) {
   else if (e.type === 'shape') p = buildShapePath(e);
   _pathCache.set(e, p); return p;
 }
-function textFont(e) { return `${e.bold ? '600 ' : ''}${e.size}px system-ui,-apple-system,Roboto,sans-serif`; }
-const STICKY_PAD = 16;
-function layoutText(e) {
-  let L = _textCache.get(e); if (L) return L;
-  measureCtx.font = textFont(e);
-  const lines = [];
-  for (const para of (e.text || '').split('\n')) {
-    const words = para.split(/(\s+)/); let cur = '';
-    const maxW = e.sticky ? e.w - 2 * STICKY_PAD : e.w;
-    for (const w of words) {
-      const t = cur + w;
-      if (measureCtx.measureText(t).width > maxW && cur.trim()) { lines.push(cur.replace(/\s+$/, '')); cur = w.replace(/^\s+/, ''); }
-      else cur = t;
-    }
-    lines.push(cur);
-  }
-  const th = Math.max(1, lines.length) * e.size * 1.3;
-  L = { lines, lh: e.size * 1.3, h: e.sticky ? Math.max(e.minH || e.w, th + 2 * STICKY_PAD) : th };
-  _textCache.set(e, L); return L;
-}
+const STICKY_PAD = 16; // textFont e layoutText ficam em richtext.js
 function elBBox(e) {
   let b = _bboxCache.get(e); if (b) return b;
   if (e.type === 'stroke') {
@@ -168,7 +182,7 @@ function elBBox(e) {
     else { const g = shapeGeom(e); x1 = g.x1; y1 = g.y1; x2 = g.x2; y2 = g.y2; }
     const m = e.width / 2 + (e.kind === 'arrow' ? e.width * 4 : 0);
     b = { x: x1 - m, y: y1 - m, w: x2 - x1 + 2 * m, h: y2 - y1 + 2 * m };
-  } else if (e.type === 'text') { b = { x: e.x, y: e.y, w: e.w, h: layoutText(e).h }; }
+  } else if (e.type === 'text') { const L = layoutText(e); b = { x: e.x, y: e.y, w: e.auto ? L.w : e.w, h: L.h }; }
   else if (e.type === 'image') b = { x: e.x, y: e.y, w: e.w, h: e.h };
   else if (e.type === 'table') { const m = (e.bw || 1) / 2; b = { x: e.x - m, y: e.y - m, w: e.w + 2 * m, h: e.h + 2 * m }; }
   else if (e.bbox) b = e.bbox; else b = { x: e.x || 0, y: e.y || 0, w: e.w || 10, h: e.h || 10 };
@@ -263,7 +277,9 @@ function transformEl(e, f) { // f: {sx, sy, ox, oy, dx, dy}  x' = ox + (x-ox)*sx
     else { n.x1 = X(e.x1); n.y1 = Y(e.y1); n.x2 = X(e.x2); n.y2 = Y(e.y2); }
     if (s !== 1) n.width = e.width * s;
   } else if (e.type === 'text') {
-    n.x = X(e.x); n.y = Y(e.y); n.w = Math.max(20, e.w * f.sx);
+    const bw = e.auto ? layoutText(e).w : e.w;
+    n.x = X(e.x); n.y = Y(e.y); n.w = Math.max(20, bw * f.sx);
+    if (e.auto) { if (f.free) delete n.auto; else n.maxW = (e.maxW || 600) * f.sx; } // largura ajustada à mão: a caixa passa a quebrar linhas nela
     if (f.free) { if (e.sticky) n.minH = Math.max(40, (e.minH || e.w) * f.sy); }
     else if (f.sx !== 1 || f.sy !== 1) { n.size = Math.max(4, e.size * f.sy); if (e.minH) n.minH = e.minH * f.sy; }
   }
@@ -373,7 +389,7 @@ function scribbleTargets(elements, flat) {
 function rotPt(x, y, cx, cy, a) { const c = Math.cos(a), s = Math.sin(a), dx = x - cx, dy = y - cy; return [cx + dx * c - dy * s, cy + dx * s + dy * c]; }
 function hasRot(e) { return e.type === 'image' || e.type === 'text' || e.type === 'table' || (e.type === 'shape' && e.kind !== 'line' && e.kind !== 'arrow' && e.kind !== 'poly'); }
 function rawBox(e) {
-  if (e.type === 'text') return { x: e.x, y: e.y, w: e.w, h: layoutText(e).h };
+  if (e.type === 'text') { const L = layoutText(e); return { x: e.x, y: e.y, w: e.auto ? L.w : e.w, h: L.h }; }
   if (e.type === 'image' || e.type === 'table') return { x: e.x, y: e.y, w: e.w, h: e.h };
   const g = shapeGeom(e); return { x: g.x1, y: g.y1, w: g.w, h: g.h };
 }

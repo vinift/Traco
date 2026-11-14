@@ -109,7 +109,7 @@ Object.assign(Editor, {
     const attached = new Set();
     for (const e of els) if (e.type === 'table') for (const x of Tables.attached(page, e, this.sel.ids)) attached.add(x.id);
     a.attached = attached;
-    const single = els.length === 1 ? els[0] : null;
+    const single = els.length === 1 ? els[0] : null; a.el1 = single;
     a.free = !!(single && single.type !== 'stroke' && !(single.type === 'shape' && (single.kind === 'poly' || single.kind === 'line' || single.kind === 'arrow')) && !single.rot);
     if (a.free) { a.rb = rawBox(single); a.ratio = a.rb.w / Math.max(a.rb.h, 0.01); a.el = single; }
     // alvos: diretrizes da página e bordas/centros de outros objetos
@@ -159,8 +159,14 @@ Object.assign(Editor, {
     if (a.kind === 'move') {
       let dx = (p.x - a.start.x) / z, dy = (p.y - a.start.y) / z;
       const sx = this.snap1([b.x + dx, b.x + b.w / 2 + dx, b.x + b.w + dx], a.tx, a.grid && this.gridLines(a.grid, a.page, 0), tol);
-      const sy = this.snap1([b.y + dy, b.y + b.h / 2 + dy, b.y + b.h + dy], a.ty, a.grid && this.gridLines(a.grid, a.page, 1), tol);
+      let sy = this.snap1([b.y + dy, b.y + b.h / 2 + dy, b.y + b.h + dy], a.ty, a.grid && this.gridLines(a.grid, a.page, 1), tol);
       if (sx) dx += sx.d; if (sy) dy += sy.d;
+      const t1 = a.el1;
+      if (t1 && t1.type === 'text' && !a.noSnap) { // texto: base da 1ª linha gruda na pauta; com "alinhar às linhas" sempre fica sobre elas
+        const g = this.ruledFor(a.page), L = layoutText(t1), pad = t1.sticky ? STICKY_PAD : 0;
+        if (g && t1.ruled) { const k = Math.round((b.y + dy - g.o) / g.s); dy = g.o + k * g.s - b.y; }
+        else if (g && this.snapOn('snapPage')) { const base = b.y + pad + L.lines[0].base + dy, k = Math.round((base - g.o) / g.s), d = g.o + k * g.s - base; if (Math.abs(d) < tol) { dy += d; sy = { d, at: g.o + k * g.s }; } }
+      }
       this.setGuides(a, sx, sy); this.ratioLabel = a.noSnap ? 'livre' : null;
       this.selTf = { ox: b.x, oy: b.y, sx: 1, sy: 1, dx, dy };
     } else if (a.kind === 'rotate') {

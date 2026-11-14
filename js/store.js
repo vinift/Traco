@@ -46,7 +46,7 @@ const PAGE_SIZES = {
   wide: { label: 'Widescreen 16:9', w: 1280, h: 720 }, custom: { label: 'Personalizado', w: 900, h: 1200 },
 };
 const DEFAULT_SETTINGS = {
-  fingerDraws: false, palmGuard: true, pressure: true, pressureSens: 0.6, stabilizer: 0.35, shapeHold: true, scribbleErase: true, lowLatency: false, theme: 'auto',
+  fingerDraws: false, palmGuard: true, pressure: true, pressureSens: 0.6, stabilizer: 0.55, shapeHold: true, scribbleErase: true, lowLatency: false, theme: 'auto',
   colorPresets: {
     pen: ['#111827', '#4b5563', '#2563eb', '#0d9488', '#16a34a', '#dc2626', '#ea580c', '#7c3aed'],
     highlighter: ['#fde047', '#86efac', '#7dd3fc', '#f9a8d4', '#fdba74', '#c4b5fd'],
@@ -59,7 +59,7 @@ const DEFAULT_SETTINGS = {
     highlighter: { color: '#fde047', width: 18, opacity: 0.4 },
     eraser: { mode: 'stroke', size: 14, onlyHl: false },
     shape: { kind: 'rect', color: '#111827', width: 2.5, fill: false, fillColor: '#bfdbfe' },
-    text: { color: '#111827', size: 22, bold: false },
+    text: { color: '#111827', size: 22, bold: false, font: 'sys', align: 'left', ruled: false },
     sticky: { bg: '#fde68a', color: '#1f2937', size: 18 },
     lasso: { mode: 'free', locked: false },
     table: { cols: 3, rows: 6, hRow: true, hCol: true, bw: 2, bc: '#7c3aed', fill: null },
@@ -94,6 +94,7 @@ const Store = {
       this.saveSettings();
     }
     if (S.penButton && !S.penMapMigrated) { S.penMap = { 'pen:2': S.penButton === 'none' ? undefined : S.penButton, 'pen:32': 'eraser' }; if (!S.penMap['pen:2']) delete S.penMap['pen:2']; S.penMapMigrated = true; this.saveSettings(); }
+    if (!S.stabV8) { if ((S.stabilizer ?? 0) < 0.55) S.stabilizer = 0.55; S.stabV8 = true; this.saveSettings(); } // v0.8: estabilização mais forte por padrão
     for (const t of ['pen', 'shape']) if (!S.tools[t].dash) S.tools[t].dash = 'solid';
     if (S.nwDefaultSet && S.template && S.template.nw && (S.template.color === '#e8e8e8' || S.template.thickness === 1.25)) { S.template.color = '#f1f1f1'; S.template.thickness = 0.95; }
     if (!S.nwDefaultSet) { S.template = clone(NOTEWISE_TEMPLATES.grid); S.pageSize = 'notewise'; S.layout = 'pages'; S.nwDefaultSet = true; this.saveSettings(); } // modelo Notewise como padrão

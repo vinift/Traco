@@ -54,7 +54,8 @@ function makeSortable(container, selector, list, onDone, { tap, long }) {
     if (!st.drag) { if (Math.abs(e.clientY - st.y) > 8 || Math.abs(e.clientX - st.x) > 12) { st.drag = true; clearTimeout(st.longT); st.it.classList.add('dragging'); } else return; }
     e.preventDefault();
     const sibs = $$(selector, container).filter((x) => x !== st.it);
-    let before = null; for (const sb of sibs) { const r = sb.getBoundingClientRect(); if (e.clientY < r.top + r.height / 2) { before = sb; break; } }
+    const horiz = getComputedStyle(container).flexDirection.startsWith('row');
+    let before = null; for (const sb of sibs) { const r = sb.getBoundingClientRect(); if (horiz ? e.clientX < r.left + r.width / 2 : e.clientY < r.top + r.height / 2) { before = sb; break; } }
     if (before) container.insertBefore(st.it, before); else if (sibs.length) sibs[sibs.length - 1].after(st.it);
   });
   const end = (e) => {
@@ -138,7 +139,9 @@ const UI = {
   /* ---------- sub-trilho: predefinições de espessura e cor ---------- */
   renderOptions() {
     const sr = $('#subrail'); sr.innerHTML = '';
+    const hb = $('#hbar'); hb.innerHTML = ''; // barra horizontal: espessuras, tipo de caneta e tipo de linha
     const t = Editor.tool, S = Store.settings, st = S.tools[t];
+    const hsep = () => hb.append(el('div', { class: 'sep' }));
     this.placeSubrail();
     const sep = () => sr.append(el('div', { class: 'sep' }));
     const tune = () => { const b = el('button', { class: 'cbtn' + (this.panelOpen ? ' soft-on' : ''), title: 'Ajustes da ferramenta', onclick: () => this.togglePanel() }); b.innerHTML = icon('tune'); sr.append(b); };
@@ -146,22 +149,25 @@ const UI = {
       const g = this.group(); const b = el('button', { class: 'cbtn', title: 'Grupo de predefinições: ' + g.name, style: { fontSize: '10.5px', fontWeight: 700, background: 'var(--ch2)', width: 'calc(var(--cb) + 2px)', height: '28px', borderRadius: '10px' } }, g.name.slice(0, 4));
       b.onclick = () => this.groupMenu(b); into.append(b);
     };
+    const penBtn = () => { const k = st.type || 'ball', b = el('button', { class: 'cbtn pen-type-btn', title: 'Tipo de caneta: ' + PEN_TYPES.find((x) => x[0] === k)[1] }, penSample(k, 26, 22, { nib: st.nib })); b.onclick = () => this.penTypePop(b); hb.append(b); };
     const lineBtn = (into = sr) => { const b = el('button', { class: 'cbtn', title: 'Tipo de linha' }); b.innerHTML = lineTypeSvg(st.dash || 'solid', 26); b.onclick = () => this.lineTypePop(b); into.append(b); };
     if (t === 'pen' || t === 'highlighter') {
-      const top = el('div', { class: 'srow' }); sr.append(top); groupBtn(top); if (t === 'pen') lineBtn(top);
-      if (t === 'pen') { const k = st.type || 'ball', b = el('button', { class: 'cbtn pen-type-btn', title: 'Tipo de caneta: ' + PEN_TYPES.find((x) => x[0] === k)[1] }, penSample(k, 26, 22, { nib: st.nib })); b.onclick = () => this.penTypePop(b); sr.append(b); }
-      sep(); this.presetCols(sr, t, t); sep(); tune(); }
+      groupBtn(); sep(); this.colorDots(sr, t); sep(); tune();
+      if (t === 'pen') { penBtn(); lineBtn(hb); hsep(); }
+      this.widthChips(hb, t);
+    }
     else if (t === 'shape') {
       for (const [k, n] of SHAPE_KINDS) { const b = el('button', { class: 'cbtn shp' + (st.kind === k ? ' soft-on' : ''), title: n, onclick: () => { st.kind = k; this.save(); this.renderOptions(); } }); b.innerHTML = icon(k); sr.append(b); }
-      sep(); const top = el('div', { class: 'srow' }); sr.append(top); lineBtn(top); sep(); this.presetCols(sr, 'shape', 'shape'); sep(); tune();
-    } else if (t === 'text') { const top = el('div', { class: 'srow' }); sr.append(top); groupBtn(top); sep(); this.presetCols(sr, 'text', 'text'); sep(); tune(); }
+      sep(); this.colorDots(sr, 'shape'); sep(); tune();
+      lineBtn(hb); hsep(); this.widthChips(hb, 'shape');
+    } else if (t === 'text') { groupBtn(); sep(); this.colorDots(sr, 'text'); sep(); tune(); this.widthChips(hb, 'text'); }
     else if (t === 'table') { tune(); }
     else if (t === 'sticky') {
       for (const c of STICKY_COLORS) { const d = el('button', { class: 'cdot' + (st.bg === c ? ' sel' : ''), style: { background: c, borderRadius: '8px' }, title: 'Cor do post-it', onclick: () => { st.bg = c; this.save(); this.applyStickyBg(c); this.renderOptions(); } }); sr.append(d); }
       sep(); tune();
     } else if (t === 'eraser') {
       for (const [m, n] of [['stroke', 'Traço'], ['area', 'Área']]) sr.append(el('button', { class: 'wchip' + (st.mode === m ? ' sel' : ''), title: n === 'Traço' ? 'Apaga o traço inteiro' : 'Apaga só a parte tocada', onclick: () => { st.mode = m; this.save(); this.refresh(); } }, el('span', { class: 'n', style: { fontSize: '11px' } }, n)));
-      sep(); this.widthChips(sr, 'eraser'); sep(); tune();
+      sep(); tune(); this.widthChips(hb, 'eraser');
     } else if (t === 'lasso') {
       const L = S.tools.lasso;
       for (const [m, ic, n] of [['free', 'lassoFree', 'Laço livre'], ['rect', 'lassoRect', 'Laço retangular'], ['shot', 'camera', 'Print da área (vai para a biblioteca)']]) {
@@ -175,7 +181,25 @@ const UI = {
       if (pt && pt.renderOptions) tune();
     }
     if (this.editMode) { const ok = el('button', { class: 'cbtn soft-on', title: 'Concluir edição', onclick: () => { this.editMode = false; this.renderOptions(); } }); ok.innerHTML = icon('check'); sr.prepend(ok); }
-    this.addGrip();
+    this.addGrip(); this.addHGrip();
+  },
+  /* barra horizontal: arrasta para qualquer lugar pela alça; toque duplo volta ao lugar padrão */
+  placeHbar() {
+    const hb = $('#hbar'), p = Store.settings.hbarPos;
+    if (!p) { hb.style.left = ''; hb.style.top = ''; hb.style.bottom = ''; hb.style.transform = ''; return; }
+    const w = hb.offsetWidth || 300, h = hb.offsetHeight || 50;
+    hb.style.left = clamp(p.x, 6, innerWidth - w - 6) + 'px'; hb.style.top = clamp(p.y, 6, innerHeight - h - 6) + 'px'; hb.style.bottom = 'auto'; hb.style.transform = 'none';
+  },
+  addHGrip() {
+    const hb = $('#hbar'); if (!hb.childElementCount) return;
+    const g = el('div', { class: 'grip hgrip', title: 'Segure e arraste para mover a barra; toque duas vezes para voltar' }, el('span'), el('span'), el('span'));
+    hb.prepend(g); this.placeHbar();
+    let st = null;
+    g.addEventListener('pointerdown', (e) => { e.preventDefault(); g.setPointerCapture(e.pointerId); const r = hb.getBoundingClientRect(); st = { id: e.pointerId, x: e.clientX, y: e.clientY, l: r.left, t: r.top }; g.classList.add('on'); });
+    g.addEventListener('pointermove', (e) => { if (!st || e.pointerId !== st.id) return; Store.settings.hbarPos = { x: st.l + e.clientX - st.x, y: st.t + e.clientY - st.y }; this.placeHbar(); });
+    const end = (e) => { if (!st || e.pointerId !== st.id) return; st = null; g.classList.remove('on'); this.save(); };
+    g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
+    g.addEventListener('dblclick', () => { delete Store.settings.hbarPos; this.save(); this.placeHbar(); });
   },
   /* barra de predefinições: posição vertical ajustável pela alça */
   placeSubrail() {
@@ -306,7 +330,7 @@ const UI = {
       p.append(this.switchRow('Sempre reto', 'Cada traço vira uma faixa reta do início ao fim', S.hlStraight, (v) => { S.hlStraight = v; this.save(); }));
       p.append(this.switchRow('Alinhar a cada 15°', 'Faixas retas grudam em 0°, 15°, 30°, 45°…', S.angleSnap !== false, (v) => { S.angleSnap = v; this.save(); }));
     }
-    if (t === 'pen' || t === 'highlighter') p.append(...this.sliderRows('Estabilização (suavizar)', S.stabilizer, 0, 0.9, 0.05, (v) => Math.round(v * 100) + '%', (v) => { S.stabilizer = v; this.save(); }, false));
+    if (t === 'pen' || t === 'highlighter') p.append(...this.sliderRows('Estabilização (letra mais firme)', S.stabilizer ?? 0.55, 0, 1, 0.05, (v) => Math.round(v * 100) + '%', (v) => { S.stabilizer = v; this.save(); }, false));
     if (t === 'eraser') {
       p.append(this.switchRow('Apagar só marca-texto', 'Mantém a escrita da caneta', st.onlyHl, (v) => { st.onlyHl = v; this.save(); }));
       p.append(this.switchRow('Rabiscar para apagar (com a caneta)', 'Funciona com a ferramenta Caneta ativa', S.scribbleErase, (v) => { S.scribbleErase = v; this.save(); }));
@@ -315,7 +339,16 @@ const UI = {
       p.append(this.switchRow('Preencher forma', null, st.fill, (v) => { st.fill = v; this.save(); }));
       p.append(this.colorSection('Cor do preenchimento', st.fillColor, (c) => { st.fillColor = c; st.fill = true; this.save(); this.buildPanel(); }, PALETTE.concat(HL_PALETTE), false));
     }
-    if (t === 'text') p.append(this.switchRow('Negrito', null, st.bold, (v) => { st.bold = v; this.save(); this.applyTextStyle({ bold: v }); }));
+    if (t === 'text') {
+      p.append(this.switchRow('Negrito', null, st.bold, (v) => { st.bold = v; this.save(); this.applyTextStyle({ bold: v }); }));
+      const fl = el('div', { class: 'font-pop in-panel' }); let g = null;
+      for (const f of FONTS) { if (f[3] !== g) { g = f[3]; fl.append(el('div', { class: 'fp-g' }, g)); } Fonts.link(f[0]); fl.append(el('button', { class: 'fp-i' + ((st.font || 'sys') === f[0] ? ' on' : ''), style: { fontFamily: f[2] }, onclick: () => { st.font = f[0]; this.save(); this.applyTextStyle({ font: f[0] }); this.buildPanel(); } }, f[1])); }
+      p.append(el('div', { class: 'tp-sec' }, 'Fonte padrão'), fl);
+      const al = el('div', { class: 'tp-seg', style: { gridTemplateColumns: 'repeat(4,1fr)' } });
+      for (const [k, ic, n] of [['left', 'alignL', 'Esquerda'], ['center', 'alignC', 'Centro'], ['right', 'alignR', 'Direita'], ['justify', 'alignJ', 'Justificado']]) { const b = el('button', { class: (st.align || 'left') === k ? 'on' : '', onclick: () => { st.align = k; this.save(); this.buildPanel(); } }); b.innerHTML = tbIcon(ic) + n; al.append(b); }
+      p.append(el('div', { class: 'tp-sec' }, 'Alinhamento'), al);
+      p.append(this.switchRow('Alinhar às linhas do modelo', 'Cada linha do texto fica sobre a pauta, a grade ou os pontos da página', st.ruled, (v) => { st.ruled = v; this.save(); }));
+    }
     if (t === 'sticky') {
       p.append(this.colorSection('Cor do post-it', st.bg, (c) => { st.bg = c; this.save(); this.applyStickyBg(c); this.refresh(); }, STICKY_COLORS, false));
       p.append(this.colorSection('Cor do texto', st.color, (c) => { st.color = c; this.save(); this.applyTextStyle({ color: c }); this.refresh(); }, PALETTE.slice(0, 14), false));
@@ -419,8 +452,25 @@ const UI = {
     else { c.globalAlpha = st.opacity ?? 0.4; c.strokeStyle = st.color; c.lineWidth = st.width; c.lineCap = 'round'; c.lineJoin = 'round'; c.stroke(buildPolyPath(pts)); }
   },
   applyTextStyle(patch) {
-    if (Editor.textEl) { Object.assign(Editor.textCtx.el, patch); const e = Editor.textCtx.el; Editor.textEl.style.color = e.color; Editor.textEl.style.font = textFont(e); Editor.positionText(); Editor.requestRender(); }
-    else if (Editor.sel) { const page = Editor.pageById(Editor.sel.pageId); for (const e of Editor.selElements()) if (e.type === 'text') Editor.recReplace(page, e, { ...e, ...patch }); Editor.opCommit(); }
+    const strip = (e, keys) => (e.spans ? e.spans.map((s) => { const c = { ...s }; for (const k of keys) delete c[k]; return c; }) : undefined);
+    if (Editor.textEl) { // editando: cor e negrito vão para o trecho selecionado; tamanho e fonte padrão para a caixa
+      const s = getSelection(), has = Editor._rtRange && !Editor._rtRange.collapsed;
+      if (patch.color && has) Editor.textCmd('foreColor', patch.color);
+      else if (patch.color) Editor.setBoxStyle({ color: patch.color });
+      if (patch.bold !== undefined) Editor.textCmd('bold');
+      if (patch.size) Editor.setBoxStyle({ size: patch.size });
+      if (patch.font) Editor.setBoxStyle({ font: patch.font });
+      void s;
+    } else if (Editor.sel) { // caixas selecionadas: vale para o texto todo
+      const page = Editor.pageById(Editor.sel.pageId);
+      for (const e of Editor.selElements()) if (e.type === 'text') {
+        const n = { ...e, ...patch };
+        if (patch.color) n.spans = strip(e, ['c']); if (patch.bold !== undefined) n.spans = strip(n, ['b']); if (patch.font) n.spans = strip(n, ['f']);
+        if (n.spans && !n.spans.some((x) => Object.keys(x).length > 1)) delete n.spans;
+        Editor.recReplace(page, e, n);
+      }
+      Editor.opCommit();
+    }
   },
   applyStickyBg(c) {
     if (Editor.textEl && Editor.textCtx.el.sticky) { Editor.textCtx.el = { ...Editor.textCtx.el, bg: c }; Editor.requestRender(); }
@@ -444,6 +494,9 @@ const UI = {
     B('plus', 'Duplicar', () => Editor.duplicateSel());
     B('front', 'Trazer para frente', () => Editor.orderSel(true));
     B('lock', 'Bloquear (não move, não apaga e o laço comum ignora)', () => Editor.lockSel(true));
+    const one = Editor.selElements(); 
+    if (one.length === 1 && ['stroke', 'shape', 'text'].includes(one[0].type)) B('eyedrop', 'Conta-gotas: usar este estilo na ferramenta', () => Editor.pickStyle());
+    if (one.length === 1 && one[0].type === 'text') B('text', 'Editar texto (ou toque duas vezes)', () => { const e = one[0], pg = Editor.pageById(Editor.sel.pageId); Editor.sel = null; Editor.openTextEditor(pg, e, false); });
     const els = Editor.selElements();
     if (els.length === 1 && els[0].type === 'table') B('table', 'Ajustes da tabela', () => this.openTableEdit(els[0].id));
     if (Editor.selElements().some((e) => e.type === 'stroke' && e.tool === 'pen')) {

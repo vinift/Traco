@@ -3,13 +3,14 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.7.0',
+  version: '0.8.0',
   async init() {
     hydrateIcons();
     await Store.init();
     this.applyTheme();
     Editor.init();
     Plugins.init();
+    setTimeout(() => Fonts.prewarm(), 4000); // baixa as fontes para funcionarem sem internet
     this.wire();
     const back = await Drive.handleRedirect();
     Drive.refreshStatus();

@@ -137,7 +137,7 @@ const Editor = {
         const x1 = Math.max(0, lv.x), y1 = Math.max(0, lv.y); lv = { x: x1, y: y1, w: Math.min(page.w, lv.x + lv.w) - x1, h: Math.min(page.h, lv.y + lv.h) - y1 };
       }
       drawPageContent(ctx, note, page, lv, z, { dpr: d, skip });
-      if (this.textEl && this.textCtx && this.textCtx.page === page && this.textCtx.el.sticky) drawElement(ctx, { ...this.textCtx.el, text: '' }); // post-it em edição
+      if (this.textEl && this.textCtx && this.textCtx.page === page && this.textCtx.el.sticky) { const te = this.textCtx.el, h = layoutText(te).h; drawElement(ctx, { ...te, text: '', spans: undefined, minH: Math.max(te.minH || te.w, h) }); } // post-it em edição
       if (selActive && this.sel.pageId === page.id) {
         const t = this.selTf;
         if (t.free) { for (const e of page.elements) if (this.sel.ids.has(e.id)) drawElement(ctx, transformEl(e, t)); }
@@ -248,7 +248,8 @@ const Editor = {
   onDown(e) {
     if (!this.note) return;
     this.rect = this.stage.getBoundingClientRect();
-    if (this.textEl && e.target === this.textEl) return;
+    if (this.textEl && this.textEl.contains(e.target)) return;
+    if (e.target.closest && e.target.closest('#textBar,#hbar')) return;
     if (e.target.closest && e.target.closest('#selBar')) return; // botões da seleção não iniciam novo laço
     if (UI.panelOpen) UI.closePanel();
     try { this.stage.setPointerCapture(e.pointerId); } catch (_) {}
@@ -310,7 +311,7 @@ const Editor = {
   zoomAt(sx, sy, f) { const w = this.toWorld(sx, sy); this.cam.z *= f; this.clampCam(); this.cam.x = w.x - sx / this.cam.z; this.cam.y = w.y - sy / this.cam.z; this.clampCam(); this.requestRender(); Instruments.redraw(); },
   onKey(e) {
     if (!this.note || $('#editor').classList.contains('hidden')) return;
-    if (/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if (/INPUT|TEXTAREA/.test(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
     const ksig = 'key:' + (e.code || e.key); if ((Store.settings.penMap || {})[ksig]) { e.preventDefault(); return this.firePenSig(ksig); }
     const k = e.key.toLowerCase();
     if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); }
@@ -322,7 +323,7 @@ const Editor = {
   },
 
   /* ---------- Gestos de navegação ---------- */
-  startGesture() { this.gesture = { t0: performance.now(), moved: false, max: 0 }; this.rebaseGesture(); },
+  startGesture() { const f = this.pointers.get(this.touchIds()[0]); this.gesture = { t0: performance.now(), moved: false, max: 0, p0: f ? { x: f.x, y: f.y } : null }; this.rebaseGesture(); },
   rebaseGesture() {
     const g = this.gesture; if (!g) return;
     const ids = this.touchIds(); g.max = Math.max(g.max, ids.length);
@@ -349,7 +350,7 @@ const Editor = {
   endGesture() {
     const g = this.gesture; this.gesture = null; if (!g) return;
     const dt = performance.now() - g.t0;
-    if (!g.moved && dt < 350) { if (g.max === 2) { this.undo(); toast('Desfeito', 900); } else if (g.max === 3) { this.redo(); toast('Refeito', 900); } }
+    if (!g.moved && dt < 350) { if (g.max === 2) { this.undo(); toast('Desfeito', 900); } else if (g.max === 3) { this.redo(); toast('Refeito', 900); } else if (g.max === 1 && g.p0 && !this.readOnly) this.fingerTap(g.p0); }
   },
 
   /* ---------- Ações de ferramenta ---------- */
@@ -392,6 +393,7 @@ const Editor = {
     if (a.kind === 'draw') return this.endDraw(a);
     if (a.kind === 'erase') { this.clearLive(); this.opCommit(); return; }
     if (a.kind === 'lasso') return this.endLasso(a);
+    if (a.kind === 'move') { const p = this.pt(e), tap = Math.hypot(p.x - a.start.x, p.y - a.start.y) < 8; if (tap) { this.selTf = null; this.guides = null; this.ratioLabel = null; this.requestRender(); return this.tapOnSel(a, p); } }
     if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate') return this.endMoveSel();
     if (a.kind === 'shape') return this.endShape(a);
     if (a.kind === 'table') return this.endTable(a);
@@ -431,7 +433,10 @@ const Editor = {
     const n = a.pts.length;
     if (n) {
       const lx = a.pts[n - 3], ly = a.pts[n - 2], lp = a.pts[n - 1];
-      const k = a.snap ? 1 : 1 - clamp(Store.settings.stabilizer, 0, 0.95) * 0.8;
+      // estabilização adaptativa: segura o tremido em movimentos lentos e acompanha os rápidos
+      const sb = clamp(Store.settings.stabilizer ?? 0.55, 0, 1), kb = 1 - sb * 0.85;
+      const spd = Math.hypot(l.x - lx, l.y - ly) * this.cam.z; // px de tela desde a última amostra
+      const k = a.snap ? 1 : clamp(kb + spd / (40 + 80 * sb), kb, 1);
       const x = lx + (l.x - lx) * k, y = ly + (l.y - ly) * k;
       if (Math.hypot(x - lx, y - ly) < 0.35 / this.cam.z) return;
       a.pts.push(x, y, lp + (pr - lp) * 0.45);
@@ -493,10 +498,12 @@ const Editor = {
     if (a.shape && !(a.straight && Math.hypot(a.shape.x2 - a.shape.x1, a.shape.y2 - a.shape.y1) < 2)) { this.recAdd(page, a.tool === 'highlighter' ? this.hlLine(a) : a.shape); this.opCommit(); return; }
     if (a.raw && !a.snap) { const n = a.pts.length; if (Math.hypot(a.pts[n - 3] - a.raw.x, a.pts[n - 2] - a.raw.y) > 0.5) a.pts.push(a.raw.x, a.raw.y, a.pts[n - 1]); }
     if (!a.pts.length) return;
+    if (this.penTap(a, page)) return; // toque da caneta: caixinha ☐ ou toque duplo num texto
     if (a.tool === 'pen' && !a.snap && Store.settings.scribbleErase && isScribble(a.pts)) {
       const targets = scribbleTargets(page.elements, a.pts);
       if (targets.length) { for (const e of targets) this.recRemove(page, e); this.sel = null; this.opCommit(); return; }
     }
+    if (!a.snap) smoothStroke(a.pts, Store.settings.stabilizer ?? 0.55); // alisa o traço final (pontas ficam no lugar)
     const pts = a.pts.map((v, i) => (i % 3 === 2 ? Math.round(v * 100) / 100 : r2(v)));
     const el = { id: uid(), type: 'stroke', tool: a.tool, color: a.color, width: a.width, pts };
     if (a.tool === 'highlighter') { el.opacity = a.opacity; if (a.snap) el.cap = 'butt'; }
@@ -602,6 +609,7 @@ const Editor = {
       ids = page.elements.filter((e) => canSel(e) && elInLasso(e, poly)).map((e) => e.id);
     }
     this.sel = ids.length ? { pageId: page.id, ids: new Set(ids) } : null;
+    if (len < 14 && ids.length === 1) this._lastTap = { id: ids[0], t: performance.now() };
     this.requestRender();
   },
   deleteSel() { const page = this.pageById(this.sel.pageId); for (const e of this.selElements()) if (!e.lock) this.recRemove(page, e); this.sel = null; this.opCommit(); },
@@ -678,44 +686,7 @@ const Editor = {
   },
 
   /* --- Texto --- */
-  textAt(w) {
-    const pi = this.pageIndexAt(w.x, w.y, this.note.mode === 'infinite'); if (pi < 0) return;
-    const page = this.note.pages[pi], l = this.local(pi, w.x, w.y);
-    const hit = [...page.elements].reverse().find((e) => e.type === 'text' && !e.lock && hitElement(e, l.x, l.y, 4));
-    const st = Store.settings.tools.text, sk = Store.settings.tools.sticky;
-    let el;
-    if (hit) el = hit;
-    else if (this.tool === 'sticky') el = { id: uid(), type: 'text', sticky: true, bg: sk.bg, x: l.x - 20, y: l.y - 20, w: 220, minH: 200, text: '', size: sk.size, color: sk.color, bold: false };
-    else el = { id: uid(), type: 'text', x: l.x, y: l.y - st.size * 0.6, w: Math.min(360, this.note.mode === 'infinite' ? 360 : Math.max(80, page.w - l.x - 30)), text: '', size: st.size, color: st.color, bold: st.bold };
-    this.openTextEditor(page, el, !hit);
-  },
-  openTextEditor(page, el, isNew) {
-    this.commitText();
-    const ta = document.createElement('textarea'); ta.className = 'text-edit'; ta.spellcheck = true;
-    ta.value = el.text; this.textEl = ta; this.textCtx = { page, el, isNew }; this.editingId = isNew ? null : el.id;
-    ta.style.color = el.color; ta.style.font = textFont({ ...el, size: el.size });
-    this.overlay.append(ta); this.positionText();
-    ta.addEventListener('input', () => this.positionText());
-    ta.addEventListener('blur', () => setTimeout(() => this.commitText(), 0));
-    setTimeout(() => ta.focus(), 30); this.requestRender();
-  },
-  positionText() {
-    const ta = this.textEl; if (!ta) return;
-    const { page, el } = this.textCtx; const pi = this.pageIdx(page), o = this.layout[pi], z = this.cam.z;
-    const pad = el.sticky ? STICKY_PAD : 0;
-    const s = this.toScreen(el.x + pad + o.x, el.y + pad + o.y);
-    ta.style.left = s.x + 'px'; ta.style.top = s.y + 'px'; ta.style.width = el.w - 2 * pad + 'px';
-    ta.style.background = el.sticky ? 'transparent' : '';
-    ta.style.transform = `scale(${z})`; ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px';
-  },
-  commitText() {
-    const ta = this.textEl; if (!ta) return; this.textEl = null; this.editingId = null;
-    const { page, el, isNew } = this.textCtx; const text = ta.value.replace(/\s+$/, ''); ta.remove();
-    if (isNew) { if (text || el.sticky) this.recAdd(page, { ...el, text }); }
-    else if (!text && !el.sticky) this.recRemove(page, el);
-    else if (text !== el.text) this.recReplace(page, el, { ...el, text });
-    this.opCommit();
-  },
+  /* textAt, openTextEditor, positionText e commitText ficam em richtext.js */
 
   /* --- Botões da caneta --- */
   penSigs(buttons) { const out = []; for (const bit of [2, 4, 8, 16, 32]) if (buttons & bit) out.push('pen:' + bit); return out; },
