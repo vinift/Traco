@@ -50,18 +50,57 @@ O Client Secret é opcional, mas recomendado. Sem ele, o Google pede para recone
 
 | Ação | Como |
 |---|---|
+| Mover a barra de cores | Segure a alça de três pontinhos no topo da segunda barra e arraste para cima ou para baixo. Toque duas vezes na alça para voltar à posição original |
+| Biblioteca | Tudo o que você copia (formas, imagens, tabelas, escrita) fica guardado no botão de biblioteca da barra lateral. Toque para colar; segure para fixar no topo ou remover |
+| Modelo Notewise | Notas novas já nascem com a folha 3480 × 4000 e a grade clara do Notewise. Em "Modelo de página" você encontra os modelos do Notewise (Grade, Linha, Ponto, Em branco) e as 6 cores de papel |
+| Tela inicial | Pastas coloridas com subpastas. O **+** roxo cria nota, pasta ou importa. Use ↑ Nome para ordenar, o ícone de lista para trocar a visualização e ✓ para selecionar vários itens e mover ou excluir |
+| Tabela | Ferramenta de tabela: arraste na página (ou toque) para criar. Para mudar colunas, linhas, cabeçalhos e cores depois, selecione-a com o laço e toque em "Ajustes da tabela" |
+| Formas padrão | Retângulos, elipses e triângulos quase perfeitos viram quadrado, círculo e triângulo equilátero |
+| Drive | Toque no indicador de backup para abrir a pasta da nota no Google Drive |
 | Escrever | Caneta (Focus Pen). Com o botão de mão ligado, o dedo também escreve |
 | Rolar / zoom | 1 dedo arrasta; pinça com 2 dedos dá zoom |
-| Desfazer / refazer | Botões no topo da barra lateral, ou toque com 2 dedos / 3 dedos |
-| Espessura e cor | A segunda barra mostra as espessuras (com o número) e as cores salvas. Tocar numa espessura muda só a espessura; tocar numa cor muda só a cor. **+** salva a atual; segure um item para remover |
-| Ajustes da ferramenta | Toque de novo na ferramenta ativa (ou no ícone de ajustes): espessura com − / + de 0,5, sensibilidade à pressão, estabilização, formas e rabiscar para apagar |
-| Rabiscar para apagar | Com a caneta, rabisque em zigue-zague por cima do que quer apagar |
-| Forma perfeita | Desenhe à mão e **segure a caneta parada** no fim do traço |
-| Selecionar | Laço: contorne os itens ou toque em um. Arraste para mover; a bolinha no canto redimensiona |
+| Desfazer / refazer | Botões no topo da barra lateral, toque com 2 dedos / 3 dedos, ou um botão da caneta (Configurações → Botões da caneta) |
+| Espessura e cor | Na segunda barra, espessuras (com o número) e cores ficam lado a lado. Tocar numa espessura muda só a espessura; numa cor, só a cor. **Arraste** para cima ou para baixo para reordenar. **+** salva a atual; segure um item parado para mostrar o × e remover |
+| Grupos de predefinições | Botão com o nome do grupo no topo da segunda barra: troque de grupo, crie um grupo por matéria ou defina o padrão da pasta. Na biblioteca: menu da pasta → Grupo de predefinições |
+| Tipo de linha | Ícone de curva na segunda barra (caneta e formas): sólida, pontilhada, traço longo/curto, ponto e traço, mistos |
+| Linhas retas | Segure a caneta parada no fim do traço, ou ligue "Sempre fazer linhas retas" no painel da caneta. Linhas grudam em 0°, 45° e 90° |
+| Ajustes da ferramenta | Toque de novo na ferramenta ativa (ou no ícone de ajustes): espessura com − / + de 0,5, pressão, estabilização e mais |
+| Rabiscar para apagar | Com a caneta, rabisque em vai-e-volta sobre o que quer apagar: tudo dentro da área some |
+| Selecionar | Laço: contorne os itens ou toque em um. Arraste para mover, bolinha do canto para redimensionar e alça de cima para girar, com a caneta ou com o dedo |
+| Post-it | Ferramenta de nota adesiva: toque na página, escreva e mude a cor na segunda barra |
+| Páginas | Botão de grade no canto superior esquerdo: abrir, selecionar várias, duplicar, excluir, marcar, e segurar e arrastar para reordenar |
+| Marcadores | Botão de marcador no canto superior direito marca a página atual; na caixa de páginas, filtre por "Marcadores" |
+| Modo leitura | Botão de olho: a caneta só rola a página, sem riscar |
+| Busca | Lupa na nota busca nos textos digitados e post-its; a busca da biblioteca também procura dentro das notas |
 | Carimbo de data | Ferramenta 📅: toque na página. No painel de ajustes você muda o texto, ex.: `Aula dia {dd}/{mm}` |
-| Régua / transferidor | Arraste com 1 dedo e gire com 2. A caneta "gruda" na borda |
-| Páginas e modelos | Botões no canto superior esquerdo: páginas/modelo, nova página e exportar |
 | Baixa latência | Configurações → Escrita. Deixa a tinta mais rápida; se notar algo estranho, desligue |
+
+## Organização no Google Drive
+
+```
+Traço Notas/
+  Direito Civil/                    ← cada pasta do app
+    Aula 1 — Contratos/             ← cada nota tem a própria pasta
+      Aula 1 — Contratos.pdf        ← para ler no Drive ou no celular
+      Aula 1 — Contratos.traco      ← arquivo editável (usado pelo app)
+  _arquivos do app (não mexer)/     ← imagens, PDFs importados e índice
+```
+
+## Leitura da escrita à mão (OCR)
+
+- **Busca:** alguns segundos depois de você parar de escrever, o app lê a escrita da página (precisa de internet). A lupa da nota e a busca da biblioteca passam a achar palavras escritas à mão (marcadas com ✍).
+- **Converter ou copiar:** selecione a escrita com o laço e toque no botão de reconhecer texto. Você pode corrigir o texto antes de copiar ou de transformá-lo em caixa de texto.
+- **Endireitar:** com a escrita selecionada, o botão de alinhar deixa cada linha reta na horizontal.
+- **Notas antigas:** em Configurações → Leitura da escrita à mão → "Ler todas as notas agora".
+- **Privacidade:** os traços são enviados ao serviço de reconhecimento de escrita do Google (gratuito, não oficial).
+
+## Importar do Notewise
+
+1. No Notewise, exporte uma nota (arquivo `.notewise`) ou várias notas e pastas de uma vez (arquivo `.zip`).
+2. No Traço, toque em **Importar → Notas do Notewise** e escolha o arquivo.
+3. Traços, cores, marca-texto, formas e imagens viram itens editáveis: dá para selecionar, mover, girar e apagar. As pastas do ZIP viram pastas no Traço.
+
+Caixas de texto e PDFs anotados no Notewise ainda não são reconhecidos (a importação avisa quantos itens ignorou).
 
 ## Ferramentas próprias (plugins)
 

@@ -14,7 +14,7 @@ const ImgCache = {
   async load(id) { const v = this.get(id); if (v) return v; for (let i = 0; i < 100; i++) { await sleep(30); const b = this.map.get(id); if (b && b !== 'loading') return b; if (!b) return null; } return null; },
 };
 
-function drawTemplate(ctx, tpl, vis, z, bounded) {
+function drawTemplate(ctx, tpl, vis, z, bounded, pw, ph) {
   if (!tpl || tpl.type === 'blank') return;
   const s = Math.max(4, +tpl.spacing || 32);
   if (s * z < (tpl.type === 'dots' ? 5 : 3)) return;
@@ -23,15 +23,22 @@ function drawTemplate(ctx, tpl, vis, z, bounded) {
   ctx.strokeStyle = ctx.fillStyle = tpl.color; ctx.lineWidth = th;
   const top = bounded ? (+tpl.top || 0) : 0;
   const x1 = vis.x, x2 = vis.x + vis.w, y1 = vis.y, y2 = vis.y + vis.h;
+  // grade centralizada na folha (como no Notewise): margens iguais e pelo menos meio quadradinho de folga
+  let ox = 0, oy = 0, xEnd = Infinity, yEnd = Infinity;
+  if (tpl.center && bounded && pw && ph) {
+    const nx = Math.floor((pw - s) / s + 1e-3), ny = Math.floor((ph - s) / s + 1e-3);
+    ox = (pw - nx * s) / 2; oy = (ph - ny * s) / 2; xEnd = ox + nx * s + 0.01; yEnd = oy + ny * s + 0.01;
+  }
+  const first = (v, o, st = s) => o + Math.max(0, Math.ceil((v - o) / st)) * st;
   ctx.beginPath();
   if (tpl.type === 'lines' || tpl.type === 'grid') {
-    const startY = tpl.type === 'lines' ? top : 0;
-    for (let y = startY + Math.max(0, Math.ceil((y1 - startY) / s)) * s; y <= y2; y += s) { if (y < startY) continue; ctx.moveTo(x1, y); ctx.lineTo(x2, y); }
-    if (tpl.type === 'grid') for (let x = Math.ceil(x1 / s) * s; x <= x2; x += s) { ctx.moveTo(x, y1); ctx.lineTo(x, y2); }
+    const startY = tpl.type === 'lines' && !tpl.center ? top : oy;
+    for (let y = first(y1, startY); y <= Math.min(y2, yEnd); y += s) { ctx.moveTo(x1, y); ctx.lineTo(x2, y); }
+    if (tpl.type === 'grid') for (let x = first(x1, ox); x <= Math.min(x2, xEnd); x += s) { ctx.moveTo(x, y1); ctx.lineTo(x, y2); }
     ctx.stroke();
   } else if (tpl.type === 'dots') {
     const r = Math.max(th * 1.1, 0.8 / z);
-    for (let y = Math.ceil(y1 / s) * s; y <= y2; y += s) for (let x = Math.ceil(x1 / s) * s; x <= x2; x += s) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); }
+    for (let y = first(y1, oy); y <= Math.min(y2, yEnd); y += s) for (let x = first(x1, ox); x <= Math.min(x2, xEnd); x += s) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); }
     ctx.fill();
   }
   if (tpl.type === 'lines' && tpl.margin && bounded) {
@@ -76,6 +83,16 @@ function drawElement(ctx, e) {
     const bmp = ImgCache.get(e.blobId);
     if (bmp) ctx.drawImage(bmp, e.x, e.y, e.w, e.h);
     else { ctx.fillStyle = 'rgba(120,130,150,.15)'; ctx.fillRect(e.x, e.y, e.w, e.h); }
+  } else if (e.type === 'table') {
+    const g = tableGrid(e), bw = e.bw || 1;
+    if (e.fill) { ctx.fillStyle = e.fill; ctx.fillRect(e.x, e.y, e.w, e.h); }
+    ctx.fillStyle = e.bc || '#7c3aed'; ctx.globalAlpha = 0.18; // cabeçalhos com um tom da cor da borda
+    if (e.hRow) ctx.fillRect(e.x, g.ys[0], e.w, g.ys[1] - g.ys[0]);
+    if (e.hCol) ctx.fillRect(g.xs[0], e.hRow ? g.ys[1] : e.y, g.xs[1] - g.xs[0], e.hRow ? e.y + e.h - g.ys[1] : e.h);
+    ctx.globalAlpha = 1; ctx.strokeStyle = e.bc || '#7c3aed'; ctx.lineWidth = bw; ctx.lineCap = 'square'; ctx.beginPath();
+    for (const x of g.xs) { ctx.moveTo(x, e.y); ctx.lineTo(x, e.y + e.h); }
+    for (const y of g.ys) { ctx.moveTo(e.x, y); ctx.lineTo(e.x + e.w, y); }
+    ctx.stroke();
   } else if (Plugins.renderers[e.type]) {
     try { Plugins.renderers[e.type](ctx, e); } catch (err) { console.warn(err); }
   }
@@ -91,8 +108,8 @@ function drawPageContent(ctx, note, page, vis, z, opts = {}) {
   if (page.pdf) {
     const bmp = opts.pdfBitmap || PdfCache.bitmap(page.pdf, z * (opts.dpr || 1));
     if (bmp) ctx.drawImage(bmp, 0, 0, page.w, page.h);
-    if (page.template && page.template.type !== 'blank') drawTemplate(ctx, page.template, vis, z, bounded);
-  } else drawTemplate(ctx, tpl, vis, z, bounded);
+    if (page.template && page.template.type !== 'blank') drawTemplate(ctx, page.template, vis, z, bounded, page.w, page.h);
+  } else drawTemplate(ctx, tpl, vis, z, bounded, page.w, page.h);
   for (const e of page.elements) {
     if (opts.skip && opts.skip.has(e.id)) continue;
     if (!rectsHit(elBBox(e), vis)) continue;
@@ -126,7 +143,7 @@ function drawTemplatePreview(cv, tpl, w, h) {
   cv.width = cw * dpr; cv.height = cw * (h / w) * dpr; cv.style.aspectRatio = `${w}/${h}`;
   const ctx = cv.getContext('2d'); ctx.setTransform(s * dpr, 0, 0, s * dpr, 0, 0);
   ctx.fillStyle = tpl.paper || '#fff'; ctx.fillRect(0, 0, w, h);
-  drawTemplate(ctx, tpl, { x: 0, y: 0, w, h }, s, true);
+  drawTemplate(ctx, tpl, { x: 0, y: 0, w, h }, s, true, w, h);
 }
 
 function arrowHead(e) {

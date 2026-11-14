@@ -1,72 +1,174 @@
 'use strict';
 /* ===== Biblioteca de notas e pastas ===== */
+const FOLDER_COLORS = ['#7c3aed', '#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#0891b2', '#db2777', '#92400e', '#65a30d', '#4b5563', '#0f766e', '#9333ea'];
+const folderSvg = (c) => `<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M6 20a8 8 0 0 1 8-8h22a6 6 0 0 1 4.6 2.2L46 20h40a8 8 0 0 1 8 8v56a8 8 0 0 1-8 8H14a8 8 0 0 1-8-8Z" fill="${c}"/><path d="M6 32a6 6 0 0 1 6-6h76a6 6 0 0 1 6 6v52a8 8 0 0 1-8 8H14a8 8 0 0 1-8-8Z" fill="${c}" style="filter:brightness(1.14)"/><path d="M58 30h30" stroke="rgba(0,0,0,.45)" stroke-width="3.5" stroke-linecap="round"/></svg>`;
 const Library = {
-  folder: null, query: '',
+  folder: null, query: '', view: 'home', selecting: false, selected: new Set(),
   show() {
     $('#editor').classList.add('hidden'); $('#library').classList.remove('hidden'); this.render(); Drive.refreshStatus();
   },
+  get S() { return Store.settings; },
+  children(fid) { return Store.folders.filter((f) => (f.parentId || null) === (fid || null)); },
+  descendants(fid) { const out = [], walk = (id) => { for (const c of this.children(id)) { out.push(c); walk(c.id); } }; walk(fid); return out; },
+  folderStats(f) {
+    const ids = new Set([f.id, ...this.descendants(f.id).map((x) => x.id)]);
+    let latest = f.created || 0; for (const h of Object.values(Store.heads)) if (ids.has(h.folderId)) latest = Math.max(latest, h.updated);
+    const n = this.children(f.id).length + Object.values(Store.heads).filter((h) => h.folderId === f.id).length;
+    return { n, latest };
+  },
+  sortItems(list, getName, getDate) {
+    const { by, dir } = this.S.libSort || { by: 'name', dir: 1 };
+    return list.sort((a, b) => (by === 'name' ? getName(a).localeCompare(getName(b), 'pt-BR', { numeric: true, sensitivity: 'base' }) : getDate(b) - getDate(a)) * (by === 'name' ? dir : dir));
+  },
   render() {
-    const q = this.query.trim().toLowerCase();
-    const crumbs = $('#crumbs'); crumbs.innerHTML = '';
-    if (this.folder) { const f = Store.folders.find((x) => x.id === this.folder); crumbs.append(el('a', { onclick: () => { this.folder = null; this.render(); } }, 'Todas as notas'), ' / ', el('b', {}, f ? f.name : '')); }
-    else crumbs.append(el('b', {}, q ? 'Resultados da busca' : 'Todas as notas'));
-    const fg = $('#folderGrid'); fg.innerHTML = '';
-    if (!this.folder && !q) for (const f of Store.folders) {
-      const cnt = Object.values(Store.heads).filter((h) => h.folderId === f.id).length;
-      const mb = el('button', { class: 'icon-btn', title: 'Opções', onclick: (e) => { e.stopPropagation(); this.folderMenu(mb, f); } }); mb.innerHTML = icon('more');
-      fg.append(el('div', { class: 'folder', onclick: () => { this.folder = f.id; this.render(); } }, iconEl('folder'), el('span', { class: 'nm' }, f.name), el('span', { class: 'cnt' }, String(cnt)), mb));
+    const S = this.S, q = this.query.trim();
+    $('#hello').textContent = S.userName ? `Olá, ${S.userName}` : 'Olá!';
+    $('#library').classList.toggle('side-closed', !!S.sideClosed);
+    $$('.side-item[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === this.view && !q && (this.view !== 'home' || !this.folder)));
+    // pastas na barra lateral
+    const sf = $('#sideFolders'); sf.innerHTML = '';
+    for (const f of this.sortItems(this.children(null), (x) => x.name, (x) => this.folderStats(x).latest)) {
+      const on = this.folder && (this.folder === f.id || Store.folderChain(this.folder).some((x) => x.id === f.id));
+      sf.append(el('button', { class: 'side-item' + (on ? ' on' : ''), onclick: () => this.openFolder(f.id) }, el('span', { class: 'fdot', style: { background: f.color || FOLDER_COLORS[0] } }), f.name));
     }
-    const ng = $('#noteGrid'); ng.innerHTML = '';
-    let heads = Object.values(Store.heads); const hits = {};
+    // caminho
+    const crumbs = $('#crumbs'); crumbs.innerHTML = '';
+    const home = el('button', { class: 'crumb', title: 'Início', onclick: () => { this.view = 'home'; this.openFolder(null); } }); home.innerHTML = icon('home'); crumbs.append(home);
+    if (q) crumbs.append(iconEl('chevRight'), el('span', { class: 'crumb cur' }, 'Busca: "' + q + '"'));
+    else if (this.view === 'recent') crumbs.append(iconEl('chevRight'), el('span', { class: 'crumb cur' }, 'Recentes'));
+    else if (this.view === 'marked') crumbs.append(iconEl('chevRight'), el('span', { class: 'crumb cur' }, 'Com marcadores'));
+    else for (const f of Store.folderChain(this.folder)) { crumbs.append(iconEl('chevRight')); crumbs.append(el('button', { class: 'crumb' + (f.id === this.folder ? ' cur' : ''), onclick: () => this.openFolder(f.id) }, f.name)); }
+    const so = S.libSort || { by: 'name', dir: 1 };
+    $('#btnSort').innerHTML = icon(so.dir > 0 ? 'sortUp' : 'sortDown') + `<span>${so.by === 'name' ? 'Nome' : 'Data'}</span>`;
+    $('#btnView').innerHTML = icon(S.libView === 'list' ? 'pages' : 'list');
+    $('#btnSelect').classList.toggle('on', this.selecting);
+    // itens
+    const grid = $('#itemGrid'); grid.innerHTML = ''; grid.className = 'item-grid ' + (S.libView === 'list' ? 'as-list' : 'as-grid');
+    let folders = [], heads = Object.values(Store.heads); const hits = {};
     if (q) {
       const nq = norm(q);
-      heads = heads.filter((h) => {
-        if (norm(h.title).includes(nq)) return true;
-        const t = (h.texts || []).find((x) => norm(x[2]).includes(nq)); if (t) { hits[h.id] = t; return true; }
-        return false;
-      });
-    } else heads = heads.filter((h) => (h.folderId || null) === this.folder);
-    heads.sort((a, b) => b.updated - a.updated);
-    for (const h of heads) {
-      const mb = el('button', { class: 'icon-btn', title: 'Opções', onclick: (e) => { e.stopPropagation(); this.noteMenu(mb, h); } }); mb.innerHTML = icon('more');
-      const thumb = el('div', { class: 'thumb' }, h.thumb ? el('img', { src: h.thumb, alt: '' }) : null, el('span', { class: 'badge' }, h.mode === 'infinite' ? 'Infinita' : `${h.pages} pág.` + (h.hasPdf ? ' · PDF' : '')));
-      const hit = hits[h.id];
-      ng.append(el('div', { class: 'card', onclick: () => App.openNote(h.id, hit ? [hit[0], hit[1]] : null) }, thumb, el('div', { class: 'meta' }, el('div', { class: 't' }, el('div', { class: 'nm' }, h.title), el('div', { class: 'dt' }, fmtDate(h.updated)), hit ? el('div', { class: 'lib-hit', title: hit[2] }, el('b', {}, 'Pág. ' + (hit[0] + 1) + ': '), snippet(hit[2], q)) : null), mb)));
+      folders = Store.folders.filter((f) => norm(f.name).includes(nq));
+      heads = heads.filter((h) => { if (norm(h.title).includes(nq)) return true; const t = (h.texts || []).find((x) => norm(x[2]).includes(nq)); if (t) { hits[h.id] = t; return true; } return false; });
+    } else if (this.view === 'recent') heads = heads.sort((a, b) => b.updated - a.updated).slice(0, 60);
+    else if (this.view === 'marked') heads = heads.filter((h) => h.bm);
+    else { folders = this.children(this.folder); heads = heads.filter((h) => (h.folderId || null) === (this.folder || null)); }
+    if (this.view === 'home' || q) { folders = this.sortItems(folders, (x) => x.name, (x) => this.folderStats(x).latest); heads = this.sortItems(heads, (x) => x.title, (x) => x.updated); }
+    for (const f of folders) grid.append(this.folderItem(f));
+    for (const h of heads) grid.append(this.noteItem(h, hits[h.id], q));
+    $('#libEmpty').classList.toggle('hidden', folders.length + heads.length > 0);
+    this.renderSelBar();
+  },
+  folderItem(f) {
+    const st = this.folderStats(f), sel = this.selected.has('f:' + f.id);
+    const mb = el('button', { class: 'icon-btn more', title: 'Opções', onclick: (e) => { e.stopPropagation(); this.folderMenu(mb, f); } }); mb.innerHTML = icon('more');
+    const ic = el('div', { class: 'ficon', html: folderSvg(f.color || FOLDER_COLORS[0]) });
+    return el('div', { class: 'item' + (sel ? ' sel' : ''), onclick: () => this.selecting ? this.toggleSel('f:' + f.id) : this.openFolder(f.id) }, ic,
+      el('div', { class: 'meta' }, el('div', { class: 'dt' }, st.latest ? fmtDate(st.latest) : ''), el('div', { class: 'nm' }, f.name), el('div', { class: 'cnt' }, st.n === 1 ? '1 item' : `${st.n} itens`)), this.selecting ? el('span', { class: 'chk-dot' }, sel ? '✓' : '') : mb);
+  },
+  noteItem(h, hit, q) {
+    const sel = this.selected.has('n:' + h.id);
+    const mb = el('button', { class: 'icon-btn more', title: 'Opções', onclick: (e) => { e.stopPropagation(); this.noteMenu(mb, h); } }); mb.innerHTML = icon('more');
+    const th = el('div', { class: 'nthumb' }, h.thumb ? el('img', { src: h.thumb, alt: '' }) : null);
+    const info = h.mode === 'infinite' ? 'Tela infinita' : `${h.pages} pág.` + (h.hasPdf ? ' · PDF' : '') + (h.bm ? ` · ${h.bm} marcador${h.bm > 1 ? 'es' : ''}` : '');
+    const where = this.view !== 'home' || q ? (Store.folderChain(h.folderId).map((f) => f.name).join(' › ') || 'Início') : null;
+    return el('div', { class: 'item' + (sel ? ' sel' : ''), onclick: () => this.selecting ? this.toggleSel('n:' + h.id) : App.openNote(h.id, hit ? [hit[0], hit[1]] : null) }, th,
+      el('div', { class: 'meta' }, el('div', { class: 'dt' }, fmtDate(h.updated)), el('div', { class: 'nm' }, h.title), el('div', { class: 'cnt' }, where ? where + ' · ' + info : info),
+        hit ? el('div', { class: 'lib-hit', title: hit[2] }, el('b', {}, 'Pág. ' + (hit[0] + 1) + (hit[1] ? '' : ' ✍') + ': '), snippet(hit[2], q)) : null), this.selecting ? el('span', { class: 'chk-dot' }, sel ? '✓' : '') : mb);
+  },
+  openFolder(id) { this.folder = id; this.view = 'home'; this.query = ''; $('#libSearch').value = ''; this.selected.clear(); this.render(); $('.lib-body').scrollTop = 0; },
+  /* ---- seleção múltipla ---- */
+  toggleSel(k) { this.selected.has(k) ? this.selected.delete(k) : this.selected.add(k); this.render(); },
+  renderSelBar() {
+    const bar = $('#selActions'); bar.classList.toggle('hidden', !this.selecting); if (!this.selecting) return;
+    const n = this.selected.size; bar.innerHTML = '';
+    const B = (l, fn, cls = '') => el('button', { class: 'btn ' + cls, disabled: !n, onclick: fn }, l);
+    bar.append(el('b', {}, n ? `${n} selecionado(s)` : 'Toque nos itens para selecionar'), el('span', { class: 'sp' }),
+      B('Mover…', () => this.moveSelected()), B('Excluir', () => this.deleteSelected(), 'danger'),
+      el('button', { class: 'btn ghost', onclick: () => { this.selecting = false; this.selected.clear(); this.render(); } }, 'Cancelar'));
+  },
+  async moveSelected() {
+    const fIds = [...this.selected].filter((k) => k.startsWith('f:')).map((k) => k.slice(2));
+    const exclude = new Set(fIds.flatMap((id) => [id, ...this.descendants(id).map((x) => x.id)]));
+    const dest = await this.folderPicker('Mover para', exclude); if (dest === undefined) return;
+    for (const k of this.selected) {
+      if (k.startsWith('n:')) { const n = await Store.getNote(k.slice(2)); if (n) { n.folderId = dest; await Store.putNote(n); } }
+      else { const f = Store.folders.find((x) => x.id === k.slice(2)); if (f) f.parentId = dest; }
     }
-    $('#libEmpty').classList.toggle('hidden', heads.length > 0 || (!this.folder && !q && Store.folders.length > 0));
+    await Store.saveFolders(); Drive.schedule(); this.selecting = false; this.selected.clear(); this.render(); toast('Itens movidos');
+  },
+  async deleteSelected() {
+    const notes = [...this.selected].filter((k) => k.startsWith('n:')), folders = [...this.selected].filter((k) => k.startsWith('f:'));
+    if (!(await confirmBox('Excluir', `Excluir ${notes.length} nota(s)` + (folders.length ? ` e ${folders.length} pasta(s)? O conteúdo das pastas vai para a pasta de cima.` : '?'), 'Excluir', true))) return;
+    for (const k of notes) await Store.deleteNote(k.slice(2));
+    for (const k of folders) { const f = Store.folders.find((x) => x.id === k.slice(2)); if (f) await this.removeFolder(f); }
+    this.selecting = false; this.selected.clear(); this.render();
+  },
+  /* ---- pastas ---- */
+  async removeFolder(f) {
+    const up = f.parentId || null;
+    for (const h of Object.values(Store.heads)) if (h.folderId === f.id) { const n = await Store.getNote(h.id); n.folderId = up; await Store.putNote(n); }
+    for (const c of this.children(f.id)) c.parentId = up;
+    Store.folders = Store.folders.filter((x) => x.id !== f.id); await Store.saveFolders(); Drive.schedule();
+    if (this.folder === f.id) this.folder = up;
+  },
+  folderTreeOptions(exclude = new Set()) {
+    const out = [], walk = (pid, depth) => { for (const f of this.sortItems(this.children(pid), (x) => x.name, () => 0)) { if (exclude.has(f.id)) continue; out.push([f.id, ' '.repeat(depth) + f.name]); walk(f.id, depth + 1); } };
+    walk(null, 0); return out;
+  },
+  async folderPicker(title, exclude = new Set(), current = null) {
+    const sel = el('select', {}, el('option', { value: '' }, 'Início (sem pasta)'), ...this.folderTreeOptions(exclude).map(([id, n]) => el('option', { value: id }, n)));
+    sel.value = current || '';
+    const ok = await openModal({ title, body: el('div', { class: 'field' }, el('label', {}, 'Pasta de destino'), sel), buttons: [{ label: 'Cancelar', value: false }, { label: 'Mover', cls: 'primary', value: true }] });
+    return ok ? sel.value || null : undefined;
   },
   folderMenu(anchor, f) {
     menu(anchor, [
       { label: 'Renomear', icon: 'pen', run: async () => { const n = await askText('Renomear pasta', f.name); if (n) { f.name = n; await Store.saveFolders(); Drive.schedule(); this.render(); } } },
-      { label: 'Grupo de predefinições…', icon: 'palette', run: async () => {
-        const G = Store.settings.presetGroups; const sel = el('select', {}, ...G.map((g) => el('option', { value: g.id }, g.name))); sel.value = f.groupId || 'default';
-        const ok = await openModal({ title: 'Grupo da pasta "' + f.name + '"', body: el('div', { class: 'field' }, el('label', {}, 'Cores e espessuras usadas nas notas desta pasta'), sel, el('p', { class: 'lbl-sm' }, 'Crie e edite grupos dentro de uma nota, no botão do grupo no topo da barra de predefinições.')), buttons: [{ label: 'Cancelar', value: false }, { label: 'Salvar', cls: 'primary', value: true }] });
-        if (ok) { f.groupId = sel.value; await Store.saveFolders(); toast('Grupo definido para a pasta'); }
+      { label: 'Cor da pasta', icon: 'palette', run: () => colorPop(anchor, f.color || FOLDER_COLORS[0], async (c) => { f.color = c; await Store.saveFolders(); this.render(); }, FOLDER_COLORS.concat(['#111827', '#a16207', '#be185d', '#1d4ed8', '#15803d', '#b91c1c'])) },
+      { label: 'Nova pasta dentro', icon: 'folder', run: () => this.newFolder(f.id) },
+      { label: 'Mover para…', icon: 'move', run: async () => { const d = await this.folderPicker('Mover pasta', new Set([f.id, ...this.descendants(f.id).map((x) => x.id)]), f.parentId); if (d !== undefined) { f.parentId = d; await Store.saveFolders(); Drive.schedule(); this.render(); } } },
+      { label: 'Grupo de predefinições…', icon: 'layers', run: async () => {
+        const G = Store.settings.presetGroups; const sel = el('select', {}, el('option', { value: '' }, '(herdar da pasta de cima)'), ...G.map((g) => el('option', { value: g.id }, g.name))); sel.value = f.groupId || '';
+        const ok = await openModal({ title: 'Grupo da pasta "' + f.name + '"', body: el('div', { class: 'field' }, el('label', {}, 'Cores e espessuras usadas nas notas desta pasta (e das pastas dentro dela)'), sel, el('p', { class: 'lbl-sm' }, 'Crie e edite grupos dentro de uma nota, no botão do grupo no topo da barra de predefinições.')), buttons: [{ label: 'Cancelar', value: false }, { label: 'Salvar', cls: 'primary', value: true }] });
+        if (ok) { if (sel.value) f.groupId = sel.value; else delete f.groupId; await Store.saveFolders(); toast('Grupo definido para a pasta'); }
       } },
-      { label: 'Excluir pasta (as notas vão para "Todas")', icon: 'trash', danger: true, run: async () => {
-        if (!(await confirmBox('Excluir pasta', `Excluir a pasta "${f.name}"? As notas dela não serão apagadas.`, 'Excluir', true))) return;
-        for (const h of Object.values(Store.heads)) if (h.folderId === f.id) { const n = await Store.getNote(h.id); n.folderId = null; await Store.putNote(n); }
-        Store.folders = Store.folders.filter((x) => x.id !== f.id); await Store.saveFolders(); Drive.schedule(); this.render();
+      '-',
+      { label: 'Excluir pasta', icon: 'trash', danger: true, run: async () => {
+        if (!(await confirmBox('Excluir pasta', `Excluir a pasta "${f.name}"? As notas e pastas de dentro não são apagadas: elas vão para a pasta de cima.`, 'Excluir', true))) return;
+        await this.removeFolder(f); this.render();
       } },
     ]);
   },
   noteMenu(anchor, h) {
     menu(anchor, [
       { label: 'Renomear', icon: 'pen', run: async () => { const t = await askText('Renomear nota', h.title); if (t) { const n = await Store.getNote(h.id); n.title = t; n.updated = Date.now(); await Store.putNote(n); this.render(); } } },
-      { label: 'Mover para pasta', icon: 'folder', run: () => this.moveDialog(h) },
+      { label: 'Mover para…', icon: 'folder', run: () => this.moveDialog(h) },
       { label: 'Duplicar', icon: 'copy', run: async () => { const n = await Store.getNote(h.id); const c = clone(n); c.id = uid(); c.title = n.title + ' (cópia)'; c.created = c.updated = Date.now(); await Store.putNote(c); await Store.setThumb(c.id, h.thumb); this.render(); } },
       { label: 'Exportar PDF', icon: 'download', run: async () => exportPdfFlow(await Store.getNote(h.id)) },
+      { label: 'Abrir no Google Drive', icon: 'external', run: () => Drive.openInDrive(h.id) },
       '-',
       { label: 'Excluir', icon: 'trash', danger: true, run: async () => { if (await confirmBox('Excluir nota', `Excluir "${h.title}"? No Drive, o arquivo vai para a lixeira.`, 'Excluir', true)) { await Store.deleteNote(h.id); this.render(); } } },
     ]);
   },
   async moveDialog(h) {
-    const sel = el('select', {}, el('option', { value: '' }, '— Sem pasta —'), ...Store.folders.map((f) => el('option', { value: f.id }, f.name)));
-    sel.value = h.folderId || '';
-    const ok = await openModal({ title: 'Mover para pasta', body: el('div', { class: 'field' }, el('label', {}, 'Pasta'), sel), buttons: [{ label: 'Cancelar', value: false }, { label: 'Mover', cls: 'primary', value: true }] });
-    if (!ok) return; const n = await Store.getNote(h.id); n.folderId = sel.value || null; await Store.putNote(n); this.render();
+    const d = await this.folderPicker('Mover nota', new Set(), h.folderId); if (d === undefined) return;
+    const n = await Store.getNote(h.id); n.folderId = d; await Store.putNote(n); this.render(); toast('Nota movida');
   },
-  async newFolder() { const n = await askText('Nova pasta', '', 'Nome da pasta (ex.: Direito Penal I)'); if (!n) return; Store.folders.push({ id: uid(), name: n }); await Store.saveFolders(); Drive.schedule(); this.render(); },
+  async newFolder(parentId = this.folder) {
+    const n = await askText('Nova pasta', '', 'Nome da pasta (ex.: Direito Penal I)'); if (!n) return;
+    const color = FOLDER_COLORS[Store.folders.length % FOLDER_COLORS.length];
+    Store.folders.push({ id: uid(), name: n, parentId: parentId || null, color, created: Date.now() }); await Store.saveFolders(); Drive.schedule(); this.render();
+  },
+  fabMenu(anchor) {
+    menu(anchor, [
+      { label: 'Nova nota', icon: 'pen', run: async () => { const n = await newNoteDialog(this.folder); if (n) App.openNote(n.id); } },
+      { label: 'Nova pasta', icon: 'folder', run: () => this.newFolder() },
+      '-',
+      { label: 'Importar PDF', icon: 'file', run: () => this.importPdf() },
+      { label: 'Importar do Notewise', icon: 'layers', run: () => this.importNotewise() },
+      { label: 'Restaurar cópia do Traço (.json)', icon: 'download', run: () => importAll() },
+    ]);
+  },
   importMenu(anchor) {
     menu(anchor, [
       { label: 'PDF (apostilas, leis, artigos)', icon: 'file', run: () => this.importPdf() },
@@ -131,6 +233,8 @@ async function openSettings(focus) {
       }),
       Drive.hasAuth() ? B('Desconectar', 'ghost danger', () => { Drive.disconnect(); toast('Drive desconectado'); }) : null));
   body.append(driveSec);
+  const nameI = el('input', { type: 'text', value: S.userName || '', placeholder: 'Seu nome' }); nameI.addEventListener('change', () => { S.userName = nameI.value.trim(); Store.saveSettings(); Library.render(); });
+  body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Você'), el('div', { class: 'field' }, el('label', {}, 'Nome exibido na saudação da tela inicial'), nameI)));
   // --- Escrita
   const chk = (label, key, after) => UI.check(label, S[key], (v) => { S[key] = v; Store.saveSettings(); after && after(v); });
   const th = el('select', {}, el('option', { value: 'auto' }, 'Automático'), el('option', { value: 'light' }, 'Claro'), el('option', { value: 'dark' }, 'Escuro')); th.value = S.theme || 'auto'; th.addEventListener('change', () => { S.theme = th.value; Store.saveSettings(); App.applyTheme(); });

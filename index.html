@@ -3,37 +3,60 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#1f2937">
+<meta name="theme-color" content="#16121f">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Traço Notas</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/app.css?v=0.4.0">
+<link rel="stylesheet" href="css/app.css?v=0.5.0">
 </head>
 <body>
 <!--APP-START-->
 <div id="app">
   <!-- ===== Biblioteca ===== -->
-  <section id="library" class="screen">
-    <header class="lib-head">
-      <div class="brand"><span class="logo"></span>Traço</div>
-      <div class="search"><span data-icon="search"></span><input id="libSearch" type="search" placeholder="Buscar notas"></div>
-      <div class="lib-actions">
-        <span id="libSync" class="sync-pill" title="Backup no Google Drive"></span>
-        <button class="btn ghost" id="btnNewFolder"><span data-icon="folder"></span><span class="lbl">Nova pasta</span></button>
-        <button class="btn ghost" id="btnImportPdf"><span data-icon="file"></span><span class="lbl">Importar</span></button>
-        <button class="btn primary" id="btnNewNote"><span data-icon="plus"></span><span class="lbl">Nova nota</span></button>
-        <button class="icon-btn" id="btnSettings" title="Configurações"><span data-icon="settings"></span></button>
+  <section id="library" class="screen lib">
+    <aside class="lib-side" id="libSide">
+      <div class="side-top">
+        <div class="brand"><span class="logo"></span>Traço</div>
+        <button class="icon-btn" id="btnSide" title="Recolher menu"><span data-icon="sidebar"></span></button>
       </div>
-    </header>
-    <nav id="crumbs" class="crumbs"></nav>
-    <main class="lib-body">
-      <div id="folderGrid" class="folder-grid"></div>
-      <div id="noteGrid" class="note-grid"></div>
-      <div id="libEmpty" class="empty hidden">
-        <p>Nenhuma nota aqui ainda.</p>
-        <button class="btn primary" id="btnNewNote2"><span data-icon="plus"></span>Criar a primeira nota</button>
+      <nav class="side-nav">
+        <button class="side-item" data-view="home"><span data-icon="home"></span>Início</button>
+        <button class="side-item" data-view="recent"><span data-icon="clock"></span>Recentes</button>
+        <button class="side-item" data-view="marked"><span data-icon="bookmark"></span>Com marcadores</button>
+      </nav>
+      <div class="side-sec">Pastas</div>
+      <div id="sideFolders" class="side-folders"></div>
+      <div class="side-bottom"><button class="side-item" id="btnSettings"><span data-icon="settings"></span>Configurações</button></div>
+    </aside>
+    <main class="lib-main">
+      <header class="lib-hero">
+        <div class="hero-tools">
+          <button class="icon-btn hero-side" id="btnSide2" title="Mostrar menu"><span data-icon="sidebar"></span></button>
+          <span class="sp"></span>
+          <span id="libSync" class="sync-pill" title="Backup no Google Drive"></span>
+          <div class="search"><span data-icon="search"></span><input id="libSearch" type="search" placeholder="Buscar notas e escrita"></div>
+        </div>
+        <h1 id="hello">Olá</h1>
+        <p class="hero-sub">O que vamos estudar hoje?</p>
+      </header>
+      <div class="lib-bar">
+        <nav id="crumbs" class="crumbs"></nav>
+        <div class="bar-tools">
+          <button class="bar-btn" id="btnSort" title="Ordenar"></button>
+          <button class="icon-btn" id="btnView" title="Alternar grade e lista"></button>
+          <button class="icon-btn" id="btnSelect" title="Selecionar vários"><span data-icon="checkSq"></span></button>
+        </div>
       </div>
+      <div id="selActions" class="sel-actions hidden"></div>
+      <div class="lib-body">
+        <div id="itemGrid" class="item-grid"></div>
+        <div id="libEmpty" class="empty hidden">
+          <p>Nada por aqui ainda.</p>
+          <button class="btn primary" id="btnNewNote2"><span data-icon="plus"></span>Criar uma nota</button>
+        </div>
+      </div>
+      <button class="fab" id="btnFab" title="Criar"><span data-icon="plus"></span></button>
     </main>
   </section>
 
@@ -77,20 +100,20 @@
 <div id="popRoot"></div>
 <div id="toast" class="toast hidden"></div>
 <input type="file" id="filePick" class="hidden">
-<script src="js/util.js?v=0.4.0"></script>
-<script src="js/store.js?v=0.4.0"></script>
-<script src="js/geom.js?v=0.4.0"></script>
-<script src="js/render.js?v=0.4.0"></script>
-<script src="js/pdf.js?v=0.4.0"></script>
-<script src="js/drive.js?v=0.4.0"></script>
-<script src="js/editor.js?v=0.4.0"></script>
-<script src="js/toolbar.js?v=0.4.0"></script>
-<script src="js/ui.js?v=0.4.0"></script>
-<script src="js/ocr.js?v=0.4.0"></script>
-<script src="js/import-notewise.js?v=0.4.0"></script>
-<script src="js/library.js?v=0.4.0"></script>
-<script src="js/plugins.js?v=0.4.0"></script>
-<script src="js/app.js?v=0.4.0"></script>
+<script src="js/util.js?v=0.5.0"></script>
+<script src="js/store.js?v=0.5.0"></script>
+<script src="js/geom.js?v=0.5.0"></script>
+<script src="js/render.js?v=0.5.0"></script>
+<script src="js/pdf.js?v=0.5.0"></script>
+<script src="js/drive.js?v=0.5.0"></script>
+<script src="js/editor.js?v=0.5.0"></script>
+<script src="js/toolbar.js?v=0.5.0"></script>
+<script src="js/ui.js?v=0.5.0"></script>
+<script src="js/ocr.js?v=0.5.0"></script>
+<script src="js/import-notewise.js?v=0.5.0"></script>
+<script src="js/library.js?v=0.5.0"></script>
+<script src="js/plugins.js?v=0.5.0"></script>
+<script src="js/app.js?v=0.5.0"></script>
 <!--APP-END-->
 </body>
 </html>

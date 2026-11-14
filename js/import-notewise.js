@@ -80,7 +80,9 @@ async function convertNotewise(files, { folderId = null } = {}) {
     const size = pbParse(pbGet(setup, 1) || new Uint8Array());
     const PW = pbGet(size, 3) || 3480, PH = pbGet(size, 4) || 4000, s = NW_TARGET_W / PW;
     const bg = pbColor(pbGet(setup, 2)).hex, tplCode = pbGet(setup, 7);
-    const tpl = { ...DEFAULT_TEMPLATE, paper: bg, type: tplCode === 6 ? 'grid' : 'blank', spacing: 26, color: '#c3ccd8', thickness: 0.8, top: 0, margin: false };
+    const base = tplCode === 6 ? NOTEWISE_TEMPLATES.grid : NOTEWISE_TEMPLATES.blank;
+    const tpl = { ...base, paper: bg, spacing: 100 * s, thickness: 0.95 * s / NW_SCALE };
+    if (isDarkPaper(bg)) tpl.color = '#3a3a3a';
     const page = { id: uid(), w: NW_TARGET_W, h: Math.round(PH * s), template: tpl, pdf: null, elements: [], nw: { tpl: tplCode } };
     for (const ev of pbAll(P, 4)) {
       const E = pbParse(ev), M = pbMatrix(pbGet(E, 3));
@@ -148,11 +150,15 @@ async function importNotewiseFile(file, onProgress) {
   const results = [], folderIds = {};
   for (let k = 0; k < list.length; k++) {
     const name = list[k]; onProgress && onProgress(k + 1, list.length, name);
-    const dir = name.split('/').slice(0, -1).filter(Boolean).join(' / ');
-    let folderId = Library.folder;
-    if (dir) {
-      if (!folderIds[dir]) { const ex = Store.folders.find((f) => f.name === dir); if (ex) folderIds[dir] = ex.id; else { const f = { id: uid(), name: dir }; Store.folders.push(f); await Store.saveFolders(); folderIds[dir] = f.id; } }
-      folderId = folderIds[dir];
+    let folderId = Library.folder || null;
+    for (const seg of name.split('/').slice(0, -1).filter(Boolean)) { // pastas e subpastas do ZIP
+      const key = folderId + '/' + seg;
+      if (!folderIds[key]) {
+        const ex = Store.folders.find((f) => f.name === seg && (f.parentId || null) === folderId);
+        if (ex) folderIds[key] = ex.id;
+        else { const f = { id: uid(), name: seg, parentId: folderId, color: FOLDER_COLORS[Store.folders.length % FOLDER_COLORS.length], created: Date.now() }; Store.folders.push(f); await Store.saveFolders(); folderIds[key] = f.id; }
+      }
+      folderId = folderIds[key];
     }
     try { const inner = await readZip(new Blob([await files[name].bytes()])); results.push(await convertNotewise(inner, { folderId })); }
     catch (e) { console.warn(name, e); results.push({ error: name.split('/').pop() + ': ' + e.message }); }

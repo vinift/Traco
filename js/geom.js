@@ -110,6 +110,7 @@ function elBBox(e) {
     b = { x: x1 - m, y: y1 - m, w: x2 - x1 + 2 * m, h: y2 - y1 + 2 * m };
   } else if (e.type === 'text') { b = { x: e.x, y: e.y, w: e.w, h: layoutText(e).h }; }
   else if (e.type === 'image') b = { x: e.x, y: e.y, w: e.w, h: e.h };
+  else if (e.type === 'table') { const m = (e.bw || 1) / 2; b = { x: e.x - m, y: e.y - m, w: e.w + 2 * m, h: e.h + 2 * m }; }
   else if (e.bbox) b = e.bbox; else b = { x: e.x || 0, y: e.y || 0, w: e.w || 10, h: e.h || 10 };
   if (e.rot && hasRot(e)) { // caixa envolvente da versão girada
     const c = rawCenter(e); let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
@@ -166,6 +167,11 @@ function hitElement(e, x, y, tol) {
     for (let i = 1; i < s.length; i++) if (distSeg(x, y, s[i - 1][0], s[i - 1][1], s[i][0], s[i][1]) <= wr) return true;
     return false;
   }
+  if (e.type === 'table') { // tabela: só as linhas contam (escrever dentro das células não "acerta" a tabela)
+    const g = tableGrid(e), t = tol + (e.bw || 1) / 2 + 2;
+    if (ux < e.x - t || ux > e.x + e.w + t || uy < e.y - t || uy > e.y + e.h + t) return false;
+    return g.xs.some((gx) => Math.abs(ux - gx) <= t) || g.ys.some((gy) => Math.abs(uy - gy) <= t);
+  }
   const rb = rawBox(e); // texto e imagem: dentro da caixa
   return ux >= rb.x - tol && ux <= rb.x + rb.w + tol && uy >= rb.y - tol && uy <= rb.y + rb.h + tol;
 }
@@ -198,6 +204,7 @@ function transformEl(e, f) { // f: {sx, sy, ox, oy, dx, dy}  x' = ox + (x-ox)*sx
     if (s !== 1) n.width = e.width * s;
   } else if (e.type === 'text') { n.x = X(e.x); n.y = Y(e.y); n.w = Math.max(20, e.w * f.sx); if (f.sx !== 1 || f.sy !== 1) { n.size = Math.max(4, e.size * f.sy); if (e.minH) n.minH = e.minH * f.sy; } }
   else if (e.type === 'image') { n.x = X(e.x); n.y = Y(e.y); n.w = e.w * f.sx; n.h = e.h * f.sy; }
+  else if (e.type === 'table') { n.x = X(e.x); n.y = Y(e.y); n.w = e.w * f.sx; n.h = e.h * f.sy; if (s !== 1) n.bw = (e.bw || 1) * s; }
   else { if (n.x != null) { n.x = X(e.x); n.y = Y(e.y); } }
   return n;
 }
@@ -241,19 +248,19 @@ function recognizeShape(flat) {
   const corners = simp.length - 1; // primeiro == ~último
   const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2, rx = (x2 - x1) / 2, ry = (y2 - y1) / 2;
   let eErr = 0; for (const p of P) { const d = Math.hypot((p[0] - cx) / (rx || 1), (p[1] - cy) / (ry || 1)); eErr += Math.abs(d - 1); } eErr /= P.length;
-  if (corners === 3) {
-    const pts = []; for (let i = 0; i < 3; i++) pts.push(r2(simp[i][0]), r2(simp[i][1]));
-    return { kind: 'poly', pts, closed: true };
-  }
+  if (corners === 3) return snapTriangle(simp.slice(0, 3));
   if (corners === 4 && eErr > 0.08) {
     // retângulo alinhado se os lados forem quase horizontais/verticais
     let aligned = true;
     for (let i = 0; i < 4; i++) { const p = simp[i], q = simp[i + 1]; const ang = Math.abs(Math.atan2(q[1] - p[1], q[0] - p[0])) % (Math.PI / 2); if (Math.min(ang, Math.PI / 2 - ang) > 0.25) aligned = false; }
-    if (aligned) return { kind: 'rect', x1, y1, x2, y2 };
+    if (aligned) return snapBox({ kind: 'rect', x1, y1, x2, y2 });
+    // losango: cantos perto do meio de cada lado da caixa
+    const mids = [[cx, y1], [x2, cy], [cx, y2], [x1, cy]], tolD = diag * 0.12;
+    if (simp.slice(0, 4).every((p) => mids.some((m) => Math.hypot(p[0] - m[0], p[1] - m[1]) < tolD))) return snapBox({ kind: 'diamond', x1, y1, x2, y2 });
     const pts = []; for (let i = 0; i < 4; i++) pts.push(r2(simp[i][0]), r2(simp[i][1]));
     return { kind: 'poly', pts, closed: true };
   }
-  if (eErr < 0.2) return { kind: 'ellipse', x1, y1, x2, y2 };
+  if (eErr < 0.2) return snapBox({ kind: 'ellipse', x1, y1, x2, y2 });
   return null;
 }
 
@@ -291,7 +298,7 @@ function scribbleTargets(elements, flat) {
   const out = [];
   for (const e of elements) {
     const b = elBBox(e); if (!rectsHit(b, sb)) continue;
-    if (e.type === 'image') continue; // imagens só com a borracha
+    if (e.type === 'image' || e.type === 'table') continue; // imagens e tabelas só com a borracha
     let hits = 0; for (let i = 0; i < P.length && hits < 3; i += 2) if (hitElement(e, P[i][0], P[i][1], 2)) hits++;
     if (hits >= 3 || elInLasso(e, hull)) out.push(e);
   }
@@ -300,10 +307,10 @@ function scribbleTargets(elements, flat) {
 
 /* ===== Rotação ===== */
 function rotPt(x, y, cx, cy, a) { const c = Math.cos(a), s = Math.sin(a), dx = x - cx, dy = y - cy; return [cx + dx * c - dy * s, cy + dx * s + dy * c]; }
-function hasRot(e) { return e.type === 'image' || e.type === 'text' || (e.type === 'shape' && e.kind !== 'line' && e.kind !== 'arrow' && e.kind !== 'poly'); }
+function hasRot(e) { return e.type === 'image' || e.type === 'text' || e.type === 'table' || (e.type === 'shape' && e.kind !== 'line' && e.kind !== 'arrow' && e.kind !== 'poly'); }
 function rawBox(e) {
   if (e.type === 'text') return { x: e.x, y: e.y, w: e.w, h: layoutText(e).h };
-  if (e.type === 'image') return { x: e.x, y: e.y, w: e.w, h: e.h };
+  if (e.type === 'image' || e.type === 'table') return { x: e.x, y: e.y, w: e.w, h: e.h };
   const g = shapeGeom(e); return { x: g.x1, y: g.y1, w: g.w, h: g.h };
 }
 function rawCenter(e) { const b = rawBox(e); return { x: b.x + b.w / 2, y: b.y + b.h / 2 }; }
@@ -347,4 +354,38 @@ function convexHull(P) {
   for (const p of pts) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
   for (let i = pts.length - 1; i >= 0; i--) { const p = pts[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
   return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+
+/* ===== Formas padrão: quadrado, círculo, triângulos ===== */
+function snapBox(sh, tol = 0.15) { // quase quadrado/círculo → exato (mantém o centro)
+  const w = Math.abs(sh.x2 - sh.x1), h = Math.abs(sh.y2 - sh.y1); if (!w || !h) return sh;
+  let tw = w, th = h;
+  if (sh.kind === 'triangle') { const eq = w * 0.866; if (Math.abs(h - eq) / eq < tol) th = eq; } // equilátero
+  else if (Math.abs(w - h) / Math.max(w, h) < tol) tw = th = (w + h) / 2;
+  if (tw === w && th === h) return sh;
+  const cx = (sh.x1 + sh.x2) / 2, cy = (sh.y1 + sh.y2) / 2;
+  return { ...sh, x1: cx - tw / 2, x2: cx + tw / 2, y1: cy - th / 2, y2: cy + th / 2 };
+}
+function snapTriangle(P) {
+  const xs = P.map((p) => p[0]), ys = P.map((p) => p[1]);
+  const x1 = Math.min(...xs), x2 = Math.max(...xs), y1 = Math.min(...ys), y2 = Math.max(...ys), w = x2 - x1, h = y2 - y1, tol = 0.14;
+  const near = (a, b, size) => Math.abs(a - b) < size * tol;
+  // isósceles/equilátero com a base embaixo: dois pontos com o mesmo y perto do fundo e o terceiro no meio, em cima
+  const bottom = P.filter((p) => near(p[1], y2, h)), top = P.filter((p) => near(p[1], y1, h));
+  if (bottom.length === 2 && top.length === 1 && near(top[0][0], (x1 + x2) / 2, w)) return snapBox({ kind: 'triangle', x1, y1, x2, y2 });
+  // triângulo retângulo com os catetos na horizontal e na vertical
+  for (const c of P) {
+    const others = P.filter((p) => p !== c);
+    const v = others.find((p) => near(p[0], c[0], w || 1)), hz = others.find((p) => p !== v && near(p[1], c[1], h || 1));
+    if (v && hz) { const pts = [c[0], c[1], c[0], v[1], hz[0], c[1]].map(r2); return { kind: 'poly', pts, closed: true }; }
+  }
+  const pts = []; for (const p of P) pts.push(r2(p[0]), r2(p[1]));
+  return { kind: 'poly', pts, closed: true };
+}
+/* ===== Tabela ===== */
+function tableGrid(e) {
+  const cw = e.colW && e.colW.length === e.cols ? e.colW : Array(e.cols).fill(1), rh = e.rowH && e.rowH.length === e.rows ? e.rowH : Array(e.rows).fill(1);
+  const sw = cw.reduce((a, b) => a + b, 0), sh = rh.reduce((a, b) => a + b, 0);
+  const xs = [e.x], ys = [e.y]; let acc = 0; for (const c of cw) { acc += c; xs.push(e.x + (e.w * acc) / sw); } acc = 0; for (const r of rh) { acc += r; ys.push(e.y + (e.h * acc) / sh); }
+  return { xs, ys };
 }

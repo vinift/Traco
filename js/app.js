@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.4.0',
+  version: '0.5.0',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -35,12 +35,24 @@ const App = {
   },
   async closeNote() { await Editor.close(); Library.show(); },
   wire() {
-    on(['btnNewNote', 'btnNewNote2'], async () => { const n = await newNoteDialog(Library.folder); if (n) this.openNote(n.id); });
-    on(['btnNewFolder'], () => Library.newFolder());
-    on(['btnImportPdf'], (e) => Library.importMenu(e.currentTarget));
+    on(['btnNewNote2'], async () => { const n = await newNoteDialog(Library.folder); if (n) this.openNote(n.id); });
     on(['btnSettings', 'btnEdSettings'], () => openSettings());
     $('#libSearch').addEventListener('input', (e) => { Library.query = e.target.value; Library.render(); });
-    on(['libSync', 'edSync'], () => Drive.onPillClick());
+    on(['libSync'], (e) => Drive.pillMenu(e.currentTarget, null));
+    on(['edSync'], (e) => Drive.pillMenu(e.currentTarget, Editor.note && Editor.note.id));
+    on(['btnFab'], (e) => Library.fabMenu(e.currentTarget));
+    on(['btnSort'], (e) => {
+      const S = Store.settings, so = S.libSort || { by: 'name', dir: 1 };
+      const set = (by, dir) => { S.libSort = { by, dir }; Store.saveSettings(); Library.render(); };
+      menu(e.currentTarget, [
+        { label: (so.by === 'name' ? '✓ ' : '') + 'Nome', icon: 'text', run: () => set('name', so.by === 'name' ? -so.dir : 1) },
+        { label: (so.by === 'date' ? '✓ ' : '') + 'Data de modificação', icon: 'clock', run: () => set('date', so.by === 'date' ? -so.dir : 1) },
+      ]);
+    });
+    on(['btnView'], () => { const S = Store.settings; S.libView = S.libView === 'list' ? 'grid' : 'list'; Store.saveSettings(); Library.render(); });
+    on(['btnSelect'], () => { Library.selecting = !Library.selecting; Library.selected.clear(); Library.render(); });
+    on(['btnSide', 'btnSide2'], () => { const S = Store.settings; S.sideClosed = !S.sideClosed; Store.saveSettings(); Library.render(); });
+    $$('.side-item[data-view]').forEach((b) => (b.onclick = () => { Library.view = b.dataset.view; Library.folder = null; Library.query = ''; $('#libSearch').value = ''; Library.render(); if (innerWidth < 800) { Store.settings.sideClosed = true; Library.render(); } }));
     on(['btnBack'], () => this.closeNote());
     on(['btnPages'], () => pagesPanel());
     on(['btnAddPage'], () => { if (Editor.note.mode === 'infinite') return toast('Notas em tela infinita não têm páginas'); Editor.addPage(Editor.currentPageIndex()); toast('Página adicionada', 1200); });

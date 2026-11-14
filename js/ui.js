@@ -70,7 +70,7 @@ const Instruments = {
         if (g % 10 === 0) c.fillText(String(g), R + (R - 26) * Math.cos(t), R - (R - 26) * Math.sin(t));
       }
       c.stroke(); c.beginPath(); c.moveTo(R - 8, R); c.lineTo(R + 8, R); c.moveTo(R, R - 8); c.lineTo(R, R + 8); c.stroke();
-      const t = o.meas * Math.PI / 180; c.strokeStyle = '#2563eb'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(R, R); c.lineTo(R + R * Math.cos(t), R - R * Math.sin(t)); c.stroke();
+      const t = o.meas * Math.PI / 180; c.strokeStyle = '#7c3aed'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(R, R); c.lineTo(R + R * Math.cos(t), R - R * Math.sin(t)); c.stroke();
       c.beginPath(); c.arc(R, R, 30, 0, -t, true); c.stroke();
     }
   },
@@ -147,9 +147,31 @@ const Instruments = {
 
 /* ===== Editor de modelos de página ===== */
 const TPL_TYPES = [['blank', 'Em branco'], ['lines', 'Linhas'], ['grid', 'Grade'], ['dots', 'Pontos']];
-function templateEditor(tplIn, size = { w: 794, h: 1123 }) {
+function templateEditor(tplIn, size = { w: 794, h: 1123 }, { onNotewise } = {}) {
   const tpl = { ...DEFAULT_TEMPLATE, ...clone(tplIn) };
   const root = el('div', {});
+  // modelos prontos do Notewise
+  const nwRow = el('div', { class: 'nw-row' });
+  const syncPick = () => $$('button', pick).forEach((b, i) => b.classList.toggle('on', TPL_TYPES[i][0] === tpl.type));
+  for (const [k, n] of [['grid', 'Grade'], ['lines', 'Linha'], ['dots', 'Ponto'], ['blank', 'Em branco']]) {
+    nwRow.append(el('button', { type: 'button', class: 'btn', onclick: () => {
+      const paper = tpl.paper; Object.assign(tpl, clone(NOTEWISE_TEMPLATES[k])); tpl.paper = paper || '#ffffff';
+      if (isDarkPaper(tpl.paper)) tpl.color = '#3a3a3a';
+      syncPick(); buildFields(); redraw(); onNotewise && onNotewise();
+    } }, n));
+  }
+  // papéis do Notewise
+  const papers = el('div', { class: 'nw-papers' });
+  const paintPapers = () => $$('.swatch', papers).forEach((sw) => sw.classList.toggle('sel', sw.dataset.c.toLowerCase() === (tpl.paper || '').toLowerCase()));
+  for (const [c, n] of NOTEWISE_PAPERS) {
+    const sw = el('div', { class: 'swatch', title: n, style: { background: c }, onclick: () => {
+      const wasDark = isDarkPaper(tpl.paper); tpl.paper = c;
+      if (isDarkPaper(c) && !wasDark) tpl.color = '#3a3a3a'; else if (!isDarkPaper(c) && wasDark) tpl.color = tpl.nw ? NW_BASE.color : DEFAULT_TEMPLATE.color;
+      paintPapers(); buildFields(); redraw();
+    } }); sw.dataset.c = c; papers.append(sw);
+  }
+  root.append(el('div', { class: 'field' }, el('label', {}, 'Modelos do Notewise (folha 3480 × 4000)'), nwRow), el('div', { class: 'field' }, el('label', {}, 'Cor do papel'), papers));
+  setTimeout(paintPapers, 0);
   const pick = el('div', { class: 'tpl-pick' });
   const prev = el('canvas', { class: 'tpl-prev' });
   const fields = el('div', {});
@@ -159,9 +181,10 @@ function templateEditor(tplIn, size = { w: 794, h: 1123 }) {
     pick.append(b);
   });
   const num = (label, key, min, max, step, unit) => {
+    const show = (v) => Math.round(v * 100) / 100;
     const r = el('input', { type: 'range', min, max, step, value: tpl[key] });
-    const n = el('input', { type: 'number', min, max, step, value: tpl[key], style: { width: '80px' } });
-    const set = (v) => { v = clamp(+v || min, min, max); tpl[key] = v; r.value = v; n.value = v; redraw(); };
+    const n = el('input', { type: 'number', min, max, step: 'any', value: show(tpl[key]), style: { width: '80px' } });
+    const set = (v) => { v = clamp(+v || min, min, max); tpl[key] = v; r.value = v; n.value = show(v); redraw(); };
     r.addEventListener('input', () => set(r.value)); n.addEventListener('change', () => set(n.value));
     return el('div', { class: 'field' }, el('label', {}, `${label} (${unit})`), el('div', { class: 'grp', style: { display: 'flex', gap: '8px', alignItems: 'center' } }, r, n));
   };
@@ -171,6 +194,8 @@ function templateEditor(tplIn, size = { w: 794, h: 1123 }) {
     if (tpl.type !== 'blank') {
       fields.append(el('div', { class: 'row' }, num(tpl.type === 'dots' ? 'Distância entre pontos' : 'Espaçamento / densidade', 'spacing', 6, 120, 1, 'px'), num(tpl.type === 'dots' ? 'Tamanho do ponto' : 'Espessura da linha', 'thickness', 0.25, 6, 0.25, 'px')));
       fields.append(el('div', { class: 'row' }, num('Intensidade', 'opacity', 0.1, 1, 0.05, '0–1'), color('Cor da linha', 'color'), color('Cor do papel', 'paper')));
+      const ce = el('input', { type: 'checkbox' }); ce.checked = !!tpl.center; ce.addEventListener('change', () => { tpl.center = ce.checked; redraw(); });
+      fields.append(el('label', { class: 'chk', style: { margin: '0 0 12px' } }, ce, 'Centralizar na folha (como no Notewise)'));
       if (tpl.type === 'lines') {
         const m = el('input', { type: 'checkbox' }); m.checked = !!tpl.margin; m.addEventListener('change', () => { tpl.margin = m.checked; redraw(); });
         fields.append(el('div', { class: 'row' }, num('Margem superior', 'top', 0, 300, 2, 'px'), el('div', { class: 'field' }, el('label', {}, 'Margem lateral'), el('label', { class: 'chk' }, m, 'Mostrar linha vermelha')), color('Cor da margem', 'marginColor')));
@@ -187,7 +212,7 @@ function templateEditor(tplIn, size = { w: 794, h: 1123 }) {
   buildFields();
   root.append(el('div', { class: 'field' }, el('label', {}, 'Modelo'), pick), el('div', { class: 'tpl-layout' }, fields, el('div', {}, el('div', { class: 'lbl-sm', style: { marginBottom: '6px' } }, 'Prévia'), prev)));
   setTimeout(redraw, 30);
-  return { el: root, get: () => clone(tpl), setSize: (w, h) => { size = { w, h }; redraw(); } };
+  return { el: root, get: () => clone(tpl), setSize: (w, h) => { size = { w, h }; redraw(); }, refresh: () => { syncPick(); paintPapers(); buildFields(); redraw(); } };
 }
 
 /* ===== Nova nota ===== */
@@ -198,10 +223,10 @@ async function newNoteDialog(folderId) {
   const sizeSel = el('select', {}, ...Object.entries(PAGE_SIZES).map(([k, v]) => el('option', { value: k }, v.label)));
   sizeSel.value = S.pageSize || 'a4';
   const wI = el('input', { type: 'number', min: 200, max: 4000, value: PAGE_SIZES[sizeSel.value].w });
-  const hI = el('input', { type: 'number', min: 200, max: 6000, value: PAGE_SIZES[sizeSel.value].h });
-  const te = templateEditor(S.template, { w: +wI.value, h: +hI.value });
+  const hI = el('input', { type: 'number', min: 200, max: 6000, step: 'any', value: Math.round(PAGE_SIZES[sizeSel.value].h * 100) / 100 });
+  const te = templateEditor(S.template, { w: +wI.value, h: +hI.value }, { onNotewise: () => { sizeSel.value = 'notewise'; wI.value = PAGE_SIZES.notewise.w; hI.value = Math.round(PAGE_SIZES.notewise.h * 100) / 100; te.setSize(+wI.value, +hI.value); } });
   const sizeRow = el('div', { class: 'row' }, el('div', { class: 'field' }, el('label', {}, 'Tamanho da página'), sizeSel), el('div', { class: 'field' }, el('label', {}, 'Largura (px)'), wI), el('div', { class: 'field' }, el('label', {}, 'Altura (px)'), hI));
-  sizeSel.addEventListener('change', () => { const s = PAGE_SIZES[sizeSel.value]; wI.value = s.w; hI.value = s.h; te.setSize(s.w, s.h); });
+  sizeSel.addEventListener('change', () => { const s = PAGE_SIZES[sizeSel.value]; wI.value = s.w; hI.value = Math.round(s.h * 100) / 100; te.setSize(s.w, s.h); });
   for (const i of [wI, hI]) i.addEventListener('change', () => { sizeSel.value = 'custom'; te.setSize(+wI.value, +hI.value); });
   const lay = UI.seg([['pages', 'Páginas'], ['infinite', 'Tela infinita']], layout, (v) => { layout = v; sizeRow.style.display = v === 'pages' ? '' : 'none'; });
   sizeRow.style.display = layout === 'pages' ? '' : 'none';
@@ -213,7 +238,8 @@ async function newNoteDialog(folderId) {
     el('label', { class: 'chk' }, def, 'Usar estas opções como padrão para novas notas'));
   const ok = await openModal({ title: 'Nova nota', body, wide: true, buttons: [{ label: 'Cancelar', value: false }, { label: 'Criar nota', cls: 'primary', value: true }] });
   if (!ok) return null;
-  const tpl = te.get(); const w = clamp(+wI.value || 794, 200, 4000), h = clamp(+hI.value || 1123, 200, 6000);
+  const tpl = te.get(); const ps = PAGE_SIZES[sizeSel.value];
+  const w = clamp(+wI.value || 794, 200, 4000), h0 = clamp(+hI.value || 1123, 200, 6000), h = ps && Math.abs(ps.h - h0) < 0.01 ? ps.h : h0;
   if (def.checked) { S.template = tpl; S.layout = layout; S.pageSize = sizeSel.value; Store.saveSettings(); }
   const note = newNote({ title: title.value.trim() || 'Nota sem título', folderId, mode: layout, w, h, template: tpl });
   await Store.putNote(note);

@@ -26,6 +26,30 @@ const Drive = {
     const d = Store.dirty; const pend = Object.keys(d.notes).length + Object.keys(d.blobs).length + Object.keys(d.deleted).length + (d.lib ? 1 : 0);
     this.setStatus(pend ? 'pending' : 'ok');
   },
+  pillMenu(anchor, noteId) {
+    if (!this.configured()) return openSettings('drive');
+    if (!this.hasAuth()) return this.connect();
+    const fid = !noteId && window.Library && Library.folder ? Library.folder : null;
+    const where = noteId ? 'Abrir esta nota no Google Drive' : fid ? 'Abrir esta pasta no Google Drive' : 'Abrir "Traço Notas" no Google Drive';
+    const st = { ok: 'Tudo salvo no Drive', busy: 'Sincronizando…', pending: 'Alterações aguardando envio', err: 'Erro no último backup', need: 'Precisa conectar' }[this.state] || '';
+    menu(anchor, [
+      { label: where, icon: 'external', run: () => (noteId ? this.openInDrive(noteId) : this.openFolderInDrive(fid)) },
+      { label: 'Fazer backup agora', icon: 'refresh', run: () => this.sync(true) },
+      '-',
+      { label: st + (this.cfg.lastSync ? ' · ' + fmtDate(this.cfg.lastSync) : ''), icon: this.state === 'ok' ? 'check' : 'cloud', run: () => openSettings('drive') },
+    ]);
+  },
+  openUrl(id) { const u = 'https://drive.google.com/drive/folders/' + id; const w = window.open(u, '_blank'); if (!w) location.href = u; },
+  openInDrive(noteId) {
+    const e = this.entry('d:' + noteId);
+    if (e) return this.openUrl(e.id);
+    toast('Esta nota ainda não foi enviada ao Drive — fazendo backup agora…', 3000); this.sync(true).then(() => { const e2 = this.entry('d:' + noteId); if (e2) this.openUrl(e2.id); });
+  },
+  openFolderInDrive(folderId) {
+    const e = folderId ? this.entry('f:' + folderId) : null; const id = e ? e.id : this.cfg.folderId;
+    if (id) return this.openUrl(id);
+    toast('A pasta ainda não está no Drive — fazendo backup agora…', 3000); this.sync(true).then(() => { const e2 = folderId ? this.entry('f:' + folderId) : null; const id2 = e2 ? e2.id : this.cfg.folderId; if (id2) this.openUrl(id2); });
+  },
   onPillClick() {
     if (!this.configured()) return openSettings('drive');
     if (!this.hasAuth()) return this.connect();
@@ -119,18 +143,25 @@ const Drive = {
     const f = await this.createFolder('_arquivos do app (não mexer)', root, { traco: 'data' });
     await this.setEntry('data', { id: f.id, parent: root }); return f.id;
   },
-  async ensureNoteFolder(folderId) { // Traço Notas › nome da pasta
-    const root = await this.ensureFolder(); if (!folderId) return root;
+  async ensureNoteFolder(folderId, depth = 0) { // Traço Notas › pasta › subpasta…
+    const root = await this.ensureFolder(); if (!folderId || depth > 20) return root;
     const f = Store.folders.find((x) => x.id === folderId); if (!f) return root;
-    const name = safeName(f.name), e = this.entry('f:' + folderId);
+    const parent = f.parentId ? await this.ensureNoteFolder(f.parentId, depth + 1) : root;
+    const name = safeName(f.name), key = 'f:' + folderId, e = this.entry(key);
     if (e) {
+      if (e.parent === parent && e.name === name && e.checked && Date.now() - e.checked < 60000) return e.id; // cache curto
       try {
-        const g = await this.api('GET', `https://www.googleapis.com/drive/v3/files/${e.id}?fields=id,name,trashed`);
-        if (!g.trashed) { if (g.name !== name) await this.api('PATCH', `https://www.googleapis.com/drive/v3/files/${e.id}`, { body: JSON.stringify({ name }), headers: { 'Content-Type': 'application/json' } }); return e.id; }
+        const g = await this.api('GET', `https://www.googleapis.com/drive/v3/files/${e.id}?fields=id,name,parents,trashed`);
+        if (!g.trashed) {
+          const cur = (g.parents || [])[0], meta = {}; if (g.name !== name) meta.name = name;
+          const mv = cur && cur !== parent ? `?addParents=${parent}&removeParents=${cur}` : '';
+          if (meta.name || mv) await this.api('PATCH', `https://www.googleapis.com/drive/v3/files/${e.id}${mv}`, { body: JSON.stringify(meta), headers: { 'Content-Type': 'application/json' } });
+          await this.setEntry(key, { id: e.id, parent, name, checked: Date.now() }); return e.id;
+        }
       } catch (er) { if (er.status !== 404) throw er; }
     }
-    const nf = await this.createFolder(name, root, { traco: 'folder', folderId });
-    await this.setEntry('f:' + folderId, { id: nf.id, parent: root, name }); return nf.id;
+    const nf = await this.createFolder(name, parent, { traco: 'folder', folderId });
+    await this.setEntry(key, { id: nf.id, parent, name, checked: Date.now() }); return nf.id;
   },
   async ensureNoteDir(note) { // Traço Notas › pasta › título da nota (pasta) › arquivos
     const parent = await this.ensureNoteFolder(note.folderId), name = safeName(note.title), key = 'd:' + note.id, e = this.entry(key);

@@ -32,7 +32,15 @@ const DB = {
 };
 
 const DEFAULT_TEMPLATE = { type: 'lines', spacing: 32, thickness: 1, color: '#a9bcd6', opacity: 1, paper: '#fbf9f3', margin: true, marginColor: '#f19a9a', top: 80 };
+/* Modelo do Notewise (medido de um PDF exportado): folha 3480×4000, grade a cada 100 unidades,
+   linha ~4,5 unidades em cinza bem claro, centralizada. No Traço a folha tem 1000 de largura. */
+const NW_SCALE = 1000 / 3480;
+const NW_BASE = { spacing: 100 * NW_SCALE, thickness: 0.95, color: '#f1f1f1', opacity: 1, paper: '#ffffff', margin: false, marginColor: '#f19a9a', top: 0, center: true, nw: true };
+const NOTEWISE_TEMPLATES = { grid: { ...NW_BASE, type: 'grid' }, lines: { ...NW_BASE, type: 'lines' }, dots: { ...NW_BASE, type: 'dots', thickness: 1.6, color: '#c9c9c9' }, blank: { ...NW_BASE, type: 'blank' } };
+const NOTEWISE_PAPERS = [['#ffffff', 'Branco'], ['#f8f6e9', 'Creme'], ['#d8c5a4', 'Bege'], ['#dbe3ee', 'Azul-claro'], ['#2e2e2e', 'Cinza-escuro'], ['#000000', 'Preto']];
+const isDarkPaper = (c) => { const m = /^#?([0-9a-f]{6})$/i.exec(c || ''); if (!m) return false; const n = parseInt(m[1], 16); return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 < 110; };
 const PAGE_SIZES = {
+  notewise: { label: 'Notewise (3480 × 4000)', w: 1000, h: 4000 * NW_SCALE },
   a4: { label: 'A4 retrato', w: 794, h: 1123 }, a4l: { label: 'A4 paisagem', w: 1123, h: 794 },
   letter: { label: 'Carta', w: 816, h: 1056 }, a5: { label: 'A5', w: 559, h: 794 },
   wide: { label: 'Widescreen 16:9', w: 1280, h: 720 }, custom: { label: 'Personalizado', w: 900, h: 1200 },
@@ -53,15 +61,16 @@ const DEFAULT_SETTINGS = {
     shape: { kind: 'rect', color: '#111827', width: 2.5, fill: false, fillColor: '#bfdbfe' },
     text: { color: '#111827', size: 22, bold: false },
     sticky: { bg: '#fde68a', color: '#1f2937', size: 18 },
+    table: { cols: 3, rows: 6, hRow: true, hCol: true, bw: 2, bc: '#7c3aed', fill: null },
   },
-  angleSnap: true, straightAlways: false,
+  angleSnap: true, straightAlways: false, userName: 'Vinicius', libSort: { by: 'name', dir: 1 }, libView: 'grid', sideClosed: false,
   penMap: { 'pen:2': 'eraser', 'pen:32': 'eraser' },
   presetGroups: null,
   presets: {
     pen: [{ color: '#111827', width: 2 }, { color: '#2563eb', width: 2.5 }, { color: '#dc2626', width: 2.5 }, { color: '#16a34a', width: 4 }],
     highlighter: [{ color: '#fde047', width: 18 }, { color: '#86efac', width: 18 }, { color: '#f9a8d4', width: 18 }],
   },
-  template: { ...DEFAULT_TEMPLATE }, pageSize: 'a4', layout: 'pages',
+  template: { ...NOTEWISE_TEMPLATES.grid }, pageSize: 'notewise', layout: 'pages',
   myTemplates: [],
   drive: { clientId: '', clientSecret: '', enabled: false, folderId: null, lastSync: 0, auto: true, pdf: true, layout: 2 },
   plugins: [],
@@ -84,13 +93,21 @@ const Store = {
     }
     if (S.penButton && !S.penMapMigrated) { S.penMap = { 'pen:2': S.penButton === 'none' ? undefined : S.penButton, 'pen:32': 'eraser' }; if (!S.penMap['pen:2']) delete S.penMap['pen:2']; S.penMapMigrated = true; this.saveSettings(); }
     for (const t of ['pen', 'shape']) if (!S.tools[t].dash) S.tools[t].dash = 'solid';
+    if (S.nwDefaultSet && S.template && S.template.nw && (S.template.color === '#e8e8e8' || S.template.thickness === 1.25)) { S.template.color = '#f1f1f1'; S.template.thickness = 0.95; }
+    if (!S.nwDefaultSet) { S.template = clone(NOTEWISE_TEMPLATES.grid); S.pageSize = 'notewise'; S.layout = 'pages'; S.nwDefaultSet = true; this.saveSettings(); } // modelo Notewise como padrão
   },
   saveSettings: debounce(function () { DB.put('meta', clone(Store.settings), 'settings'); }, 300),
   saveHeads() { return DB.put('meta', this.heads, 'heads'); },
   saveFolders() { this.markLib(); for (const f of this.folders) this.dirty.folders[f.id] = 1; this.saveDirty(); return DB.put('meta', this.folders, 'folders'); },
   group(id) { const G = this.settings.presetGroups; return G.find((g) => g.id === id) || G[0]; },
   folderOf(note) { return note && note.folderId ? this.folders.find((f) => f.id === note.folderId) : null; },
-  activeGroup(note) { const f = this.folderOf(note); return this.group((note && note.groupId) || (f && f.groupId) || 'default'); },
+  folderChain(id) { const out = []; let f = this.folders.find((x) => x.id === id), guard = 0; while (f && guard++ < 50) { out.unshift(f); f = this.folders.find((x) => x.id === f.parentId); } return out; },
+  activeGroup(note) { // grupo da nota → da pasta → das pastas acima → "Geral"
+    if (note && note.groupId) return this.group(note.groupId);
+    const chain = note && note.folderId ? this.folderChain(note.folderId) : [];
+    for (let i = chain.length - 1; i >= 0; i--) if (chain[i].groupId) return this.group(chain[i].groupId);
+    return this.group('default');
+  },
   saveDriveMap() { return DB.put('meta', this.driveMap, 'driveMap'); },
   saveDirty() { return DB.put('meta', this.dirty, 'dirty'); },
   markLib() { this.dirty.lib = true; this.saveDirty(); },
@@ -100,7 +117,7 @@ const Store = {
     await DB.put('notes', note);
     const h = this.heads[note.id] || {};
     const texts = []; note.pages.forEach((pg, i) => { pg.elements.forEach((e) => { if (e.type === 'text' && e.text) texts.push([i, e.id, e.text.slice(0, 400)]); }); if (pg.ocr && pg.ocr.text) texts.push([i, '', pg.ocr.text.slice(0, 1500)]); });
-    this.heads[note.id] = { id: note.id, title: note.title, folderId: note.folderId || null, created: note.created, updated: note.updated, mode: note.mode, pages: note.pages.length, thumb: h.thumb || null, hasPdf: note.pages.some((p) => p.pdf), texts: texts.slice(0, 300) };
+    this.heads[note.id] = { id: note.id, title: note.title, folderId: note.folderId || null, created: note.created, updated: note.updated, mode: note.mode, pages: note.pages.length, thumb: h.thumb || null, hasPdf: note.pages.some((p) => p.pdf), texts: texts.slice(0, 300), bm: note.pages.filter((p) => p.bookmark).length };
     await this.saveHeads();
     if (sync) { this.dirty.notes[note.id] = 1; this.dirty.pdfs[note.id] = Date.now(); this.dirty.lib = true; await this.saveDirty(); Drive.schedule(); }
   },
