@@ -37,6 +37,7 @@ const Editor = {
   /* ---------- Abrir / salvar ---------- */
   async open(id) {
     const note = await Store.getNote(id); if (!note) { toast('Nota não encontrada'); return false; }
+    if (fixNotewiseHeights(note)) { await Store.putNote(note); Store.setThumb(note.id, await makeThumb(note)); } // corrige notas importadas antes (grade meia linha fora)
     this.note = note; this.undoStack = []; this.redoStack = []; this.sel = null; this.selTf = null; this.action = null; this.editingId = null;
     this.readOnly = false; $('#editor').classList.remove('reading'); { const rb = $('#btnRead'); if (rb) rb.classList.remove('soft-on'); }
     $('#noteTitle').value = note.title;

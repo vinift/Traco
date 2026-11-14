@@ -125,8 +125,8 @@ async function convertNotewise(files, { folderId = null } = {}) {
     const base = NOTEWISE_TEMPLATES[NW_TPL[tplCode] || 'blank'];
     const tpl = { ...base, paper: bg, spacing: 100 * s, thickness: (base.type === 'dots' ? base.thickness : 0.95) * s / NW_SCALE };
     if (isDarkPaper(bg)) tpl.color = '#3a3a3a';
-    const page = { id: uid(), w: Math.round(PW * s), h: Math.round(PH * s), template: pdf ? null : tpl, pdf, elements: [], nw: { tpl: tplCode } };
-    if (pdf) stats.pdfPages++;
+    const page = { id: uid(), w: pdf ? Math.round(PW * s) : NW_TARGET_W, h: pdf ? Math.round(PH * s) : PH * s, template: pdf ? null : tpl, pdf, elements: [], nw: { tpl: tplCode } };
+    if (pdf) stats.pdfPages++; // altura sem arredondar: a grade do modelo é centralizada pela altura exata
     for (const ev of pbAll(P, 4)) {
       const E = pbParse(ev), M = pbMatrix(pbGet(E, 3));
       const T = (x, y) => [(M[1] * x + M[2] * y + M[3]) * s, (M[4] * x + M[5] * y + M[6]) * s];
@@ -226,6 +226,17 @@ async function convertNotewise(files, { folderId = null } = {}) {
   await Store.putNote(note);
   try { const t = await makeThumb(note); if (t) await Store.setThumb(note.id, t); } catch (e) { console.warn('miniatura', e); }
   return { note, stats };
+}
+
+/* notas importadas antes da v0.8.3 tinham a altura da página arredondada, o que deslocava a grade meia linha */
+function fixNotewiseHeights(note) {
+  if (!note || note.importedFrom !== 'notewise') return false;
+  let changed = false;
+  for (const p of note.pages) {
+    if (p.pdf || p.w !== NW_TARGET_W || !Number.isInteger(p.h)) continue;
+    for (const PW of [3480, 3500, 3200, 3600]) { const exact = 4000 * NW_TARGET_W / PW; if (Math.abs(p.h - exact) < 0.6) { p.h = exact; changed = true; break; } }
+  }
+  return changed;
 }
 
 /* ---- ponto de entrada: um .notewise ou um .zip com várias notas e pastas ---- */
