@@ -61,11 +61,11 @@ const Drive = {
   async connect() {
     if (!this.cfg.clientId) { toast('Informe o Client ID nas configurações'); return openSettings('drive'); }
     if (!this.canUse()) { toast('O Drive só funciona com o app hospedado em https'); return; }
-    if (window.Editor && Editor.note) await Editor.saveNow();
+    if (typeof Editor !== 'undefined' && Editor.note) await Editor.saveNow();
     const state = uid() + uid();
     const verifier = this.b64url(crypto.getRandomValues(new Uint8Array(48)));
     const useCode = !!this.cfg.clientSecret;
-    await DB.put('meta', { state, verifier, useCode, back: window.Editor && Editor.note ? Editor.note.id : null }, 'oauth');
+    await DB.put('meta', { state, verifier, useCode, back: typeof Editor !== 'undefined' && Editor.note ? Editor.note.id : null }, 'oauth');
     const p = new URLSearchParams({ client_id: this.cfg.clientId, redirect_uri: this.redirectUri(), scope: this.SCOPE, state, include_granted_scopes: 'true', response_type: useCode ? 'code' : 'token' });
     if (useCode) {
       const ch = this.b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
@@ -258,7 +258,7 @@ const Drive = {
       let pdfWait = false;
       for (const id of Object.keys(d.pdfs)) {
         if (this.cfg.pdf === false) { delete d.pdfs[id]; continue; }
-        const editing = window.Editor && Editor.note && Editor.note.id === id;
+        const editing = typeof Editor !== 'undefined' && Editor.note && Editor.note.id === id;
         if (editing && Date.now() - (Editor.note.updated || 0) < 120000) { pdfWait = true; continue; } // espera você parar de escrever
         const note = await Store.getNote(id);
         if (note) { this.setStatus('busy', 'gerando PDF'); const pdf = await exportNotePdf(note); await this.upsert('p:' + id, { name: safeName(note.title) + '.pdf', mime: 'application/pdf', data: pdf, parent: await this.ensureNoteDir(note), props: { traco: 'pdf', noteId: id } }); }

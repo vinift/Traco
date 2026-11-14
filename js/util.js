@@ -77,6 +77,7 @@ const ICONS = {
   trash: '<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
   copy: '<rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2"/>',
   eyedrop: '<path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/>',
+  edit: '<path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
   lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   unlock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.8-1.2"/>',
   camera: '<path d="M4 7h3l2-3h6l2 3h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/>',
@@ -211,12 +212,4 @@ function menu(anchor, items) {
 }
 const PALETTE = ['#111827', '#4b5563', '#9ca3af', '#ffffff', '#dc2626', '#ea580c', '#d97706', '#facc15', '#16a34a', '#0d9488', '#0284c7', '#2563eb', '#4f46e5', '#7c3aed', '#c026d3', '#db2777', '#92400e', '#065f46'];
 const HL_PALETTE = ['#fde047', '#fdba74', '#f9a8d4', '#86efac', '#7dd3fc', '#c4b5fd', '#fca5a5', '#d4d4d8'];
-function colorPop(anchor, current, onPick, palette = PALETTE) {
-  const wrap = el('div', {});
-  const grid = el('div', { class: 'palette' });
-  for (const c of palette) grid.append(el('div', { class: 'swatch' + (c.toLowerCase() === (current || '').toLowerCase() ? ' sel' : ''), style: { background: c }, onclick: () => { onPick(c); closePop(); } }));
-  const custom = el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(current) ? current : '#000000', style: { width: '100%', height: '36px', border: '0', background: 'transparent' } });
-  custom.addEventListener('change', () => { onPick(custom.value); closePop(); });
-  wrap.append(grid, el('div', { class: 'lbl-sm', style: { margin: '10px 0 4px' } }, 'Cor personalizada'), custom);
-  openPop(anchor, wrap);
-}
+/* colorPop fica em colorpicker.js */

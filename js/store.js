@@ -52,7 +52,7 @@ const DEFAULT_SETTINGS = {
     highlighter: ['#fde047', '#86efac', '#7dd3fc', '#f9a8d4', '#fdba74', '#c4b5fd'],
   },
   widthPresets: {
-    pen: [1, 1.5, 2, 2.5, 3, 4, 6], highlighter: [8, 12, 18, 24, 32], shape: [1, 2, 3, 5], text: [14, 18, 22, 28, 36], eraser: [8, 14, 24, 40, 64],
+    pen: [0.3, 0.5, 0.8, 1, 1.3, 1.6, 2, 2.5, 3, 4], highlighter: [6, 10, 14, 18, 24, 32], shape: [0.5, 1, 1.5, 2, 3, 4], text: [14, 18, 22, 28, 36], eraser: [8, 14, 24, 40, 64],
   },
   tools: {
     pen: { color: '#111827', width: 2.5, type: 'ball', nib: 45 },
@@ -95,6 +95,12 @@ const Store = {
     }
     if (S.penButton && !S.penMapMigrated) { S.penMap = { 'pen:2': S.penButton === 'none' ? undefined : S.penButton, 'pen:32': 'eraser' }; if (!S.penMap['pen:2']) delete S.penMap['pen:2']; S.penMapMigrated = true; this.saveSettings(); }
     if (S.nwTplMap) { delete S.nwTplMap; this.saveSettings(); } // v0.8.6: modelos de PDF não são mais aplicados automaticamente nas importações
+    if (!S.widthsV9) { // v0.9: espessuras mais próximas (só troca as listas que ainda eram as padrão antigas)
+      const OLD = { pen: '1,1.5,2,2.5,3,4,6', highlighter: '8,12,18,24,32', shape: '1,2,3,5' };
+      const fix = (w) => { if (!w) return; for (const k of Object.keys(OLD)) if (Array.isArray(w[k]) && w[k].join(',') === OLD[k]) w[k] = clone(DEFAULT_SETTINGS.widthPresets[k]); };
+      fix(S.widthPresets); for (const g of S.presetGroups || []) fix(g.widths);
+      S.widthsV9 = true; this.saveSettings();
+    }
     if (!S.stabV8) { if ((S.stabilizer ?? 0) < 0.55) S.stabilizer = 0.55; S.stabV8 = true; this.saveSettings(); } // v0.8: estabilização mais forte por padrão
     for (const t of ['pen', 'shape']) if (!S.tools[t].dash) S.tools[t].dash = 'solid';
     if (S.nwDefaultSet && S.template && S.template.nw && (S.template.color === '#e8e8e8' || S.template.thickness === 1.25)) { S.template.color = '#f1f1f1'; S.template.thickness = 0.95; }

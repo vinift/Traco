@@ -172,7 +172,7 @@ function templateEditor(tplIn, size = { w: 794, h: 1123 }, { onNotewise } = {}) 
   }
   // importar de PDF: nota vazia exportada do Notewise (ou qualquer PDF com pauta/grade/pontos)
   const impInfo = el('div', { class: 'lbl-sm', style: { marginTop: '6px' } });
-  const imp = el('button', { type: 'button', class: 'btn primary', onclick: async () => {
+  const imp = el('button', { type: 'button', class: 'btn', onclick: async () => {
     const f = await pickFile('application/pdf,.pdf'); if (!f) return;
     imp.disabled = true; impInfo.textContent = 'Lendo o modelo do PDF…';
     try {

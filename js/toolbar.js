@@ -13,7 +13,7 @@ const TOOLS = [
 const SHAPE_KINDS = [['line', 'Linha'], ['arrow', 'Seta'], ['rect', 'Retângulo'], ['ellipse', 'Elipse'], ['triangle', 'Triângulo'], ['diamond', 'Losango']];
 const STICKY_COLORS = ['#fde68a', '#fecaca', '#bbf7d0', '#bfdbfe', '#e9d5ff', '#fed7aa', '#f5f5f4'];
 const fmtW = (v) => (Math.round(v * 10) / 10).toString().replace('.', ',');
-const WIDTH_RANGE = { pen: [0.5, 24, 0.5], highlighter: [4, 60, 0.5], shape: [0.5, 20, 0.5], text: [8, 96, 1], eraser: [4, 120, 1], sticky: [10, 40, 1] };
+const WIDTH_RANGE = { pen: [0.1, 20, 0.1], highlighter: [1, 60, 0.1], shape: [0.1, 20, 0.1], text: [8, 96, 1], eraser: [4, 120, 1], sticky: [10, 40, 1] };
 
 function onPress(node, tap, long) {
   let t = null, fired = false;
@@ -180,7 +180,6 @@ const UI = {
       const pt = Plugins.tools.find((x) => x.id === t);
       if (pt && pt.renderOptions) tune();
     }
-    if (this.editMode) { const ok = el('button', { class: 'cbtn soft-on', title: 'Concluir edição', onclick: () => { this.editMode = false; this.renderOptions(); } }); ok.innerHTML = icon('check'); sr.prepend(ok); }
     this.addGrip(); this.addHGrip();
   },
   /* barra horizontal: arrasta para qualquer lugar pela alça; toque duplo volta ao lugar padrão */
@@ -241,8 +240,13 @@ const UI = {
       long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) toast('Toque no × para remover', 1500); },
     });
     const add = el('button', { class: 'cbtn addb', title: 'Salvar espessura atual (' + fmtW(st[key]) + ')', onclick: () => { if (!list.some((w) => Math.abs(w - st[key]) < 0.01)) { list.push(st[key]); this.save(); this.renderOptions(); toast('Espessura ' + fmtW(st[key]) + ' salva', 1200); } else toast('Essa espessura já está salva', 1200); } });
-    add.innerHTML = icon('plus'); box.append(add);
+    add.innerHTML = icon('plus'); box.append(add, this.editBtn('espessuras'));
     sr.append(box);
+  },
+  /* botão de editar as barras: liga/desliga o modo de remover itens (×) */
+  editBtn(what) {
+    const b = el('button', { class: 'cbtn addb editb' + (this.editMode ? ' soft-on' : ''), title: this.editMode ? 'Concluir edição' : `Editar ${what} (remover)`, onclick: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) toast('Toque no × para remover; toque em ✓ para concluir', 1800); } });
+    b.innerHTML = icon(this.editMode ? 'check' : 'edit'); return b;
   },
   colorDots(sr, t) {
     const st = Store.settings.tools[t], list = this.colorList(t);
@@ -257,8 +261,8 @@ const UI = {
       long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) toast('Toque no × para remover', 1500); },
     });
     const add = el('button', { class: 'cbtn addb', title: 'Adicionar cor' }); add.innerHTML = icon('plus');
-    add.onclick = () => colorPop(add, st.color, (c) => { if (!list.some((x) => x.toLowerCase() === c.toLowerCase())) list.push(c); st.color = c; this.save(); this.refresh(); }, t === 'highlighter' ? HL_PALETTE.concat(PALETTE.slice(4, 14)) : PALETTE);
-    box.append(add);
+    add.onclick = () => colorPop(add, st.color, (c) => { if (!list.some((x) => x.toLowerCase() === c.toLowerCase())) list.push(c); st.color = c; this.save(); this.refresh(); }, t === 'highlighter' ? HL_PALETTE.concat(PALETTE.slice(4, 14)) : PALETTE, { alpha: t !== 'highlighter', tool: t });
+    box.append(add, this.editBtn('cores'));
     sr.append(box);
   },
   /* espessuras e cores lado a lado (alcance fácil com a mão esquerda) */
@@ -437,9 +441,8 @@ const UI = {
     }
     const row = el('div', { class: 'tp-colors' });
     for (const c of palette) row.append(el('button', { class: 'cdot' + (c.toLowerCase() === (cur || '').toLowerCase() ? ' sel' : ''), style: { background: c }, onclick: () => on(c) }));
-    const wheel = el('label', { class: 'cdot wheel', title: 'Cor personalizada', style: { display: 'inline-block' } });
-    const inp = el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(cur) ? cur : '#000000', style: { opacity: 0, width: '1px', height: '1px', position: 'absolute' } });
-    inp.addEventListener('change', () => on(inp.value)); wheel.append(inp); row.append(wheel);
+    const wheel = el('button', { class: 'cdot wheel', title: 'Mais cores: espectro, roda, conta-gotas e opacidade', onclick: () => colorPop(wheel, cur, on, palette, { alpha: !!tool && tool !== 'highlighter' && tool !== 'sticky', tool }) });
+    row.append(wheel);
     box.append(head, row); return box;
   },
   drawPreview(cv, t) {
@@ -488,7 +491,7 @@ const UI = {
       B('copy', 'Copiar', () => Editor.copySel());
       return;
     }
-    const cb = B('palette', 'Mudar cor', () => colorPop(cb, '#000', (c) => Editor.recolorSel(c)));
+    const cb = B('palette', 'Mudar cor', () => colorPop(cb, (Editor.selElements()[0] || {}).color || '#000000', (c) => Editor.recolorSel(c), PALETTE, { alpha: true }));
     B('copy', 'Copiar', () => Editor.copySel());
     B('cut', 'Recortar', () => Editor.cutSel());
     B('plus', 'Duplicar', () => Editor.duplicateSel());

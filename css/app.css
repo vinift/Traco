@@ -487,3 +487,30 @@ code.k{background:var(--panel2);padding:2px 6px;border-radius:6px;font-size:12px
 .hgrip{width:18px;height:40px;flex-direction:column;margin:0 2px 0 4px}
 #editor.collapsed .hbar,#editor.reading .hbar{display:none}
 .modal .seg{flex-wrap:wrap;height:auto}
+
+/* ===== v0.9 — Seletor de cores ===== */
+.cpk{width:min(300px,86vw);display:flex;flex-direction:column;gap:10px}
+.cpk-top{display:flex;align-items:center;gap:8px}
+.cpk-prev{width:40px;height:40px;border-radius:12px;flex:none;overflow:hidden;border:1px solid var(--line);background:conic-gradient(#ddd 25%,#fff 0 50%,#ddd 0 75%,#fff 0) 0 0/12px 12px}
+.cpk-prev i{display:block;width:100%;height:100%}
+.cpk-hex{flex:1;min-width:0;height:40px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);padding:0 10px;font-family:ui-monospace,Menlo,monospace;font-size:14px;color:var(--text);outline:0}
+.cpk-hex:focus{border-color:var(--accent)}
+.cpk-use{height:40px;padding:0 14px}
+.cpk-tabs{align-self:stretch;display:flex}
+.cpk-tabs button{flex:1;justify-content:center}
+.cpk-body{display:flex;flex-direction:column;gap:8px;align-items:center;max-height:min(330px,46vh);overflow-y:auto}
+.cpk-sw{display:flex;flex-wrap:wrap;gap:7px;align-self:stretch}
+.cpk-sw .cdot{width:26px;height:26px}
+.cpk-pal{display:flex;align-items:center;justify-content:space-between;align-self:stretch;margin-top:4px}
+.cpk-addall{height:26px;padding:0 8px;font-size:12px}
+.cpk-sv{width:100%;height:170px;border-radius:12px;touch-action:none;cursor:crosshair}
+.cpk-hue{width:100%;height:18px;border-radius:9px;touch-action:none;cursor:pointer}
+.cpk-wheel{width:220px;height:220px;border-radius:50%;touch-action:none;cursor:crosshair}
+.cpk-row{display:flex;align-items:center;gap:10px;align-self:stretch}
+.cpk-row input[type=range]{flex:1;accent-color:var(--accent)}
+.cpk-alpha{background:linear-gradient(90deg,transparent,var(--c,#000));border-radius:8px}
+.cpk-lab{margin-bottom:-4px}
+.cdot.wheel{background:conic-gradient(#ef4444,#eab308,#22c55e,#06b6d4,#3b82f6,#a855f7,#ef4444)!important;border:2px solid var(--panel)}
+#stage.eyedrop{cursor:crosshair}
+.editb.soft-on{background:var(--chacc-soft);color:var(--chacc)}
+.modal .mf .btn.danger{background:var(--danger);color:#fff;border-color:var(--danger)}

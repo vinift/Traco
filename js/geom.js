@@ -258,13 +258,30 @@ function pointInPoly(x, y, poly) {
   return inside;
 }
 function elInLasso(e, poly) {
-  let pts;
-  if (e.type === 'stroke') { pts = []; for (let i = 0; i < e.pts.length; i += 3) pts.push([e.pts[i], e.pts[i + 1]]); }
-  else if (e.type === 'shape') pts = shapeSamples(e);
-  else { const b = elBBox(e); return pointInPoly(b.x + b.w / 2, b.y + b.h / 2, poly); }
-  const step = Math.max(1, Math.floor(pts.length / 40)); let inn = 0, tot = 0;
-  for (let i = 0; i < pts.length; i += step) { tot++; if (pointInPoly(pts[i][0], pts[i][1], poly)) inn++; }
-  return inn / tot >= 0.5;
+  const anyIn = (pts) => pts.some(([x, y]) => pointInPoly(x, y, poly));
+  if (e.type === 'stroke' && e.tool !== 'highlighter') { // escrita: precisa estar (pelo menos metade) dentro, para não pegar letras vizinhas
+    const pts = []; for (let i = 0; i < e.pts.length; i += 3) pts.push([e.pts[i], e.pts[i + 1]]);
+    const step = Math.max(1, Math.floor(pts.length / 40)); let inn = 0, tot = 0;
+    for (let i = 0; i < pts.length; i += step) { tot++; if (pointInPoly(pts[i][0], pts[i][1], poly)) inn++; }
+    return inn / tot >= 0.5;
+  }
+  // os demais itens entram inteiros quando o laço pega um pedaço deles
+  if (e.type === 'stroke') { // marca-texto: amostra ao longo de cada segmento
+    const pts = [], q = e.pts, gap = Math.max(2, (e.width || 4) / 2);
+    for (let i = 0; i < q.length; i += 3) { pts.push([q[i], q[i + 1]]); if (i + 3 < q.length) { const dx = q[i + 3] - q[i], dy = q[i + 4] - q[i + 1], n = Math.min(60, Math.floor(Math.hypot(dx, dy) / gap)); for (let k = 1; k < n; k++) pts.push([q[i] + (dx * k) / n, q[i + 1] + (dy * k) / n]); } }
+    return anyIn(pts);
+  }
+  if (e.type === 'shape') {
+    const sp = shapeSamples(e), dense = []; // contorno com pontos a cada ~4 unidades
+    for (let i = 0; i < sp.length; i++) { dense.push(sp[i]); const nx = sp[i + 1]; if (nx) { const dx = nx[0] - sp[i][0], dy = nx[1] - sp[i][1], n = Math.min(40, Math.floor(Math.hypot(dx, dy) / 4)); for (let k = 1; k < n; k++) dense.push([sp[i][0] + (dx * k) / n, sp[i][1] + (dy * k) / n]); } }
+    if (anyIn(dense)) return true;
+    if (!e.fill || ['line', 'arrow'].includes(e.kind) || (e.kind === 'poly' && !e.closed)) return false;
+  }
+  // caixas (texto, post-it, imagem, tabela, forma preenchida): contorno ou interior tocado pelo laço
+  const b = elBBox(e), pts = [];
+  const N = 8; for (let i = 0; i <= N; i++) { const u = i / N; pts.push([b.x + u * b.w, b.y], [b.x + u * b.w, b.y + b.h], [b.x, b.y + u * b.h], [b.x + b.w, b.y + u * b.h]); }
+  if (e.type === 'text' || e.type === 'shape') for (let i = 1; i < 6; i++) for (let j = 1; j < 4; j++) pts.push([b.x + (b.w * i) / 6, b.y + (b.h * j) / 4]); // texto: também o miolo
+  return anyIn(pts); // tabela/imagem: o laço precisa pegar a borda (escrever dentro da tabela não seleciona a tabela)
 }
 /* Transformações — sempre retornam um novo objeto (invalida caches) */
 function transformEl(e, f) { // f: {sx, sy, ox, oy, dx, dy}  x' = ox + (x-ox)*sx + dx

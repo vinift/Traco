@@ -98,11 +98,40 @@ const Library = {
     await Store.saveFolders(); Drive.schedule(); this.selecting = false; this.selected.clear(); this.render(); toast('Itens movidos');
   },
   async deleteSelected() {
-    const notes = [...this.selected].filter((k) => k.startsWith('n:')), folders = [...this.selected].filter((k) => k.startsWith('f:'));
-    if (!(await confirmBox('Excluir', `Excluir ${notes.length} nota(s)` + (folders.length ? ` e ${folders.length} pasta(s)? O conteúdo das pastas vai para a pasta de cima.` : '?'), 'Excluir', true))) return;
+    const notes = [...this.selected].filter((k) => k.startsWith('n:')), folders = [...this.selected].map((k) => k.startsWith('f:') && Store.folders.find((x) => x.id === k.slice(2))).filter(Boolean);
+    let mode = 'keep';
+    if (folders.length) { mode = await this.folderDeleteDialog(folders, notes.length); if (!mode) return; }
+    else if (!(await confirmBox('Excluir', `Excluir ${notes.length} nota(s)?`, 'Excluir', true))) return;
     for (const k of notes) await Store.deleteNote(k.slice(2));
-    for (const k of folders) { const f = Store.folders.find((x) => x.id === k.slice(2)); if (f) await this.removeFolder(f); }
+    for (const f of folders) { if (Store.folders.includes(f)) await (mode === 'all' ? this.removeFolderDeep(f) : this.removeFolder(f)); }
     this.selecting = false; this.selected.clear(); this.render();
+  },
+  /* tudo o que está dentro de uma pasta (subpastas em qualquer nível e notas) */
+  folderContents(f) {
+    const ids = new Set([f.id]); let grew = true;
+    while (grew) { grew = false; for (const x of Store.folders) if (x.parentId && ids.has(x.parentId) && !ids.has(x.id)) { ids.add(x.id); grew = true; } }
+    const notes = Object.values(Store.heads).filter((h) => ids.has(h.folderId));
+    return { ids, notes, subfolders: ids.size - 1 };
+  },
+  /* pergunta: excluir tudo ou só a pasta (conteúdo sobe um nível) → 'all' | 'keep' | false */
+  folderDeleteDialog(folders, extraNotes = 0) {
+    let n = 0, sub = 0; for (const f of folders) { const c = this.folderContents(f); n += c.notes.length; sub += c.subfolders; }
+    const one = folders.length === 1, what = [n ? `${n} nota(s)` : null, sub ? `${sub} subpasta(s)` : null].filter(Boolean).join(' e ');
+    const intro = one ? (what ? `A pasta "${folders[0].name}" tem ${what}.` : `A pasta "${folders[0].name}" está vazia.`) : (what ? `As ${folders.length} pastas têm ${what}.` : `As ${folders.length} pastas estão vazias.`);
+    const body = el('div', {},
+      el('p', {}, intro),
+      extraNotes ? el('p', { class: 'lbl-sm' }, `As ${extraNotes} nota(s) selecionadas fora das pastas também serão excluídas.`) : null,
+      what ? el('p', { class: 'lbl-sm' }, '"Excluir tudo" apaga também as notas e subpastas de dentro (no Drive, os arquivos vão para a lixeira). "Só a pasta" mantém o conteúdo, que vai para a pasta de cima.') : null);
+    const buttons = [{ label: 'Cancelar', value: false }];
+    if (what) buttons.push({ label: 'Só a pasta', value: 'keep' }, { label: 'Excluir tudo', cls: 'danger', value: 'all' });
+    else buttons.push({ label: 'Excluir', cls: 'danger', value: 'keep' });
+    return openModal({ title: 'Excluir ' + (folders.length === 1 ? 'pasta' : 'pastas'), body, buttons });
+  },
+  async removeFolderDeep(f) {
+    const c = this.folderContents(f);
+    for (const h of c.notes) await Store.deleteNote(h.id);
+    Store.folders = Store.folders.filter((x) => !c.ids.has(x.id)); await Store.saveFolders(); Drive.schedule();
+    if (c.ids.has(this.folder)) this.folder = f.parentId || null;
   },
   /* ---- pastas ---- */
   async removeFolder(f) {
@@ -135,8 +164,8 @@ const Library = {
       } },
       '-',
       { label: 'Excluir pasta', icon: 'trash', danger: true, run: async () => {
-        if (!(await confirmBox('Excluir pasta', `Excluir a pasta "${f.name}"? As notas e pastas de dentro não são apagadas: elas vão para a pasta de cima.`, 'Excluir', true))) return;
-        await this.removeFolder(f); this.render();
+        const mode = await this.folderDeleteDialog([f]); if (!mode) return;
+        await (mode === 'all' ? this.removeFolderDeep(f) : this.removeFolder(f)); this.render(); toast(mode === 'all' ? 'Pasta e conteúdo excluídos' : 'Pasta excluída', 1500);
       } },
     ]);
   },

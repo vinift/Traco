@@ -40,7 +40,7 @@ const Fonts = {
     this.state[font] = 'loading';
     this.link(k).then(() => document.fonts.load(font, 'AaÇçãé')).then((l) => {
       this.state[font] = 'ok';
-      if (l && l.length) { this.ver++; if (window.Editor && Editor.note) Editor.requestRender(); }
+      if (l && l.length) { this.ver++; if (typeof Editor !== 'undefined' && Editor.note) Editor.requestRender(); }
     }).catch(() => { this.state[font] = 'fail'; });
   },
   async ensure(els) { // antes de exportar/miniatura: espera as fontes usadas (até 3 s)

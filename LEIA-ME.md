@@ -84,6 +84,11 @@ O Client Secret é opcional, mas recomendado. Sem ele, o Google pede para recone
 | Conta-gotas | Selecione um traço, forma ou texto e toque no conta-gotas da barra de seleção: a cor, a espessura, o tipo de caneta e a fonte vão para a ferramenta |
 | Fontes | Sistema, Inter, Lora, Merriweather, Roboto Mono, Caveat, Patrick Hand, Dancing Script, Great Vibes, Bebas Neue e Playfair Display. Com internet, o app baixa as fontes uma vez e depois elas funcionam offline |
 | Estabilização | Painel da caneta ou Configurações → Escrita: quanto maior, mais firme fica a letra |
+| Laço que pega pedaços | Basta o laço passar por um pedaço de uma forma, texto, post-it ou marca-texto para selecioná-lo inteiro. A escrita da caneta continua precisando ficar (quase toda) dentro. Tabelas e imagens são selecionadas quando o laço pega a borda delas, então dá para selecionar a escrita dentro de uma tabela sem levar a tabela junto |
+| Espessuras | De 0,1 a 20 (marca-texto de 1 a 60), com − / + de 0,1 no painel da ferramenta |
+| Editar barras | O lápis no fim da barra de cores e da barra de espessuras liga o modo de edição: toque no × para remover e no ✓ para concluir |
+| Seletor de cores | O + da barra de cores abre abas Paleta, Espectro e Roda, com código hex, conta-gotas (toque na página para copiar uma cor), opacidade, cores recentes e paletas prontas (com o botão "+ barra" para adicionar todas) |
+| Excluir pasta | Pergunta se você quer excluir tudo (notas e subpastas de dentro) ou só a pasta (o conteúdo vai para a pasta de cima) |
 | Post-it | Ferramenta de nota adesiva: toque na página, escreva e mude a cor na segunda barra |
 | Páginas | Botão de grade no canto superior esquerdo: abrir, selecionar várias, duplicar, excluir, marcar, e segurar e arrastar para reordenar |
 | Marcadores | Botão de marcador no canto superior direito marca a página atual; na caixa de páginas, filtre por "Marcadores" |

@@ -249,6 +249,7 @@ const Editor = {
   onDown(e) {
     if (!this.note) return;
     this.rect = this.stage.getBoundingClientRect();
+    if (this._eyedrop && !(e.target.closest && e.target.closest('#selBar,#textBar,#hbar'))) { e.preventDefault(); this.takeEyedrop(this.pt(e)); return; } // conta-gotas
     if (this.textEl && this.textEl.contains(e.target)) return;
     if (e.target.closest && e.target.closest('#textBar,#hbar')) return;
     if (e.target.closest && e.target.closest('#selBar')) return; // botões da seleção não iniciam novo laço
@@ -416,7 +417,7 @@ const Editor = {
     const st = Store.settings.tools[base.tool];
     const a = this.action = { ...base, kind: 'draw', pi, pts: [], color: st.color, width: st.width, opacity: base.tool === 'highlighter' ? st.opacity ?? 0.4 : 1, drawn: 0, snap: Instruments.snapFor(p), hold: { x: p.x, y: p.y } };
     a.dash = base.tool === 'pen' ? st.dash || 'solid' : 'solid';
-    if (base.tool === 'pen') { a.pen = st.type || 'ball'; a.nib = st.nib ?? 45; a.inc = a.dash === 'solid' && (a.pen === 'ball' || a.pen === 'natural'); }
+    if (base.tool === 'pen') { a.pen = st.type || 'ball'; a.nib = st.nib ?? 45; a.inc = a.dash === 'solid' && (a.pen === 'ball' || a.pen === 'natural') && !colorHasAlpha(a.color); }
     a.inf = inf; this.addDrawPoint(e);
     const S0 = Store.settings;
     if (((base.tool === 'pen' && S0.straightAlways) || (base.tool === 'highlighter' && S0.hlStraight)) && !a.snap) { // sempre linhas retas
