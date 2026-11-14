@@ -458,6 +458,10 @@ Object.assign(Editor, {
     const { page, l, hit } = this.hitAt(p); if (!page) { this.sel = null; return this.requestRender(); }
     const ck = this.checkAt(page, l); if (ck) return this.toggleCheck(page, ck.e, ck.ci);
     const now = performance.now();
+    if (!hit) { // toque duplo numa área vazia: zoom rápido
+      const e0 = this._emptyTap; this._emptyTap = { t: now, x: p.x, y: p.y };
+      if (e0 && now - e0.t < 380 && Math.hypot(p.x - e0.x, p.y - e0.y) < 40) { this._emptyTap = null; return this.doubleTapZoom(p); }
+    }
     if (hit && hit.type === 'text' && this._lastTap && this._lastTap.id === hit.id && now - this._lastTap.t < 450) { this._lastTap = null; this.sel = null; return this.openTextEditor(page, hit, false); }
     this._lastTap = hit ? { id: hit.id, t: now } : null; this.tsel = null;
     this.sel = hit ? { pageId: page.id, ids: new Set([hit.id]) } : null; // seleciona e continua na ferramenta atual

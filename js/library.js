@@ -38,6 +38,7 @@ const Library = {
     if (q) crumbs.append(iconEl('chevRight'), el('span', { class: 'crumb cur' }, 'Busca: "' + q + '"'));
     else if (this.view === 'recent') crumbs.append(iconEl('chevRight'), el('span', { class: 'crumb cur' }, 'Recentes'));
     else if (this.view === 'marked') crumbs.append(iconEl('chevRight'), el('span', { class: 'crumb cur' }, 'Com marcadores'));
+    else if (this.view === 'trash') crumbs.append(iconEl('chevRight'), el('span', { class: 'crumb cur' }, 'Lixeira'));
     else for (const f of Store.folderChain(this.folder)) { crumbs.append(iconEl('chevRight')); crumbs.append(el('button', { class: 'crumb' + (f.id === this.folder ? ' cur' : ''), onclick: () => this.openFolder(f.id) }, f.name)); }
     const so = S.libSort || { by: 'name', dir: 1 };
     $('#btnSort').innerHTML = icon(so.dir > 0 ? 'sortUp' : 'sortDown') + `<span>${so.by === 'name' ? 'Nome' : 'Data'}</span>`;
@@ -45,6 +46,9 @@ const Library = {
     $('#btnSelect').classList.toggle('on', this.selecting);
     // itens
     const grid = $('#itemGrid'); grid.innerHTML = ''; grid.className = 'item-grid ' + (S.libView === 'list' ? 'as-list' : 'as-grid');
+    const tb = $('#trashBadge'); if (tb) { const n = Store.trashCount(); tb.textContent = n || ''; }
+    $('#libEmpty p').textContent = 'Nada por aqui ainda.'; $('#btnNewNote2').classList.toggle('hidden', this.view === 'trash' && !q);
+    if (this.view === 'trash' && !q) { this.selecting = false; return this.renderTrash(grid); }
     let folders = [], heads = Object.values(Store.heads); const hits = {};
     if (q) {
       const nq = norm(q);
@@ -101,10 +105,10 @@ const Library = {
     const notes = [...this.selected].filter((k) => k.startsWith('n:')), folders = [...this.selected].map((k) => k.startsWith('f:') && Store.folders.find((x) => x.id === k.slice(2))).filter(Boolean);
     let mode = 'keep';
     if (folders.length) { mode = await this.folderDeleteDialog(folders, notes.length); if (!mode) return; }
-    else if (!(await confirmBox('Excluir', `Excluir ${notes.length} nota(s)?`, 'Excluir', true))) return;
-    for (const k of notes) await Store.deleteNote(k.slice(2));
-    for (const f of folders) { if (Store.folders.includes(f)) await (mode === 'all' ? this.removeFolderDeep(f) : this.removeFolder(f)); }
-    this.selecting = false; this.selected.clear(); this.render();
+    const group = uid();
+    for (const k of notes) await Store.trashNote(k.slice(2), group);
+    for (const f of folders) { if (Store.folders.includes(f)) await (mode === 'all' ? this.removeFolderDeep(f, group) : this.removeFolder(f, group)); }
+    this.selecting = false; this.selected.clear(); this.render(); toast('Itens movidos para a Lixeira (30 dias para restaurar)', 2500);
   },
   /* tudo o que está dentro de uma pasta (subpastas em qualquer nível e notas) */
   folderContents(f) {
@@ -121,24 +125,54 @@ const Library = {
     const body = el('div', {},
       el('p', {}, intro),
       extraNotes ? el('p', { class: 'lbl-sm' }, `As ${extraNotes} nota(s) selecionadas fora das pastas também serão excluídas.`) : null,
-      what ? el('p', { class: 'lbl-sm' }, '"Excluir tudo" apaga também as notas e subpastas de dentro (no Drive, os arquivos vão para a lixeira). "Só a pasta" mantém o conteúdo, que vai para a pasta de cima.') : null);
+      el('p', { class: 'lbl-sm' }, (what ? '"Excluir tudo" leva também as notas e subpastas de dentro. "Só a pasta" mantém o conteúdo, que vai para a pasta de cima. ' : '') + 'Tudo fica na Lixeira por 30 dias e pode ser restaurado.'));
     const buttons = [{ label: 'Cancelar', value: false }];
     if (what) buttons.push({ label: 'Só a pasta', value: 'keep' }, { label: 'Excluir tudo', cls: 'danger', value: 'all' });
     else buttons.push({ label: 'Excluir', cls: 'danger', value: 'keep' });
     return openModal({ title: 'Excluir ' + (folders.length === 1 ? 'pasta' : 'pastas'), body, buttons });
   },
-  async removeFolderDeep(f) {
+  async removeFolderDeep(f, group = uid()) { // pasta, subpastas e notas vão juntas para a lixeira
     const c = this.folderContents(f);
-    for (const h of c.notes) await Store.deleteNote(h.id);
-    Store.folders = Store.folders.filter((x) => !c.ids.has(x.id)); await Store.saveFolders(); Drive.schedule();
+    for (const h of c.notes) await Store.trashNote(h.id, group);
+    await Store.trashFolders(Store.folders.filter((x) => c.ids.has(x.id)), group); Drive.schedule();
     if (c.ids.has(this.folder)) this.folder = f.parentId || null;
   },
+  /* ---------- tela da Lixeira ---------- */
+  renderTrash(grid) {
+    const T = Store.trash, now = Date.now(), days = (at) => Math.max(0, Math.ceil((at + Store.TRASH_DAYS * 864e5 - now) / 864e5));
+    const groups = {};
+    for (const [id, x] of Object.entries(T.folders)) (groups[x.group] = groups[x.group] || { folders: [], notes: [], at: x.at }).folders.push({ id, ...x });
+    for (const [id, x] of Object.entries(T.notes)) (groups[x.group] = groups[x.group] || { folders: [], notes: [], at: x.at }).notes.push({ id, ...x });
+    const list = Object.entries(groups).sort((a, b) => b[1].at - a[1].at);
+    const bar = $('#selActions'); bar.classList.toggle('hidden', !list.length); bar.innerHTML = '';
+    if (list.length) bar.append(el('span', { class: 'lbl-sm' }, `Itens excluídos ficam aqui por ${Store.TRASH_DAYS} dias e depois são apagados de vez.`), el('span', { class: 'sp' }),
+      el('button', { class: 'btn danger', onclick: async () => { if (!(await confirmBox('Esvaziar lixeira', 'Apagar de vez tudo o que está na Lixeira? Não dá para desfazer (no Drive, os arquivos vão para a lixeira do Drive).', 'Esvaziar', true))) return; const n = await Store.purgeTrash(); toast(`${n} item(ns) apagados de vez`); this.render(); } }, 'Esvaziar lixeira'));
+    for (const [g, it] of list) {
+      const inF = new Set(it.folders.map((f) => f.id));
+      const tops = it.folders.filter((f) => !inF.has(f.folder.parentId));
+      const looseNotes = it.notes.filter((n) => !inF.has(n.head.folderId));
+      const mk = (iconHtml, name, sub, at) => {
+        const mb = el('button', { class: 'icon-btn more', title: 'Opções' }); mb.innerHTML = icon('more');
+        const open = (anchor) => menu(anchor, [
+          { label: 'Restaurar', icon: 'undo', run: async () => { const r = await Store.restoreTrash(g); toast(`Restaurado: ${r.notes} nota(s)` + (r.folders ? ` e ${r.folders} pasta(s)` : ''), 2000); this.render(); } },
+          { label: 'Excluir de vez', icon: 'trash', danger: true, run: async () => { if (!(await confirmBox('Excluir de vez', `Apagar de vez "${name}"? Não dá para desfazer.`, 'Excluir', true))) return; await Store.purgeTrash((x) => x.group === g); this.render(); } },
+        ]);
+        mb.onclick = (e) => { e.stopPropagation(); open(mb); };
+        return el('div', { class: 'item trash-item', onclick: (e) => open(e.currentTarget.querySelector('.more')) }, iconHtml,
+          el('div', { class: 'meta' }, el('div', { class: 'dt' }, `${days(at)} dia(s) para restaurar`), el('div', { class: 'nm' }, name), el('div', { class: 'cnt' }, sub)), mb);
+      };
+      for (const f of tops) { const nNotes = it.notes.length, nSub = it.folders.length - 1; grid.append(mk(el('div', { class: 'ficon', html: folderSvg(f.folder.color || FOLDER_COLORS[0]) }), f.folder.name, [nNotes ? `${nNotes} nota(s)` : 'pasta vazia', nSub > 0 ? `${nSub} subpasta(s)` : null].filter(Boolean).join(' · '), f.at)); }
+      for (const n of looseNotes) grid.append(mk(el('div', { class: 'nthumb' }, n.head.thumb ? el('img', { src: n.head.thumb, alt: '' }) : null), n.head.title, `${n.head.pages} pág.`, n.at));
+    }
+    $('#libEmpty').classList.toggle('hidden', list.length > 0);
+    $('#libEmpty p').textContent = list.length ? '' : 'A Lixeira está vazia.';
+  },
   /* ---- pastas ---- */
-  async removeFolder(f) {
+  async removeFolder(f, group = uid()) { // só a pasta: o conteúdo sobe um nível e a pasta (vazia) vai para a lixeira
     const up = f.parentId || null;
     for (const h of Object.values(Store.heads)) if (h.folderId === f.id) { const n = await Store.getNote(h.id); n.folderId = up; await Store.putNote(n); }
     for (const c of this.children(f.id)) c.parentId = up;
-    Store.folders = Store.folders.filter((x) => x.id !== f.id); await Store.saveFolders(); Drive.schedule();
+    await Store.trashFolders([f], group); Drive.schedule();
     if (this.folder === f.id) this.folder = up;
   },
   folderTreeOptions(exclude = new Set()) {
@@ -177,7 +211,7 @@ const Library = {
       { label: 'Exportar PDF', icon: 'download', run: async () => exportPdfFlow(await Store.getNote(h.id)) },
       { label: 'Abrir no Google Drive', icon: 'external', run: () => Drive.openInDrive(h.id) },
       '-',
-      { label: 'Excluir', icon: 'trash', danger: true, run: async () => { if (await confirmBox('Excluir nota', `Excluir "${h.title}"? No Drive, o arquivo vai para a lixeira.`, 'Excluir', true)) { await Store.deleteNote(h.id); this.render(); } } },
+      { label: 'Excluir', icon: 'trash', danger: true, run: async () => { await Store.trashNote(h.id); this.render(); toast(`"${h.title}" foi para a Lixeira (30 dias para restaurar)`, 2500); } },
     ]);
   },
   async moveDialog(h) {

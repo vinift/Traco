@@ -3,12 +3,13 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.9.0',
+  version: '0.9.2',
   async init() {
     hydrateIcons();
     await Store.init();
+    Store.purgeOldTrash().catch((e) => console.warn('lixeira', e)); // apaga de vez o que está na lixeira há mais de 30 dias
     this.applyTheme();
-    Editor.init();
+    Editor.init(); Editor.initScroll();
     Plugins.init();
     setTimeout(() => Fonts.prewarm(), 4000); // baixa as fontes para funcionarem sem internet
     this.wire();
@@ -65,8 +66,9 @@ const App = {
     $('#noteTitle').addEventListener('change', () => Editor.markChanged());
     on(['hudZoom'], (e) => menu(e.currentTarget, [
       { label: 'Ajustar à largura', icon: 'fit', run: () => Editor.fitWidth() },
-      { label: '100%', icon: 'search', run: () => Editor.zoomAt(Editor.W / 2, Editor.H / 2, 1 / Editor.cam.z) },
-      { label: '200%', icon: 'search', run: () => Editor.zoomAt(Editor.W / 2, Editor.H / 2, 2 / Editor.cam.z) },
+      { label: 'Página inteira', icon: 'pages', run: () => Editor.fitPage() },
+      '-',
+      ...ZOOM_STEPS.map((z) => ({ label: (Math.abs(Editor.cam.z - z) < 0.005 ? '✓ ' : '') + Math.round(z * 100) + '%', icon: 'search', run: () => Editor.zoomTo(z) })),
     ]));
     on(['hudPage'], () => pagesPanel());
     window.addEventListener('pagehide', () => { if (Editor.note) Editor.saveNow(); });

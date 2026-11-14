@@ -96,7 +96,31 @@ const Editor = {
     if (this.note.mode === 'infinite') return;
     const vw = this.W / c.z, vh = this.H / c.z, L = -this.maxW / 2, R = this.maxW / 2, m = 60 / c.z;
     if (R - L <= vw) c.x = (L + R) / 2 - vw / 2; else c.x = clamp(c.x, L - m, R + m - vw);
-    c.y = clamp(c.y, -vh + 120 / c.z, this.totalH - 120 / c.z);
+    c.y = clamp(c.y, -vh + 120 / c.z, this.camMaxY());
+  },
+  /* fim da rolagem: o fim da última página fica um pouco acima da borda de baixo da tela (daí em diante é "puxar para adicionar") */
+  camMaxBase() { const z = this.cam.z, vh = this.H / z; return Math.max(-vh + 120 / z, this.totalH - vh + 90 / z); },
+  camMaxY() { return this.camMaxBase() + (this.pull || 0) * 0.6 / this.cam.z; }, // ao puxar, a folha sobe um pouco (efeito elástico)
+  /* ---------- puxar para adicionar página (como no Notewise) ---------- */
+  PULL_MAX: 150, PULL_ADD: 95,
+  setPull(px) {
+    px = this.note && this.note.mode !== 'infinite' && !this.readOnly ? Math.max(0, px) : 0;
+    const eased = px ? this.PULL_MAX * (1 - Math.exp(-px / this.PULL_MAX)) : 0; // resistência elástica
+    const was = this.pull || 0; this.pull = eased;
+    let h = $('#pullHint');
+    if (!eased) { if (h) h.classList.remove('on', 'ready'); return; }
+    if (!h) { h = el('div', { id: 'pullHint', class: 'pull-hint' }, el('div', { class: 'ph-ring' }, el('span', { html: icon('addPage') })), el('div', { class: 'ph-txt' })); this.stage.append(h); }
+    const ready = eased >= this.PULL_ADD;
+    h.classList.add('on'); h.classList.toggle('ready', ready);
+    h.style.setProperty('--p', Math.min(1, eased / this.PULL_ADD));
+    h.querySelector('.ph-txt').textContent = ready ? 'Solte para adicionar uma página' : 'Puxe para adicionar uma página';
+    if (ready && was < this.PULL_ADD && navigator.vibrate) navigator.vibrate(10);
+  },
+  placePull() { const h = $('#pullHint'); if (!h || !this.pull) return; const y = this.toScreen(0, this.totalH).y; h.style.top = Math.min(this.H - 120, y + 14) + 'px'; },
+  releasePull() {
+    const ready = (this.pull || 0) >= this.PULL_ADD; this.setPull(0);
+    if (!ready) return;
+    const last = this.note.pages.length - 1; this.addPage(last); toast(`Página ${last + 2} adicionada`, 1200);
   },
   toWorld(sx, sy) { return { x: this.cam.x + sx / this.cam.z, y: this.cam.y + sy / this.cam.z }; },
   toScreen(wx, wy) { return { x: (wx - this.cam.x) * this.cam.z, y: (wy - this.cam.y) * this.cam.z }; },
@@ -155,7 +179,7 @@ const Editor = {
     });
     const a = this.action;
     if (this.lowLat && a && a.kind === 'draw' && a.tool === 'pen' && a.inc && !a.shape && a.pts.length) { this.pageTf(ctx, a.pi); ctx.fillStyle = a.color; ctx.fill(buildRadiiPath(a.pts, penRadii(a.pts, a.width, a.pen))); }
-    this.drawSelection(); this.drawGuides(); this.updateHud(); this.positionText();
+    this.drawSelection(); this.drawGuides(); this.updateHud(); this.positionText(); this.placePull(); this.updateScroll();
     if (this._lastCam !== `${this.cam.x}|${this.cam.y}|${this.cam.z}`) { this._lastCam = `${this.cam.x}|${this.cam.y}|${this.cam.z}`; this.viewDebounced(); }
   },
   selElements() { if (!this.sel) return []; const p = this.pageById(this.sel.pageId); return p ? p.elements.filter((e) => this.sel.ids.has(e.id)) : []; },
@@ -249,6 +273,7 @@ const Editor = {
   onDown(e) {
     if (!this.note) return;
     this.rect = this.stage.getBoundingClientRect();
+    this.stopInertia();
     if (this._eyedrop && !(e.target.closest && e.target.closest('#selBar,#textBar,#hbar'))) { e.preventDefault(); this.takeEyedrop(this.pt(e)); return; } // conta-gotas
     if (this.textEl && this.textEl.contains(e.target)) return;
     if (e.target.closest && e.target.closest('#textBar,#hbar')) return;
@@ -308,7 +333,13 @@ const Editor = {
   onWheel(e) {
     if (!this.note) return; e.preventDefault();
     if (e.ctrlKey || e.metaKey) { const p = this.pt(e); this.zoomAt(p.x, p.y, Math.exp(-e.deltaY * 0.01)); }
-    else { this.cam.x += e.deltaX / this.cam.z; this.cam.y += e.deltaY / this.cam.z; this.clampCam(); this.requestRender(); }
+    else {
+      const before = this.cam.y; this.cam.x += e.deltaX / this.cam.z; this.cam.y += e.deltaY / this.cam.z;
+      const over = (this.cam.y - this.camMaxBase()) * this.cam.z; // roda do mouse/trackpad também puxa
+      if (e.deltaY > 0 && over > 0 && before >= this.camMaxBase() - 0.5) { this.wheelPull = (this.wheelPull || 0) + e.deltaY * 0.6; this.setPull(this.wheelPull); }
+      clearTimeout(this._wheelT); this._wheelT = setTimeout(() => { this.wheelPull = 0; if (this.pull) this.releasePull(); }, 260);
+      this.clampCam(); this.requestRender();
+    }
   },
   zoomAt(sx, sy, f) { const w = this.toWorld(sx, sy); this.cam.z *= f; this.clampCam(); this.cam.x = w.x - sx / this.cam.z; this.cam.y = w.y - sy / this.cam.z; this.clampCam(); this.requestRender(); Instruments.redraw(); },
   onKey(e) {
@@ -347,10 +378,15 @@ const Editor = {
     } else {
       const p = P[0]; this.cam = { z: g.cam.z, x: g.cam.x - (p.x - g.mid.x) / g.cam.z, y: g.cam.y - (p.y - g.mid.y) / g.cam.z };
     }
+    if (P.length === 1) { const now = performance.now(); (g.vs = g.vs || []).push([now, this.cam.x, this.cam.y]); while (g.vs.length > 2 && now - g.vs[0][0] > 90) g.vs.shift(); } else g.vs = null;
+    const over = P.length === 1 ? (this.cam.y - this.camMaxBase()) * this.cam.z : 0; // passou do fim da última página
+    this.setPull(over > 0 ? over : 0);
     this.clampCam(); this.requestRender(); if (P.length >= 2) Instruments.redraw();
   },
   endGesture() {
     const g = this.gesture; this.gesture = null; if (!g) return;
+    if (this.pull) this.releasePull();
+    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs);
     const dt = performance.now() - g.t0;
     if (!g.moved && dt < 350) { if (g.max === 2) { this.undo(); toast('Desfeito', 900); } else if (g.max === 3) { this.redo(); toast('Refeito', 900); } else if (g.max === 1 && g.p0 && !this.readOnly) this.fingerTap(g.p0); }
   },

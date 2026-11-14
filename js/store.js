@@ -86,6 +86,7 @@ const Store = {
     this.settings = mergeDeep(clone(DEFAULT_SETTINGS), s || {});
     this.heads = (await DB.get('meta', 'heads')) || {};
     this.folders = (await DB.get('meta', 'folders')) || [];
+    this.trash = mergeDeep({ notes: {}, folders: {} }, (await DB.get('meta', 'trash')) || {});
     this.driveMap = (await DB.get('meta', 'driveMap')) || {};
     this.dirty = mergeDeep({ notes: {}, blobs: {}, deleted: {}, pdfs: {}, folders: {} }, (await DB.get('meta', 'dirty')) || {});
     const S = this.settings;
@@ -108,6 +109,40 @@ const Store = {
   },
   saveSettings: debounce(function () { DB.put('meta', clone(Store.settings), 'settings'); }, 300),
   saveHeads() { return DB.put('meta', this.heads, 'heads'); },
+  /* ---------- Lixeira: itens excluídos ficam 30 dias e podem ser restaurados ---------- */
+  TRASH_DAYS: 30,
+  saveTrash() { return DB.put('meta', this.trash, 'trash'); },
+  async trashNote(id, group = uid()) {
+    const h = this.heads[id]; if (!h) return;
+    this.trash.notes[id] = { head: h, at: Date.now(), group }; delete this.heads[id];
+    await this.saveHeads(); await this.saveTrash();
+  },
+  async trashFolders(list, group = uid()) {
+    const ids = new Set(list.map((f) => f.id));
+    for (const f of list) this.trash.folders[f.id] = { folder: clone(f), at: Date.now(), group };
+    this.folders = this.folders.filter((x) => !ids.has(x.id)); await this.saveFolders(); await this.saveTrash();
+  },
+  trashCount() { return Object.keys(this.trash.notes).length + Object.keys(this.trash.folders).length; },
+  async restoreTrash(group) { // restaura tudo o que foi excluído junto
+    const F = Object.entries(this.trash.folders).filter(([, x]) => x.group === group), N = Object.entries(this.trash.notes).filter(([, x]) => x.group === group);
+    const back = new Set(F.map(([id]) => id));
+    for (const [id, x] of F) { const f = x.folder; if (f.parentId && !back.has(f.parentId) && !this.folders.some((y) => y.id === f.parentId)) f.parentId = null; this.folders.push(f); delete this.trash.folders[id]; }
+    for (const [id, x] of N) {
+      const h = x.head; const exists = !h.folderId || back.has(h.folderId) || this.folders.some((y) => y.id === h.folderId);
+      if (!exists) { h.folderId = null; const n = await DB.get('notes', id); if (n) { n.folderId = null; await DB.put('notes', n); } }
+      this.heads[id] = h; delete this.trash.notes[id];
+    }
+    await this.saveFolders(); await this.saveHeads(); await this.saveTrash(); this.dirty.lib = true; await this.saveDirty();
+    return { folders: F.length, notes: N.length };
+  },
+  async purgeTrash(filter = () => true) { // exclui de vez (no Drive, vai para a lixeira do Drive)
+    let n = 0;
+    for (const [id, x] of Object.entries(this.trash.notes)) if (filter(x)) { await DB.del('notes', id); delete this.trash.notes[id]; delete this.dirty.notes[id]; this.dirty.deleted[id] = 1; n++; }
+    for (const [id, x] of Object.entries(this.trash.folders)) if (filter(x)) { delete this.trash.folders[id]; n++; }
+    if (n) { this.dirty.lib = true; await this.saveDirty(); await this.saveTrash(); Drive.schedule(); }
+    return n;
+  },
+  purgeOldTrash() { const lim = Date.now() - this.TRASH_DAYS * 864e5; return this.purgeTrash((x) => x.at < lim); },
   saveFolders() { this.markLib(); for (const f of this.folders) this.dirty.folders[f.id] = 1; this.saveDirty(); return DB.put('meta', this.folders, 'folders'); },
   group(id) { const G = this.settings.presetGroups; return G.find((g) => g.id === id) || G[0]; },
   folderOf(note) { return note && note.folderId ? this.folders.find((f) => f.id === note.folderId) : null; },

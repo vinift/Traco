@@ -90,6 +90,11 @@ O Client Secret é opcional, mas recomendado. Sem ele, o Google pede para recone
 | Seletor de cores | O + da barra de cores abre abas Paleta, Espectro e Roda, com código hex, conta-gotas (toque na página para copiar uma cor), opacidade, cores recentes e paletas prontas (com o botão "+ barra" para adicionar todas) |
 | Excluir pasta | Pergunta se você quer excluir tudo (notas e subpastas de dentro) ou só a pasta (o conteúdo vai para a pasta de cima) |
 | Post-it | Ferramenta de nota adesiva: toque na página, escreva e mude a cor na segunda barra |
+| Nova página puxando | No fim da última página, continue arrastando para cima com o dedo (ou rolando o mouse): aparece "Puxe para adicionar uma página". Quando mudar para "Solte…", solte e a página nova é criada com o mesmo modelo |
+| Rolar rápido | Barra na direita da nota: arraste para ir direto a qualquer página (o número da página aparece ao lado) ou, logo depois de rolar, toque no trilho para pular. A barra é precisa, sem inércia |
+| Inércia | Ao rolar com o dedo e soltar rápido, a nota continua deslizando e desacelera. Um toque para na hora |
+| Zoom rápido | Toque duplo com o dedo numa área vazia: alterna entre "ajustar à largura" e o zoom anterior (ou 2×). No indicador de zoom: ajustar à largura, página inteira e de 50% a 800% |
+| Lixeira | Notas e pastas excluídas vão para a Lixeira (menu lateral da tela inicial) e podem ser restauradas por 30 dias; depois são apagadas de vez. "Esvaziar lixeira" apaga tudo na hora |
 | Páginas | Botão de grade no canto superior esquerdo: abrir, selecionar várias, duplicar, excluir, marcar, e segurar e arrastar para reordenar |
 | Marcadores | Botão de marcador no canto superior direito marca a página atual; na caixa de páginas, filtre por "Marcadores" |
 | Modo leitura | Botão de olho: a caneta só rola a página, sem riscar |

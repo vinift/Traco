@@ -8,7 +8,7 @@
 <title>Traço Notas</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/app.css?v=0.9.0">
+<link rel="stylesheet" href="css/app.css?v=0.9.2">
 </head>
 <body>
 <!--APP-START-->
@@ -24,6 +24,7 @@
         <button class="side-item" data-view="home"><span data-icon="home"></span>Início</button>
         <button class="side-item" data-view="recent"><span data-icon="clock"></span>Recentes</button>
         <button class="side-item" data-view="marked"><span data-icon="bookmark"></span>Com marcadores</button>
+        <button class="side-item" data-view="trash"><span data-icon="trash"></span>Lixeira<span class="side-badge" id="trashBadge"></span></button>
       </nav>
       <div class="side-sec">Pastas</div>
       <div id="sideFolders" class="side-folders"></div>
@@ -93,6 +94,7 @@
     <nav class="chrome rail" id="rail"></nav>
     <nav class="chrome subrail" id="subrail"></nav>
     <nav class="chrome hbar" id="hbar"></nav>
+    <div class="vscroll" id="vscroll"><div class="vs-thumb"><span class="vs-bubble"></span></div></div>
     <div class="chrome tool-panel hidden" id="toolPanel"></div>
   </section>
 </div>
@@ -101,24 +103,25 @@
 <div id="popRoot"></div>
 <div id="toast" class="toast hidden"></div>
 <input type="file" id="filePick" class="hidden">
-<script src="js/util.js?v=0.9.0"></script>
-<script src="js/store.js?v=0.9.0"></script>
-<script src="js/geom.js?v=0.9.0"></script>
-<script src="js/render.js?v=0.9.0"></script>
-<script src="js/pdf.js?v=0.9.0"></script>
-<script src="js/tpl-import.js?v=0.9.0"></script>
-<script src="js/drive.js?v=0.9.0"></script>
-<script src="js/editor.js?v=0.9.0"></script>
-<script src="js/toolbar.js?v=0.9.0"></script>
-<script src="js/tables.js?v=0.9.0"></script>
-<script src="js/richtext.js?v=0.9.0"></script>
-<script src="js/colorpicker.js?v=0.9.0"></script>
-<script src="js/ui.js?v=0.9.0"></script>
-<script src="js/ocr.js?v=0.9.0"></script>
-<script src="js/import-notewise.js?v=0.9.0"></script>
-<script src="js/library.js?v=0.9.0"></script>
-<script src="js/plugins.js?v=0.9.0"></script>
-<script src="js/app.js?v=0.9.0"></script>
+<script src="js/util.js?v=0.9.2"></script>
+<script src="js/store.js?v=0.9.2"></script>
+<script src="js/geom.js?v=0.9.2"></script>
+<script src="js/render.js?v=0.9.2"></script>
+<script src="js/pdf.js?v=0.9.2"></script>
+<script src="js/tpl-import.js?v=0.9.2"></script>
+<script src="js/drive.js?v=0.9.2"></script>
+<script src="js/editor.js?v=0.9.2"></script>
+<script src="js/toolbar.js?v=0.9.2"></script>
+<script src="js/tables.js?v=0.9.2"></script>
+<script src="js/navigation.js?v=0.9.2"></script>
+<script src="js/richtext.js?v=0.9.2"></script>
+<script src="js/colorpicker.js?v=0.9.2"></script>
+<script src="js/ui.js?v=0.9.2"></script>
+<script src="js/ocr.js?v=0.9.2"></script>
+<script src="js/import-notewise.js?v=0.9.2"></script>
+<script src="js/library.js?v=0.9.2"></script>
+<script src="js/plugins.js?v=0.9.2"></script>
+<script src="js/app.js?v=0.9.2"></script>
 <!--APP-END-->
 </body>
 </html>
