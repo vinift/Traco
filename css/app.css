@@ -486,3 +486,4 @@ code.k{background:var(--panel2);padding:2px 6px;border-radius:6px;font-size:12px
 .hbar .cbtn{width:var(--cb,40px);height:var(--cb,40px);border-radius:50%;display:grid;place-items:center}
 .hgrip{width:18px;height:40px;flex-direction:column;margin:0 2px 0 4px}
 #editor.collapsed .hbar,#editor.reading .hbar{display:none}
+.modal .seg{flex-wrap:wrap;height:auto}

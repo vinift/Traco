@@ -121,11 +121,12 @@ async function convertNotewise(files, { folderId = null } = {}) {
     const ref = pbMsg(P, 3), pdfBlob = pdfMap[pbStr(pbGet(ref, 1))];
     const pdf = pdfBlob ? { blobId: pdfBlob, index: pbGet(ref, 2) || 0 } : null;
     const s = pdf ? NW_PDF_S : NW_TARGET_W / PW;
-    const bg = pbColor(pbGet(setup, 2)).hex, tplCode = pbGet(setup, 7);
+    const bg = pbColor(pbGet(setup, 2)).hex, tplCode = pbGet(setup, 7), tplVar = pbGet(setup, 8);
+    const M0 = Store.settings.nwTplMap || {}, mapped = M0[tplCode + '-' + tplVar] || M0[String(tplCode)]; // modelo importado de PDF pelo usuário
     const base = NOTEWISE_TEMPLATES[NW_TPL[tplCode] || 'blank'];
     const tpl = { ...base, paper: bg, spacing: 100 * s, thickness: (base.type === 'dots' ? base.thickness : 0.95) * s / NW_SCALE };
     if (isDarkPaper(bg)) tpl.color = '#3a3a3a';
-    const page = { id: uid(), w: pdf ? Math.round(PW * s) : NW_TARGET_W, h: pdf ? Math.round(PH * s) : PH * s, template: pdf ? null : tpl, pdf, elements: [], nw: { tpl: tplCode } };
+    const page = { id: uid(), w: pdf ? Math.round(PW * s) : NW_TARGET_W, h: pdf ? Math.round(PH * s) : PH * s, template: pdf ? null : mapped ? { ...clone(mapped), paper: mapped.paper || bg } : tpl, pdf, elements: [], nw: { tpl: tplCode, v: tplVar } };
     if (pdf) stats.pdfPages++; // altura sem arredondar: a grade do modelo é centralizada pela altura exata
     for (const ev of pbAll(P, 4)) {
       const E = pbParse(ev), M = pbMatrix(pbGet(E, 3));

@@ -170,7 +170,22 @@ function templateEditor(tplIn, size = { w: 794, h: 1123 }, { onNotewise } = {}) 
       paintPapers(); buildFields(); redraw();
     } }); sw.dataset.c = c; papers.append(sw);
   }
-  root.append(el('div', { class: 'field' }, el('label', {}, 'Modelos do Notewise (folha 3480 × 4000)'), nwRow), el('div', { class: 'field' }, el('label', {}, 'Cor do papel'), papers));
+  // importar de PDF: nota vazia exportada do Notewise (ou qualquer PDF com pauta/grade/pontos)
+  const impInfo = el('div', { class: 'lbl-sm', style: { marginTop: '6px' } });
+  const imp = el('button', { type: 'button', class: 'btn primary', onclick: async () => {
+    const f = await pickFile('application/pdf,.pdf'); if (!f) return;
+    imp.disabled = true; impInfo.textContent = 'Lendo o modelo do PDF…';
+    try {
+      const det = await detectTemplateFromPdf(f);
+      for (const k of Object.keys(tpl)) delete tpl[k]; Object.assign(tpl, det);
+      impInfo.textContent = '✓ ' + describeCustomTemplate(det) + (Math.abs(det.bh / det.bw - size.h / size.w) > 0.02 ? ' · atenção: a proporção do PDF é diferente desta página' : '');
+      syncPick(); paintPapers(); buildFields(); redraw();
+    } catch (e) { console.error(e); impInfo.textContent = 'Não consegui ler o PDF: ' + e.message; }
+    imp.disabled = false;
+  } }, 'Importar de um PDF…');
+  root.append(el('div', { class: 'field' }, el('label', {}, 'Modelos do Notewise (folha 3480 × 4000)'), nwRow),
+    el('div', { class: 'field' }, el('label', {}, 'Modelo idêntico ao do Notewise: exporte em PDF uma nota vazia, só com o modelo de fundo, e importe aqui'), el('div', {}, imp), impInfo),
+    el('div', { class: 'field' }, el('label', {}, 'Cor do papel'), papers));
   setTimeout(paintPapers, 0);
   const pick = el('div', { class: 'tpl-pick' });
   const prev = el('canvas', { class: 'tpl-prev' });
@@ -191,7 +206,10 @@ function templateEditor(tplIn, size = { w: 794, h: 1123 }, { onNotewise } = {}) 
   const color = (label, key) => { const i = el('input', { type: 'color', value: tpl[key], style: { width: '100%', height: '40px', border: '0', background: 'transparent' } }); i.addEventListener('input', () => { tpl[key] = i.value; redraw(); }); return el('div', { class: 'field' }, el('label', {}, label), i); };
   function buildFields() {
     fields.innerHTML = '';
-    if (tpl.type !== 'blank') {
+    if (tpl.type === 'custom') { // modelo importado: posições fixas; dá para mudar papel e intensidade
+      fields.append(el('p', { class: 'lbl-sm', style: { margin: '0 0 10px' } }, describeCustomTemplate(tpl) + '. As linhas ficam exatamente onde estavam no PDF.'));
+      fields.append(el('div', { class: 'row' }, num('Intensidade', 'opacity', 0.1, 1, 0.05, '0–1'), color('Cor do papel', 'paper')));
+    } else if (tpl.type !== 'blank') {
       fields.append(el('div', { class: 'row' }, num(tpl.type === 'dots' ? 'Distância entre pontos' : 'Espaçamento / densidade', 'spacing', 6, 120, 1, 'px'), num(tpl.type === 'dots' ? 'Tamanho do ponto' : 'Espessura da linha', 'thickness', 0.25, 6, 0.25, 'px')));
       fields.append(el('div', { class: 'row' }, num('Intensidade', 'opacity', 0.1, 1, 0.05, '0–1'), color('Cor da linha', 'color'), color('Cor do papel', 'paper')));
       const ce = el('input', { type: 'checkbox' }); ce.checked = !!tpl.center; ce.addEventListener('change', () => { tpl.center = ce.checked; redraw(); });
@@ -251,10 +269,19 @@ async function templateModal(pageIdx = null) {
   const n = Editor.note, cur = pageIdx ?? Editor.currentPageIndex(), curPage = n.pages[cur];
   const te = templateEditor(curPage.template || n.template, { w: curPage.w, h: curPage.h });
   let scope = pageIdx != null ? 'cur' : 'all';
-  const body = el('div', {}, te.el, n.mode === 'pages' ? el('div', { class: 'field' }, el('label', {}, 'Aplicar em'), UI.seg([['all', 'Todas as páginas'], ['cur', `Só a página ${cur + 1}`]], scope, (v) => (scope = v))) : null);
+  const nwCode = !curPage.pdf && curPage.nw && curPage.nw.tpl != null ? curPage.nw.tpl : null;
+  const opts = [['all', 'Todas as páginas'], ['cur', `Só a página ${cur + 1}`]];
+  if (nwCode != null) opts.push(['nw', 'Todas as notas importadas com este modelo do Notewise']);
+  const body = el('div', {}, te.el, n.mode === 'pages' ? el('div', { class: 'field' }, el('label', {}, 'Aplicar em'), UI.seg(opts, scope, (v) => (scope = v)),
+    nwCode != null ? el('p', { class: 'lbl-sm', style: { marginTop: '6px' } }, 'A última opção troca o modelo em todas as páginas importadas do Notewise que usavam o mesmo modelo desta página, e as próximas importações já virão com ele.') : null) : null);
   const ok = await openModal({ title: 'Modelo de página', body, wide: true, buttons: [{ label: 'Cancelar', value: false }, { label: 'Aplicar', cls: 'primary', value: true }] });
   if (!ok) return;
   const t = te.get();
+  if (scope === 'nw') {
+    toast('Aplicando nas notas importadas…', 20000);
+    const r = await applyTemplateToNotewiseCode(t, nwCode, curPage.nw.v, (i, tot) => toast(`Aplicando nas notas importadas… ${i}/${tot}`, 20000));
+    toast(`Modelo aplicado em ${r.pages} página(s) de ${r.notes + 1} nota(s)`, 3000); Library.render && Library.render(); return;
+  }
   Editor.recTemplate(() => { if (scope === 'all' || n.mode === 'infinite') { n.template = t; n.pages.forEach((p) => { if (!p.pdf) p.template = null; }); } else curPage.template = t; });
   toast('Modelo aplicado · dá para desfazer', 1400);
 }

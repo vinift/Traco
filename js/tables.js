@@ -124,6 +124,7 @@ Object.assign(Editor, {
     a.grid = this.snapOn('snapPage') && tpl && tpl.type !== 'blank' && this.note.mode !== 'infinite' ? tpl : null;
   },
   gridLines(tpl, page, axis) { // posição das linhas do modelo (para grudar na pauta/grade)
+    if (tpl.type === 'custom') return customGridLines(tpl, page, axis);
     const s = +tpl.spacing; if (!s) return null;
     let o = 0;
     if (tpl.center) { const L = axis ? page.h : page.w; const n = Math.floor((L - s) / s + 1e-3); o = (L - n * s) / 2; }

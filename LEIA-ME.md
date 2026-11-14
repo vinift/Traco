@@ -117,6 +117,16 @@ Traço Notas/
 2. No Traço, toque em **Importar → Notas do Notewise** e escolha o arquivo.
 3. Tudo vira item editável no Traço: PDFs anotados (com o PDF original de fundo), traços, marca-texto, formas (retângulo, elipse, triângulo, linha, seta e arco, com tipo de linha e preenchimento), imagens, caixas de texto, tabelas (com larguras, alturas e células mescladas), comentários (viram post-its) e itens bloqueados. As pastas do ZIP viram pastas no Traço.
 
+### Modelo idêntico ao do Notewise
+
+Se as linhas de uma nota importada não baterem com as do Notewise:
+
+1. No Notewise, crie uma nota vazia com o mesmo modelo (pauta, grade ou pontos) e exporte em PDF.
+2. No Traço, abra a nota importada → **Modelo de página** → **Importar de um PDF…** e escolha esse PDF. O app copia a posição exata de cada linha ou ponto.
+3. Em "Aplicar em", escolha **Todas as notas importadas com este modelo do Notewise**. Todas as páginas que usavam esse modelo são trocadas (dá para desfazer na nota aberta), e as próximas importações já vêm com ele.
+
+O mesmo botão aparece em Configurações → Modelo padrão, para usar o modelo nas notas novas.
+
 Dica: arquivos grandes (centenas de MB) podem levar um ou dois minutos. Se o Google Drive estiver ligado, os PDFs também vão para o backup, então a primeira sincronização demora mais.
 
 ## Ferramentas próprias (plugins)

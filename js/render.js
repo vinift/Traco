@@ -16,6 +16,7 @@ const ImgCache = {
 
 function drawTemplate(ctx, tpl, vis, z, bounded, pw, ph) {
   if (!tpl || tpl.type === 'blank') return;
+  if (tpl.type === 'custom') return drawCustomTemplate(ctx, tpl, vis, z, pw); // modelo importado de PDF
   const s = Math.max(4, +tpl.spacing || 32);
   if (s * z < (tpl.type === 'dots' ? 5 : 3)) return;
   const th = Math.max(+tpl.thickness || 1, 0.6 / z);
