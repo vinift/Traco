@@ -11,12 +11,14 @@ Object.assign(Editor, {
     vs.classList.toggle('hidden', !show); if (!show) return;
     const H = vs.clientHeight, vh = this.H / this.cam.z, th = Math.max(46, Math.min(H * 0.5, (H * vh) / (this.totalH + vh)));
     const f = clamp((this.cam.y - r.a) / r.span, 0, 1), t = vs.firstChild;
-    t.style.height = th + 'px'; t.style.transform = `translateY(${f * (H - th)}px)`;
-    if (this._lastScrollY !== undefined && Math.abs(this._lastScrollY - this.cam.y) > 0.01) this.flashScroll();
+    const hh = Math.round(th) + 'px', tr = `translate3d(0,${Math.round(f * (H - th))}px,0)`;
+    if (t.style.height !== hh) t.style.height = hh; if (t.style.transform !== tr) t.style.transform = tr; // escrever só quando muda
+    if (this._lastScrollY !== undefined && Math.abs(this._lastScrollY - this.cam.y) > 0.01 && !this._vsShown) { this._vsShown = true; this.flashScroll(); }
+    else if (this._lastScrollY !== undefined && Math.abs(this._lastScrollY - this.cam.y) > 0.01) { clearTimeout(this._vsT); this._vsT = setTimeout(() => { $('#vscroll').classList.remove('show'); this._vsShown = false; }, 1400); }
     this._lastScrollY = this.cam.y;
     if (vs.classList.contains('drag')) { const n = this.note.pages.length; t.firstChild.textContent = `${this.currentPageIndex() + 1} / ${n}`; }
   },
-  flashScroll() { const vs = $('#vscroll'); vs.classList.add('show'); clearTimeout(this._vsT); this._vsT = setTimeout(() => vs.classList.remove('show'), 1400); },
+  flashScroll() { const vs = $('#vscroll'); vs.classList.add('show'); this._vsShown = true; clearTimeout(this._vsT); this._vsT = setTimeout(() => { vs.classList.remove('show'); this._vsShown = false; }, 1400); },
   initScroll() {
     const vs = $('#vscroll'); if (!vs || vs._ok) return; vs._ok = true;
     const t = vs.firstChild; let drag = null;
@@ -44,7 +46,7 @@ Object.assign(Editor, {
       const d = Math.min(40, now - last); last = now;
       const k = Math.exp(-d / 325); // atrito (parecido com Android/iOS)
       const x0 = this.cam.x, y0 = this.cam.y;
-      this.cam.x += vx * d; this.cam.y += vy * d; this.clampCam(); this.requestRender();
+      this.cam.x += vx * d; this.cam.y += vy * d; this.clampCam(); this.safeDraw(); // desenha neste mesmo quadro (sem 1 quadro de atraso)
       vx *= k; vy *= k;
       const hitX = Math.abs(this.cam.x - x0) < Math.abs(vx * d) * 0.2, hitY = Math.abs(this.cam.y - y0) < Math.abs(vy * d) * 0.2; // bateu no limite
       if (hitX) vx = 0; if (hitY) vy = 0;

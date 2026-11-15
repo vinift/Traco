@@ -11,11 +11,14 @@ function oid(o) { if (!o || typeof o !== 'object') return 0; let n = _oid.get(o)
 Object.assign(Editor, {
   // memória: cada bloco tem 1 MB; o Chrome do Android derruba a tela (barras somem) se a memória de desenho estoura
   tileMax: (navigator.deviceMemory || 4) >= 8 ? 90 : 60, previewMax: 10, tileBudgetMs: 10,
-  freeCanvas(c) { if (c) { c.width = 0; c.height = 0; } }, // devolve a memória na hora (sem esperar a coleta de lixo)
+  freeCanvas(c) { if (c) { if (c.parentNode) c.remove(); c.width = 0; c.height = 0; } }, // devolve a memória na hora (sem esperar a coleta de lixo)
   resetTiles() {
     if (this.tiles) for (const t of this.tiles.values()) this.freeCanvas(t.cv);
     if (this.pcache) for (const pc of this.pcache.values()) { if (pc.preview) this.freeCanvas(pc.preview.cv); if (pc.pjob) this.freeCanvas(pc.pjob.cv); }
     this.tiles = new Map(); this.pcache = new Map(); this.imgEpoch = (this.imgEpoch || 0) + 1;
+    if (this.wLevels) { for (const b of this.wLevels.values()) b.remove(); this.wLevels.clear(); }
+    if (this.wFrames) { this.wFrames.innerHTML = ''; this._frSig = null; this._frDivs = new Map(); }
+    this._curLvl = null; this._fbLvl = null;
   },
   putTile(lv, t) { // guarda um bloco novo e libera o antigo que ele substitui
     const k = t.pid + '|' + t.lvl + '|' + t.key, prev = this.tiles.get(k);
@@ -136,6 +139,81 @@ Object.assign(Editor, {
     ctx.restore();
     return !missing;
   },
+  /* ======== Camada de composição (v0.13) ========
+     Os blocos prontos ficam como elementos na tela, dentro de uma "folha" que só é movida/ampliada com transform CSS.
+     Rolar e dar zoom viram trabalho da placa de vídeo (como num app nativo): nada é redesenhado a cada quadro. */
+  domInit() {
+    if (this.world) return;
+    const w = document.createElement('div'); w.className = 'world'; this.stage.insertBefore(w, this.cMain);
+    const fr = document.createElement('div'); fr.className = 'w-frames'; w.append(fr);
+    this.world = w; this.wFrames = fr; this.wLevels = new Map(); this._frDivs = new Map();
+  },
+  domMode() { return !this.lowLat && !this.noTiles; },
+  levelBox(lvl) { let b = this.wLevels.get(lvl); if (!b) { b = document.createElement('div'); b.className = 'w-lvl'; this.world.append(b); this.wLevels.set(lvl, b); } return b; },
+  placeTile(t, pi) { // posição do bloco em px de tela no nível em que foi desenhado (alinhado aos pixels)
+    const o = this.layout[pi]; if (!o) return; const L = t.lvl, d = this.dpr, inf = this.note.mode === 'infinite';
+    const [tx, ty] = t.key.split(',').map(Number), bx = inf ? 0 : Math.round(o.x * L), by = inf ? 0 : Math.round(o.y * L);
+    const st = t.cv.style; st.left = (bx + tx * TILE) / d + 'px'; st.top = (by + ty * TILE) / d + 'px'; st.width = st.height = TILE / d + 'px';
+    t.cv.className = 'wt'; if (t.cv.parentNode !== this.levelBox(L)) this.levelBox(L).append(t.cv);
+  },
+  /* molduras das páginas (papel + sombra) e miniaturas por baixo dos blocos */
+  syncFrames() {
+    const n = this.note, inf = n.mode === 'infinite';
+    const sig = (this._layoutVer || 0) + '|' + n.pages.length + '|' + oid(n.template) + '|' + n.pages.map((p) => p.id + oid(p.template) + p.w + 'x' + p.h).join(',');
+    if (sig !== this._frSig) {
+      this._frSig = sig; this.wFrames.innerHTML = ''; this._frDivs = new Map();
+      this.stage.style.background = inf ? (n.template && n.template.paper) || '#fff' : '';
+      if (!inf) n.pages.forEach((p, i) => {
+        const o = this.layout[i], tpl = p.template || n.template, f = document.createElement('div'); f.className = 'pgf';
+        Object.assign(f.style, { left: o.x + 'px', top: o.y + 'px', width: p.w + 'px', height: p.h + 'px', background: p.pdf ? '#fff' : (tpl && tpl.paper) || '#fff' });
+        this.wFrames.append(f); this._frDivs.set(p.id, f);
+      });
+      for (const t of this.tiles.values()) { const pi = n.pages.findIndex((p) => p.id === t.pid); if (pi >= 0) this.placeTile(t, pi); } // páginas mudaram de lugar
+    }
+  },
+  attachPreview(page, pc) { const f = this._frDivs.get(page.id); if (pc.preview && pc.preview.stale && pc.preview.cv.parentNode) pc.preview.cv.remove(); if (!f || !pc.preview || pc.preview.stale) return; const cv = pc.preview.cv; if (cv.parentNode !== f) { cv.className = 'pgprev'; f.append(cv); } },
+  /* um quadro na camada de composição: só ajusta transformações e encaixa os blocos que faltam (dentro do orçamento) */
+  drawDom(vis, st, skipPages) {
+    this.domInit(); this.world.style.display = '';
+    const z = this.cam.z, d = this.dpr, s = z * d, n = this.note, inf = n.mode === 'infinite';
+    this.syncFrames();
+    this.world.style.transform = `translate3d(${Math.round(-this.cam.x * s) / d}px,${Math.round(-this.cam.y * s) / d}px,0)`;
+    this.wFrames.style.transform = `scale(${z})`;
+    const lvl = st.zooming ? null : +s.toFixed(5);
+    if (lvl != null && lvl !== this._curLvl) { if (this._curLvl != null) this._fbLvl = this._curLvl; this._curLvl = lvl; }
+    for (const [L, b] of this.wLevels) {
+      const show = L === this._curLvl || L === this._fbLvl;
+      b.style.display = show ? '' : 'none';
+      if (show) { b.style.transform = Math.abs(s / L - 1) < 1e-6 ? '' : `scale(${s / L})`; b.style.zIndex = L === this._curLvl && lvl != null ? 3 : 2; }
+      if (!b.childElementCount && L !== this._curLvl && L !== this._fbLvl) { b.remove(); this.wLevels.delete(L); }
+    }
+    let allDone = true, fbNeeded = false;
+    n.pages.forEach((page, i) => {
+      const o = this.layout[i]; if (!inf && !rectsHit({ x: o.x, y: o.y, w: page.w, h: page.h }, vis)) return;
+      const pc = this.pageCache(page); this.attachPreview(page, pc);
+      const f = this._frDivs.get(page.id); if (f) f.classList.toggle('direct', skipPages.has(page.id));
+      if (skipPages.has(page.id)) return; // esta página está sendo desenhada direto na camada de cima
+      if (lvl == null) { allDone = false; fbNeeded = true; return; }
+      const lv = pc.levels.get(lvl) || (pc.levels.set(lvl, new Map()), pc.levels.get(lvl));
+      const x0 = Math.max(inf ? -Infinity : 0, vis.x - o.x), y0 = Math.max(inf ? -Infinity : 0, vis.y - o.y), x1 = Math.min(inf ? Infinity : page.w, vis.x - o.x + vis.w), y1 = Math.min(inf ? Infinity : page.h, vis.y - o.y + vis.h);
+      if (x1 <= x0 || y1 <= y0) return;
+      const want = [];
+      for (let ty = Math.floor((y0 * s) / TILE); ty <= Math.floor((y1 * s - 0.001) / TILE); ty++) for (let tx = Math.floor((x0 * s) / TILE); tx <= Math.floor((x1 * s - 0.001) / TILE); tx++) {
+        const key = tx + ',' + ty, t = lv.get(key);
+        if (t && !t.stale && (!page.pdf || t.pdfB === PdfCache.bitmap(page.pdf, s))) { t.used = this.frameNo; if (!t.cv.parentNode) this.placeTile(t, i); } else want.push([tx, ty, key]);
+      }
+      if (want.length > 1) { const cx = (vis.x + vis.w / 2 - o.x) * s, cy = (vis.y + vis.h / 2 - o.y) * s, dd = (w) => Math.hypot((w[0] + 0.5) * TILE - cx, (w[1] + 0.5) * TILE - cy); want.sort((a, b) => dd(a) - dd(b)); }
+      const mustSync = pc.changed, moving = !!(this.gesture || this._inertia);
+      for (const w of want) {
+        if (!mustSync && (performance.now() - st.t0 > (moving ? 5 : 24) || st.rendered >= (moving ? 1 : 10))) { allDone = false; fbNeeded = true; break; }
+        const t = this.renderTile(page, i, s, w[0], w[1]); t.pid = page.id; t.lvl = lvl; t.key = w[2]; t.used = this.frameNo;
+        this.putTile(lv, t); this.placeTile(t, i); st.rendered++;
+      }
+      if (!want.length || want.every((w) => { const t = lv.get(w[2]); return t && !t.stale; })) { pc.changed = false; pc.lastLevel = lvl; } else { allDone = false; fbNeeded = true; }
+    });
+    if (!fbNeeded && this._fbLvl != null && lvl != null) { const b = this.wLevels.get(this._fbLvl); if (b) b.style.display = 'none'; this._fbLvl = null; } // nível novo completo: some o antigo
+    return allDone;
+  },
   /* depois do quadro: prepara os blocos em volta da tela (rolagem sem espera) */
   schedulePrefetch() {
     clearTimeout(this._pfT);
@@ -155,12 +233,12 @@ Object.assign(Editor, {
           if (performance.now() - t0 > 12 || n >= 4) return;
           const key = tx + ',' + ty, t = lv.get(key); if (t && !t.stale) continue;
           const nt = this.renderTile(page, i, s, tx, ty); nt.pid = page.id; nt.lvl = lvl; nt.key = key; nt.used = this.frameNo - 1;
-          this.putTile(lv, nt); n++;
+          this.putTile(lv, nt); if (this.domMode()) this.placeTile(nt, i); n++;
         }
       });
       if (n < 4 && performance.now() - t0 < 12) { // miniaturas das páginas vizinhas (fundo provisório no zoom rápido)
         const ci = Math.max(0, this.currentPageIndex());
-        for (let d = 0; d <= 2 && n < 4; d++) for (const i of [ci + d, ci - d]) { const pg = this.note.pages[i]; const left = 12 - (performance.now() - t0); if (!pg || left <= 1) continue; const pc = this.pageCache(pg); if (!pc.preview || pc.preview.stale) { this.previewStep(pg, pc, left); n++; } }
+        for (let d = 0; d <= 2 && n < 4; d++) for (const i of [ci + d, ci - d]) { const pg = this.note.pages[i]; const left = 12 - (performance.now() - t0); if (!pg || left <= 1) continue; const pc = this.pageCache(pg); if (!pc.preview || pc.preview.stale) { if (this.previewStep(pg, pc, left) && this.domMode()) this.attachPreview(pg, pc); n++; } }
       }
       this.evictTiles();
       if (n) this.schedulePrefetch();

@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.13.0 — rolagem e zoom pela placa de vídeo
+
+- **Rolar e dar zoom não redesenham mais nada:** os pedaços prontos da página ficam na tela e só a "folha" inteira é movida/ampliada pela placa de vídeo (como num app nativo). O trabalho do app por quadro caiu de ~12 ms para ~1 ms ao rolar, deixando o tablet livre para acompanhar o dedo (inclusive em telas de 120/144 Hz).
+- Na pinça, a página amplia na hora; a versão nítida aparece logo depois de soltar, começando pelo centro. A qualidade final é idêntica (conferido pixel a pixel).
+- A inércia desenha no mesmo quadro (sem um quadro de atraso).
+- **Trava de rolagem mais leve:** só segura na vertical quando o gesto começa quase reto (até ~22°) e solta assim que o dedo vai para o lado (~30 px).
+- Se o modo de baixa latência estiver ligado, o app usa o desenho antigo (ele precisa da tela desenhada de uma vez).
+
 ## Novidades da v0.12.0 — backup em segundo plano
 
 Ao sair do app, ele começa a enviar o backup na hora e também pede ao Android para **terminar o envio em segundo plano** (recurso "Background Sync" do Chrome). Se o app for pausado ou fechado no meio, o service worker (a parte do app que roda sem tela) continua enviando quando houver internet.

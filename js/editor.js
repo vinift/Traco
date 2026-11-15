@@ -12,7 +12,7 @@ const Editor = {
     // Baixa latência: o canvas principal (opaco) fica "dessincronizado" e a tinta da caneta é desenhada direto nele.
     // Um canvas transparente dessincronizado deixava a tela preta em alguns tablets Android.
     this.lowLat = Store.settings.lowLatency === true;
-    this.ctx = this.cMain.getContext('2d', this.lowLat ? { alpha: false, desynchronized: true } : { alpha: false });
+    this.ctx = this.cMain.getContext('2d', this.lowLat ? { alpha: false, desynchronized: true } : { alpha: true }); // transparente: os blocos da página ficam por baixo
     this.lctx = this.cLive.getContext('2d');
     // o Android pode descartar a memória de desenho (app em segundo plano, memória cheia): refaz tudo em vez de ficar em branco
     for (const c of [this.cMain, this.cLive]) {
@@ -93,6 +93,7 @@ const Editor = {
 
   /* ---------- Layout e câmera ---------- */
   computeLayout() {
+    this._layoutVer = (this._layoutVer || 0) + 1;
     const n = this.note;
     if (n.mode === 'infinite') { this.layout = [{ x: 0, y: 0 }]; this.maxW = 0; this.totalH = 0; return; }
     let y = 0, mw = 0;
@@ -178,7 +179,6 @@ const Editor = {
   draw() {
     if (!this.note) return;
     const ctx = this.ctx, z = this.cam.z, d = this.dpr, note = this.note, inf = note.mode === 'infinite';
-    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = this.desk; ctx.fillRect(0, 0, this.cMain.width, this.cMain.height);
     const vis = { x: this.cam.x, y: this.cam.y, w: this.W / z, h: this.H / z };
     const skip = new Set(); if (this.editingId) skip.add(this.editingId);
     const selActive = this.sel && this.selTf; if (selActive) for (const id of this.sel.ids) skip.add(id);
@@ -189,18 +189,29 @@ const Editor = {
     if (this._prevZ !== undefined && this._prevZ !== z) { this._zoomAt = now; clearTimeout(this._zT); this._zT = setTimeout(() => this.requestRender(), 150); }
     this._prevZ = z;
     const st = { t0: now, rendered: 0, zooming: now - (this._zoomAt || 0) < 120 }; let allDone = true;
+    // v0.13: com a camada de composição, os blocos ficam na tela e só a "folha" se move; esta tela de cima só desenha o que está sendo mexido
+    const dom = this.domMode(); let skipPages = null;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (dom) {
+      skipPages = new Set(); if (skip.size) for (const p of note.pages) if (p.elements.some((e) => skip.has(e.id))) skipPages.add(p.id);
+      allDone = this.drawDom(vis, st, skipPages);
+      const needOv = skipPages.size || this.sel || this.flash || this.guides || pv;
+      if (needOv || this._ovDirty) ctx.clearRect(0, 0, this.cMain.width, this.cMain.height);
+      this._ovDirty = !!needOv;
+    } else { this._ovDirty = true; if (this.world) this.world.style.display = 'none'; ctx.fillStyle = this.desk; ctx.fillRect(0, 0, this.cMain.width, this.cMain.height); }
     note.pages.forEach((page, i) => {
+      if (dom && !skipPages.has(page.id)) return;
       const o = this.layout[i];
       const pr = inf ? vis : { x: o.x, y: o.y, w: page.w, h: page.h };
       if (!inf && !rectsHit(pr, vis)) return;
       this.pageTf(ctx, i); ctx.save();
       let lv = { x: vis.x - o.x, y: vis.y - o.y, w: vis.w, h: vis.h };
       if (!inf) {
-        ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.18)'; ctx.shadowBlur = 10 * d; ctx.shadowOffsetY = 2 * d; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, page.w, page.h); ctx.restore();
+        if (!dom) { ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.18)'; ctx.shadowBlur = 10 * d; ctx.shadowOffsetY = 2 * d; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, page.w, page.h); ctx.restore(); }
         ctx.beginPath(); ctx.rect(0, 0, page.w, page.h); ctx.clip();
         const x1 = Math.max(0, lv.x), y1 = Math.max(0, lv.y); lv = { x: x1, y: y1, w: Math.min(page.w, lv.x + lv.w) - x1, h: Math.min(page.h, lv.y + lv.h) - y1 };
       }
-      const direct = this.noTiles || (skip.size && page.elements.some((e) => skip.has(e.id))); // item sendo movido/editado nesta página: desenho direto
+      const direct = dom || this.noTiles || (skip.size && page.elements.some((e) => skip.has(e.id))); // item sendo movido/editado nesta página: desenho direto
       if (direct) drawPageContent(ctx, note, page, lv, z, { dpr: d, skip });
       else if (!this.drawPageTiled(ctx, page, i, o, vis, st)) allDone = false;
       if (this.textEl && this.textCtx && this.textCtx.page === page && this.textCtx.el.sticky) { const te = this.textCtx.el, h = layoutText(te).h; drawElement(ctx, { ...te, text: '', spans: undefined, minH: Math.max(te.minH || te.w, h) }); } // post-it em edição
@@ -264,12 +275,14 @@ const Editor = {
     let y = box.y - bh - 52; if (y < 6) y = box.y + box.h + 16; if (y + bh > this.H - 6) y = clamp(box.y + 10, 6, this.H - bh - 6);
     bar.style.left = clamp(box.x + box.w / 2 - bw / 2, 6, this.W - bw - 6) + 'px'; bar.style.top = y + 'px';
   },
-  updateHud() {
+  updateHud() { // só mexe na tela quando o texto muda (a cada quadro isso custava um recálculo de layout)
+    const ci = this.currentPageIndex(), pg = this.note.pages[ci], key = `${Math.round(this.cam.z * 100)}|${ci}|${this.note.pages.length}|${this.note.mode}|${!!(pg && pg.bookmark)}`;
+    if (key === this._hudKey) return; this._hudKey = key;
     $('#hudZoom').textContent = Math.round(this.cam.z * 100) + '%';
     const hp = $('#hudPage');
     if (this.note.mode === 'infinite') hp.classList.add('hidden');
-    else { hp.classList.remove('hidden'); hp.textContent = `${this.currentPageIndex() + 1} / ${this.note.pages.length}`; }
-    const bm = $('#btnBookmark'); if (bm) { const pg = this.note.pages[this.currentPageIndex()]; bm.classList.toggle('soft-on', !!(pg && pg.bookmark)); }
+    else { hp.classList.remove('hidden'); hp.textContent = `${ci + 1} / ${this.note.pages.length}`; }
+    const bm = $('#btnBookmark'); if (bm) bm.classList.toggle('soft-on', !!(pg && pg.bookmark));
   },
   clearLive() { const c = this.lctx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, this.cLive.width, this.cLive.height); },
 
@@ -423,8 +436,9 @@ const Editor = {
       this.cam = { z, x: wx - mid.x / z, y: wy - mid.y / z };
     } else { // 1 dedo: prioriza o movimento vertical (o horizontal só entra quando o dedo vai claramente para o lado)
       const p = P[0], dx = p.x - g.mid.x, dy = p.y - g.mid.y;
-      if (!g.lock && Math.hypot(dx, dy) > 12) { g.lock = Math.abs(dy) >= Math.abs(dx) * 0.6 ? 'v' : 'free'; g.xoff = 0; }
-      if (g.lock === 'v' && Math.abs(dx) > 90 && Math.abs(dx) > Math.abs(dy) * 0.5) { g.lock = 'free'; g.xoff = dx; } // soltou para o lado de propósito
+      // v0.13: trava só quando o gesto começa quase reto na vertical (até ~22°) e solta fácil se o dedo for para o lado
+      if (!g.lock && Math.hypot(dx, dy) > 10) { g.lock = Math.abs(dx) <= Math.abs(dy) * 0.4 ? 'v' : 'free'; g.xoff = 0; }
+      if (g.lock === 'v' && Math.abs(dx) > 32 && Math.abs(dx) > Math.abs(dy) * 0.3) { g.lock = 'free'; g.xoff = dx; } // foi para o lado de propósito
       const ex = g.lock === 'free' ? dx - (g.xoff || 0) : 0;
       this.cam = { z: g.cam.z, x: g.cam.x - ex / g.cam.z, y: g.cam.y - dy / g.cam.z };
     }
