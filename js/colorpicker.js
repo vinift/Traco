@@ -133,10 +133,14 @@ Object.assign(Editor, {
   startEyedrop(cb) { this._eyedrop = cb; this.stage.classList.add('eyedrop'); toast('Toque na página para pegar a cor', 2500); },
   takeEyedrop(p) {
     const cb = this._eyedrop; this._eyedrop = null; this.stage.classList.remove('eyedrop'); if (!cb) return;
-    const d = this.dpr, x = Math.round(p.x * d), y = Math.round(p.y * d);
-    try { // olha um quadradinho em volta do toque e fica com o pixel mais "forte" (linhas finas têm borda suavizada)
-      const R = Math.round(3 * d), x0 = clamp(x - R, 0, this.cMain.width - 1), y0 = clamp(y - R, 0, this.cMain.height - 1), w = Math.min(2 * R + 1, this.cMain.width - x0), h = Math.min(2 * R + 1, this.cMain.height - y0);
-      const px = this.ctx.getImageData(x0, y0, w, h).data; let bright = 0;
+    const d = this.dpr;
+    try { // v0.16: desenha só um quadradinho da página em volta do toque (a tela de cima agora é transparente) e fica com o pixel mais "forte"
+      const wp = this.toWorld(p.x, p.y), pi = this.pageIndexAt(wp.x, wp.y, true); if (pi < 0) throw new Error('fora da página');
+      const page = this.note.pages[pi], l = this.local(pi, wp.x, wp.y), s = this.cam.z * d, R = Math.round(3 * d), w = 2 * R + 1, h = w, x = R, y = R, x0 = 0, y0 = 0;
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const cx = cv.getContext('2d', { willReadFrequently: true });
+      cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.setTransform(s, 0, 0, s, R - l.x * s, R - l.y * s);
+      drawPageContent(cx, this.note, page, { x: l.x - R / s, y: l.y - R / s, w: w / s, h: h / s }, this.cam.z, { dpr: d });
+      const px = cx.getImageData(0, 0, w, h).data; let bright = 0;
       for (let i = 0; i < px.length; i += 4) bright = Math.max(bright, px[i] + px[i + 1] + px[i + 2]);
       const ci = ((Math.min(y - y0, h - 1)) * w + Math.min(x - x0, w - 1)) * 4; let best = ci, bd = -1;
       for (let i = 0; i < px.length; i += 4) { const dd = bright - (px[i] + px[i + 1] + px[i + 2]) + (Math.max(px[i], px[i + 1], px[i + 2]) - Math.min(px[i], px[i + 1], px[i + 2])); if (dd > bd) { bd = dd; best = i; } }

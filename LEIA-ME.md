@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.16.0
+
+- **Cores e espessuras não se movem mais sem querer:** para reordenar, segure ~0,5 s (o item "levanta") e então arraste. Arrastar direto não faz nada; segurar parado por mais tempo mostra o × para remover.
+- **Conta-gotas corrigido** (não funcionava desde a v0.13 em nenhuma nota): agora lê a cor exata do traço tocado.
+- **Pingos do i e dois-pontos de volta:** os pontinhos (traços com todos os pontos no mesmo lugar) não estavam sendo desenhados desde a otimização da v0.10. Só numa nota de teste eram 582 pontinhos — todos aparecem de novo.
+- **Subgrupos de cores:** no menu do grupo (chip no topo da barra de cores) há "Novo subgrupo dentro de…" e "Tirar de dentro do grupo". O menu mostra a hierarquia (ex.: Direito › Constitucional, Penal). Ao excluir um grupo, os subgrupos sobem um nível.
+
 ## Novidades da v0.15.1
 
 - Corrigido: ao sair da tela cheia, a barra de horário/bateria do Android aparecia e desalinhava o app. No app instalado a tela cheia agora só esconde as barras do próprio app (a do sistema continua escondida).

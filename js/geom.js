@@ -146,7 +146,8 @@ function penStrokePath(pts, w, kind, nib) {
   if (same) { // espessura constante (esferográfica, ou pressão igual — como as notas do Notewise): o contorno de círculos + cápsulas
     // é exatamente uma linha com pontas e juntas redondas. Desenhar assim dá o mesmo traço com uma fração da memória e do tempo.
     const path = new Path2D(), n = sp.length / 3; path.moveTo(sp[0], sp[1]);
-    if (n === 1) path.lineTo(sp[0] + 0.001, sp[1]); else for (let i = 1; i < n; i++) path.lineTo(sp[i * 3], sp[i * 3 + 1]);
+    let moved = 0; for (let i = 1; i < n; i++) { path.lineTo(sp[i * 3], sp[i * 3 + 1]); moved += Math.abs(sp[i * 3] - sp[i * 3 - 3]) + Math.abs(sp[i * 3 + 1] - sp[i * 3 - 2]); }
+    if (moved < 0.01) path.lineTo(sp[0] + 0.01, sp[1]); // ponto (pingo do i, dois-pontos): o navegador ignora traço de tamanho zero
     path.strokeW = r[0] * 2; return path;
   }
   const rr = []; for (let i = 2; i < sp.length; i += 3) rr.push(sp[i]);
@@ -161,6 +162,8 @@ function buildPolyPath(pts, path = new Path2D()) {
     path.quadraticCurveTo(x, y, (x + nx) / 2, (y + ny) / 2);
   }
   path.lineTo(pts[(n - 1) * 3], pts[(n - 1) * 3 + 1]);
+  let same = true; for (let i = 3; i < pts.length && same; i += 3) if (Math.abs(pts[i] - pts[0]) + Math.abs(pts[i + 1] - pts[1]) > 0.005) same = false;
+  if (same) path.lineTo(pts[0] + 0.01, pts[1]); // todos os pontos no mesmo lugar: vira um pontinho visível
   return path;
 }
 function shapeGeom(e) {

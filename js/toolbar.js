@@ -41,17 +41,25 @@ function lineTypeSvg(dash, size = 34) {
   return `<svg width="${size}" height="${size * 0.7}" viewBox="0 0 40 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 24 C 16 24, 14 4, 34 4" stroke-dasharray="${pat}"/></svg>`;
 }
 
-/* Predefinições: tocar seleciona, arrastar para cima/baixo reordena, segurar parado mostra o × para remover */
+/* Predefinições: tocar seleciona; SEGURAR ~0,45 s e arrastar reordena (v0.16: antes bastava arrastar e movia sem querer);
+   segurar parado mais tempo mostra o × para remover */
 function makeSortable(container, selector, list, onDone, { tap, long }) {
   let st = null;
   container.addEventListener('pointerdown', (e) => {
     const it = e.target.closest(selector); if (!it || e.target.closest('.xbadge')) return;
-    st = { it, id: e.pointerId, x: e.clientX, y: e.clientY, drag: false, longT: setTimeout(() => { if (st && !st.drag) { st.longDone = true; long && long(); } }, 600) };
+    st = { it, id: e.pointerId, x: e.clientX, y: e.clientY, drag: false, ready: false };
+    st.readyT = setTimeout(() => { if (st && !st.moved) { st.ready = true; st.it.classList.add('lifted'); if (navigator.vibrate) navigator.vibrate(8); } }, 450);
+    st.longT = setTimeout(() => { if (st && !st.drag && !st.moved) { st.longDone = true; st.it.classList.remove('lifted'); long && long(); } }, 1100);
     it.setPointerCapture(e.pointerId);
   });
   container.addEventListener('pointermove', (e) => {
     if (!st || e.pointerId !== st.id) return;
-    if (!st.drag) { if (Math.abs(e.clientY - st.y) > 8 || Math.abs(e.clientX - st.x) > 12) { st.drag = true; clearTimeout(st.longT); st.it.classList.add('dragging'); } else return; }
+    const far = Math.abs(e.clientY - st.y) > 8 || Math.abs(e.clientX - st.x) > 12;
+    if (!st.drag) {
+      if (!far) return;
+      if (!st.ready) { st.moved = true; clearTimeout(st.readyT); clearTimeout(st.longT); return; } // mexeu antes de segurar: não arrasta (nem conta como toque)
+      st.drag = true; clearTimeout(st.longT); st.it.classList.add('dragging');
+    }
     e.preventDefault();
     const sibs = $$(selector, container).filter((x) => x !== st.it);
     const horiz = getComputedStyle(container).flexDirection.startsWith('row');
@@ -59,10 +67,10 @@ function makeSortable(container, selector, list, onDone, { tap, long }) {
     if (before) container.insertBefore(st.it, before); else if (sibs.length) sibs[sibs.length - 1].after(st.it);
   });
   const end = (e) => {
-    if (!st || e.pointerId !== st.id) return; clearTimeout(st.longT);
-    const s0 = st; st = null; s0.it.classList.remove('dragging');
+    if (!st || e.pointerId !== st.id) return; clearTimeout(st.longT); clearTimeout(st.readyT);
+    const s0 = st; st = null; s0.it.classList.remove('dragging', 'lifted');
     if (s0.drag) { const order = $$(selector, container).map((x) => list[+x.dataset.i]); list.splice(0, list.length, ...order); onDone(); }
-    else if (!s0.longDone && e.type === 'pointerup') tap && tap(+s0.it.dataset.i);
+    else if (!s0.longDone && !s0.moved && e.type === 'pointerup') tap && tap(+s0.it.dataset.i);
   };
   container.addEventListener('pointerup', end); container.addEventListener('pointercancel', end);
 }
@@ -118,18 +126,31 @@ const UI = {
   group() { return Store.activeGroup(Editor.note); },
   colorList(t) { const g = this.group(); const k = t === 'highlighter' ? 'highlighter' : 'pen'; g.colors = g.colors || {}; return g.colors[k] || (g.colors[k] = []); },
   widthList(t) { const g = this.group(); g.widths = g.widths || {}; return g.widths[t] || (g.widths[t] = (Store.settings.widthPresets[t] || []).slice()); },
+  /* grupos em árvore: um grupo pode ter subgrupos (ex.: Direito › Constitucional) */
+  groupTree() {
+    const G = Store.settings.presetGroups, ids = new Set(G.map((g) => g.id)), out = [];
+    const kids = (pid) => G.filter((g) => (g.parentId && ids.has(g.parentId) ? g.parentId : null) === pid);
+    const walk = (pid, d) => { for (const g of kids(pid)) { out.push([g, d]); if (d < 6) walk(g.id, d + 1); } };
+    walk(null, 0); return out;
+  },
+  groupPath(g) { const G = Store.settings.presetGroups, names = []; let x = g, k = 0; while (x && k++ < 8) { names.unshift(x.name); x = G.find((y) => y.id === x.parentId); } return names.join(' › '); },
   groupMenu(anchor) {
     const S = Store.settings, note = Editor.note, cur = this.group(), folder = Store.folderOf(note);
-    const items = S.presetGroups.map((g) => ({ label: (g.id === cur.id ? '✓ ' : '   ') + g.name, run: () => { note.groupId = g.id; Editor.markChanged(); this.refresh(); toast('Grupo "' + g.name + '" nesta nota', 1300); } }));
+    const items = this.groupTree().map(([g, d]) => ({ label: (g.id === cur.id ? '✓ ' : '   ') + '\u2003'.repeat(d) + (d ? '↳ ' : '') + g.name, run: () => { note.groupId = g.id; Editor.markChanged(); this.refresh(); toast('Grupo "' + this.groupPath(g) + '" nesta nota', 1300); } }));
     items.push('-');
-    items.push({ label: 'Novo grupo (cópia do atual)…', icon: 'plus', run: async () => {
-      const n = await askText('Novo grupo de predefinições', '', 'Nome (ex.: Direito Penal)'); if (!n) return;
-      const g = { id: uid(), name: n, colors: clone(cur.colors || {}), widths: clone(cur.widths || {}) }; S.presetGroups.push(g); note.groupId = g.id; this.save(); Editor.markChanged(); this.refresh();
-    } });
+    const mk = async (parentId, title) => {
+      const n = await askText(title, '', 'Nome (ex.: Direito Penal)'); if (!n) return;
+      const g = { id: uid(), name: n, colors: clone(cur.colors || {}), widths: clone(cur.widths || {}) }; if (parentId) g.parentId = parentId;
+      S.presetGroups.push(g); note.groupId = g.id; this.save(); Editor.markChanged(); this.refresh();
+    };
+    items.push({ label: 'Novo grupo (cópia do atual)…', icon: 'plus', run: () => mk(null, 'Novo grupo de predefinições') });
+    items.push({ label: 'Novo subgrupo dentro de "' + cur.name + '"…', icon: 'folder', run: () => mk(cur.id, 'Novo subgrupo de "' + cur.name + '"') });
+    if (cur.parentId) items.push({ label: 'Tirar "' + cur.name + '" de dentro do grupo', icon: 'up', run: () => { const p = S.presetGroups.find((g) => g.id === cur.parentId); cur.parentId = p && p.parentId ? p.parentId : undefined; if (!cur.parentId) delete cur.parentId; this.save(); this.refresh(); } });
     items.push({ label: 'Renomear "' + cur.name + '"…', icon: 'pen', run: async () => { const n = await askText('Renomear grupo', cur.name); if (n) { cur.name = n; this.save(); this.refresh(); } } });
     if (folder) items.push({ label: 'Usar como padrão da pasta "' + folder.name + '"', icon: 'folder', run: async () => { folder.groupId = cur.id; delete note.groupId; await Store.saveFolders(); Editor.markChanged(); toast('Padrão da pasta atualizado', 1300); } });
     if (cur.id !== 'default') items.push({ label: 'Excluir "' + cur.name + '"', icon: 'trash', danger: true, run: async () => {
       if (!(await confirmBox('Excluir grupo', `Excluir o grupo "${cur.name}"? As notas e pastas que o usam voltam para "Geral".`, 'Excluir', true))) return;
+      for (const g of S.presetGroups) if (g.parentId === cur.id) { if (cur.parentId) g.parentId = cur.parentId; else delete g.parentId; } // subgrupos sobem um nível
       S.presetGroups = S.presetGroups.filter((g) => g.id !== cur.id); for (const f of Store.folders) if (f.groupId === cur.id) delete f.groupId;
       if (note.groupId === cur.id) delete note.groupId; await Store.saveFolders(); this.save(); Editor.markChanged(); this.refresh();
     } });
