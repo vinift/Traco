@@ -16,9 +16,11 @@ const Drive = {
     for (const id of ['libSync', 'edSync']) {
       const p = document.getElementById(id); if (!p) continue;
       p.className = 'sync-pill ' + ({ ok: 'ok', busy: 'busy', err: 'err', need: 'err' }[state] || '') + (id === 'edSync' ? ' small' : '');
-      const pg = state === 'busy' && this.pg && this.pg.total ? this.pg : null, pct = pg ? Math.min(100, Math.round((pg.done / pg.total) * 100)) : 0;
-      const txt = pg ? `Enviando ${Math.min(pg.done + 1, pg.total)} de ${pg.total}` : labels[state];
-      p.innerHTML = icon(state === 'off' ? 'cloudOff' : state === 'ok' ? 'check' : state === 'busy' ? 'refresh' : 'cloud') + `<span class="txt">${txt}</span>` + (pg ? `<span class="pct">${pct}%</span><i class="sbar"><i style="width:${pct}%"></i></i>` : '');
+      const pg = state === 'busy' && this.pg && this.pg.total ? this.pg : null, sub = pg && pg.sub != null ? pg.sub : null;
+      const pct = pg ? Math.min(100, Math.round(((pg.done + (sub || 0) / 100) / pg.total) * 100)) : 0; // barra: progresso geral
+      const step = pg ? `${Math.min(pg.done + 1, pg.total)}/${pg.total}` : '';
+      const txt = pg ? (pg.label ? `${step} · ${pg.label}` : `Enviando ${step}`) : labels[state];
+      p.innerHTML = icon(state === 'off' ? 'cloudOff' : state === 'ok' ? 'check' : state === 'busy' ? 'refresh' : 'cloud') + `<span class="txt">${esc(txt)}</span>` + (pg ? `<span class="pct">${sub != null ? sub : pct}%</span><i class="sbar"><i style="width:${pct}%"></i></i>` : '');
       p.classList.toggle('prog', !!pg);
       p.title = (pg ? txt + ` (${pct}%)` + (pg.label ? '\n' + pg.label : '') : labels[state]) + (msg ? ' — ' + msg : '') + (this.cfg.lastSync ? '\nÚltimo backup: ' + new Date(this.cfg.lastSync).toLocaleString('pt-BR') : '');
     }
@@ -248,6 +250,7 @@ const Drive = {
   heavyStart(info) { try { localStorage.setItem(this.HEAVY, JSON.stringify({ ...info, at: Date.now() })); } catch (_) {} },
   heavyEnd() { try { localStorage.removeItem(this.HEAVY); } catch (_) {} },
   checkCrash() {
+    if (this.cfg.pdfCrashV !== 2) { this.cfg.pdfCrash = {}; this.cfg.pdfCrashV = 2; Store.saveSettings(); } // v0.9.9: o PDF ficou leve; religa o PDF automático das notas que tinham falhado
     let h = null; try { h = JSON.parse(localStorage.getItem(this.HEAVY) || 'null'); } catch (_) {} this.heavyEnd();
     if (!h || Date.now() - h.at > 864e5) return;
     logError(`O app fechou enquanto ${h.kind === 'pdf' ? 'gerava o PDF' : 'enviava'} de "${h.title}" (${h.pages} pág.${h.dpi ? ', ' + h.dpi + ' dpi' : ''})`, 'travamento');
@@ -267,7 +270,8 @@ const Drive = {
       const d = Store.dirty; d.pdfs = d.pdfs || {}; d.folders = d.folders || {};
       // progresso: conta tudo o que vai subir e avança a cada item
       const pg = this.pg = { done: 0, total: Object.keys(d.folders).length + Object.keys(d.blobs).filter((id) => !this.entry('b:' + id)).length + Object.keys(d.notes).length + (this.cfg.pdf === false ? 0 : Object.keys(d.pdfs).length) + Object.keys(d.deleted).length + (d.lib ? 1 : 0), label: '' };
-      const at = (label) => { pg.label = label; this.setStatus('busy'); }, done = () => { pg.done = Math.min(pg.total, pg.done + 1); this.setStatus('busy'); };
+      const at = (label) => { pg.label = label; pg.sub = null; this.setStatus('busy'); }, done = () => { pg.done = Math.min(pg.total, pg.done + 1); pg.sub = null; this.setStatus('busy'); };
+      const subP = (i, t) => { const v = Math.round((i / t) * 100); if (v !== pg.sub) { pg.sub = v; this.setStatus('busy'); } }; // % dentro da nota atual
       this.setStatus('busy');
       const data = await this.ensureDataFolder();
       for (const id of Object.keys(d.folders)) { at('Pasta'); if (Store.folders.find((f) => f.id === id)) await this.ensureNoteFolder(id); delete d.folders[id]; await Store.saveDirty(); done(); }
@@ -278,8 +282,8 @@ const Drive = {
       }
       for (const id of Object.keys(d.notes)) {
         if (!manual && !background && this.userBusy()) { this.again = false; this.later(); throw Object.assign(new Error('adiado'), { deferred: true }); } // voltou a escrever: continua depois
-        const note = typeof Editor !== 'undefined' && Editor.note && Editor.note.id === id ? Editor.note : await Store.getNote(id); at('Nota: ' + (note ? note.title : '')); // nota aberta: usa a da tela (já é a mais nova; ler do banco de novo pesa)
-        if (note) { this.heavyStart({ kind: 'note', id, title: note.title, pages: note.pages.length }); const nb = await noteFileBlob(note); this.heavyEnd(); await this.upsert('n:' + id, { name: safeName(note.title) + '.traco', mime: nb.mime, data: nb.blob, parent: await this.ensureNoteDir(note), props: { traco: 'nota', noteId: id } }); }
+        const note = typeof Editor !== 'undefined' && Editor.note && Editor.note.id === id ? Editor.note : await Store.getNote(id); at('Nota “' + (note ? note.title : '') + '”'); // nota aberta: usa a da tela (já é a mais nova; ler do banco de novo pesa)
+        if (note) { this.heavyStart({ kind: 'note', id, title: note.title, pages: note.pages.length }); const nb = await noteFileBlob(note, subP); this.heavyEnd(); await this.upsert('n:' + id, { name: safeName(note.title) + '.traco', mime: nb.mime, data: nb.blob, parent: await this.ensureNoteDir(note), props: { traco: 'nota', noteId: id } }); }
         delete d.notes[id]; await Store.saveDirty(); done();
       }
       let pdfWait = false;
@@ -288,9 +292,9 @@ const Drive = {
         if (!manual && !this.pdfAllowed()) { pdfWait = true; continue; } // com nota aberta e em uso: PDF fica para depois (pesa muito)
         const note = typeof Editor !== 'undefined' && Editor.note && Editor.note.id === id ? Editor.note : await Store.getNote(id);
         const dpi = this.pdfDpi(id);
-        if (note && dpi) { at('PDF: ' + note.title); let pdf;
+        if (note && dpi) { at('PDF “' + note.title + '”'); let pdf;
           this.heavyStart({ kind: 'pdf', id, title: note.title, pages: note.pages.length, dpi });
-          try { pdf = await exportNotePdf(note, null, { dpi, shouldStop: () => !manual && !this.pdfAllowed() && this.userBusy() }); }
+          try { pdf = await exportNotePdf(note, subP, { dpi, shouldStop: () => !manual && !this.pdfAllowed() && this.userBusy() }); }
           catch (er) { this.heavyEnd(); if (er.deferred) { pdfWait = true; continue; } throw er; }
           this.heavyEnd(); await this.upsert('p:' + id, { name: safeName(note.title) + '.pdf', mime: 'application/pdf', data: pdf, parent: await this.ensureNoteDir(note), props: { traco: 'pdf', noteId: id } }); }
         delete d.pdfs[id]; await Store.saveDirty(); done();
@@ -359,9 +363,9 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 setInterval(() => { if (Drive.configured() && Drive.state !== 'busy' && Drive.state !== 'ok' && Drive.hasAuth()) Drive.sync(); }, 120000);
 
 /* arquivo .traco da nota: JSON montado página por página (sem um texto gigante na memória) e compactado (gzip, ~4× menor) */
-async function noteFileBlob(note) {
+async function noteFileBlob(note, onProgress) {
   const { pages, ...rest } = note, head = JSON.stringify({ ...rest, pages: [] }), k = head.lastIndexOf('"pages":[]');
-  const chunks = (function* () { yield head.slice(0, k) + '"pages":['; for (let i = 0; i < pages.length; i++) yield (i ? ',' : '') + JSON.stringify(pages[i]); yield ']' + head.slice(k + 10); })();
+  const chunks = (function* () { yield head.slice(0, k) + '"pages":['; for (let i = 0; i < pages.length; i++) { onProgress && onProgress(i + 1, pages.length); yield (i ? ',' : '') + JSON.stringify(pages[i]); } yield ']' + head.slice(k + 10); })();
   const pause = () => new Promise((r) => setTimeout(r, 0)); // entre uma página e outra: a tela não trava
   if (typeof CompressionStream === 'undefined') { const parts = []; for (const c of chunks) { parts.push(c); await pause(); } return { blob: new Blob(parts, { type: 'application/json' }), mime: 'application/json' }; }
   const cs = new CompressionStream('gzip'), out = new Response(cs.readable).blob(), w = cs.writable.getWriter(), enc = new TextEncoder();

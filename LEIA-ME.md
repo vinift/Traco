@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.9.9
+
+- **Achado o que derrubava o app no backup:** o PDF das notas que vieram de PDF (aulas, apostilas) era montado copiando as fontes e imagens do original de novo em cada página. Um PDF de 4 MB virava 400–900 MB e estourava a memória ("Ah, não!"). Agora as páginas são copiadas juntas e o PDF sai do tamanho do original (ex.: 00 Informática, 229 páginas: 15 MB). As anotações continuam por cima, no lugar certo.
+- **Progresso por nota:** o ícone da nuvem mostra qual nota está sendo enviada e a % dela (ex.: `3/12 · PDF "00 Informática" 45%`).
+- **Zoom mais limpo:** a imagem provisória durante a pinça ficou mais nítida e a grade não engrossa; depois de soltar, a versão final aparece mais rápido, começando pelo centro da tela.
+
 ## Novidades da v0.9.8
 
 - **Grade nítida ao afastar o zoom:** as linhas do modelo ficam encaixadas nos pixels da tela, com espessura inteira, sem borrão.

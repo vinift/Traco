@@ -10,7 +10,7 @@ function oid(o) { if (!o || typeof o !== 'object') return 0; let n = _oid.get(o)
 
 Object.assign(Editor, {
   // memória: cada bloco tem 1 MB; o Chrome do Android derruba a tela (barras somem) se a memória de desenho estoura
-  tileMax: (navigator.deviceMemory || 4) >= 8 ? 90 : 60, previewMax: 12, tileBudgetMs: 10,
+  tileMax: (navigator.deviceMemory || 4) >= 8 ? 90 : 60, previewMax: 10, tileBudgetMs: 10,
   freeCanvas(c) { if (c) { c.width = 0; c.height = 0; } }, // devolve a memória na hora (sem esperar a coleta de lixo)
   resetTiles() {
     if (this.tiles) for (const t of this.tiles.values()) this.freeCanvas(t.cv);
@@ -62,8 +62,8 @@ Object.assign(Editor, {
     return { cv, pdfB: page.pdf ? PdfCache.bitmap(page.pdf, s) : null, used: 0 };
   },
   renderPreview(page) { // miniatura da página inteira (fundo provisório enquanto os blocos nítidos ficam prontos)
-    const s = Math.min(1.2, 640 / Math.max(page.w, page.h)), cv = this.newCanvas(Math.ceil(page.w * s), Math.ceil(page.h * s)), c = cv.getContext('2d');
-    c.setTransform(s, 0, 0, s, 0, 0); drawPageContent(c, this.note, page, { x: 0, y: 0, w: page.w, h: page.h }, s / this.dpr, { dpr: this.dpr });
+    const s = Math.min(1.2, 960 / Math.max(page.w, page.h)), cv = this.newCanvas(Math.ceil(page.w * s), Math.ceil(page.h * s)), c = cv.getContext('2d');
+    c.setTransform(s, 0, 0, s, 0, 0); drawPageContent(c, this.note, page, { x: 0, y: 0, w: page.w, h: page.h }, s, { dpr: 1 }); // grade com 1 px da miniatura (não engrossa quando esticada)
     return { cv, s, used: 0 };
   },
   evictTiles() {
@@ -92,11 +92,13 @@ Object.assign(Editor, {
       const fresh = t && !t.stale && (!page.pdf || t.pdfB === PdfCache.bitmap(page.pdf, s));
       if (!fresh) want.push([tx, ty, key]);
     }
+    if (want.length > 1) { const cx = this.cMain.width / 2 - ox, cy = this.cMain.height / 2 - oy, d = (w) => Math.hypot((w[0] + 0.5) * TILE - cx, (w[1] + 0.5) * TILE - cy); want.sort((a, b) => d(a) - d(b)); } // do centro da tela para fora
     // blocos que faltam: renderiza agora (página alterada = sempre na hora, para nada "piscar"), ou dentro do orçamento do quadro
     const mustSync = pc.changed && !st.zooming;
     for (const w of want) {
       if (lvl == null) { complete = false; break; }
-      if (!mustSync && (performance.now() - st.t0 > this.tileBudgetMs || st.rendered >= 3)) { complete = false; break; }
+      const idle = !this.gesture && !this._inertia && !this.action; // parado: pode caprichar mais por quadro (some o borrão mais rápido)
+      if (!mustSync && (performance.now() - st.t0 > (idle ? 28 : this.tileBudgetMs) || st.rendered >= (idle ? 10 : 3))) { complete = false; break; }
       const t = this.renderTile(page, pi, s, w[0], w[1]); t.pid = page.id; t.lvl = lvl; t.key = w[2];
       this.putTile(lv, t); st.rendered++;
     }

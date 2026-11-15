@@ -605,3 +605,4 @@ body.vv-zoomed #stage,body.vv-zoomed #stage *{touch-action:pinch-zoom}
 body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 img,svg,canvas{-webkit-user-drag:none;-webkit-touch-callout:none}
 input,textarea,select,[contenteditable],[contenteditable] *,.text-edit,.text-edit *,.errlog,.errlog *{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+.sync-pill.prog .txt{max-width:min(46vw,420px);overflow:hidden;text-overflow:ellipsis}

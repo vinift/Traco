@@ -186,9 +186,9 @@ const Editor = {
     const pv = this.tPreview; if (pv) { for (const id of pv.map.keys()) skip.add(id); for (const x of pv.removed) skip.add(x.id); }
     // zoom em andamento: usa os blocos já prontos (esticados) e redesenha nítido quando o zoom para
     const now = performance.now(); this.frameNo = (this.frameNo || 0) + 1;
-    if (this._prevZ !== undefined && this._prevZ !== z) { this._zoomAt = now; clearTimeout(this._zT); this._zT = setTimeout(() => this.requestRender(), 230); }
+    if (this._prevZ !== undefined && this._prevZ !== z) { this._zoomAt = now; clearTimeout(this._zT); this._zT = setTimeout(() => this.requestRender(), 150); }
     this._prevZ = z;
-    const st = { t0: now, rendered: 0, zooming: now - (this._zoomAt || 0) < 200 }; let allDone = true;
+    const st = { t0: now, rendered: 0, zooming: now - (this._zoomAt || 0) < 120 }; let allDone = true;
     note.pages.forEach((page, i) => {
       const o = this.layout[i];
       const pr = inf ? vis : { x: o.x, y: o.y, w: page.w, h: page.h };

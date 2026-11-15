@@ -165,6 +165,7 @@ function readErrors() { try { return JSON.parse(localStorage.getItem(ERRLOG_KEY)
 window.addEventListener('error', (ev) => { if (ev.error || ev.message) logError(ev.error || ev.message, 'erro'); });
 window.addEventListener('unhandledrejection', (ev) => logError(ev.reason || 'rejeição', 'promessa'));
 
+function esc(t) { return String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
 function cmpVersion(a, b) { const A = String(a).split('.').map(Number), B = String(b).split('.').map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return Math.sign(d); } return 0; }
 
 /* ===== Toast ===== */

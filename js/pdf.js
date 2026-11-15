@@ -119,16 +119,27 @@ async function exportNotePdf(note, onProgress, { shouldStop, dpi = PDF_DPI } = {
     let done = false;
     if (page.pdf) {
       try {
+        // páginas do PDF original: copiadas todas de uma vez por arquivo (copyPages compartilha fontes e imagens).
+        // Antes cada página era "embutida" à parte e o PDF de 4 MB virava 400–900 MB, estourando a memória do tablet.
         let src = srcs.get(page.pdf.blobId);
-        if (src === undefined) { const blob = await Store.getBlob(page.pdf.blobId); src = blob ? await L.PDFDocument.load(new Uint8Array(await blob.arrayBuffer()), { ignoreEncryption: true }) : null; srcs.set(page.pdf.blobId, src); }
-        const sp = src && src.getPage(page.pdf.index);
-        if (sp && !(sp.getRotation().angle % 360)) {
-          const emb = await out.embedPage(sp), pg = out.addPage([wPt, hPt]);
-          pg.drawPage(emb, { x: 0, y: 0, width: wPt, height: hPt });
+        if (src === undefined) {
+          const blob = await Store.getBlob(page.pdf.blobId), doc = blob ? await L.PDFDocument.load(new Uint8Array(await blob.arrayBuffer()), { ignoreEncryption: true }) : null;
+          src = null;
+          if (doc) {
+            const idx = note.pages.filter((p) => p.pdf && p.pdf.blobId === page.pdf.blobId).map((p) => p.pdf.index).filter((x) => x < doc.getPageCount());
+            const copies = await out.copyPages(doc, idx), q = new Map();
+            idx.forEach((x, j) => { if (!q.has(x)) q.set(x, []); q.get(x).push(copies[j]); });
+            src = q;
+          }
+          srcs.set(page.pdf.blobId, src);
+        }
+        const list = src && src.get(page.pdf.index), cp = list && list.shift();
+        if (cp && !(cp.getRotation().angle % 360)) {
+          const pg = out.addPage(cp), box = pg.getCropBox ? pg.getCropBox() : { x: 0, y: 0, ...pg.getSize() };
           if (page.elements.length || (page.template && page.template.type !== 'blank')) {
             const cv = await renderPageCanvas(note, page, sc, { annot: true });
             const png = await canvasBytes(cv, 'image/png'); cv.width = cv.height = 0; // libera a memória da imagem na hora
-            pg.drawImage(await out.embedPng(png), { x: 0, y: 0, width: wPt, height: hPt });
+            pg.drawImage(await out.embedPng(png), { x: box.x, y: box.y, width: box.width, height: box.height });
           }
           done = true;
         }
