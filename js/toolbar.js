@@ -334,7 +334,9 @@ const UI = {
       p.append(this.switchRow('Sempre reto', 'Cada traço vira uma faixa reta do início ao fim', S.hlStraight, (v) => { S.hlStraight = v; this.save(); }));
       p.append(this.switchRow('Alinhar a cada 15°', 'Faixas retas grudam em 0°, 15°, 30°, 45°…', S.angleSnap !== false, (v) => { S.angleSnap = v; this.save(); }));
     }
-    if (t === 'pen' || t === 'highlighter') p.append(...this.sliderRows('Estabilização (letra mais firme)', S.stabilizer ?? 0.55, 0, 1, 0.05, (v) => Math.round(v * 100) + '%', (v) => { S.stabilizer = v; this.save(); }, false));
+    if (t === 'pen') { const pt = st.type || 'ball', nm = (PEN_TYPES.find((x) => x[0] === pt) || [, 'caneta'])[1];
+      p.append(...this.sliderRows('Estabilização · ' + nm, stabLevel('pen', pt), 0, 10, 1, (v) => (v === 0 ? 'Desligada' : String(v)), (v) => { S.stabPen = { ...(S.stabPen || {}), [pt]: v }; this.save(); }, false)); }
+    if (t === 'highlighter') p.append(...this.sliderRows('Estabilização', stabLevel('highlighter'), 0, 10, 1, (v) => (v === 0 ? 'Desligada' : String(v)), (v) => { S.stabHl = v; this.save(); }, false));
     if (t === 'eraser') {
       p.append(this.switchRow('Apagar só marca-texto', 'Mantém a escrita da caneta', st.onlyHl, (v) => { st.onlyHl = v; this.save(); }));
       p.append(this.switchRow('Rabiscar para apagar (com a caneta)', 'Funciona com a ferramenta Caneta ativa', S.scribbleErase, (v) => { S.scribbleErase = v; this.save(); }));

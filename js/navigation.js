@@ -78,4 +78,53 @@ Object.assign(Editor, {
     this.clampCam(); this.requestRender(); Instruments.redraw(); toast(Math.round(this.cam.z * 100) + '%', 700);
   },
 });
-const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8];
+const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8, 12, 16];
+
+/* ===== Botão/gesto "voltar" do Android dentro do app =====
+   Mantém uma entrada extra no histórico: cada "voltar" do sistema cai aqui, fecha a camada de cima
+   (menu → janela → painel → seleção → nota → pasta) e a entrada é recolocada. Na tela inicial: voltar 2× para sair. */
+const Nav = {
+  armed: false, exitT: null,
+  init() {
+    try { history.replaceState({ traco: 'base' }, '', /[?&]atualizar=/.test(location.search) ? location.pathname + location.hash : undefined); this.arm(); } catch (_) { return; }
+    window.addEventListener('popstate', () => { this.armed = false; this.onBack(); });
+    // se a entrada extra foi gasta (saída cancelada), recoloca no próximo toque
+    window.addEventListener('pointerdown', () => { if (!this.armed) { clearTimeout(this.exitT); this.exitT = null; this.arm(); } }, true); // tocou em algo: cancela a saída
+  },
+  arm() { if (this.armed) return; try { history.pushState({ traco: 'guard' }, ''); this.armed = true; } catch (_) {} },
+  push() { this.arm(); }, // compatibilidade: abrir nota garante a entrada extra
+  onBack() {
+    let handled = false;
+    try { handled = this.closeTop(); } catch (e) { logError(e, 'voltar'); handled = true; }
+    if (handled) { clearTimeout(this.exitT); this.exitT = null; this.arm(); return; }
+    // tela inicial: primeiro "voltar" avisa, o segundo (em até 2 s) sai do app
+    if (this.exitT) return; // já avisou: deixa o sistema sair
+    toast('Volte de novo para sair', 2000);
+    this.exitT = setTimeout(() => { this.exitT = null; this.arm(); }, 2000);
+  },
+  closeTop() {
+    const pop = $('#popRoot'); if (pop && pop.firstChild) { closePop(); return true; }
+    const mr = $('#modalRoot'), top = mr && mr.lastElementChild;
+    if (top) {
+      if (top.classList.contains('pm-back')) PageManager.close();
+      else if (top.classList.contains('modal-back')) top.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      else top.remove();
+      return true;
+    }
+    const sp = $$('.settings-page').pop(); if (sp) { const b = sp.querySelector('.sp-head .cbtn'); b ? b.click() : sp.remove(); return true; }
+    if (typeof PenCapture !== 'undefined' && PenCapture.active && PenCapture.stop) { PenCapture.stop(); return true; }
+    const ed = !$('#editor').classList.contains('hidden') && Editor.note;
+    if (ed) {
+      if (Editor.editingId) { Editor.commitText(); Editor.requestRender(); return true; }
+      if (UI.panelOpen) { UI.closePanel(); return true; }
+      if (Editor.sel) { Editor.sel = null; Editor.updateSelBar && Editor.updateSelBar(); Editor.requestRender(); return true; }
+      App.closeNote(); return true;
+    }
+    const L = Library;
+    if (L.selecting) { L.selecting = false; L.selected.clear(); L.render(); return true; }
+    if (L.query) { L.query = ''; $('#libSearch').value = ''; L.render(); return true; }
+    if (L.folder) { const f = Store.folders.find((x) => x.id === L.folder); L.folder = (f && f.parentId) || null; L.render(); return true; }
+    if (L.view !== 'home') { L.view = 'home'; L.render(); return true; }
+    return false;
+  },
+};

@@ -148,6 +148,25 @@ function icon(name) {
 function iconEl(name) { const t = document.createElement('template'); t.innerHTML = icon(name); return t.content.firstChild; }
 function hydrateIcons(root = document) { $$('[data-icon]', root).forEach((s) => { if (!s.firstChild) s.innerHTML = icon(s.dataset.icon); }); }
 
+/* ===== Registro de erros (Configurações → Diagnóstico): ajuda a achar travamentos ===== */
+const ERRLOG_KEY = 'traco-errlog';
+function logError(e, where = '') {
+  try {
+    const msg = (e && (e.message || e.reason && e.reason.message)) || String(e), stack = ((e && e.stack) || '').split('\n').slice(0, 4).join(' | ');
+    const arr = JSON.parse(localStorage.getItem(ERRLOG_KEY) || '[]');
+    const last = arr[arr.length - 1];
+    if (last && last.msg === msg && last.where === where) { last.n = (last.n || 1) + 1; last.at = Date.now(); }
+    else arr.push({ at: Date.now(), where, msg: msg.slice(0, 300), stack: stack.slice(0, 600), v: typeof App !== 'undefined' ? App.version : '' });
+    localStorage.setItem(ERRLOG_KEY, JSON.stringify(arr.slice(-40)));
+  } catch (_) {}
+  console.error(where, e);
+}
+function readErrors() { try { return JSON.parse(localStorage.getItem(ERRLOG_KEY) || '[]'); } catch (_) { return []; } }
+window.addEventListener('error', (ev) => { if (ev.error || ev.message) logError(ev.error || ev.message, 'erro'); });
+window.addEventListener('unhandledrejection', (ev) => logError(ev.reason || 'rejeição', 'promessa'));
+
+function cmpVersion(a, b) { const A = String(a).split('.').map(Number), B = String(b).split('.').map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return Math.sign(d); } return 0; }
+
 /* ===== Toast ===== */
 let toastT;
 function toast(msg, ms = 2400) {

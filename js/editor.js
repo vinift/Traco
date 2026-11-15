@@ -14,6 +14,18 @@ const Editor = {
     this.lowLat = Store.settings.lowLatency === true;
     this.ctx = this.cMain.getContext('2d', this.lowLat ? { alpha: false, desynchronized: true } : { alpha: false });
     this.lctx = this.cLive.getContext('2d');
+    // o Android pode descartar a memória de desenho (app em segundo plano, memória cheia): refaz tudo em vez de ficar em branco
+    for (const c of [this.cMain, this.cLive]) {
+      c.addEventListener('contextlost', (ev) => { ev.preventDefault(); logError('contexto do canvas perdido (memória)', 'canvas'); });
+      c.addEventListener('contextrestored', () => { this.resetTiles(); PdfCache.bmps.clear(); this.resize(true); this.requestRender(); });
+    }
+    let hiddenAt = 0;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+      if (!this.note) return;
+      if (Date.now() - hiddenAt > 20000) { this.resetTiles(); PdfCache.bmps.clear(); } // voltou depois de um tempo: blocos podem ter sido descartados
+      this.resize(true); this.requestRender();
+    });
     const s = this.stage;
     s.addEventListener('pointerdown', (e) => this.onDown(e));
     s.addEventListener('pointermove', (e) => this.onMove(e));
@@ -52,8 +64,15 @@ const Editor = {
     return true;
   },
   async close() {
-    this.commitText(); this.ocrDebounced.cancel(); this.viewDebounced.cancel(); await this.saveView(); await this.saveNow(); await this.updateThumb(); OCR.scheduleNote(this.note);
-    Instruments.hideAll(); this.note = null; this.resetTiles(); // libera a memória dos blocos
+    try { this.commitText(); } catch (e) { logError(e, 'fechar: texto'); }
+    this.ocrDebounced.cancel(); this.viewDebounced.cancel(); this.thumbDebounced.cancel && this.thumbDebounced.cancel();
+    try { await this.saveView(); await this.saveNow(); } catch (e) { logError(e, 'fechar: salvar'); toast('Não consegui salvar a nota: ' + e.message, 4000); }
+    const note = this.note;
+    try { if (note) { const t = await makeThumb(note); if (t) await Store.setThumb(note.id, t); } } catch (e) { logError(e, 'fechar: miniatura'); }
+    try { Instruments.hideAll(); } catch (e) { logError(e, 'fechar: instrumentos'); }
+    this.note = null; this.sel = null; this.selTf = null; this.action = null; this.gesture = null; this.stopInertia();
+    this.resetTiles(); PdfCache.clear(); ImgCache.clear(); // libera a memória dos blocos, do PDF e das imagens
+    if (note) OCR.scheduleNote(note);
   },
   markChanged() {
     if (!this.note) return;
@@ -91,16 +110,21 @@ const Editor = {
     const z = clamp((this.W - 32) / this.maxW, 0.2, 3); this.cam.z = z;
     this.cam.x = -this.W / (2 * z); this.cam.y = -16 / z; this.clampCam(); this.requestRender();
   },
-  zoomLimits() { return this.note.mode === 'infinite' ? [0.1, 8] : [0.2, 8]; },
+  zoomLimits() { // ajustável em Configurações → Zoom (em %)
+    const S = Store.settings, inf = this.note && this.note.mode === 'infinite';
+    const a = clamp((+S.zoomMin || (inf ? 10 : 20)) / 100, 0.05, 1), b = clamp((+S.zoomMax || 800) / 100, 1.5, 20);
+    return [a, b];
+  },
   clampCam() {
     const [a, b] = this.zoomLimits(); const c = this.cam; c.z = clamp(c.z, a, b);
     if (this.note.mode === 'infinite') return;
     const vw = this.W / c.z, vh = this.H / c.z, L = -this.maxW / 2, R = this.maxW / 2, m = 60 / c.z;
     if (R - L <= vw) c.x = (L + R) / 2 - vw / 2; else c.x = clamp(c.x, L - m, R + m - vw);
-    c.y = clamp(c.y, -vh + 120 / c.z, this.camMaxY());
+    c.y = clamp(c.y, this.camMinY(), this.camMaxY());
   },
   /* fim da rolagem: o fim da última página fica um pouco acima da borda de baixo da tela (daí em diante é "puxar para adicionar") */
-  camMaxBase() { const z = this.cam.z, vh = this.H / z; return Math.max(-vh + 120 / z, this.totalH - vh + 90 / z); },
+  camMinY() { return -60 / this.cam.z; }, // topo: só um pouquinho acima da 1ª página
+  camMaxBase() { const z = this.cam.z, vh = this.H / z; return Math.max(this.camMinY(), this.totalH - vh + 90 / z); },
   camMaxY() { return this.camMaxBase() + (this.pull || 0) * 0.6 / this.cam.z; }, // ao puxar, a folha sobe um pouco (efeito elástico)
   /* ---------- puxar para adicionar página (como no Notewise) ---------- */
   PULL_MAX: 150, PULL_ADD: 95,
@@ -141,7 +165,16 @@ const Editor = {
   pageTf(ctx, pi) { const o = this.layout[pi], z = this.cam.z, d = this.dpr; ctx.setTransform(d * z, 0, 0, d * z, d * (o.x - this.cam.x) * z, d * (o.y - this.cam.y) * z); },
 
   /* ---------- Desenho ---------- */
-  requestRender() { if (this.needs) return; this.needs = true; requestAnimationFrame(() => { this.needs = false; this.draw(); }); },
+  requestRender() { if (this.needs) return; this.needs = true; requestAnimationFrame(() => { this.needs = false; this.safeDraw(); }); },
+  safeDraw() { // um erro no desenho não pode congelar a tela: registra, volta ao desenho direto e tenta de novo
+    try { this.draw(); this._drawErr = 0; }
+    catch (e) {
+      logError(e, 'desenho'); this._drawErr = (this._drawErr || 0) + 1;
+      try { this.ctx.reset ? this.ctx.reset() : this.ctx.setTransform(1, 0, 0, 1, 0, 0); } catch (_) {}
+      this.resetTiles(); if (this._drawErr >= 2) this.noTiles = true;
+      if (this._drawErr < 4) setTimeout(() => this.requestRender(), 50);
+    }
+  },
   draw() {
     if (!this.note) return;
     const ctx = this.ctx, z = this.cam.z, d = this.dpr, note = this.note, inf = note.mode === 'infinite';
@@ -469,7 +502,7 @@ const Editor = {
     const a = this.action = { ...base, kind: 'draw', pi, pts: [], color: st.color, width: st.width, opacity: base.tool === 'highlighter' ? st.opacity ?? 0.4 : 1, drawn: 0, snap: Instruments.snapFor(p), hold: { x: p.x, y: p.y } };
     a.dash = base.tool === 'pen' ? st.dash || 'solid' : 'solid';
     if (base.tool === 'pen') { a.pen = st.type || 'ball'; a.nib = st.nib ?? 45; a.inc = a.dash === 'solid' && (a.pen === 'ball' || a.pen === 'natural') && !colorHasAlpha(a.color); }
-    a.inf = inf; this.addDrawPoint(e);
+    a.stab = stabLevel(base.tool, a.pen); a.inf = inf; this.addDrawPoint(e);
     const S0 = Store.settings;
     if (((base.tool === 'pen' && S0.straightAlways) || (base.tool === 'highlighter' && S0.hlStraight)) && !a.snap) { // sempre linhas retas
       const q = a.pts; a.straight = true;
@@ -486,8 +519,11 @@ const Editor = {
     const n = a.pts.length;
     if (n) {
       const lx = a.pts[n - 3], ly = a.pts[n - 2], lp = a.pts[n - 1];
+      // "corda": nos níveis altos a ponta só puxa o traço depois de se afastar um pouquinho (some o tremido fino)
+      const L = a.stab ?? 5, rope = a.snap ? 0 : Math.max(0, L - 5) * 0.55;
+      if (rope) { const d = Math.hypot(l.x - lx, l.y - ly) * this.cam.z; if (d <= rope) { a.raw = l; return; } const t = (d - rope) / d; l.x = lx + (l.x - lx) * t; l.y = ly + (l.y - ly) * t; }
       // estabilização adaptativa: segura o tremido em movimentos lentos e acompanha os rápidos
-      const sb = clamp(Store.settings.stabilizer ?? 0.55, 0, 1), kb = 1 - sb * 0.85;
+      const sb = clamp(L / 10, 0, 1), kb = 1 - sb * 0.85;
       const spd = Math.hypot(l.x - lx, l.y - ly) * this.cam.z; // px de tela desde a última amostra
       const k = a.snap ? 1 : clamp(kb + spd / (40 + 80 * sb), kb, 1);
       const x = lx + (l.x - lx) * k, y = ly + (l.y - ly) * k;
@@ -556,7 +592,7 @@ const Editor = {
       const targets = scribbleTargets(page.elements, a.pts);
       if (targets.length) { for (const e of targets) this.recRemove(page, e); this.sel = null; this.opCommit(); return; }
     }
-    if (!a.snap) smoothStroke(a.pts, Store.settings.stabilizer ?? 0.55); // alisa o traço final (pontas ficam no lugar)
+    if (!a.snap) smoothStroke(a.pts, (a.stab ?? 5) / 10); // alisa o traço final (pontas ficam no lugar)
     const pts = a.pts.map((v, i) => (i % 3 === 2 ? Math.round(v * 100) / 100 : r2(v)));
     const el = { id: uid(), type: 'stroke', tool: a.tool, color: a.color, width: a.width, pts };
     if (a.tool === 'highlighter') { el.opacity = a.opacity; if (a.snap) el.cap = 'butt'; }

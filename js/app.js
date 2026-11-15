@@ -3,13 +3,13 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.9.4',
+  version: '0.9.5',
   async init() {
     hydrateIcons();
     await Store.init();
     Store.purgeOldTrash().catch((e) => console.warn('lixeira', e)); // apaga de vez o que está na lixeira há mais de 30 dias
     this.applyTheme();
-    Editor.init(); Editor.initScroll();
+    Editor.init(); Editor.initScroll(); Nav.init();
     Plugins.init();
     setTimeout(() => Fonts.prewarm(), 4000); // baixa as fontes para funcionarem sem internet
     this.wire();
@@ -28,17 +28,45 @@ const App = {
     }
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   },
+  /* procura uma versão nova no GitHub; se houver, salva a nota, atualiza e reinicia */
+  async checkUpdate(btn) {
+    if (!navigator.onLine) return toast('Sem internet para verificar');
+    btn && btn.classList.add('spin');
+    try {
+      const r = await fetch('js/app.js?check=' + Date.now(), { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status);
+      const m = (await r.text()).match(/version:\s*'([^']+)'/), remote = m && m[1];
+      if (!remote) throw new Error('versão não encontrada');
+      if (cmpVersion(remote, this.version) <= 0) { toast(`Você já está na versão mais recente (${this.version})`, 2600); return; }
+      toast(`Atualizando para a versão ${remote}…`, 4000);
+      if (Editor.note) await Editor.saveNow();
+      const reg = 'serviceWorker' in navigator && (await navigator.serviceWorker.getRegistration());
+      if (reg) { try { await reg.update(); } catch (_) {} }
+      setTimeout(() => location.replace(location.pathname + '?atualizar=' + Date.now()), 600);
+    } catch (e) { toast('Não consegui verificar: ' + e.message, 3000); }
+    finally { btn && btn.classList.remove('spin'); }
+  },
   applyTheme() { const t = Store.settings.theme; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = t; },
   async openNote(id, focus) {
-    $('#library').classList.add('hidden'); $('#editor').classList.remove('hidden');
-    await new Promise((r) => requestAnimationFrame(r));
-    if (!(await Editor.open(id))) return Library.show();
-    if (focus) setTimeout(() => Editor.focusElement(focus[0], focus[1]), 60);
+    if (this._busy) return; this._busy = true;
+    try {
+      if (Editor.note && Editor.note.id !== id) await Editor.close(); // trocar de nota direto: fecha a anterior direito
+      $('#library').classList.add('hidden'); $('#editor').classList.remove('hidden');
+      await new Promise((r) => requestAnimationFrame(r));
+      if (!(await Editor.open(id))) return Library.show();
+      Nav.push('note');
+      if (focus) setTimeout(() => Editor.focusElement(focus[0], focus[1]), 60);
+    } catch (e) { logError(e, 'abrir nota'); toast('Erro ao abrir a nota: ' + e.message, 4000); Editor.note = null; Library.show(); }
+    finally { this._busy = false; }
   },
-  async closeNote() { await Editor.close(); Library.show(); },
+  async closeNote() {
+    if (this._busy) return; this._busy = true;
+    try { await Editor.close(); } catch (e) { logError(e, 'fechar nota'); }
+    finally { this._busy = false; Library.show(); }
+  },
   wire() {
     on(['btnNewNote2'], async () => { const n = await newNoteDialog(Library.folder); if (n) this.openNote(n.id); });
     on(['btnSettings', 'btnEdSettings'], () => openSettings());
+    on(['btnUpdate'], (e) => this.checkUpdate(e.currentTarget));
     $('#libSearch').addEventListener('input', (e) => { Library.query = e.target.value; Library.render(); });
     on(['libSync'], (e) => Drive.pillMenu(e.currentTarget, null));
     on(['edSync'], (e) => Drive.pillMenu(e.currentTarget, Editor.note && Editor.note.id));
@@ -68,7 +96,7 @@ const App = {
       { label: 'Ajustar à largura', icon: 'fit', run: () => Editor.fitWidth() },
       { label: 'Página inteira', icon: 'pages', run: () => Editor.fitPage() },
       '-',
-      ...ZOOM_STEPS.map((z) => ({ label: (Math.abs(Editor.cam.z - z) < 0.005 ? '✓ ' : '') + Math.round(z * 100) + '%', icon: 'search', run: () => Editor.zoomTo(z) })),
+      ...ZOOM_STEPS.filter((z) => { const [a, b] = Editor.zoomLimits(); return z >= a - 1e-6 && z <= b + 1e-6; }).map((z) => ({ label: (Math.abs(Editor.cam.z - z) < 0.005 ? '✓ ' : '') + Math.round(z * 100) + '%', icon: 'search', run: () => Editor.zoomTo(z) })),
     ]));
     on(['hudPage'], () => pagesPanel());
     window.addEventListener('pagehide', () => { if (Editor.note) Editor.saveNow(); });

@@ -85,16 +85,21 @@ function describeCustomTemplate(t) {
 /* desenho do modelo importado (posições exatas, escaladas pela largura da página) */
 function drawCustomTemplate(ctx, tpl, vis, z, pw) {
   const k = (pw || tpl.bw) / tpl.bw;
-  if ((tpl.spacing || 30) * k * z < 2.5) return; // muito afastado: não desenha (evita moiré)
+  if ((tpl.spacing || 30) * k * z < 1.8) { // muito afastado: vira um tom suave em vez de sumir
+    const l = (tpl.hl && tpl.hl[0]) || (tpl.vl && tpl.vl[0]), sp = (tpl.spacing || 30) * k;
+    if (l) return tintTemplate(ctx, l.c, clamp(+tpl.opacity || 1, 0.05, 1) * patternCoverage(tpl.vl && tpl.vl.length && tpl.hl && tpl.hl.length ? 'grid' : 'lines', Math.max(l.t * k, 1 / z), sp), vis, true, pw, (tpl.bh || 0) * k || null);
+    if (tpl.dots) return tintTemplate(ctx, tpl.dots.c, clamp(+tpl.opacity || 1, 0.05, 1) * patternCoverage('dots', Math.max(tpl.dots.r * k, 0.6 / z) / 1.1, sp), vis, true, pw, null);
+    return;
+  }
   const x1 = vis.x, x2 = vis.x + vis.w, y1 = vis.y, y2 = vis.y + vis.h;
   ctx.save(); ctx.globalAlpha = clamp(+tpl.opacity || 1, 0.05, 1); ctx.lineCap = 'butt';
   for (const l of tpl.hl || []) {
     const y = l.y * k; if (y < y1 - 4 || y > y2 + 4) continue;
-    ctx.strokeStyle = l.c; ctx.lineWidth = Math.max(l.t * k, 0.6 / z); ctx.beginPath(); ctx.moveTo(Math.max(x1, l.x1 * k), y); ctx.lineTo(Math.min(x2, l.x2 * k), y); ctx.stroke();
+    ctx.strokeStyle = l.c; ctx.lineWidth = Math.max(l.t * k, 1 / z); ctx.beginPath(); ctx.moveTo(Math.max(x1, l.x1 * k), y); ctx.lineTo(Math.min(x2, l.x2 * k), y); ctx.stroke();
   }
   for (const l of tpl.vl || []) {
     const x = l.x * k; if (x < x1 - 4 || x > x2 + 4) continue;
-    ctx.strokeStyle = l.c; ctx.lineWidth = Math.max(l.t * k, 0.6 / z); ctx.beginPath(); ctx.moveTo(x, Math.max(y1, l.y1 * k)); ctx.lineTo(x, Math.min(y2, l.y2 * k)); ctx.stroke();
+    ctx.strokeStyle = l.c; ctx.lineWidth = Math.max(l.t * k, 1 / z); ctx.beginPath(); ctx.moveTo(x, Math.max(y1, l.y1 * k)); ctx.lineTo(x, Math.min(y2, l.y2 * k)); ctx.stroke();
   }
   const D = tpl.dots;
   if (D) {

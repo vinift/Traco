@@ -313,6 +313,12 @@ async function openSettings(focus) {
       UI.check('Ângulo: girar grudando a cada 15° (0°, 45°, 90°…)', S.snapAngle !== false, (v) => { S.snapAngle = v; Store.saveSettings(); }),
       UI.check('Proporção: ao redimensionar, grudar em 1:1 ou na proporção original', S.snapRatio !== false, (v) => { S.snapRatio = v; Store.saveSettings(); }),
       UI.check('Linhas retas da caneta e do marca-texto grudam a cada 15°', S.angleSnap !== false, (v) => { S.angleSnap = v; Store.saveSettings(); }))));
+  const zApply = () => { if (Editor.note) { Editor.clampCam(); Editor.requestRender(); } };
+  body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Zoom'),
+    el('p', {}, 'Até onde o movimento de pinça pode afastar e aproximar a folha. O menu de zoom (porcentagem no canto) segue estes limites.'),
+    UI.slider('Zoom mínimo (afastar)', 10, 100, 5, +S.zoomMin || 20, (v) => { S.zoomMin = v; Store.saveSettings(); zApply(); }, (v) => v + '%'),
+    UI.slider('Zoom máximo (aproximar)', 200, 2000, 100, +S.zoomMax || 800, (v) => { S.zoomMax = v; Store.saveSettings(); zApply(); }, (v) => v + '%'),
+    el('p', { class: 'muted' }, 'No modo tela infinita o mínimo padrão é 10%.')));
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Escrita e caneta'),
     el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
       chk('Ignorar a palma da mão (toques são ignorados enquanto a caneta está perto da tela)', 'palmGuard'),
@@ -321,7 +327,7 @@ async function openSettings(focus) {
       UI.slider('Sensibilidade à pressão', 0, 1, 0.05, S.pressureSens ?? 0.6, (v) => { S.pressureSens = v; S.pressure = v > 0; Store.saveSettings(); }, (v) => (v === 0 ? 'sem' : Math.round(v * 100) + '%')),
       chk('Reconhecer formas ao segurar a caneta parada no fim do traço', 'shapeHold'),
       UI.check('Modo de baixa latência (a tinta aparece mais rápido; reabra o app depois de mudar)', S.lowLatency === true, (v) => { S.lowLatency = v; Store.saveSettings(); toast('Reabra o app para aplicar'); }),
-      UI.slider('Estabilização do traço (deixa a letra mais firme)', 0, 1, 0.05, S.stabilizer ?? 0.55, (v) => { S.stabilizer = v; Store.saveSettings(); }, (v) => Math.round(v * 100) + '%'),
+      el('p', { class: 'muted' }, 'Estabilização do traço (0 a 10): fica no painel de cada caneta — cada tipo guarda o seu nível.'),
       )));
   body.append(penMapSection());
   S.ocr = S.ocr || { enabled: true, lang: 'pt_BR' };
@@ -370,10 +376,26 @@ async function openSettings(focus) {
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Cópia local'),
     el('p', {}, 'Um arquivo único com todas as notas, imagens e PDFs, para guardar onde quiser ou levar para outro aparelho.'),
     el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, B('Exportar tudo', '', exportAll), B('Importar arquivo de backup', '', importAll))));
+  // --- Diagnóstico
+  const errBox = el('div', { class: 'errlog' });
+  const renderErr = () => {
+    const errs = readErrors(); errBox.innerHTML = '';
+    if (!errs.length) { errBox.append(el('p', {}, '✅ Nenhum erro registrado.')); return; }
+    for (const x of errs.slice().reverse().slice(0, 12)) errBox.append(el('div', { class: 'errrow' }, el('b', {}, new Date(x.at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) + (x.n > 1 ? ` (${x.n}×)` : '') + ' · ' + (x.where || '')), el('span', {}, x.msg)));
+  };
+  renderErr();
+  const diagText = () => JSON.stringify({ versao: App.version, ua: navigator.userAgent, memoria: navigator.deviceMemory, tela: [innerWidth, innerHeight, devicePixelRatio], baixaLatencia: !!S.lowLatency, blocos: Editor.tiles ? Editor.tiles.size : 0, erros: readErrors() }, null, 1);
+  body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Diagnóstico'),
+    el('p', {}, 'Se o app travar ou as barras sumirem, os erros ficam registrados aqui. Copie e me mande para eu achar a causa.'),
+    S.lowLatency ? el('p', { style: { color: 'var(--danger)' } }, '⚠️ O modo de baixa latência está ligado. Em alguns tablets ele faz as barras sumirem — se isso acontecer, desligue em Escrita e caneta.') : null,
+    errBox,
+    el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' } },
+      B('Copiar relatório', '', async () => { try { await navigator.clipboard.writeText(diagText()); toast('Relatório copiado'); } catch (_) { openModal({ title: 'Relatório', wide: true, body: el('textarea', { style: { width: '100%', height: '300px' } }, diagText()), buttons: [{ label: 'Fechar', cls: 'primary' }] }); } }),
+      B('Limpar', 'ghost', () => { localStorage.removeItem(ERRLOG_KEY); renderErr(); }))));
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Sobre'), el('p', {}, `Traço Notas · versão ${App.version}`), el('p', {}, 'Caderno digital feito sob medida: escrita com caneta, PDFs, tabelas, importação do Notewise e backup no seu Google Drive. As notas ficam guardadas no aparelho.')));
   return settingsPage(body, focus, () => { saveDrive(); applyBarSize(); if (Editor.note) { UI.buildToolbar(); UI.renderOptions(); Editor.requestRender(); } });
 }
-const SET_ORDER = [['Você', 'home'], ['Aparência e barras', 'palette'], ['Escrita e caneta', 'pen'], ['Ajustes automáticos', 'fit'], ['Botões da caneta (Focus Pen)', 'hand'], ['Leitura da escrita à mão (OCR)', 'ocr'], ['Backup automático no Google Drive', 'cloud'], ['Modelo padrão para novas notas', 'grid'], ['Ferramentas próprias (plugins)', 'plug'], ['Cópia local', 'download'], ['Sobre', 'star']];
+const SET_ORDER = [['Você', 'home'], ['Aparência e barras', 'palette'], ['Escrita e caneta', 'pen'], ['Ajustes automáticos', 'fit'], ['Zoom', 'search'], ['Botões da caneta (Focus Pen)', 'hand'], ['Leitura da escrita à mão (OCR)', 'ocr'], ['Backup automático no Google Drive', 'cloud'], ['Modelo padrão para novas notas', 'grid'], ['Ferramentas próprias (plugins)', 'plug'], ['Cópia local', 'download'], ['Diagnóstico', 'tune'], ['Sobre', 'star']];
 function settingsPage(body, focus, onClose) {
   return new Promise((resolve) => {
     const secs = [...body.querySelectorAll(':scope > .set-sec')];

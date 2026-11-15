@@ -33,6 +33,9 @@ const PdfCache = {
   async render(ref, scale) {
     const b = scale, k = this.key(ref, b);
     if (this.bmps.has(k)) return this.bmps.get(k);
+    this.busy++; try { return await this._render(ref, b, k); } finally { this.busy--; }
+  },
+  async _render(ref, b, k) {
     const doc = await this.doc(ref.blobId); const page = await doc.getPage(ref.index + 1);
     const vp = page.getViewport({ scale: (96 / 72) * b });
     const cv = document.createElement('canvas'); cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
@@ -41,7 +44,18 @@ const PdfCache = {
     this.bmps.set(k, cv); this.trim();
     return cv;
   },
-  trim() { let px = 0; const ent = [...this.bmps.entries()]; for (let i = ent.length - 1; i >= 0; i--) { px += ent[i][1].width * ent[i][1].height; if (px > 90e6) this.bmps.delete(ent[i][0]); } },
+  // com os blocos, o PDF renderizado só serve de fonte: 48 Mpx (~190 MB) bastam; antes eram 90 Mpx e estouravam a memória no tablet
+  trim() { let px = 0; const ent = [...this.bmps.entries()]; for (let i = ent.length - 1; i >= 0; i--) { px += ent[i][1].width * ent[i][1].height; if (px > 48e6 && i < ent.length - 1) this.bmps.delete(ent[i][0]); } },
+  clear() { // ao fechar a nota: libera bitmaps e documentos
+    if (!this.busy && !this.pending.size) for (const cv of this.bmps.values()) { cv.width = 0; cv.height = 0; } // libera na hora (se nada estiver usando)
+    this.bmps.clear();
+    clearTimeout(this._dT); this._dT = setTimeout(() => this.dropDocs(), 30000); // documentos: fecha depois, se nada mais estiver usando
+  },
+  busy: 0,
+  dropDocs() {
+    if (this.busy || this.pending.size || (typeof Editor !== 'undefined' && Editor.note)) return;
+    for (const p of this.docs.values()) p.then((d) => d && d.destroy && d.destroy()).catch(() => {}); this.docs.clear();
+  },
 };
 
 async function importPdfFile(file) {

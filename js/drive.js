@@ -16,8 +16,11 @@ const Drive = {
     for (const id of ['libSync', 'edSync']) {
       const p = document.getElementById(id); if (!p) continue;
       p.className = 'sync-pill ' + ({ ok: 'ok', busy: 'busy', err: 'err', need: 'err' }[state] || '') + (id === 'edSync' ? ' small' : '');
-      p.innerHTML = icon(state === 'off' ? 'cloudOff' : state === 'ok' ? 'check' : state === 'busy' ? 'refresh' : 'cloud') + `<span class="txt">${labels[state]}</span>`;
-      p.title = labels[state] + (msg ? ' — ' + msg : '') + (this.cfg.lastSync ? '\nÚltimo backup: ' + new Date(this.cfg.lastSync).toLocaleString('pt-BR') : '');
+      const pg = state === 'busy' && this.pg && this.pg.total ? this.pg : null, pct = pg ? Math.min(100, Math.round((pg.done / pg.total) * 100)) : 0;
+      const txt = pg ? `Enviando ${Math.min(pg.done + 1, pg.total)} de ${pg.total}` : labels[state];
+      p.innerHTML = icon(state === 'off' ? 'cloudOff' : state === 'ok' ? 'check' : state === 'busy' ? 'refresh' : 'cloud') + `<span class="txt">${txt}</span>` + (pg ? `<span class="pct">${pct}%</span><i class="sbar"><i style="width:${pct}%"></i></i>` : '');
+      p.classList.toggle('prog', !!pg);
+      p.title = (pg ? txt + ` (${pct}%)` + (pg.label ? '\n' + pg.label : '') : labels[state]) + (msg ? ' — ' + msg : '') + (this.cfg.lastSync ? '\nÚltimo backup: ' + new Date(this.cfg.lastSync).toLocaleString('pt-BR') : '');
     }
   },
   refreshStatus() {
@@ -239,21 +242,25 @@ const Drive = {
     if (!this.configured()) { this.refreshStatus(); return; }
     if (!navigator.onLine) { this.setStatus('pending', 'sem internet'); return; }
     if (this.running) { this.again = true; return; }
-    this.running = true; this.setStatus('busy');
+    this.running = true; this.pg = null; this.setStatus('busy');
     try {
       await this.migrateLayout();
       const d = Store.dirty; d.pdfs = d.pdfs || {}; d.folders = d.folders || {};
+      // progresso: conta tudo o que vai subir e avança a cada item
+      const pg = this.pg = { done: 0, total: Object.keys(d.folders).length + Object.keys(d.blobs).filter((id) => !this.entry('b:' + id)).length + Object.keys(d.notes).length + (this.cfg.pdf === false ? 0 : Object.keys(d.pdfs).length) + Object.keys(d.deleted).length + (d.lib ? 1 : 0), label: '' };
+      const at = (label) => { pg.label = label; this.setStatus('busy'); }, done = () => { pg.done = Math.min(pg.total, pg.done + 1); this.setStatus('busy'); };
+      this.setStatus('busy');
       const data = await this.ensureDataFolder();
-      for (const id of Object.keys(d.folders)) { if (Store.folders.find((f) => f.id === id)) await this.ensureNoteFolder(id); delete d.folders[id]; await Store.saveDirty(); }
+      for (const id of Object.keys(d.folders)) { at('Pasta'); if (Store.folders.find((f) => f.id === id)) await this.ensureNoteFolder(id); delete d.folders[id]; await Store.saveDirty(); done(); }
       for (const key of Object.keys(Store.driveMap)) if (key.startsWith('f:') && !Store.folders.find((f) => f.id === key.slice(2))) { /* pasta apagada no app: as notas já foram movidas */ await this.trash(key); }
       for (const id of Object.keys(d.blobs)) {
-        if (!this.entry('b:' + id)) { const blob = await Store.getBlob(id); if (blob) await this.uploadResumable('b:' + id, 'arquivo-' + id + (blob.type === 'application/pdf' ? '.pdf' : '.img'), blob, data, { traco: 'blob', blobId: id }); }
-        delete d.blobs[id]; await Store.saveDirty();
+        if (!this.entry('b:' + id)) { at('Imagem/PDF anexado'); const blob = await Store.getBlob(id); if (blob) await this.uploadResumable('b:' + id, 'arquivo-' + id + (blob.type === 'application/pdf' ? '.pdf' : '.img'), blob, data, { traco: 'blob', blobId: id }); }
+        const wasNew = pg.label === 'Imagem/PDF anexado'; delete d.blobs[id]; await Store.saveDirty(); if (wasNew) { pg.label = ''; done(); }
       }
       for (const id of Object.keys(d.notes)) {
-        const note = await Store.getNote(id);
+        const note = await Store.getNote(id); at('Nota: ' + (note ? note.title : ''));
         if (note) await this.upsert('n:' + id, { name: safeName(note.title) + '.traco', mime: 'application/json', data: JSON.stringify(note), parent: await this.ensureNoteDir(note), props: { traco: 'nota', noteId: id } });
-        delete d.notes[id]; await Store.saveDirty();
+        delete d.notes[id]; await Store.saveDirty(); done();
       }
       let pdfWait = false;
       for (const id of Object.keys(d.pdfs)) {
@@ -261,24 +268,24 @@ const Drive = {
         const editing = typeof Editor !== 'undefined' && Editor.note && Editor.note.id === id;
         if (editing && Date.now() - (Editor.note.updated || 0) < 120000) { pdfWait = true; continue; } // espera você parar de escrever
         const note = await Store.getNote(id);
-        if (note) { this.setStatus('busy', 'gerando PDF'); const pdf = await exportNotePdf(note); await this.upsert('p:' + id, { name: safeName(note.title) + '.pdf', mime: 'application/pdf', data: pdf, parent: await this.ensureNoteDir(note), props: { traco: 'pdf', noteId: id } }); }
-        delete d.pdfs[id]; await Store.saveDirty();
+        if (note) { at('PDF: ' + note.title); const pdf = await exportNotePdf(note); await this.upsert('p:' + id, { name: safeName(note.title) + '.pdf', mime: 'application/pdf', data: pdf, parent: await this.ensureNoteDir(note), props: { traco: 'pdf', noteId: id } }); }
+        delete d.pdfs[id]; await Store.saveDirty(); done();
       }
-      for (const id of Object.keys(d.deleted)) { await this.trash('n:' + id); await this.trash('p:' + id); await this.trash('d:' + id); delete d.deleted[id]; await Store.saveDirty(); }
+      for (const id of Object.keys(d.deleted)) { at('Removendo nota apagada'); await this.trash('n:' + id); await this.trash('p:' + id); await this.trash('d:' + id); delete d.deleted[id]; await Store.saveDirty(); done(); }
       if (d.lib) {
-        const heads = {}; for (const [k, v] of Object.entries(Store.heads)) heads[k] = { ...v, thumb: undefined, texts: undefined };
+        at('Lista de pastas e notas'); const heads = {}; for (const [k, v] of Object.entries(Store.heads)) heads[k] = { ...v, thumb: undefined, texts: undefined };
         await this.upsert('lib', { name: 'biblioteca.json', mime: 'application/json', data: JSON.stringify({ v: 1, folders: Store.folders, heads, groups: Store.settings.presetGroups, saved: Date.now() }), parent: data, props: { traco: 'lib' } });
-        d.lib = false; await Store.saveDirty();
+        d.lib = false; await Store.saveDirty(); done();
       }
-      this.cfg.lastSync = Date.now(); Store.saveSettings();
-      this.refreshStatus(); if (manual) toast('Backup no Drive concluído');
+      this.cfg.lastSync = Date.now(); Store.saveSettings(); this.pg = null;
+      this.refreshStatus(); if (manual) toast(pg.total ? `Backup no Drive concluído (${pg.total} ${pg.total === 1 ? 'item' : 'itens'})` : 'Backup no Drive concluído');
       if (pdfWait) { clearTimeout(this._pdfT); this._pdfT = setTimeout(() => this.sync(), 130000); }
     } catch (e) {
       console.error(e);
       if (e.needAuth) this.setStatus('need'); else this.setStatus('err', e.message);
       if (manual && !e.needAuth) toast('Erro no backup: ' + e.message, 5000);
     } finally {
-      this.running = false;
+      this.running = false; this.pg = null;
       if (this.again) { this.again = false; this.schedule(); }
     }
   },

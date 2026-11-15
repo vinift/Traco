@@ -11,6 +11,7 @@ const ImgCache = {
     }
     return null;
   },
+  clear() { this.map.clear(); }, // ao fechar a nota (a memória volta quando ninguém mais usa)
   async load(id) { const v = this.get(id); if (v) return v; for (let i = 0; i < 100; i++) { await sleep(30); const b = this.map.get(id); if (b && b !== 'loading') return b; if (!b) return null; } return null; },
 };
 
@@ -18,9 +19,10 @@ function drawTemplate(ctx, tpl, vis, z, bounded, pw, ph) {
   if (!tpl || tpl.type === 'blank') return;
   if (tpl.type === 'custom') return drawCustomTemplate(ctx, tpl, vis, z, pw); // modelo importado de PDF
   const s = Math.max(4, +tpl.spacing || 32);
-  if (s * z < (tpl.type === 'dots' ? 5 : 3)) return;
-  const th = Math.max(+tpl.thickness || 1, 0.6 / z);
-  ctx.save(); ctx.globalAlpha = clamp(+tpl.opacity || 1, 0.05, 1);
+  const th = Math.max(+tpl.thickness || 1, (tpl.type === 'dots' ? 0.6 : 1) / z), op = clamp(+tpl.opacity || 1, 0.05, 1); // afastando: linhas com pelo menos 1 px de tela (a grade não "some")
+  // muito afastado: em vez de sumir, a grade vira um tom suave do papel (mesmo "peso" visual)
+  if (s * z < (tpl.type === 'dots' ? 2.4 : 1.8)) return tintTemplate(ctx, tpl.color, op * patternCoverage(tpl.type, th, s), vis, bounded, pw, ph);
+  ctx.save(); ctx.globalAlpha = op;
   ctx.strokeStyle = ctx.fillStyle = tpl.color; ctx.lineWidth = th;
   const top = bounded ? (+tpl.top || 0) : 0;
   const x1 = vis.x, x2 = vis.x + vis.w, y1 = vis.y, y2 = vis.y + vis.h;
@@ -48,6 +50,14 @@ function drawTemplate(ctx, tpl, vis, z, bounded, pw, ph) {
     const mx = Math.round(s * 2.5); ctx.moveTo(mx, y1); ctx.lineTo(mx, y2); ctx.stroke();
   }
   ctx.restore();
+}
+
+function patternCoverage(type, th, s) { const f = Math.min(0.25, th / s); return type === 'grid' ? 2 * f - f * f : type === 'dots' ? Math.PI * Math.min(th * 1.1, s * 0.2) ** 2 / (s * s) : f; }
+function tintTemplate(ctx, color, a, vis, bounded, pw, ph) {
+  if (a <= 0.003) return; ctx.save(); ctx.globalAlpha = Math.min(1, a); ctx.fillStyle = color;
+  let x1 = vis.x, y1 = vis.y, x2 = vis.x + vis.w, y2 = vis.y + vis.h;
+  if (bounded && pw && ph) { x1 = Math.max(0, x1); y1 = Math.max(0, y1); x2 = Math.min(pw, x2); y2 = Math.min(ph, y2); }
+  if (x2 > x1 && y2 > y1) ctx.fillRect(x1, y1, x2 - x1, y2 - y1); ctx.restore();
 }
 
 function drawElement(ctx, e) {

@@ -9,8 +9,19 @@ const _oid = new WeakMap(); let _oidN = 1;
 function oid(o) { if (!o || typeof o !== 'object') return 0; let n = _oid.get(o); if (!n) { n = _oidN++; _oid.set(o, n); } return n; }
 
 Object.assign(Editor, {
-  tileMax: 120, previewMax: 24, tileBudgetMs: 10, // ~120 MB de blocos + miniaturas pequenas
-  resetTiles() { this.tiles = new Map(); this.pcache = new Map(); this.imgEpoch = (this.imgEpoch || 0) + 1; },
+  // memória: cada bloco tem 1 MB; o Chrome do Android derruba a tela (barras somem) se a memória de desenho estoura
+  tileMax: (navigator.deviceMemory || 4) >= 8 ? 90 : 60, previewMax: 12, tileBudgetMs: 10,
+  freeCanvas(c) { if (c) { c.width = 0; c.height = 0; } }, // devolve a memória na hora (sem esperar a coleta de lixo)
+  resetTiles() {
+    if (this.tiles) for (const t of this.tiles.values()) this.freeCanvas(t.cv);
+    if (this.pcache) for (const pc of this.pcache.values()) if (pc.preview) this.freeCanvas(pc.preview.cv);
+    this.tiles = new Map(); this.pcache = new Map(); this.imgEpoch = (this.imgEpoch || 0) + 1;
+  },
+  putTile(lv, t) { // guarda um bloco novo e libera o antigo que ele substitui
+    const k = t.pid + '|' + t.lvl + '|' + t.key, prev = this.tiles.get(k);
+    if (prev && prev !== t) this.freeCanvas(prev.cv);
+    lv.set(t.key, t); this.tiles.set(k, t);
+  },
   /* assinatura do conteúdo da página: muda quando qualquer item, o modelo, o tamanho, as fontes ou as imagens mudam */
   pageSig(page) {
     let h = 2166136261 ^ page.elements.length;
@@ -58,9 +69,9 @@ Object.assign(Editor, {
   evictTiles() {
     if (this.tiles.size <= this.tileMax) return;
     const arr = [...this.tiles.entries()].sort((a, b) => a[1].used - b[1].used);
-    for (let i = 0; i < arr.length - this.tileMax; i++) { const [k, t] = arr[i]; if (t.used === this.frameNo) break; this.tiles.delete(k); const pc = this.pcache.get(t.pid); if (pc) { const lv = pc.levels.get(t.lvl); if (lv) { lv.delete(t.key); if (!lv.size) pc.levels.delete(t.lvl); } } }
+    for (let i = 0; i < arr.length - this.tileMax; i++) { const [k, t] = arr[i]; if (t.used === this.frameNo) break; this.tiles.delete(k); this.freeCanvas(t.cv); const pc = this.pcache.get(t.pid); if (pc) { const lv = pc.levels.get(t.lvl); if (lv) { lv.delete(t.key); if (!lv.size) pc.levels.delete(t.lvl); } } }
     const prev = [...this.pcache.values()].filter((pc) => pc.preview).sort((a, b) => a.preview.used - b.preview.used);
-    for (let i = 0; i < prev.length - this.previewMax; i++) prev[i].preview = null;
+    for (let i = 0; i < prev.length - this.previewMax; i++) { this.freeCanvas(prev[i].preview.cv); prev[i].preview = null; }
   },
   /* desenha uma página usando os blocos; devolve false se precisou adiar algo (pede outro quadro) */
   drawPageTiled(ctx, page, pi, o, vis, st) {
@@ -87,7 +98,7 @@ Object.assign(Editor, {
       if (lvl == null) { complete = false; break; }
       if (!mustSync && (performance.now() - st.t0 > this.tileBudgetMs || st.rendered >= 3)) { complete = false; break; }
       const t = this.renderTile(page, pi, s, w[0], w[1]); t.pid = page.id; t.lvl = lvl; t.key = w[2];
-      lv.set(w[2], t); this.tiles.set(page.id + '|' + lvl + '|' + w[2], t); st.rendered++;
+      this.putTile(lv, t); st.rendered++;
     }
     if (lvl != null && complete) { pc.changed = false; pc.lastLevel = lvl; }
     // fundo provisório onde ainda falta bloco nítido: miniatura da página + blocos do último zoom esticados
@@ -96,8 +107,13 @@ Object.assign(Editor, {
       let oldLvl = pc.lastLevel != null && pc.lastLevel !== lvl && pc.levels.has(pc.lastLevel) ? pc.lastLevel : null;
       if (oldLvl == null) for (const k of pc.levels.keys()) if (k !== lvl && pc.levels.get(k).size && (oldLvl == null || Math.abs(k - s) < Math.abs(oldLvl - s))) oldLvl = k;
       const old = oldLvl != null ? pc.levels.get(oldLvl) : null;
-      if (!old && pc.preview && !pc.preview.stale) { pc.preview.used = this.frameNo; ctx.drawImage(pc.preview.cv, ox, oy, page.w * s, page.h * s); } // miniatura (preparada em segundo plano)
-      if (old) { const k = s / oldLvl; for (const [key, t] of old) { if (t.stale) continue; const [tx, ty] = key.split(',').map(Number); const dx = ox + tx * TILE * k, dy = oy + ty * TILE * k, dw = TILE * k; if (dx > this.cMain.width || dy > this.cMain.height || dx + dw < 0 || dy + dw < 0) continue; t.used = this.frameNo; ctx.drawImage(t.cv, dx, dy, dw, dw); } }
+      // blocos antigos que caem na tela; se não cobrem toda a parte visível da página, a miniatura vai por baixo
+      const vx0 = Math.max(ox, 0), vy0 = Math.max(oy, 0), vx1 = Math.min(ox + page.w * s, this.cMain.width), vy1 = Math.min(oy + page.h * s, this.cMain.height);
+      const olds = []; let cx0 = Infinity, cy0 = Infinity, cx1 = -Infinity, cy1 = -Infinity, area = 0;
+      if (old) { const k = s / oldLvl; for (const [key, t] of old) { if (t.stale) continue; const [tx, ty] = key.split(',').map(Number); const dx = ox + tx * TILE * k, dy = oy + ty * TILE * k, dw = TILE * k; if (dx > this.cMain.width || dy > this.cMain.height || dx + dw < 0 || dy + dw < 0) continue; olds.push([t, dx, dy, dw]); cx0 = Math.min(cx0, dx); cy0 = Math.min(cy0, dy); cx1 = Math.max(cx1, dx + dw); cy1 = Math.max(cy1, dy + dw); area += dw * dw; } }
+      const covered = olds.length && cx0 <= vx0 + 1 && cy0 <= vy0 + 1 && cx1 >= vx1 - 1 && cy1 >= vy1 - 1 && area >= (vx1 - vx0) * (vy1 - vy0) * 0.98;
+      if (!covered && pc.preview && !pc.preview.stale) { pc.preview.used = this.frameNo; ctx.drawImage(pc.preview.cv, ox, oy, page.w * s, page.h * s); } // miniatura (preparada em segundo plano)
+      if (olds.length) { ctx.imageSmoothingQuality = s / oldLvl < 0.6 ? 'medium' : 'low'; /* afastando muito: suaviza de verdade para as linhas finas da grade não sumirem */ for (const [t, dx, dy, dw] of olds) { t.used = this.frameNo; ctx.drawImage(t.cv, dx, dy, dw, dw); } ctx.imageSmoothingQuality = 'low'; }
     }
     if (lv) for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) { const t = lv.get(tx + ',' + ty); if (t && !t.stale) { t.used = this.frameNo; ctx.drawImage(t.cv, ox + tx * TILE, oy + ty * TILE); } }
     ctx.restore();
@@ -122,12 +138,12 @@ Object.assign(Editor, {
           if (performance.now() - t0 > 12 || n >= 4) return;
           const key = tx + ',' + ty, t = lv.get(key); if (t && !t.stale) continue;
           const nt = this.renderTile(page, i, s, tx, ty); nt.pid = page.id; nt.lvl = lvl; nt.key = key; nt.used = this.frameNo - 1;
-          lv.set(key, nt); this.tiles.set(page.id + '|' + lvl + '|' + key, nt); n++;
+          this.putTile(lv, nt); n++;
         }
       });
       if (n < 4 && performance.now() - t0 < 12) { // miniaturas das páginas vizinhas (fundo provisório no zoom rápido)
         const ci = Math.max(0, this.currentPageIndex());
-        for (let d = 0; d <= 3 && n < 4; d++) for (const i of [ci + d, ci - d]) { const pg = this.note.pages[i]; if (!pg || performance.now() - t0 > 12) continue; const pc = this.pageCache(pg); if (!pc.preview || pc.preview.stale) { pc.preview = this.renderPreview(pg); pc.preview.used = this.frameNo - 1; n++; } }
+        for (let d = 0; d <= 3 && n < 4; d++) for (const i of [ci + d, ci - d]) { const pg = this.note.pages[i]; if (!pg || performance.now() - t0 > 12) continue; const pc = this.pageCache(pg); if (!pc.preview || pc.preview.stale) { if (pc.preview) this.freeCanvas(pc.preview.cv); pc.preview = this.renderPreview(pg); pc.preview.used = this.frameNo - 1; n++; } }
       }
       this.evictTiles();
       if (n) this.schedulePrefetch();

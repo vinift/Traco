@@ -36,6 +36,13 @@ function buildPenPath(pts, w, path = new Path2D(), from = 0) {
   return path;
 }
 /* ---------- Estabilização ---------- */
+// nível 0–10 por tipo de caneta (esferográfica mais firme por padrão) e um para o marca-texto
+const STAB_DEFAULT = { ball: 8 };
+function stabLevel(tool, pen) {
+  const S = Store.settings, old = Math.round((S.stabilizer ?? 0.55) * 10);
+  if (tool === 'highlighter') return clamp(S.stabHl ?? old, 0, 10);
+  const v = (S.stabPen || {})[pen]; return clamp(v ?? STAB_DEFAULT[pen] ?? old, 0, 10);
+}
 function smoothStroke(pts, s) { // passadas de média [1/4 1/2 1/4] em x e y, mantendo início e fim
   const n = pts.length / 3, passes = Math.round(clamp(s, 0, 1) * 4); if (n < 4 || !passes) return pts;
   for (let k = 0; k < passes; k++) {
@@ -365,7 +372,7 @@ function recognizeShape(flat) {
 // Rabisco = vai e volta várias vezes sobre a MESMA região, cruzando quase toda a largura (ou altura) a cada passada.
 // A letra cursiva avança para a direita, então as passadas não se sobrepõem — isso evita apagar por engano.
 function isScribble(flat) {
-  const n = flat.length / 3; if (n < 14) return false;
+  const n = flat.length / 3; if (n < 10) return false;
   let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity, len = 0;
   for (let i = 0; i < n; i++) { const x = flat[i * 3], y = flat[i * 3 + 1]; x1 = Math.min(x1, x); x2 = Math.max(x2, x); y1 = Math.min(y1, y); y2 = Math.max(y2, y); if (i) len += Math.hypot(x - flat[i * 3 - 3], y - flat[i * 3 - 2]); }
   const w = x2 - x1, h = y2 - y1; if (w + h < 16) return false;
@@ -378,13 +385,13 @@ function isScribble(flat) {
       if ((v - ex) * dir > 0) { ex = v; exC = c; } else if (Math.abs(v - ex) > thr) { turns.push([ex, exC]); dir = -dir; ex = v; exC = c; }
     }
     turns.push([ex, exC]);
-    const long = []; for (let k = 1; k < turns.length; k++) { const L = Math.abs(turns[k][0] - turns[k - 1][0]); if (L >= ext * 0.55) long.push(Math.abs(turns[k][1] - turns[k - 1][1])); }
+    const long = []; for (let k = 1; k < turns.length; k++) { const L = Math.abs(turns[k][0] - turns[k - 1][0]); if (L >= ext * 0.5) long.push(Math.abs(turns[k][1] - turns[k - 1][1])); }
     return { n: long.length, drift: long.length ? long.reduce((s2, d) => s2 + d, 0) / long.length : Infinity };
   };
   const H = passes(0), V = passes(1);
-  const okH = H.n >= 5 && H.drift < Math.max(14, h * 0.45);           // vai-e-volta horizontal
-  const okV = V.n >= 5 && V.drift < Math.max(14, w * 0.3) && w / Math.max(h, 1) < 2.2; // vai-e-volta vertical, compacto
-  return (okH || okV) && len > 3.2 * (w + h);
+  const okH = H.n >= 4 && H.drift < Math.max(14, h * 0.5);           // vai-e-volta horizontal
+  const okV = V.n >= 4 && V.drift < Math.max(14, w * 0.3) && w / Math.max(h, 1) < 2.2; // vai-e-volta vertical, compacto
+  return (okH || okV) && len > 2.4 * (w + h); // v0.9.5: 4 idas e voltas bastam (letras como M e W continuam a salvo pelo comprimento)
 }
 // Apaga tudo o que estiver majoritariamente dentro da área do rabisco, mesmo sem encostar
 function scribbleTargets(elements, flat) {

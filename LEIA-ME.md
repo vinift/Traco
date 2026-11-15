@@ -151,6 +151,22 @@ Em **Configurações → Ferramentas próprias**, você cria ferramentas em Java
 
 Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet baixa a nova versão na próxima vez que o app for aberto com internet. Suas notas não são afetadas.
 
+Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
+
+## Novidades da v0.9.5
+
+| Item | Como funciona |
+|---|---|
+| Botão voltar do tablet | Fecha o que estiver por cima (menu, janela, painel, seleção), depois sai da nota, sobe uma pasta e, na tela inicial, pede "volte de novo para sair" |
+| Progresso do backup | O ícone da nuvem mostra "Enviando 3 de 12" com a porcentagem e uma barrinha |
+| Zoom mínimo e máximo | Configurações → Zoom (de 10% a 2000%) |
+| Estabilização por caneta | No painel de cada caneta, de 0 a 10. A esferográfica vem em 8. Do 6 para cima a ponta "puxa o traço por uma cordinha", tirando o tremido fino |
+| Rabiscar para apagar | Basta ir e voltar 4 vezes (antes eram 5 e mais longas) |
+| Grade ao afastar | A grade mantém a espessura mínima de 1 px; muito longe vira um tom suave em vez de sumir |
+| Rolagem para cima | Para logo acima da primeira página |
+| Diagnóstico | Configurações → Diagnóstico: guarda os erros. Se travar ou as barras sumirem, toque em "Copiar relatório" e mande para o Claude |
+| Memória | O app usa bem menos memória de desenho (blocos, PDF e imagens são liberados ao sair da nota), o que evita a tela "quebrar" no Android |
+
 ## Segurança das notas
 
 - As notas ficam no armazenamento do Chrome do tablet. **Não limpe os dados do site** sem um backup.
