@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.15.1
+
+- Corrigido: ao sair da tela cheia, a barra de horário/bateria do Android aparecia e desalinhava o app. No app instalado a tela cheia agora só esconde as barras do próprio app (a do sistema continua escondida).
+
 ## Novidades da v0.15.0
 
 - **Tela cheia** (botão ⛶): esconde só as barras do topo — ferramentas, cores e espessuras continuam. Para sair, toque no botão discreto (meio transparente) no canto superior direito.

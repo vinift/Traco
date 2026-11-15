@@ -256,7 +256,10 @@ const Focus = {
   toggle(v = !this.on) {
     this.on = v; const e = this.ed(); e.classList.toggle('immersive', v); e.classList.remove('peek'); this.setIcon();
     Store.settings.immersive = v; Store.saveSettings();
-    try { if (v && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {}); else if (!v && document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (_) {}
+    // v0.15.1: no app instalado (APK/PWA) a tela já é cheia pelo sistema — mexer na "tela cheia do navegador" fazia a barra de
+    // horário/bateria voltar ao sair e bagunçava o layout. Só usa esse recurso quando aberto numa aba comum do Chrome.
+    const inTab = window.matchMedia && matchMedia('(display-mode: browser)').matches;
+    if (inTab) try { if (v && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {}); else if (!v && document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (_) {}
     if (v) toast('Tela cheia — para sair, toque no botão discreto no canto superior direito', 2600);
   },
   restore() {
