@@ -238,6 +238,7 @@ const Library = {
     menu(anchor, [
       { label: 'PDF (apostilas, leis, artigos)', icon: 'file', run: () => this.importPdf() },
       { label: 'Notas do Notewise (.notewise ou .zip)', icon: 'layers', run: () => this.importNotewise() },
+      { label: 'Corrigir imagens recortadas (notas já importadas do Notewise)', icon: 'crop', run: () => this.fixNotewiseCrops() },
       { label: 'Cópia de segurança do Traço (.json)', icon: 'download', run: () => importAll() },
     ]);
   },
@@ -255,6 +256,25 @@ const Library = {
       const go = await openModal({ title: 'Importação concluída', body, buttons: [{ label: 'Fechar', value: false }, ok.length === 1 ? { label: 'Abrir nota', cls: 'primary', value: true } : null].filter(Boolean) });
       if (go && ok[0]) App.openNote(ok[0].note.id);
     } catch (e) { console.error(e); toast('Não foi possível importar: ' + e.message, 6000); }
+  },
+  async fixNotewiseCrops() {
+    const ok = await openModal({ title: 'Corrigir imagens recortadas', body: el('div', {},
+      el('p', {}, 'Notas importadas antes da versão 0.18 mostram as imagens recortadas no Notewise inteiras (e maiores).'),
+      el('p', {}, 'Escolha de novo o mesmo arquivo .notewise ou .zip que você importou: o Traço acha as notas com o mesmo título e aplica só o recorte das imagens — sem duplicar notas e sem mexer na sua escrita.'),
+      el('p', { class: 'lbl-sm' }, 'Imagens que você já moveu, redimensionou ou recortou ficam como estão.')),
+      buttons: [{ label: 'Cancelar', value: false }, { label: 'Escolher arquivo', cls: 'primary', value: true }] });
+    if (!ok) return;
+    const f = await pickFile(''); if (!f) return;
+    toast('Lendo o arquivo do Notewise…', 20000);
+    try {
+      const r = await fixNotewiseCrops(f, (i, t, n) => toast(`Conferindo ${i} de ${t}: ${n.split('/').pop()}`, 20000));
+      this.render(); toast('', 1);
+      const body = el('div', {},
+        el('p', {}, r.cropped ? `${r.images} de ${r.cropped} imagem(ns) recortada(s) corrigida(s) em ${r.notes} nota(s).` : 'Nenhuma imagem recortada nesse arquivo.'),
+        r.already ? el('p', { class: 'lbl-sm' }, `${r.already} já estavam certas.`) : null,
+        r.missing ? el('p', { class: 'lbl-sm' }, `${r.missing} não foram corrigidas (imagem já movida/alterada${r.noNote.length ? ', ou nota não encontrada: ' + r.noNote.slice(0, 6).join(', ') + (r.noNote.length > 6 ? '…' : '') : ''}). Nesses casos você pode recortar pelo laço → Recortar imagem.`) : null);
+      await openModal({ title: 'Recortes corrigidos', body, buttons: [{ label: 'OK', cls: 'primary' }] });
+    } catch (e) { console.error(e); toast('Não foi possível corrigir: ' + e.message, 6000); }
   },
   async importPdf() {
     const f = await pickFile('application/pdf'); if (!f) return;

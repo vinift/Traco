@@ -704,3 +704,22 @@ input,textarea,select,[contenteditable],[contenteditable] *,.text-edit,.text-edi
 .gm-row .cbtn{width:34px;height:34px;color:var(--text)}
 .gm-row .cbtn[disabled]{opacity:.3}
 .gm-row select{max-width:170px;font-size:13px;padding:4px 6px;border-radius:8px;border:1px solid var(--line);background:var(--panel)}
+
+/* ===== v0.18: recorte de imagem ===== */
+.crop-wrap { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.crop-stage { position: relative; touch-action: none; user-select: none; background: repeating-conic-gradient(#e5e7eb 0 25%, #fff 0 50%) 0 0 / 16px 16px; overflow: hidden; border-radius: 6px; }
+.crop-img { display: block; pointer-events: none; }
+.crop-box { position: absolute; box-shadow: 0 0 0 9999px rgba(0, 0, 0, .55); outline: 1.5px solid #fff; cursor: move; }
+.crop-g1, .crop-g2 { position: absolute; inset: 0; pointer-events: none; }
+.crop-g1 { border-left: 1px solid rgba(255,255,255,.45); border-right: 1px solid rgba(255,255,255,.45); left: 33.33%; right: 33.33%; }
+.crop-g2 { border-top: 1px solid rgba(255,255,255,.45); border-bottom: 1px solid rgba(255,255,255,.45); top: 33.33%; bottom: 33.33%; }
+.crop-h { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; }
+.crop-h::after { content: ''; position: absolute; inset: 8px; background: #fff; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+.crop-nw { left: 0; top: 0; cursor: nwse-resize; } .crop-n { left: 50%; top: 0; cursor: ns-resize; } .crop-ne { left: 100%; top: 0; cursor: nesw-resize; }
+.crop-e { left: 100%; top: 50%; cursor: ew-resize; } .crop-se { left: 100%; top: 100%; cursor: nwse-resize; } .crop-s { left: 50%; top: 100%; cursor: ns-resize; }
+.crop-sw { left: 0; top: 100%; cursor: nesw-resize; } .crop-w { left: 0; top: 50%; cursor: ew-resize; }
+.crop-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; width: 100%; }
+.crop-ratios { display: flex; gap: 6px; flex-wrap: wrap; }
+.crop-chip { padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); font-size: 12.5px; cursor: pointer; }
+.crop-chip.on { background: var(--accent, #7c3aed); border-color: transparent; color: #fff; }
+.crop-info { font-size: 12px; opacity: .7; font-variant-numeric: tabular-nums; }

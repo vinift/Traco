@@ -104,7 +104,20 @@ function nwTextEl(runs, extra) {
   if (runs.length > 1 && runs.some((r) => r.color !== color)) el.spans = runs.map((r) => (r.color !== color ? { n: r.t.length, c: r.color } : { n: r.t.length }));
   return el;
 }
-async function convertNotewise(files, { folderId = null } = {}) {
+/* recorte do Notewise: devolve as frações {x,y,w,h} da imagem original que ficam visíveis (ou null se não houver recorte) */
+function nwCrop(F, C) {
+  if (!C) return null;
+  const g = (R, f) => pbGet(R, f) || 0;
+  const fx1 = Math.min(g(F, 1), g(F, 3)), fx2 = Math.max(g(F, 1), g(F, 3)), fy1 = Math.min(g(F, 2), g(F, 4)), fy2 = Math.max(g(F, 2), g(F, 4));
+  const fw = fx2 - fx1, fh = fy2 - fy1; if (fw <= 0 || fh <= 0) return null;
+  const cx1 = clamp(Math.min(g(C, 1), g(C, 3)), fx1, fx2), cx2 = clamp(Math.max(g(C, 1), g(C, 3)), fx1, fx2), cy1 = clamp(Math.min(g(C, 2), g(C, 4)), fy1, fy2), cy2 = clamp(Math.max(g(C, 2), g(C, 4)), fy1, fy2);
+  if (cx2 - cx1 < 1 || cy2 - cy1 < 1) return null;
+  const c = { x: (cx1 - fx1) / fw, y: (cy1 - fy1) / fh, w: (cx2 - cx1) / fw, h: (cy2 - cy1) / fh };
+  if (c.x < 1e-4 && c.y < 1e-4 && c.w > 0.9998 && c.h > 0.9998) return null; // recorte igual à imagem inteira
+  const r4 = (v) => Math.round(v * 1e5) / 1e5;
+  return { c: { x: r4(c.x), y: r4(c.y), w: r4(c.w), h: r4(c.h) }, rect: [[1, 5, cx1], [2, 5, cy1], [3, 5, cx2], [4, 5, cy2]] };
+}
+async function convertNotewise(files, { folderId = null, dry = false } = {}) {
   const meta = pbParse(b64bytes(await files.note.bytes()));
   const title = pbStr(pbGet(meta, 2)) || 'Nota do Notewise';
   const pageIds = pbAll(meta, 4).map(pbStr);
@@ -112,7 +125,10 @@ async function convertNotewise(files, { folderId = null } = {}) {
   // imagens e PDFs
   const imgMap = {}, pdfMap = {};
   for (const name of Object.keys(files)) {
-    if (name.startsWith('image/')) {
+    if (dry) { // só lendo a geometria (corrigir recortes): não grava nada
+      if (name.startsWith('image/')) imgMap[name.slice(6)] = 'nw:' + name.slice(6);
+      else if (name.startsWith('pdf/')) pdfMap[name.slice(4)] = 'nw:' + name.slice(4);
+    } else if (name.startsWith('image/')) {
       const id = name.slice(6), bytes = await files[name].bytes();
       const isWebp = bytes[8] === 0x57 && bytes[9] === 0x45, isPng = bytes[0] === 0x89, mime = isWebp ? 'image/webp' : isPng ? 'image/png' : 'image/jpeg';
       imgMap[id] = await Store.putBlob(new Blob([bytes], { type: mime }));
@@ -187,9 +203,16 @@ async function convertNotewise(files, { folderId = null } = {}) {
           } else { stats.skipped++; continue; }
           stats.shapes++;
         } else if (img) {
-          const I = pbParse(img), refi = pbStr(pbGet(I, 1)), b = box(pbMsg(I, 2));
-          if (imgMap[refi]) { const el = { id: uid(), type: 'image', x: b.cx - b.w / 2, y: b.cy - b.h / 2, w: b.w, h: b.h, blobId: imgMap[refi] }; if (Math.abs(b.rot) > 0.001) el.rot = b.rot; page.elements.push(el); stats.images++; }
-          else stats.skipped++;
+          const I = pbParse(img), refi = pbStr(pbGet(I, 1)), F = pbMsg(I, 2), full = box(F);
+          if (imgMap[refi]) {
+            /* campo 4 = recorte: a parte visível, no mesmo referencial do retângulo da imagem inteira (campo 2) */
+            const crop = nwCrop(F, pbGet(I, 4) ? pbMsg(I, 4) : null), b = crop ? box(crop.rect) : full;
+            const el = { id: uid(), type: 'image', x: b.cx - b.w / 2, y: b.cy - b.h / 2, w: b.w, h: b.h, blobId: imgMap[refi] };
+            if (crop) el.crop = crop.c;
+            if (Math.abs(b.rot) > 0.001) el.rot = b.rot;
+            if (dry && crop) el._full = { x: full.cx - full.w / 2, y: full.cy - full.h / 2, w: full.w, h: full.h, rot: Math.abs(full.rot) > 0.001 ? full.rot : 0 };
+            page.elements.push(el); stats.images++; if (crop) stats.crops = (stats.crops || 0) + 1;
+          } else stats.skipped++;
         } else if (tbox) { // caixa de texto
           const X = pbParse(tbox), R = pbMsg(X, 7), runs = nwRuns(pbMsg(X, 9));
           if (runs.length) {
@@ -225,10 +248,11 @@ async function convertNotewise(files, { folderId = null } = {}) {
       } catch (err) { console.warn('elemento ignorado', err); stats.skipped++; }
       if (locked) for (let k = n0; k < page.elements.length; k++) page.elements[k].lock = true;
     }
-    if (!pdf) nwAutoAlign(page);
+    if (!pdf && !dry) nwAutoAlign(page);
     pages.push(page); stats.pages++;
   }
   if (!pages.length) throw new Error('nenhuma página encontrada');
+  if (dry) return { title, pages, stats };
   const note = newNote({ title, folderId, mode: 'pages', w: pages[0].w, h: pages[0].h, template: pages.find((p) => p.template)?.template || pages[0].template || NOTEWISE_TEMPLATES.blank });
   note.pages = pages; note.importedFrom = 'notewise';
   await Store.putNote(note);
@@ -296,4 +320,57 @@ async function importNotewiseFile(file, onProgress) {
     catch (e) { console.warn(name, e); results.push({ error: name.split('/').pop() + ': ' + e.message }); }
   }
   return results;
+}
+
+/* ---- corrigir recortes de imagens em notas já importadas (antes da v0.18) ----
+   Lê de novo o .notewise/.zip só para pegar a geometria, acha as notas importadas com o mesmo título e,
+   em cada página, a imagem que ainda está do tamanho inteiro (no mesmo lugar) — e aplica o recorte.
+   Não duplica nada e não mexe em imagens que você já moveu ou recortou. */
+async function fixNotewiseCrops(file, onProgress) {
+  const files = await readZip(file);
+  const list = files.note ? [null] : Object.keys(files).filter((n) => /\.notewise$/i.test(n));
+  if (!list.length) throw new Error('não encontrei notas do Notewise dentro do arquivo');
+  const out = { notes: 0, images: 0, missing: 0, already: 0, noNote: [], cropped: 0 };
+  const near = (a, b, tol) => Math.abs(a - b) <= tol;
+  for (let k = 0; k < list.length; k++) {
+    const name = list[k]; onProgress && onProgress(k + 1, list.length, name || file.name);
+    let dry;
+    try { dry = await convertNotewise(name ? await readZip(new Blob([await files[name].bytes()])) : files, { dry: true }); }
+    catch (e) { console.warn(name, e); continue; }
+    const fixes = []; dry.pages.forEach((p, pi) => { for (const e of p.elements) if (e.type === 'image' && e._full) fixes.push({ pi, e }); });
+    if (!fixes.length) continue;
+    out.cropped += fixes.length;
+    const cands = Object.values(Store.heads).filter((h) => h.title === dry.title);
+    if (!cands.length) { out.noNote.push(dry.title); out.missing += fixes.length; continue; }
+    const left = new Set(fixes);
+    for (const h of cands) {
+      const note = await Store.getNote(h.id); if (!note || note.importedFrom !== 'notewise') continue;
+      let n = 0;
+      for (const f of [...left]) {
+        const F = f.e._full, tol = Math.max(1.5, Math.max(F.w, F.h) * 0.004);
+        const order = [f.pi, ...note.pages.map((_, i) => i).filter((i) => i !== f.pi)]; // mesma página primeiro
+        let hit = null;
+        for (const i of order) {
+          const pg = note.pages[i]; if (!pg) continue;
+          const old = pg.elements.find((e) => e.type === 'image' && !e.crop && near(e.x, F.x, tol) && near(e.y, F.y, tol) && near(e.w, F.w, tol) && near(e.h, F.h, tol) && near(e.rot || 0, F.rot, 0.01));
+          if (old) { hit = { pg, old }; break; }
+        }
+        if (!hit) { // já corrigida antes (mesmo recorte no mesmo lugar)?
+          const d = f.e, same = note.pages.some((pg) => pg.elements.some((e) => e.type === 'image' && e.crop && near(e.x, d.x, tol) && near(e.y, d.y, tol) && near(e.w, d.w, tol) && near(e.h, d.h, tol)));
+          if (same) { left.delete(f); out.already++; }
+          continue;
+        }
+        const { pg, old } = hit, d = f.e, ne = { ...old, x: d.x, y: d.y, w: d.w, h: d.h, crop: d.crop };
+        if (d.rot) ne.rot = d.rot; else delete ne.rot;
+        pg.elements[pg.elements.indexOf(old)] = ne; left.delete(f); n++;
+      }
+      if (n) {
+        note.updated = Date.now(); await Store.putNote(note); out.notes++; out.images += n;
+        try { const t = await makeThumb(note); if (t) await Store.setThumb(note.id, t); } catch (e) {}
+      }
+      if (!left.size) break;
+    }
+    out.missing += left.size;
+  }
+  return out;
 }

@@ -746,6 +746,21 @@ const Editor = {
     this.opCommit(); this.sel = { pageId: page.id, ids: new Set(ids) }; if (this.tool !== 'lasso') UI.setTool('lasso', true); this.requestRender();
   },
   pasteElements(els) { const keep = this.clip; this.clip = clone(els); this.paste(); this.clip = keep; UI.renderOptions(); },
+  /* recortar imagem: abre o editor de recorte e troca a caixa visível sem mover o resto da imagem (inclusive girada) */
+  async cropSel() {
+    const els = this.selElements(); if (els.length !== 1 || els[0].type !== 'image' || els[0].lock) return;
+    const e = els[0], page = this.pageById(this.sel.pageId);
+    const bmp = await ImgCache.load(e.blobId); if (!bmp) return toast('A imagem ainda não carregou. Tente de novo.', 2500);
+    const oc = e.crop || { x: 0, y: 0, w: 1, h: 1 };
+    const nc = await cropDialog(bmp, oc); if (!nc || !this.sel) return;
+    const cur = page.elements.find((x) => x.id === e.id); if (!cur) return;
+    const fw = cur.w / oc.w, fh = cur.h / oc.h, fx = cur.x - oc.x * fw, fy = cur.y - oc.y * fh; // imagem inteira no referencial sem giro
+    let nw = nc.w * fw, nh = nc.h * fh, nx = fx + nc.x * fw, ny = fy + nc.y * fh;
+    if (cur.rot) { const q = rotPt(nx + nw / 2, ny + nh / 2, cur.x + cur.w / 2, cur.y + cur.h / 2, cur.rot); nx = q[0] - nw / 2; ny = q[1] - nh / 2; }
+    const n = { ...cur, x: nx, y: ny, w: nw, h: nh };
+    if (nc.x < 1e-4 && nc.y < 1e-4 && nc.w > 0.9999 && nc.h > 0.9999) delete n.crop; else n.crop = nc;
+    this.recReplace(page, cur, n); this.opCommit(); UI.buildSelBar(); this.requestRender();
+  },
   recolorSel(color) {
     const page = this.pageById(this.sel.pageId);
     for (const e of this.selElements()) if (!e.lock && ['stroke', 'shape', 'text'].includes(e.type)) this.recReplace(page, e, { ...e, color });

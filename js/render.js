@@ -97,7 +97,11 @@ function drawElement(ctx, e) {
     drawRichText(ctx, e, L, tx, ty);
   } else if (e.type === 'image') {
     const bmp = ImgCache.get(e.blobId);
-    if (bmp) ctx.drawImage(bmp, e.x, e.y, e.w, e.h);
+    if (bmp) {
+      const c = e.crop; // recorte: parte visível da imagem original (frações 0–1)
+      if (c) { const W = bmp.width, H = bmp.height, sw = Math.max(1e-3, c.w) * W, sh = Math.max(1e-3, c.h) * H; ctx.drawImage(bmp, c.x * W, c.y * H, sw, sh, e.x, e.y, e.w, e.h); }
+      else ctx.drawImage(bmp, e.x, e.y, e.w, e.h);
+    }
     else { ctx.fillStyle = 'rgba(120,130,150,.15)'; ctx.fillRect(e.x, e.y, e.w, e.h); }
   } else if (e.type === 'table') {
     const g = tableGrid(e), bw = e.bw || 1, bc = e.bc || '#7c3aed', M = e.merges || [];

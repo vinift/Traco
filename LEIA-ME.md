@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.18.0
+
+- **Recortar imagem:** selecione a imagem com o laço → botão de recorte na barra da seleção. Arraste cantos/lados da moldura (ou o meio para mover; toque fora para desenhar outra), com proporções Livre, Original, 1:1, 4:3, 3:4 e 16:9. O recorte não apaga nada da imagem: dá para refazer ou "Restaurar original" depois, e o desfazer funciona. Funciona também com imagens giradas.
+- **Importação do Notewise respeita o recorte:** imagens recortadas no Notewise chegam recortadas, no tamanho e lugar certos.
+- **Corrigir notas já importadas:** Biblioteca → Importar → "Corrigir imagens recortadas". Escolha o mesmo .notewise/.zip que você importou: o Traço acha as notas pelo título e aplica só o recorte (não duplica notas, não mexe na escrita). Imagens que você já moveu ou redimensionou ficam como estão — essas você recorta à mão.
+
 ## Novidades da v0.17.0
 
 - **Organizar grupos de cores:** menu do grupo → "Organizar grupos e subgrupos…". Para cada grupo: renomear, subir/descer, escolher "Dentro de…" (vira subgrupo de outro ou volta ao nível principal) e excluir — sem precisar ativar o grupo.
