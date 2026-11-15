@@ -8,7 +8,7 @@
 <title>Traço Notas</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/app.css?v=0.10.1">
+<link rel="stylesheet" href="css/app.css?v=0.11.0">
 </head>
 <body>
 <!--APP-START-->
@@ -73,6 +73,8 @@
     <div class="chrome ch-topleft">
       <button class="cbtn round" id="btnBack" title="Voltar"><span data-icon="arrowLeft"></span></button>
       <div class="cpill">
+        <button class="cbtn" id="btnQuick" title="Alternar rapidamente (fixadas e recentes)"><span data-icon="layers"></span></button>
+        <button class="cbtn" id="btnSplit" title="Tela dividida (outra nota ao lado)"><span data-icon="sidebar"></span></button>
         <button class="cbtn" id="btnPages" title="Páginas"><span data-icon="pages"></span></button>
         <button class="cbtn" id="btnAddPage" title="Adicionar página"><span data-icon="addPage"></span></button>
         <button class="cbtn" id="btnSearch" title="Buscar na nota"><span data-icon="search"></span></button>
@@ -85,6 +87,7 @@
       <div class="cpill">
         <span id="edSync" class="sync-pill small"></span>
         <button class="cbtn" id="btnBookmark" title="Marcar esta página"><span data-icon="bookmark"></span></button>
+        <button class="cbtn" id="btnOutline" title="Sumário (marcadores e índice do PDF)"><span data-icon="list"></span></button>
         <button class="cbtn" id="btnRead" title="Modo leitura"><span data-icon="eye"></span></button>
         <button class="cbtn" id="hudPage" title="Páginas">1 / 1</button>
         <button class="cbtn" id="hudZoom" title="Zoom">100%</button>
@@ -103,26 +106,27 @@
 <div id="popRoot"></div>
 <div id="toast" class="toast hidden"></div>
 <input type="file" id="filePick" class="hidden">
-<script src="js/util.js?v=0.10.1"></script>
-<script src="js/store.js?v=0.10.1"></script>
-<script src="js/geom.js?v=0.10.1"></script>
-<script src="js/render.js?v=0.10.1"></script>
-<script src="js/pdf.js?v=0.10.1"></script>
-<script src="js/tpl-import.js?v=0.10.1"></script>
-<script src="js/drive.js?v=0.10.1"></script>
-<script src="js/editor.js?v=0.10.1"></script>
-<script src="js/toolbar.js?v=0.10.1"></script>
-<script src="js/tables.js?v=0.10.1"></script>
-<script src="js/tiles.js?v=0.10.1"></script>
-<script src="js/navigation.js?v=0.10.1"></script>
-<script src="js/richtext.js?v=0.10.1"></script>
-<script src="js/colorpicker.js?v=0.10.1"></script>
-<script src="js/ui.js?v=0.10.1"></script>
-<script src="js/ocr.js?v=0.10.1"></script>
-<script src="js/import-notewise.js?v=0.10.1"></script>
-<script src="js/library.js?v=0.10.1"></script>
-<script src="js/plugins.js?v=0.10.1"></script>
-<script src="js/app.js?v=0.10.1"></script>
+<script src="js/util.js?v=0.11.0"></script>
+<script src="js/store.js?v=0.11.0"></script>
+<script src="js/geom.js?v=0.11.0"></script>
+<script src="js/render.js?v=0.11.0"></script>
+<script src="js/pdf.js?v=0.11.0"></script>
+<script src="js/tpl-import.js?v=0.11.0"></script>
+<script src="js/drive.js?v=0.11.0"></script>
+<script src="js/editor.js?v=0.11.0"></script>
+<script src="js/toolbar.js?v=0.11.0"></script>
+<script src="js/tables.js?v=0.11.0"></script>
+<script src="js/tiles.js?v=0.11.0"></script>
+<script src="js/navigation.js?v=0.11.0"></script>
+<script src="js/richtext.js?v=0.11.0"></script>
+<script src="js/colorpicker.js?v=0.11.0"></script>
+<script src="js/ui.js?v=0.11.0"></script>
+<script src="js/ocr.js?v=0.11.0"></script>
+<script src="js/import-notewise.js?v=0.11.0"></script>
+<script src="js/library.js?v=0.11.0"></script>
+<script src="js/plugins.js?v=0.11.0"></script>
+<script src="js/workspace.js?v=0.11.0"></script>
+<script src="js/app.js?v=0.11.0"></script>
 <!--APP-END-->
 </body>
 </html>

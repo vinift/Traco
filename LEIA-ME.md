@@ -153,6 +153,21 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.11.0
+
+| Item | Como usar |
+|---|---|
+| Alternar rapidamente | Botão de camadas no topo do editor: notas **Fixadas** (arraste ⋮⋮ para reordenar) e **Recentes**. Fixe pelo ⋯ do painel ou pelo menu da nota na biblioteca |
+| Volta onde parou | Se o Android fechar o app em segundo plano, ao abrir de novo ele volta para a nota (e a tela dividida) em que você estava |
+| Tela dividida | Botão de painel lateral no topo: escolha outra nota (ou a mesma) para ler ao lado. Arraste a borda para mudar a largura, pinça ou −/+ para ampliar, ↻ troca os lados |
+| Sumário | Botão de lista no topo: marcadores com nome (ex.: "Art. 5º") e o índice do PDF, quando o PDF tiver |
+| Marca-texto no PDF | Em páginas de PDF a marcação vira uma faixa reta exatamente sobre a linha do texto (pode desligar no painel do marca-texto) |
+| Busca com destaque | O trecho encontrado pisca em amarelo — em textos e também na escrita à mão |
+| Laço: espessura | Selecione traços/formas → botão de linha → escolha a espessura, ou "Mais fino/Mais grosso" |
+| Número da página | Não encosta mais no zoom com 2 ou 3 algarismos |
+
+A escrita à mão já lida antes é relida aos poucos (com internet) para a busca saber a posição de cada linha.
+
 ## Novidades da v0.10.1
 
 - **PDF das notas de PDF sem estourar a memória:** a escrita por cima de cada página era guardada como uma imagem da página inteira, descompactada até o fim. Agora vai só o retângulo onde há escrita, já compactado na hora. Memória para gerar o PDF de "01 Informática": 527 MB → 106 MB; "00 Informática": 804 MB → 103 MB. Ficou também mais rápido (14 s → 8 s). O PDF automático dessas notas foi religado.

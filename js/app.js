@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.10.1',
+  version: '0.11.0',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -18,6 +18,8 @@ const App = {
     Drive.refreshStatus();
     Library.show();
     if (back && Store.heads[back]) this.openNote(back);
+    else this.reopenLast();
+    SplitView.restore();
     if (Drive.configured() && Drive.hasAuth()) Drive.schedule();
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
       const hadController = !!navigator.serviceWorker.controller; let reloaded = false;
@@ -28,6 +30,15 @@ const App = {
       navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch((e) => console.warn('SW', e));
     }
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  },
+  /* voltou para o app (o Android pode ter fechado a página em segundo plano): reabre a nota em que você estava.
+     Se a última tentativa de reabrir derrubou o app, não tenta de novo (evita ficar preso). */
+  reopenLast() {
+    let id = null, tried = null; try { id = localStorage.getItem('traco-last-note'); tried = localStorage.getItem('traco-reopen-try'); } catch (_) {}
+    if (tried) { try { localStorage.removeItem('traco-reopen-try'); localStorage.removeItem('traco-last-note'); } catch (_) {} logError('A nota "' + ((Store.heads[tried] || {}).title || tried) + '" não pôde ser reaberta automaticamente', 'reabrir'); return; }
+    if (!id || !Store.heads[id]) return;
+    try { localStorage.setItem('traco-reopen-try', id); } catch (_) {}
+    this.openNote(id).finally(() => setTimeout(() => { try { localStorage.removeItem('traco-reopen-try'); } catch (_) {} }, 8000));
   },
   /* procura uma versão nova no GitHub; se houver, salva a nota, atualiza e reinicia */
   async checkUpdate(btn) {
@@ -54,13 +65,15 @@ const App = {
       $('#library').classList.add('hidden'); $('#editor').classList.remove('hidden');
       await new Promise((r) => requestAnimationFrame(r));
       if (!(await Editor.open(id))) return Library.show();
-      Nav.push('note');
+      Nav.push('note'); QuickSwitch.touch(id); SplitView.visible(true);
+      try { localStorage.setItem('traco-last-note', id); } catch (_) {} // ao voltar para o app, reabre aqui
       if (focus) setTimeout(() => Editor.focusElement(focus[0], focus[1]), 60);
     } catch (e) { logError(e, 'abrir nota'); toast('Erro ao abrir a nota: ' + e.message, 4000); Editor.note = null; Library.show(); }
     finally { this._busy = false; }
   },
   async closeNote() {
     if (this._busy) return; this._busy = true;
+    try { localStorage.removeItem('traco-last-note'); } catch (_) {}
     try { await Editor.close(); } catch (e) { logError(e, 'fechar nota'); }
     finally { this._busy = false; Library.show(); }
   },
@@ -91,6 +104,9 @@ const App = {
     on(['btnSearch'], (e) => noteSearchPop(e.currentTarget));
     on(['btnTemplate'], () => templateModal());
     on(['btnBookmark'], () => Editor.toggleBookmark());
+    on(['btnOutline'], (e) => Outline.open(e.currentTarget));
+    on(['btnQuick'], (e) => QuickSwitch.open(e.currentTarget));
+    on(['btnSplit'], (e) => (SplitView.note ? SplitView.close() : QuickSwitch.open(e.currentTarget, 'split')));
     on(['btnRead'], () => Editor.setReadOnly(!Editor.readOnly));
     $('#noteTitle').addEventListener('change', () => Editor.markChanged());
     on(['hudZoom'], (e) => menu(e.currentTarget, [

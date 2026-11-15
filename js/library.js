@@ -5,7 +5,7 @@ const folderSvg = (c) => `<svg viewBox="0 0 100 100" aria-hidden="true"><path d=
 const Library = {
   folder: null, query: '', view: 'home', selecting: false, selected: new Set(),
   show() {
-    $('#editor').classList.add('hidden'); $('#library').classList.remove('hidden'); this.render(); Drive.refreshStatus();
+    $('#editor').classList.add('hidden'); $('#library').classList.remove('hidden'); if (typeof SplitView !== 'undefined') SplitView.visible(false); this.render(); Drive.refreshStatus();
   },
   get S() { return Store.settings; },
   children(fid) { return Store.folders.filter((f) => (f.parentId || null) === (fid || null)); },
@@ -206,6 +206,7 @@ const Library = {
   noteMenu(anchor, h) {
     menu(anchor, [
       { label: 'Renomear', icon: 'pen', run: async () => { const t = await askText('Renomear nota', h.title); if (t) { const n = await Store.getNote(h.id); n.title = t; n.updated = Date.now(); await Store.putNote(n); this.render(); } } },
+      { label: QuickSwitch.isPinned(h.id) ? 'Desafixar de Alternar rapidamente' : 'Fixar em Alternar rapidamente', icon: 'layers', run: () => QuickSwitch.pin(h.id) },
       { label: 'Mover para…', icon: 'folder', run: () => this.moveDialog(h) },
       { label: 'Duplicar', icon: 'copy', run: async () => { const n = await Store.getNote(h.id); const c = clone(n); c.id = uid(); c.title = n.title + ' (cópia)'; c.created = c.updated = Date.now(); await Store.putNote(c); await Store.setThumb(c.id, h.thumb); this.render(); } },
       { label: 'Exportar PDF', icon: 'download', run: async () => exportPdfFlow(await Store.getNote(h.id)) },

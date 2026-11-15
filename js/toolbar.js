@@ -332,6 +332,7 @@ const UI = {
     if (t === 'highlighter') {
       p.append(this.switchRow('Segure para ficar reto', 'Segure a caneta parada no fim do traço', S.hlHold !== false, (v) => { S.hlHold = v; this.save(); }));
       p.append(this.switchRow('Sempre reto', 'Cada traço vira uma faixa reta do início ao fim', S.hlStraight, (v) => { S.hlStraight = v; this.save(); }));
+      p.append(this.switchRow('Grudar no texto do PDF', 'Em páginas de PDF, a marcação fica reta e na altura exata da linha', S.hlSnapPdf !== false, (v) => { S.hlSnapPdf = v; this.save(); }));
       p.append(this.switchRow('Alinhar a cada 15°', 'Faixas retas grudam em 0°, 15°, 30°, 45°…', S.angleSnap !== false, (v) => { S.angleSnap = v; this.save(); }));
     }
     if (t === 'pen') { const pt = st.type || 'ball', nm = (PEN_TYPES.find((x) => x[0] === pt) || [, 'caneta'])[1];
@@ -494,6 +495,7 @@ const UI = {
       return;
     }
     const cb = B('palette', 'Mudar cor', () => colorPop(cb, (Editor.selElements()[0] || {}).color || '#000000', (c) => Editor.recolorSel(c), PALETTE, { alpha: true }));
+    if (Editor.selElements().some((e) => (e.type === 'stroke' || e.type === 'shape') && !e.lock)) { const wb = B('line', 'Espessura do traço', () => this.selWidthPop(wb)); }
     B('copy', 'Copiar', () => Editor.copySel());
     B('cut', 'Recortar', () => Editor.cutSel());
     B('plus', 'Duplicar', () => Editor.duplicateSel());
@@ -511,6 +513,23 @@ const UI = {
     const d = B('trash', 'Excluir', () => Editor.deleteSel()); d.style.color = 'var(--danger)';
   },
 
+  /* laço: mudar a espessura dos traços e formas selecionados */
+  selWidthPop(anchor) {
+    const els = Editor.selElements().filter((e) => (e.type === 'stroke' || e.type === 'shape') && !e.lock); if (!els.length) return;
+    const onlyHl = els.every((e) => e.tool === 'highlighter'), [mn, mx, step] = WIDTH_RANGE[onlyHl ? 'highlighter' : 'pen'];
+    const cur = els[0].width, presets = (Store.settings.widthPresets[onlyHl ? 'highlighter' : 'pen'] || []).slice(0, 10);
+    const val = el('b', { class: 'tp-val' }, fmtW(cur) + (onlyHl ? '' : ' mm'));
+    const set = (v) => { v = clamp(Math.round(v / step) * step, mn, mx); Editor.widthSel(() => v); val.textContent = fmtW(v); r.value = v; };
+    const chips = el('div', { class: 'sw-chips' }, ...presets.map((w) => el('button', { class: 'sw-chip', title: fmtW(w), onclick: () => set(w) }, el('i', { style: { height: Math.max(1, Math.min(14, w * (onlyHl ? 0.4 : 1.6))) + 'px' } }), el('span', {}, fmtW(w)))));
+    const r = el('input', { type: 'range', min: mn, max: mx, step, value: cur }); r.addEventListener('change', () => set(+r.value)); r.addEventListener('input', () => (val.textContent = fmtW(+r.value)));
+    const scale = (k) => Editor.widthSel((w) => clamp(Math.round((w * k) / step) * step, mn, mx));
+    const box = el('div', { class: 'sw-pop' },
+      el('div', { class: 'sw-head' }, el('span', {}, `Espessura de ${els.length} ${els.length === 1 ? 'item' : 'itens'}`), val),
+      chips, r,
+      el('div', { class: 'sw-row' }, el('button', { class: 'btn', onclick: () => scale(1 / 1.25) }, 'Mais fino'), el('button', { class: 'btn', onclick: () => scale(1.25) }, 'Mais grosso')),
+      el('p', { class: 'sw-hint' }, '"Mais fino/grosso" mantém a diferença entre traços de espessuras diferentes.'));
+    openPop(anchor, box);
+  },
   penTypePop(anchor) {
     const st = Store.settings.tools.pen, box = el('div', { class: 'pen-types pop-list' });
     for (const [k, n, d] of PEN_TYPES) box.append(el('button', { class: (st.type || 'ball') === k ? 'on' : '', onclick: () => { st.type = k; this.save(); closePop(); this.refresh(); } }, penSample(k, 74, 30, { nib: st.nib, color: st.color }), el('span', {}, el('b', {}, n), el('small', {}, d))));

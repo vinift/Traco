@@ -220,7 +220,7 @@ const Editor = {
     });
     const a = this.action;
     if (this.lowLat && a && a.kind === 'draw' && a.tool === 'pen' && a.inc && !a.shape && a.pts.length) { this.pageTf(ctx, a.pi); ctx.fillStyle = a.color; ctx.fill(buildRadiiPath(a.pts, penRadii(a.pts, a.width, a.pen))); }
-    this.drawSelection(); this.drawGuides(); this.updateHud(); this.positionText(); this.placePull(); this.updateScroll();
+    this.drawSelection(); this.drawFlash(ctx); this.drawGuides(); this.updateHud(); this.positionText(); this.placePull(); this.updateScroll();
     if (!allDone && !st.zooming) this.requestRender(); // ainda há blocos a desenhar: continua no próximo quadro
     this._drawnCam = { ...this.cam }; this._drawnComplete = allDone && !st.zooming;
     this.evictTiles(); if (allDone && !st.zooming) this.schedulePrefetch();
@@ -505,6 +505,7 @@ const Editor = {
     a.dash = base.tool === 'pen' ? st.dash || 'solid' : 'solid';
     if (base.tool === 'pen') { a.pen = st.type || 'ball'; a.nib = st.nib ?? 45; a.inc = a.dash === 'solid' && (a.pen === 'ball' || a.pen === 'natural') && !colorHasAlpha(a.color); }
     a.stab = stabLevel(base.tool, a.pen); a.inf = inf; this.addDrawPoint(e);
+    if (base.tool === 'highlighter' && Store.settings.hlSnapPdf !== false) { const pg = this.note.pages[pi]; if (pg && pg.pdf) PdfText.prefetch(pg.pdf); } // lê o texto do PDF enquanto você passa o marca-texto
     const S0 = Store.settings;
     if (((base.tool === 'pen' && S0.straightAlways) || (base.tool === 'highlighter' && S0.hlStraight)) && !a.snap) { // sempre linhas retas
       const q = a.pts; a.straight = true;
@@ -593,6 +594,10 @@ const Editor = {
     if (a.tool === 'pen' && !a.snap && Store.settings.scribbleErase && isScribble(a.pts)) {
       const targets = scribbleTargets(page.elements, a.pts);
       if (targets.length) { for (const e of targets) this.recRemove(page, e); this.sel = null; this.opCommit(); return; }
+    }
+    if (a.tool === 'highlighter' && !a.snap && page.pdf && Store.settings.hlSnapPdf !== false) { // marca-texto no PDF: vira faixa reta exatamente sobre as linhas do texto
+      const segs = PdfText.snap(page, a.pts);
+      if (segs) { for (const s of segs) this.recAdd(page, { id: uid(), type: 'stroke', tool: 'highlighter', color: a.color, width: r2(s.h), opacity: a.opacity, cap: 'butt', pts: [r2(s.x1), r2(s.y), 0.5, r2(s.x2), r2(s.y), 0.5] }); this.opCommit(); this.requestRender(); return; }
     }
     if (!a.snap) smoothStroke(a.pts, (a.stab ?? 5) / 10); // alisa o traço final (pontas ficam no lugar)
     const pts = a.pts.map((v, i) => (i % 3 === 2 ? Math.round(v * 100) / 100 : r2(v)));
@@ -723,6 +728,11 @@ const Editor = {
     for (const e of this.selElements()) if (!e.lock && ['stroke', 'shape', 'text'].includes(e.type)) this.recReplace(page, e, { ...e, color });
     this.opCommit();
   },
+  widthSel(fn) { // fn(largura atual) → nova largura; cada mudança entra no desfazer
+    const page = this.pageById(this.sel.pageId);
+    for (const e of this.selElements()) if (!e.lock && (e.type === 'stroke' || e.type === 'shape')) { const w = fn(e.width); if (w !== e.width) this.recReplace(page, e, { ...e, width: w }); }
+    this.opCommit(); this.requestRender();
+  },
   orderSel(front) {
     const page = this.pageById(this.sel.pageId), els = this.selElements();
     for (const e of els) this.recRemove(page, e);
@@ -809,6 +819,31 @@ const Editor = {
     if (this.note.mode === 'infinite') return toast('Notas em tela infinita não têm páginas');
     const p = this.note.pages[this.currentPageIndex()]; p.bookmark = !p.bookmark; this.markChanged(); this.updateHud();
     toast(p.bookmark ? 'Página marcada' : 'Marcador removido', 1000);
+  },
+  /* destaque amarelo da busca: flashRects(página, [retângulos], ir até lá) ou flashRects([[página, ret], …]) para vários */
+  flashRects(pi, rects, go = false, hold = false) {
+    if (pi == null) { this.flash = null; return this.requestRender(); }
+    const items = Array.isArray(pi) ? pi : rects.map((r) => [pi, r]);
+    this.flash = { items, t0: performance.now(), hold };
+    if (go && items.length && this.note.mode !== 'infinite') {
+      const [i, r] = items[0], o = this.layout[i]; if (o) {
+        const z = this.cam.z < 0.6 ? 1 : this.cam.z; this.cam.z = z;
+        this.cam.x = o.x + r.x + r.w / 2 - this.W / 2 / z; this.cam.y = o.y + r.y + r.h / 2 - this.H / 2 / z; this.clampCam();
+      }
+    } else if (go && items.length) { const [, r] = items[0]; this.cam.x = r.x + r.w / 2 - this.W / 2 / this.cam.z; this.cam.y = r.y + r.h / 2 - this.H / 2 / this.cam.z; }
+    this.requestRender();
+  },
+  drawFlash(ctx) {
+    const f = this.flash; if (!f) return;
+    const age = performance.now() - f.t0, life = f.hold ? 8000 : 4500; if (age > life) { this.flash = null; return; }
+    const a = age < life - 1200 ? 1 : (life - age) / 1200, pulse = age < 900 ? 0.5 + 0.5 * Math.abs(Math.sin(age / 150)) : 1;
+    ctx.save();
+    for (const [pi, r] of f.items) {
+      if (!this.layout[pi]) continue; this.pageTf(ctx, pi);
+      ctx.globalAlpha = a; ctx.fillStyle = `rgba(255,213,0,${0.32 * pulse})`; ctx.strokeStyle = 'rgba(245,158,11,.95)'; ctx.lineWidth = 2 / this.cam.z;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(r.x, r.y, r.w, r.h, 4 / this.cam.z + 2) : ctx.rect(r.x, r.y, r.w, r.h); ctx.fill(); ctx.stroke();
+    }
+    ctx.restore(); this.requestRender();
   },
   focusElement(pi, id) {
     const page = this.note.pages[pi]; if (!page) return; const e = page.elements.find((x) => x.id === id);

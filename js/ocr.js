@@ -79,11 +79,14 @@ const OCR = {
     }
     throw lastErr || new Error('Falha no reconhecimento');
   },
-  async recognize(strokes) {
-    const lines = this.groupLines(strokes), out = [];
-    for (const L of lines) out.push(await this.recognizeLine(L));
-    return out.filter((s) => s.trim()).join('\n');
+  async recognize(strokes) { return (await this.recognizeLines(strokes)).text; },
+  /* texto + posição de cada linha (a busca usa para destacar onde a palavra está escrita) */
+  async recognizeLines(strokes) {
+    const groups = this.groupLines(strokes), lines = [];
+    for (const L of groups) { const t = await this.recognizeLine(L); if (t.trim()) lines.push({ t, x: Math.round(L.x1), y: Math.round(L.y1), w: Math.round(L.x2 - L.x1), h: Math.round(L.h) }); }
+    return { text: lines.map((l) => l.t).join('\n'), lines };
   },
+  OCR_V: 2, // v2 guarda as linhas com posição; páginas lidas antes são relidas aos poucos
 
   /* ---- Índice para a busca: lê as páginas em segundo plano ---- */
   queue: [], busy: false,
@@ -93,7 +96,7 @@ const OCR = {
     for (const p of note.pages) {
       const sig = this.pageSig(p);
       if (sig.startsWith('0:')) continue;
-      if ((!p.ocr || p.ocr.sig !== sig) && !this.queue.some((q) => q.pageId === p.id)) this.queue.push({ noteId: note.id, pageId: p.id });
+      if ((!p.ocr || p.ocr.sig !== sig || p.ocr.v !== this.OCR_V) && !this.queue.some((q) => q.pageId === p.id)) this.queue.push({ noteId: note.id, pageId: p.id });
     }
     this.run();
   },
@@ -105,11 +108,11 @@ const OCR = {
         const q = this.queue.shift();
         if (Editor.note && Editor.note.id === q.noteId && Editor.action) { this.queue.push(q); await sleep(1500); continue; }
         let note = await this.live(q.noteId), page = note && note.pages.find((p) => p.id === q.pageId); if (!page) continue;
-        const sig = this.pageSig(page); if (page.ocr && page.ocr.sig === sig) continue;
-        let text;
-        try { text = await this.recognize(page.elements); } catch (e) { console.warn('OCR', e); this.lastError = e.message; this.queue = []; break; }
+        const sig = this.pageSig(page); if (page.ocr && page.ocr.sig === sig && page.ocr.v === this.OCR_V) continue;
+        let r;
+        try { r = await this.recognizeLines(page.elements); } catch (e) { console.warn('OCR', e); this.lastError = e.message; this.queue = []; break; }
         note = await this.live(q.noteId); page = note && note.pages.find((p) => p.id === q.pageId); if (!page || this.pageSig(page) !== sig) continue;
-        page.ocr = { sig, text, at: Date.now() };
+        page.ocr = { sig, text: r.text, lines: r.lines, v: this.OCR_V, at: Date.now() };
         if (Editor.note === note) Editor.saveDebounced(); else await Store.putNote(note);
         await sleep(400);
       }

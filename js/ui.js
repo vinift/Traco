@@ -400,20 +400,29 @@ function snippet(text, q) { const t = text.replace(/\s+/g, ' '), i = norm(t).ind
 function noteSearchPop(anchor) {
   const n = Editor.note; const inp = el('input', { class: 'tp-input', placeholder: 'Buscar nesta nota (textos e escrita à mão)', style: { marginBottom: '8px' } });
   const list = el('div', { style: { maxHeight: '50vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' } });
+  const pg = (i) => (n.mode === 'infinite' ? 'Nota' : `Pág. ${i + 1}`);
+  // posição aproximada da palavra dentro da linha escrita (proporcional às letras)
+  const lineRects = (L, q) => { const t = norm(L.t), qq = norm(q), out = []; let k = t.indexOf(qq); while (k >= 0 && out.length < 6) { const a = k / Math.max(1, t.length), b = (k + qq.length) / Math.max(1, t.length); out.push({ x: L.x + L.w * a - 4, y: L.y - 3, w: Math.max(14, L.w * (b - a) + 8), h: L.h + 6 }); k = t.indexOf(qq, k + 1); } return out; };
   const run = () => {
-    list.innerHTML = ''; const q = inp.value.trim(); if (!q) return;
-    let k = 0;
+    list.innerHTML = ''; const q = inp.value.trim(); if (!q) { Editor.flashRects(null); return; }
+    let k = 0; const all = [];
     n.pages.forEach((p, i) => p.elements.forEach((e) => {
-      if (e.type !== 'text' || !norm(e.text).includes(norm(q)) || k > 60) return; k++;
-      list.append(el('button', { class: 'pm-res', onclick: () => { closePop(); Editor.focusElement(i, e.id); } }, el('b', {}, n.mode === 'infinite' ? 'Nota' : `Pág. ${i + 1}`), ' ', snippet(e.text, q)));
+      if (e.type !== 'text' || !norm(e.text).includes(norm(q)) || k > 80) return; k++;
+      const r = elBBox(e), rect = { x: r.x - 4, y: r.y - 4, w: r.w + 8, h: r.h + 8 }; all.push([i, rect]);
+      list.append(el('button', { class: 'pm-res', onclick: () => { closePop(); Editor.flashRects(i, [rect], true); } }, el('b', {}, pg(i)), ' ', snippet(e.text, q)));
     }));
     n.pages.forEach((p, i) => {
-      if (!p.ocr || !p.ocr.text || !norm(p.ocr.text).includes(norm(q)) || k > 60) return; k++;
-      list.append(el('button', { class: 'pm-res', onclick: () => { closePop(); Editor.goToPage(i); } }, el('b', {}, (n.mode === 'infinite' ? 'Nota' : `Pág. ${i + 1}`) + ' ✍'), ' ', snippet(p.ocr.text, q)));
+      if (!p.ocr || !p.ocr.text || !norm(p.ocr.text).includes(norm(q)) || k > 80) return;
+      const lines = (p.ocr.lines || []).filter((L) => norm(L.t).includes(norm(q)));
+      if (!lines.length) { k++; list.append(el('button', { class: 'pm-res', onclick: () => { closePop(); Editor.goToPage(i); } }, el('b', {}, pg(i) + ' ✍'), ' ', snippet(p.ocr.text, q))); return; } // lida antes da v0.11: sem posição
+      for (const L of lines) { if (k++ > 80) break; const rs = lineRects(L, q); rs.forEach((r) => all.push([i, r])); list.append(el('button', { class: 'pm-res', onclick: () => { closePop(); Editor.flashRects(i, rs, true); } }, el('b', {}, pg(i) + ' ✍'), ' ', snippet(L.t, q))); }
     });
-    if (!k) list.append(el('p', { style: { color: 'var(--chmuted)', margin: '6px 2px' } }, OCR.enabled() ? 'Nada encontrado. A escrita à mão é lida em segundo plano alguns segundos depois de você parar de escrever (precisa de internet).' : 'Nada encontrado nos textos digitados. Ligue a leitura da escrita à mão nas Configurações para buscar também nela.'));
+    if (all.length) Editor.flashRects(all, null, false, true); // destaca todos na tela enquanto você digita (sem pular)
+    if (!k) list.append(el('p', { style: { color: 'var(--chmuted)', margin: '6px 2px' } }, OCR.enabled() ? 'Nada encontrado. A escrita à mão é lida em segundo plano alguns segundos depois de você parar de escrever (precisa de internet).' : 'Nada encontrado (a leitura da escrita à mão está desligada nas configurações).'));
+    else list.prepend(el('p', { style: { color: 'var(--chmuted)', margin: '0 2px 4px', fontSize: '12.5px' } }, `${k} resultado(s) — toque para ir até lá`));
   };
   inp.addEventListener('input', run);
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const b = list.querySelector('.pm-res'); if (b) b.click(); } });
   const pop = openPop(anchor, el('div', { style: { width: 'min(380px, 86vw)' } }, inp, list));
   pop.style.background = 'var(--ch)'; pop.style.color = 'var(--chfg)'; setTimeout(() => inp.focus(), 50);
 }
