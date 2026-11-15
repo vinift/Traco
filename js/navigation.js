@@ -128,3 +128,34 @@ const Nav = {
     return false;
   },
 };
+
+/* ===== Bloqueio do zoom do navegador =====
+   Com "Forçar ativação do zoom" (acessibilidade do Chrome) o navegador ignora o bloqueio da página e amplia a tela inteira:
+   as barras saem da tela e parecem sumir. Aqui a pinça fora da folha é cancelada; se mesmo assim a tela ficar ampliada,
+   o app avisa e libera a pinça na folha para você afastar e voltar ao normal. */
+const ZoomGuard = {
+  init() {
+    const block = (e) => { if (e.touches && e.touches.length > 1 && e.cancelable) e.preventDefault(); };
+    document.addEventListener('touchstart', block, { passive: false, capture: true });
+    document.addEventListener('touchmove', block, { passive: false, capture: true });
+    document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('dblclick', (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+    window.addEventListener('wheel', (e) => { if ((e.ctrlKey || e.metaKey) && !(e.target.closest && e.target.closest('#stage'))) e.preventDefault(); }, { passive: false });
+    const vv = window.visualViewport; if (!vv) return;
+    const check = () => {
+      const z = vv.scale > 1.02; document.body.classList.toggle('vv-zoomed', z);
+      let b = document.getElementById('vvFix');
+      if (z && !b) {
+        b = el('button', { id: 'vvFix', class: 'vv-fix', onclick: () => { this.reset(); } }, 'A tela foi ampliada pelo navegador — faça pinça para afastar (ou toque aqui)');
+        document.body.append(b); logError('zoom do navegador ' + vv.scale.toFixed(2) + '×', 'zoom');
+      } else if (!z && b) b.remove();
+      if (b) { b.style.transform = `translateX(-50%) scale(${1 / vv.scale})`; b.style.left = vv.offsetLeft + vv.width / 2 + 'px'; b.style.top = vv.offsetTop + 12 / vv.scale + 'px'; b.style.transformOrigin = 'top center'; }
+    };
+    vv.addEventListener('resize', check); vv.addEventListener('scroll', check); check();
+  },
+  reset() { // tenta voltar à escala 1 regravando a configuração da tela
+    const m = document.querySelector('meta[name=viewport]'); if (!m) return; const c = m.content;
+    m.content = c.replace(/maximum-scale=[^,]*/, 'maximum-scale=1.0001'); setTimeout(() => { m.content = c; }, 60);
+    setTimeout(() => { if (window.visualViewport && visualViewport.scale > 1.02) toast('Faça o gesto de pinça (afastar os dedos ao contrário) na folha para voltar ao normal', 4000); }, 400);
+  },
+};

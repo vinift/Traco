@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.9.6
+
+A pinça agora só amplia a folha. Antes, se a pinça começava em cima de uma barra ou da biblioteca, o navegador ampliava a tela inteira, e as barras saíam da tela e pareciam sumir. Se o Chrome estiver com "Forçar ativação do zoom" ligado (Acessibilidade), o app avisa e libera a pinça na folha para você afastar e voltar ao normal.
+
 ## Novidades da v0.9.5
 
 | Item | Como funciona |

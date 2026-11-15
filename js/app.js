@@ -3,13 +3,13 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.9.5',
+  version: '0.9.6',
   async init() {
     hydrateIcons();
     await Store.init();
     Store.purgeOldTrash().catch((e) => console.warn('lixeira', e)); // apaga de vez o que está na lixeira há mais de 30 dias
     this.applyTheme();
-    Editor.init(); Editor.initScroll(); Nav.init();
+    Editor.init(); Editor.initScroll(); Nav.init(); ZoomGuard.init();
     Plugins.init();
     setTimeout(() => Fonts.prewarm(), 4000); // baixa as fontes para funcionarem sem internet
     this.wire();

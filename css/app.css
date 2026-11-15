@@ -591,3 +591,12 @@ code.k{background:var(--panel2);padding:2px 6px;border-radius:6px;font-size:12px
 .sync-pill .sbar{position:absolute;left:8px;right:8px;bottom:2px;height:3px;border-radius:2px;background:color-mix(in srgb,var(--accent) 18%,transparent)}
 .sync-pill .sbar i{display:block;height:100%;border-radius:2px;background:var(--accent);transition:width .25s}
 .sync-pill.busy svg.ic{animation:updspin 1.2s linear infinite}
+
+/* ===== v0.9.6 — o zoom de pinça nunca vai para o navegador (só a folha amplia) =====
+   pan-x pan-y: deixa rolar listas, mas bloqueia a pinça e o toque duplo de zoom do navegador em qualquer lugar.
+   Elementos com touch-action próprio (folha, réguas, seletores) continuam com o deles. */
+*{touch-action:pan-x pan-y}
+html,body{touch-action:none}
+#stage,#stage *{touch-action:none}
+body.vv-zoomed #stage,body.vv-zoomed #stage *{touch-action:pinch-zoom}
+.vv-fix{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:9999;background:#111827;color:#fff;border:0;border-radius:999px;padding:10px 16px;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.3)}
