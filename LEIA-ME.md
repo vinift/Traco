@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.10.1
+
+- **PDF das notas de PDF sem estourar a memória:** a escrita por cima de cada página era guardada como uma imagem da página inteira, descompactada até o fim. Agora vai só o retângulo onde há escrita, já compactado na hora. Memória para gerar o PDF de "01 Informática": 527 MB → 106 MB; "00 Informática": 804 MB → 103 MB. Ficou também mais rápido (14 s → 8 s). O PDF automático dessas notas foi religado.
+- **Envio para o Drive resistente a queda de internet:** arquivos grandes sobem em pedaços de 4 MB; se a conexão cair no meio, continua de onde parou (era o erro "Failed to fetch"). Pedidos que falham por rede são repetidos até 3 vezes.
+
 ## Novidades da v0.10.0 — otimização pesada
 
 Medido com as suas notas do PF.zip (Informática: 31 páginas, 36 mil traços):

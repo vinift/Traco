@@ -122,7 +122,11 @@ const Drive = {
   /* ---- API ---- */
   async api(method, url, { body, headers = {}, raw = false } = {}, retry = true) {
     const tok = await this.getToken();
-    const res = await fetch(url, { method, body, headers: { Authorization: 'Bearer ' + tok, ...headers } });
+    let res;
+    for (let k = 0; ; k++) { // internet instável: tenta de novo (3×) antes de desistir
+      try { res = await fetch(url, { method, body, headers: { Authorization: 'Bearer ' + tok, ...headers } }); break; }
+      catch (e) { const safe = method !== 'POST' || /uploadType=resumable/.test(url); if (!safe || k >= 2 || !navigator.onLine) throw e; await sleep(1500 * (k + 1)); } // criar arquivo (POST) não repete: evitaria cópia dupla
+    }
     if (res.status === 401 && retry) { this.token = null; this.exp = 0; return this.api(method, url, { body, headers, raw }, false); }
     if (!res.ok) { const t = await res.text(); const e = new Error(`Drive ${res.status}: ${t.slice(0, 200)}`); e.status = res.status; throw e; }
     return raw ? res : res.status === 204 ? null : res.json();
@@ -210,9 +214,25 @@ const Drive = {
       headers: { 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': blob.type || 'application/octet-stream' },
     });
     const loc = res.headers.get('Location'); if (!loc) throw new Error('Upload sem Location');
-    const up = await fetch(loc, { method: 'PUT', body: blob });
-    if (!up.ok) throw new Error('Falha no envio do arquivo: ' + up.status);
-    const j = await up.json(); await this.setEntry(key, { id: j.id, parent, name });
+    // envio em pedaços de 4 MB: se a internet cair no meio, continua de onde parou em vez de recomeçar (e dar "Failed to fetch")
+    const total = blob.size, CH = 4 * 1024 * 1024; let off = 0, j = null, fails = 0;
+    const range = (r) => { const g = r.headers.get('Range'); return g ? +g.split('-')[1] + 1 : null; };
+    while (!j) {
+      const end = Math.min(off + CH, total);
+      let r;
+      try { r = await fetch(loc, { method: 'PUT', headers: { 'Content-Range': total ? `bytes ${off}-${end - 1}/${total}` : 'bytes */0' }, body: blob.slice(off, end) }); }
+      catch (e) {
+        if (++fails > 4 || !navigator.onLine) throw e; await sleep(2000 * fails);
+        const st = await fetch(loc, { method: 'PUT', headers: { 'Content-Range': `bytes */${total}` } }).catch(() => null); // até onde o Drive recebeu?
+        if (st && st.ok) { j = await st.json(); break; }
+        if (st && st.status === 308) { const nx = range(st); off = nx ?? 0; }
+        continue;
+      }
+      if (r.ok) { j = await r.json(); break; }
+      if (r.status === 308) { const nx = range(r); off = nx ?? end; fails = 0; this.pg && (this.pg.sub = Math.round((off / total) * 100), this.setStatus('busy')); continue; }
+      throw new Error('Falha no envio do arquivo: ' + r.status);
+    }
+    await this.setEntry(key, { id: j.id, parent, name });
   },
   async trash(key) {
     const e = this.entry(key); if (!e) return;
@@ -250,7 +270,7 @@ const Drive = {
   heavyStart(info) { try { localStorage.setItem(this.HEAVY, JSON.stringify({ ...info, at: Date.now() })); } catch (_) {} },
   heavyEnd() { try { localStorage.removeItem(this.HEAVY); } catch (_) {} },
   checkCrash() {
-    if (this.cfg.pdfCrashV !== 2) { this.cfg.pdfCrash = {}; this.cfg.pdfCrashV = 2; Store.saveSettings(); } // v0.9.9: o PDF ficou leve; religa o PDF automático das notas que tinham falhado
+    if (this.cfg.pdfCrashV !== 3) { this.cfg.pdfCrash = {}; this.cfg.pdfCrashV = 3; Store.saveSettings(); } // v0.10.1: o PDF ficou leve (de ~500 MB para ~100 MB de memória); religa o PDF automático das notas que tinham falhado
     let h = null; try { h = JSON.parse(localStorage.getItem(this.HEAVY) || 'null'); } catch (_) {} this.heavyEnd();
     if (!h || Date.now() - h.at > 864e5) return;
     logError(`O app fechou enquanto ${h.kind === 'pdf' ? 'gerava o PDF' : 'enviava'} de "${h.title}" (${h.pages} pág.${h.dpi ? ', ' + h.dpi + ' dpi' : ''})`, 'travamento');

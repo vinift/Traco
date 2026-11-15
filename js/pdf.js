@@ -151,10 +151,18 @@ async function exportNotePdf(note, onProgress, { shouldStop, dpi = PDF_DPI } = {
         const list = src && src.get(page.pdf.index), cp = list && list.shift();
         if (cp && !(cp.getRotation().angle % 360)) {
           const pg = out.addPage(cp), box = pg.getCropBox ? pg.getCropBox() : { x: 0, y: 0, ...pg.getSize() };
-          if (page.elements.length || (page.template && page.template.type !== 'blank')) {
-            const cv = await renderPageCanvas(note, page, sc, { annot: true });
-            const png = await canvasBytes(cv, 'image/png'); cv.width = cv.height = 0; // libera a memória da imagem na hora
-            pg.drawImage(await out.embedPng(png), { x: box.x, y: box.y, width: box.width, height: box.height });
+          const full = page.template && page.template.type !== 'blank';
+          const bb = full ? { x: 0, y: 0, w: page.w, h: page.h } : bboxUnion(page.elements);
+          if (bb) {
+            // só o retângulo onde há escrita (não a página inteira), e a imagem é gravada já compactada (embed) para não acumular memória
+            const m = 6, ax = Math.max(0, Math.floor(bb.x - m)), ay = Math.max(0, Math.floor(bb.y - m)), area = { x: ax, y: ay, w: Math.min(page.w, Math.ceil(bb.x + bb.w + m)) - ax, h: Math.min(page.h, Math.ceil(bb.y + bb.h + m)) - ay };
+            if (area.w > 0 && area.h > 0) {
+              const cv = await renderPageCanvas(note, page, sc, { annot: true, area });
+              const png = await canvasBytes(cv, 'image/png'); cv.width = cv.height = 0; // libera a memória da imagem na hora
+              const img = await out.embedPng(png), kx = box.width / page.w, ky = box.height / page.h;
+              pg.drawImage(img, { x: box.x + area.x * kx, y: box.y + (page.h - area.y - area.h) * ky, width: area.w * kx, height: area.h * ky });
+              if (img.embed) await img.embed();
+            }
           }
           done = true;
         }
@@ -163,7 +171,7 @@ async function exportNotePdf(note, onProgress, { shouldStop, dpi = PDF_DPI } = {
     if (!done) { // caderno (ou PDF que não deu para copiar): imagem nítida da página inteira
       const cv = await renderPageCanvas(note, page, sc);
       const jpg = await canvasBytes(cv, 'image/jpeg', 0.93); cv.width = cv.height = 0; // libera a memória da imagem na hora
-      const pg = out.addPage([wPt, hPt]); pg.drawImage(await out.embedJpg(jpg), { x: 0, y: 0, width: wPt, height: hPt });
+      const pg = out.addPage([wPt, hPt]), img = await out.embedJpg(jpg); pg.drawImage(img, { x: 0, y: 0, width: wPt, height: hPt }); if (img.embed) await img.embed();
     }
     await new Promise((r) => setTimeout(r, 30)); // deixa a tela respirar
   }
