@@ -286,6 +286,7 @@ async function openSettings(focus) {
     el('div', { class: 'field' }, el('label', {}, 'URI de redirecionamento e origem para cadastrar no Google Cloud'), el('code', { class: 'k' }, Drive.redirectUri()), el('code', { class: 'k' }, location.origin)),
     el('label', { class: 'chk', style: { marginBottom: '10px' } }, auto, 'Backup automático ligado'),
     UI.check('Salvar também uma cópia em PDF de cada nota (para ler direto no Drive)', D.pdf !== false, (v) => { D.pdf = v; Store.saveSettings(); }),
+    el('div', { class: 'field' }, el('label', {}, 'Qualidade do PDF no Drive (mais alta = arquivo maior e mais memória para gerar)'), (() => { const s = el('select', {}, el('option', { value: '150' }, 'Normal · 150 dpi'), el('option', { value: '200' }, 'Alta · 200 dpi (padrão)'), el('option', { value: '300' }, 'Máxima · 300 dpi')); s.value = String(D.pdfDpi || 200); s.addEventListener('change', () => { D.pdfDpi = +s.value; D.pdfCrash = {}; Store.saveSettings(); }); return s; })()),
     status,
     el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
       B('Salvar e conectar', 'primary', () => { saveDrive(); if (D.clientId) Drive.connect(); else toast('Informe o Client ID'); }),

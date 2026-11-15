@@ -83,7 +83,7 @@ function describeCustomTemplate(t) {
 }
 
 /* desenho do modelo importado (posições exatas, escaladas pela largura da página) */
-function drawCustomTemplate(ctx, tpl, vis, z, pw) {
+function drawCustomTemplate(ctx, tpl, vis, z, pw, dpr = 1) {
   const k = (pw || tpl.bw) / tpl.bw;
   if ((tpl.spacing || 30) * k * z < 1.8) { // muito afastado: vira um tom suave em vez de sumir
     const l = (tpl.hl && tpl.hl[0]) || (tpl.vl && tpl.vl[0]), sp = (tpl.spacing || 30) * k;
@@ -95,11 +95,11 @@ function drawCustomTemplate(ctx, tpl, vis, z, pw) {
   ctx.save(); ctx.globalAlpha = clamp(+tpl.opacity || 1, 0.05, 1); ctx.lineCap = 'butt';
   for (const l of tpl.hl || []) {
     const y = l.y * k; if (y < y1 - 4 || y > y2 + 4) continue;
-    ctx.strokeStyle = l.c; ctx.lineWidth = Math.max(l.t * k, 1 / z); ctx.beginPath(); ctx.moveTo(Math.max(x1, l.x1 * k), y); ctx.lineTo(Math.min(x2, l.x2 * k), y); ctx.stroke();
+    const L = crispLine(Math.max(l.t * k, 1 / z), z * dpr), q = L.at(y); ctx.strokeStyle = l.c; ctx.lineWidth = L.w; ctx.beginPath(); ctx.moveTo(Math.max(x1, l.x1 * k), q); ctx.lineTo(Math.min(x2, l.x2 * k), q); ctx.stroke();
   }
   for (const l of tpl.vl || []) {
     const x = l.x * k; if (x < x1 - 4 || x > x2 + 4) continue;
-    ctx.strokeStyle = l.c; ctx.lineWidth = Math.max(l.t * k, 1 / z); ctx.beginPath(); ctx.moveTo(x, Math.max(y1, l.y1 * k)); ctx.lineTo(x, Math.min(y2, l.y2 * k)); ctx.stroke();
+    const L = crispLine(Math.max(l.t * k, 1 / z), z * dpr), q = L.at(x); ctx.strokeStyle = l.c; ctx.lineWidth = L.w; ctx.beginPath(); ctx.moveTo(q, Math.max(y1, l.y1 * k)); ctx.lineTo(q, Math.min(y2, l.y2 * k)); ctx.stroke();
   }
   const D = tpl.dots;
   if (D) {

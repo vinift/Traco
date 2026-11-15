@@ -107,11 +107,11 @@ function loadPdfLib() {
   return (_pdfLibP = _pdfLibP || new Promise((res, rej) => { const s = document.createElement('script'); s.src = new URL('vendor/pdf-lib.min.js', document.baseURI).href; s.onload = () => (window.PDFLib ? res(window.PDFLib) : rej(new Error('pdf-lib'))); s.onerror = () => { _pdfLibP = null; rej(new Error('não consegui carregar o gerador de PDF')); }; document.head.append(s); }));
 }
 const canvasBytes = (cv, type, q) => new Promise((r) => cv.toBlob(async (b) => r(new Uint8Array(await b.arrayBuffer())), type, q));
-async function exportNotePdf(note, onProgress, { shouldStop } = {}) {
+async function exportNotePdf(note, onProgress, { shouldStop, dpi = PDF_DPI } = {}) {
   let L = null; if (note.mode !== 'infinite') try { L = await loadPdfLib(); } catch (e) { console.warn(e); }
   if (!L) return exportNotePdfRaster(note, onProgress);
   const out = await L.PDFDocument.create(); out.setTitle(note.title || 'Nota'); out.setCreator('Traço Notas');
-  const srcs = new Map(), k = PDF_DPI / 96; // pixels por unidade da página (a página é medida a 96 dpi)
+  const srcs = new Map(), k = dpi / 96; // pixels por unidade da página (a página é medida a 96 dpi)
   for (let i = 0; i < note.pages.length; i++) {
     onProgress && onProgress(i + 1, note.pages.length);
     if (shouldStop && shouldStop()) throw Object.assign(new Error('PDF adiado'), { deferred: true }); // você voltou a escrever: para e tenta depois

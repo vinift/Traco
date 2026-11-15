@@ -140,6 +140,10 @@ const ZoomGuard = {
     document.addEventListener('touchmove', block, { passive: false, capture: true });
     document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
     document.addEventListener('dblclick', (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+    // segurar o dedo: nada de menu do navegador (fora de campos de texto, onde copiar/colar continua funcionando)
+    document.addEventListener('contextmenu', (e) => { const t = e.target; if (t && t.closest && t.closest('input,textarea,select,[contenteditable="true"],[contenteditable=""],.text-edit')) return; e.preventDefault(); });
+    document.addEventListener('selectstart', (e) => { const t = e.target && e.target.nodeType === 1 ? e.target : e.target && e.target.parentElement; if (t && t.closest && t.closest('input,textarea,[contenteditable="true"],[contenteditable=""],.text-edit,.errlog')) return; e.preventDefault(); });
+    document.addEventListener('dragstart', (e) => { if (e.target && e.target.tagName === 'IMG') e.preventDefault(); });
     window.addEventListener('wheel', (e) => { if ((e.ctrlKey || e.metaKey) && !(e.target.closest && e.target.closest('#stage'))) e.preventDefault(); }, { passive: false });
     const vv = window.visualViewport; if (!vv) return;
     const check = () => {

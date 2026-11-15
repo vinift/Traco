@@ -600,3 +600,8 @@ html,body{touch-action:none}
 #stage,#stage *{touch-action:none}
 body.vv-zoomed #stage,body.vv-zoomed #stage *{touch-action:pinch-zoom}
 .vv-fix{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:9999;background:#111827;color:#fff;border:0;border-radius:999px;padding:10px 16px;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+
+/* ===== v0.9.8 — segurar o dedo não abre o menu do navegador (copiar, salvar imagem, selecionar texto) ===== */
+body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+img,svg,canvas{-webkit-user-drag:none;-webkit-touch-callout:none}
+input,textarea,select,[contenteditable],[contenteditable] *,.text-edit,.text-edit *,.errlog,.errlog *{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}

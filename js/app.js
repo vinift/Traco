@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.9.7',
+  version: '0.9.8',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -13,6 +13,7 @@ const App = {
     Plugins.init();
     setTimeout(() => Fonts.prewarm(), 4000); // baixa as fontes para funcionarem sem internet
     this.wire();
+    try { Drive.checkCrash(); } catch (e) { console.warn(e); } // o app fechou sozinho na última vez? registra e deixa o backup mais leve
     const back = await Drive.handleRedirect();
     Drive.refreshStatus();
     Library.show();

@@ -15,15 +15,18 @@ const ImgCache = {
   async load(id) { const v = this.get(id); if (v) return v; for (let i = 0; i < 100; i++) { await sleep(30); const b = this.map.get(id); if (b && b !== 'loading') return b; if (!b) return null; } return null; },
 };
 
-function drawTemplate(ctx, tpl, vis, z, bounded, pw, ph) {
+/* linhas nítidas: espessura em pixels inteiros da tela e cada linha encaixada na grade de pixels (sem borrão de meio pixel) */
+function crispLine(th, S) { const wd = Math.max(1, Math.round(th * S)); return { w: wd / S, at: (v) => (Math.round(v * S - wd / 2) + wd / 2) / S }; }
+function drawTemplate(ctx, tpl, vis, z, bounded, pw, ph, dpr = 1) {
   if (!tpl || tpl.type === 'blank') return;
-  if (tpl.type === 'custom') return drawCustomTemplate(ctx, tpl, vis, z, pw); // modelo importado de PDF
+  if (tpl.type === 'custom') return drawCustomTemplate(ctx, tpl, vis, z, pw, dpr); // modelo importado de PDF
   const s = Math.max(4, +tpl.spacing || 32);
   const th = Math.max(+tpl.thickness || 1, (tpl.type === 'dots' ? 0.6 : 1) / z), op = clamp(+tpl.opacity || 1, 0.05, 1); // afastando: linhas com pelo menos 1 px de tela (a grade não "some")
   // muito afastado: em vez de sumir, a grade vira um tom suave do papel (mesmo "peso" visual)
   if (s * z < (tpl.type === 'dots' ? 2.4 : 1.8)) return tintTemplate(ctx, tpl.color, op * patternCoverage(tpl.type, th, s), vis, bounded, pw, ph);
   ctx.save(); ctx.globalAlpha = op;
-  ctx.strokeStyle = ctx.fillStyle = tpl.color; ctx.lineWidth = th;
+  const L = crispLine(th, z * dpr);
+  ctx.strokeStyle = ctx.fillStyle = tpl.color; ctx.lineWidth = L.w;
   const top = bounded ? (+tpl.top || 0) : 0;
   const x1 = vis.x, x2 = vis.x + vis.w, y1 = vis.y, y2 = vis.y + vis.h;
   // grade centralizada na folha (como no Notewise): margens iguais e pelo menos meio quadradinho de folga
@@ -37,8 +40,8 @@ function drawTemplate(ctx, tpl, vis, z, bounded, pw, ph) {
   ctx.beginPath();
   if (tpl.type === 'lines' || tpl.type === 'grid') {
     const startY = tpl.type === 'lines' && !tpl.center ? top : oy;
-    for (let y = first(y1, startY); y <= Math.min(y2, yEnd); y += s) { ctx.moveTo(x1, y); ctx.lineTo(x2, y); }
-    if (tpl.type === 'grid') for (let x = first(x1, ox); x <= Math.min(x2, xEnd); x += s) { ctx.moveTo(x, y1); ctx.lineTo(x, y2); }
+    for (let y = first(y1, startY); y <= Math.min(y2, yEnd); y += s) { const q = L.at(y); ctx.moveTo(x1, q); ctx.lineTo(x2, q); }
+    if (tpl.type === 'grid') for (let x = first(x1, ox); x <= Math.min(x2, xEnd); x += s) { const q = L.at(x); ctx.moveTo(q, y1); ctx.lineTo(q, y2); }
     ctx.stroke();
   } else if (tpl.type === 'dots') {
     const r = Math.max(th * 1.1, 0.8 / z);
@@ -46,8 +49,8 @@ function drawTemplate(ctx, tpl, vis, z, bounded, pw, ph) {
     ctx.fill();
   }
   if (tpl.type === 'lines' && tpl.margin && bounded) {
-    ctx.beginPath(); ctx.strokeStyle = tpl.marginColor || '#f19a9a'; ctx.lineWidth = Math.max(th, 1);
-    const mx = Math.round(s * 2.5); ctx.moveTo(mx, y1); ctx.lineTo(mx, y2); ctx.stroke();
+    const M = crispLine(Math.max(th, 1), z * dpr); ctx.beginPath(); ctx.strokeStyle = tpl.marginColor || '#f19a9a'; ctx.lineWidth = M.w;
+    const mx = M.at(Math.round(s * 2.5)); ctx.moveTo(mx, y1); ctx.lineTo(mx, y2); ctx.stroke();
   }
   ctx.restore();
 }
@@ -131,15 +134,15 @@ function drawPageContent(ctx, note, page, vis, z, opts = {}) {
   const bounded = note.mode !== 'infinite';
   const tpl = page.template || note.template;
   if (opts.annot) { // só as anotações (fundo transparente), para ir por cima do PDF original
-    if (page.template && page.template.type !== 'blank') drawTemplate(ctx, page.template, vis, z, bounded, page.w, page.h);
+    if (page.template && page.template.type !== 'blank') drawTemplate(ctx, page.template, vis, z, bounded, page.w, page.h, opts.dpr || 1);
   } else if (bounded) { ctx.fillStyle = page.pdf ? '#ffffff' : tpl.paper || '#fff'; ctx.fillRect(0, 0, page.w, page.h); }
   else { ctx.fillStyle = tpl.paper || '#fff'; ctx.fillRect(vis.x, vis.y, vis.w, vis.h); }
   if (opts.annot) { /* fundo já tratado */ }
   else if (page.pdf) {
     const bmp = opts.pdfBitmap || PdfCache.bitmap(page.pdf, z * (opts.dpr || 1));
     if (bmp) ctx.drawImage(bmp, 0, 0, page.w, page.h);
-    if (page.template && page.template.type !== 'blank') drawTemplate(ctx, page.template, vis, z, bounded, page.w, page.h);
-  } else drawTemplate(ctx, tpl, vis, z, bounded, page.w, page.h);
+    if (page.template && page.template.type !== 'blank') drawTemplate(ctx, page.template, vis, z, bounded, page.w, page.h, opts.dpr || 1);
+  } else drawTemplate(ctx, tpl, vis, z, bounded, page.w, page.h, opts.dpr || 1);
   for (const e of page.elements) {
     if (opts.skip && opts.skip.has(e.id)) continue;
     if (!rectsHit(elBBox(e), vis)) continue;

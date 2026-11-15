@@ -242,6 +242,19 @@ const Drive = {
   writingAgo() { return typeof Editor !== 'undefined' && Editor.note ? Date.now() - (Editor.lastInput || 0) : Infinity; },
   userBusy() { return this.writingAgo() < 25000; },          // escreveu nos últimos 25 s
   pdfAllowed() { return this.writingAgo() > 180000; },        // PDF só com a nota fechada ou 3 min sem mexer
+  /* PDF automático: qualidade do backup (padrão 200 dpi). Se o app fechou gerando o PDF de uma nota (memória do tablet),
+     a próxima tentativa usa 120 dpi; se fechar de novo, o PDF dessa nota deixa de ser gerado sozinho (dá para exportar à mão). */
+  HEAVY: 'traco-heavy',
+  heavyStart(info) { try { localStorage.setItem(this.HEAVY, JSON.stringify({ ...info, at: Date.now() })); } catch (_) {} },
+  heavyEnd() { try { localStorage.removeItem(this.HEAVY); } catch (_) {} },
+  checkCrash() {
+    let h = null; try { h = JSON.parse(localStorage.getItem(this.HEAVY) || 'null'); } catch (_) {} this.heavyEnd();
+    if (!h || Date.now() - h.at > 864e5) return;
+    logError(`O app fechou enquanto ${h.kind === 'pdf' ? 'gerava o PDF' : 'enviava'} de "${h.title}" (${h.pages} pág.${h.dpi ? ', ' + h.dpi + ' dpi' : ''})`, 'travamento');
+    if (h.kind === 'pdf') { const c = (this.cfg.pdfCrash = this.cfg.pdfCrash || {}); c[h.id] = (c[h.id] || 0) + 1; Store.saveSettings(); }
+    setTimeout(() => toast(h.kind === 'pdf' && this.cfg.pdfCrash[h.id] >= 2 ? `O PDF automático de "${h.title}" foi desligado: a nota é grande demais para gerar no tablet. Use Exportar PDF quando precisar.` : 'O app fechou durante o backup; vou tentar de um jeito mais leve.', 6000), 1500);
+  },
+  pdfDpi(id) { const c = (this.cfg.pdfCrash || {})[id] || 0; return c >= 2 ? 0 : c === 1 ? 120 : +this.cfg.pdfDpi || 200; },
   later(ms = 10000) { clearTimeout(this._waitT); this._waitT = setTimeout(() => this.sync(), ms); },
   async sync(manual = false, { background = false } = {}) {
     if (!this.configured()) { this.refreshStatus(); return; }
@@ -266,7 +279,7 @@ const Drive = {
       for (const id of Object.keys(d.notes)) {
         if (!manual && !background && this.userBusy()) { this.again = false; this.later(); throw Object.assign(new Error('adiado'), { deferred: true }); } // voltou a escrever: continua depois
         const note = typeof Editor !== 'undefined' && Editor.note && Editor.note.id === id ? Editor.note : await Store.getNote(id); at('Nota: ' + (note ? note.title : '')); // nota aberta: usa a da tela (já é a mais nova; ler do banco de novo pesa)
-        if (note) { const nb = await noteFileBlob(note); await this.upsert('n:' + id, { name: safeName(note.title) + '.traco', mime: nb.mime, data: nb.blob, parent: await this.ensureNoteDir(note), props: { traco: 'nota', noteId: id } }); }
+        if (note) { this.heavyStart({ kind: 'note', id, title: note.title, pages: note.pages.length }); const nb = await noteFileBlob(note); this.heavyEnd(); await this.upsert('n:' + id, { name: safeName(note.title) + '.traco', mime: nb.mime, data: nb.blob, parent: await this.ensureNoteDir(note), props: { traco: 'nota', noteId: id } }); }
         delete d.notes[id]; await Store.saveDirty(); done();
       }
       let pdfWait = false;
@@ -274,9 +287,12 @@ const Drive = {
         if (this.cfg.pdf === false) { delete d.pdfs[id]; continue; }
         if (!manual && !this.pdfAllowed()) { pdfWait = true; continue; } // com nota aberta e em uso: PDF fica para depois (pesa muito)
         const note = typeof Editor !== 'undefined' && Editor.note && Editor.note.id === id ? Editor.note : await Store.getNote(id);
-        if (note) { at('PDF: ' + note.title); let pdf;
-          try { pdf = await exportNotePdf(note, null, { shouldStop: () => !manual && !this.pdfAllowed() && this.userBusy() }); }
-          catch (er) { if (er.deferred) { pdfWait = true; continue; } throw er; } await this.upsert('p:' + id, { name: safeName(note.title) + '.pdf', mime: 'application/pdf', data: pdf, parent: await this.ensureNoteDir(note), props: { traco: 'pdf', noteId: id } }); }
+        const dpi = this.pdfDpi(id);
+        if (note && dpi) { at('PDF: ' + note.title); let pdf;
+          this.heavyStart({ kind: 'pdf', id, title: note.title, pages: note.pages.length, dpi });
+          try { pdf = await exportNotePdf(note, null, { dpi, shouldStop: () => !manual && !this.pdfAllowed() && this.userBusy() }); }
+          catch (er) { this.heavyEnd(); if (er.deferred) { pdfWait = true; continue; } throw er; }
+          this.heavyEnd(); await this.upsert('p:' + id, { name: safeName(note.title) + '.pdf', mime: 'application/pdf', data: pdf, parent: await this.ensureNoteDir(note), props: { traco: 'pdf', noteId: id } }); }
         delete d.pdfs[id]; await Store.saveDirty(); done();
       }
       for (const id of Object.keys(d.deleted)) { at('Removendo nota apagada'); await this.trash('n:' + id); await this.trash('p:' + id); await this.trash('d:' + id); delete d.deleted[id]; await Store.saveDirty(); done(); }
