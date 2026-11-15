@@ -50,7 +50,7 @@ const Editor = {
   async open(id) {
     const note = await Store.getNote(id); if (!note) { toast('Nota não encontrada'); return false; }
     if (fixNotewiseHeights(note)) { await Store.putNote(note); Store.setThumb(note.id, await makeThumb(note)); } // corrige notas importadas antes (grade meia linha fora)
-    this.resetTiles(); this._prevZ = undefined;
+    this.resetTiles(); this._prevZ = undefined; this.lastInput = Date.now(); // nota recém-aberta conta como "em uso" (o backup pesado espera)
     this.note = note; this.undoStack = []; this.redoStack = []; this.sel = null; this.selTf = null; this.action = null; this.editingId = null;
     this.readOnly = false; $('#editor').classList.remove('reading'); { const rb = $('#btnRead'); if (rb) rb.classList.remove('soft-on'); }
     $('#noteTitle').value = note.title;
@@ -315,6 +315,7 @@ const Editor = {
   pt(e) { return { x: e.clientX - this.rect.left, y: e.clientY - this.rect.top }; },
   touchIds() { return [...this.pointers.entries()].filter(([, p]) => p.type === 'touch' && !p.ignored && !p.drawing).map(([id]) => id); },
   onDown(e) {
+    this.lastInput = Date.now();
     if (!this.note) return;
     this.rect = this.stage.getBoundingClientRect();
     this.stopInertia();
@@ -351,6 +352,7 @@ const Editor = {
     this.startAction(e, p);
   },
   onMove(e) {
+    if (e.buttons || e.pressure) this.lastInput = Date.now();
     if (!this.note) return;
     if (e.pointerType === 'pen') this.lastPenSeen = performance.now();
     const rec = this.pointers.get(e.pointerId);

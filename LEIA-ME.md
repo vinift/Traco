@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.9.7
+
+- **Salvar ficou muito mais leve.** Antes, a cada traço o app regravava a nota inteira; numa nota grande (Informática: 36 mil traços, 59 MB) isso levava 2 a 4 segundos e travava a escrita. Agora cada página é guardada separada e só a página mexida é gravada (≈60 ms). Na primeira abertura, cada nota antiga é convertida sozinha.
+- **O backup espera você escrever.** Enquanto você escreve (e até 25 s depois), nada é enviado. O PDF da nota só é gerado com a nota fechada ou depois de 3 min parado — e se você voltar a escrever no meio, ele para e tenta depois. Ao sair do app, as notas são salvas no Drive na hora (o PDF continua esperando).
+- **Arquivos do Drive 4× menores.** O arquivo .traco agora vai compactado (59 MB → 14,5 MB) e é montado aos poucos, sem travar a tela. A restauração aceita os dois formatos.
+
 ## Novidades da v0.9.6
 
 A pinça agora só amplia a folha. Antes, se a pinça começava em cima de uma barra ou da biblioteca, o navegador ampliava a tela inteira, e as barras saíam da tela e pareciam sumir. Se o Chrome estiver com "Forçar ativação do zoom" ligado (Acessibilidade), o app avisa e libera a pinça na folha para você afastar e voltar ao normal.

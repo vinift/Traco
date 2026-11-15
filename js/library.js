@@ -443,7 +443,7 @@ async function editPlugin(p) {
 }
 async function exportAll() {
   toast('Preparando cópia…', 6000);
-  const notes = await DB.all('notes'); const blobs = {};
+  const notes = []; for (const id of await DB.keys('notes')) { const n = await Store.getNote(id); if (n) notes.push(n); } const blobs = {};
   for (const k of await DB.keys('blobs')) { const b = await DB.get('blobs', k); if (b) blobs[k] = await blobToDataURL(b); }
   const data = { app: 'traco-notas', v: 1, exported: Date.now(), folders: Store.folders, notes, blobs, thumbs: Object.fromEntries(Object.values(Store.heads).map((h) => [h.id, h.thumb])) };
   downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), `traco-backup-${new Date().toISOString().slice(0, 10)}.json`);

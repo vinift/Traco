@@ -238,10 +238,16 @@ const Drive = {
 
   /* ---- Sincronização ---- */
   schedule: debounce(() => Drive.sync(), 4000),
-  async sync(manual = false) {
+  /* enquanto você escreve, o backup espera: enviar uma nota grande ou gerar PDF trava a escrita e pode estourar a memória */
+  writingAgo() { return typeof Editor !== 'undefined' && Editor.note ? Date.now() - (Editor.lastInput || 0) : Infinity; },
+  userBusy() { return this.writingAgo() < 25000; },          // escreveu nos últimos 25 s
+  pdfAllowed() { return this.writingAgo() > 180000; },        // PDF só com a nota fechada ou 3 min sem mexer
+  later(ms = 10000) { clearTimeout(this._waitT); this._waitT = setTimeout(() => this.sync(), ms); },
+  async sync(manual = false, { background = false } = {}) {
     if (!this.configured()) { this.refreshStatus(); return; }
     if (!navigator.onLine) { this.setStatus('pending', 'sem internet'); return; }
     if (this.running) { this.again = true; return; }
+    if (!manual && !background && this.userBusy()) { this.setStatus('pending', 'esperando você parar de escrever'); this.later(); return; }
     this.running = true; this.pg = null; this.setStatus('busy');
     try {
       await this.migrateLayout();
@@ -258,17 +264,19 @@ const Drive = {
         const wasNew = pg.label === 'Imagem/PDF anexado'; delete d.blobs[id]; await Store.saveDirty(); if (wasNew) { pg.label = ''; done(); }
       }
       for (const id of Object.keys(d.notes)) {
-        const note = await Store.getNote(id); at('Nota: ' + (note ? note.title : ''));
-        if (note) await this.upsert('n:' + id, { name: safeName(note.title) + '.traco', mime: 'application/json', data: JSON.stringify(note), parent: await this.ensureNoteDir(note), props: { traco: 'nota', noteId: id } });
+        if (!manual && !background && this.userBusy()) { this.again = false; this.later(); throw Object.assign(new Error('adiado'), { deferred: true }); } // voltou a escrever: continua depois
+        const note = typeof Editor !== 'undefined' && Editor.note && Editor.note.id === id ? Editor.note : await Store.getNote(id); at('Nota: ' + (note ? note.title : '')); // nota aberta: usa a da tela (já é a mais nova; ler do banco de novo pesa)
+        if (note) { const nb = await noteFileBlob(note); await this.upsert('n:' + id, { name: safeName(note.title) + '.traco', mime: nb.mime, data: nb.blob, parent: await this.ensureNoteDir(note), props: { traco: 'nota', noteId: id } }); }
         delete d.notes[id]; await Store.saveDirty(); done();
       }
       let pdfWait = false;
       for (const id of Object.keys(d.pdfs)) {
         if (this.cfg.pdf === false) { delete d.pdfs[id]; continue; }
-        const editing = typeof Editor !== 'undefined' && Editor.note && Editor.note.id === id;
-        if (editing && Date.now() - (Editor.note.updated || 0) < 120000) { pdfWait = true; continue; } // espera você parar de escrever
-        const note = await Store.getNote(id);
-        if (note) { at('PDF: ' + note.title); const pdf = await exportNotePdf(note); await this.upsert('p:' + id, { name: safeName(note.title) + '.pdf', mime: 'application/pdf', data: pdf, parent: await this.ensureNoteDir(note), props: { traco: 'pdf', noteId: id } }); }
+        if (!manual && !this.pdfAllowed()) { pdfWait = true; continue; } // com nota aberta e em uso: PDF fica para depois (pesa muito)
+        const note = typeof Editor !== 'undefined' && Editor.note && Editor.note.id === id ? Editor.note : await Store.getNote(id);
+        if (note) { at('PDF: ' + note.title); let pdf;
+          try { pdf = await exportNotePdf(note, null, { shouldStop: () => !manual && !this.pdfAllowed() && this.userBusy() }); }
+          catch (er) { if (er.deferred) { pdfWait = true; continue; } throw er; } await this.upsert('p:' + id, { name: safeName(note.title) + '.pdf', mime: 'application/pdf', data: pdf, parent: await this.ensureNoteDir(note), props: { traco: 'pdf', noteId: id } }); }
         delete d.pdfs[id]; await Store.saveDirty(); done();
       }
       for (const id of Object.keys(d.deleted)) { at('Removendo nota apagada'); await this.trash('n:' + id); await this.trash('p:' + id); await this.trash('d:' + id); delete d.deleted[id]; await Store.saveDirty(); done(); }
@@ -279,9 +287,10 @@ const Drive = {
       }
       this.cfg.lastSync = Date.now(); Store.saveSettings(); this.pg = null;
       this.refreshStatus(); if (manual) toast(pg.total ? `Backup no Drive concluído (${pg.total} ${pg.total === 1 ? 'item' : 'itens'})` : 'Backup no Drive concluído');
-      if (pdfWait) { clearTimeout(this._pdfT); this._pdfT = setTimeout(() => this.sync(), 130000); }
+      if (pdfWait) { clearTimeout(this._pdfT); this._pdfT = setTimeout(() => this.sync(), 60000); }
     } catch (e) {
-      console.error(e);
+      if (e.deferred) { this.setStatus('pending', 'esperando você parar de escrever'); return; }
+      console.error(e); logError(e, 'backup Drive');
       if (e.needAuth) this.setStatus('need'); else this.setStatus('err', e.message);
       if (manual && !e.needAuth) toast('Erro no backup: ' + e.message, 5000);
     } finally {
@@ -318,7 +327,7 @@ const Drive = {
       onProgress && onProgress(++done, total);
     }
     for (const f of noteFiles) {
-      const remote = await this.api('GET', `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`);
+      const remote = await readNoteFile(await this.api('GET', `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`, { raw: true }));
       const id = remote.id; if (!id) continue;
       if (!this.entry('n:' + id)) Store.driveMap['n:' + id] = { id: f.id, parent: (f.parents || [])[0] };
       const local = Store.heads[id];
@@ -330,5 +339,22 @@ const Drive = {
   },
 };
 window.addEventListener('online', () => Drive.schedule());
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && Drive.configured() && Drive.hasAuth()) Drive.schedule.flush(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && Drive.configured() && Drive.hasAuth()) { Drive.schedule.cancel(); Drive.sync(false, { background: true }); } }); // saindo do app: salva as notas (PDF continua esperando)
 setInterval(() => { if (Drive.configured() && Drive.state !== 'busy' && Drive.state !== 'ok' && Drive.hasAuth()) Drive.sync(); }, 120000);
+
+/* arquivo .traco da nota: JSON montado página por página (sem um texto gigante na memória) e compactado (gzip, ~4× menor) */
+async function noteFileBlob(note) {
+  const { pages, ...rest } = note, head = JSON.stringify({ ...rest, pages: [] }), k = head.lastIndexOf('"pages":[]');
+  const chunks = (function* () { yield head.slice(0, k) + '"pages":['; for (let i = 0; i < pages.length; i++) yield (i ? ',' : '') + JSON.stringify(pages[i]); yield ']' + head.slice(k + 10); })();
+  const pause = () => new Promise((r) => setTimeout(r, 0)); // entre uma página e outra: a tela não trava
+  if (typeof CompressionStream === 'undefined') { const parts = []; for (const c of chunks) { parts.push(c); await pause(); } return { blob: new Blob(parts, { type: 'application/json' }), mime: 'application/json' }; }
+  const cs = new CompressionStream('gzip'), out = new Response(cs.readable).blob(), w = cs.writable.getWriter(), enc = new TextEncoder();
+  for (const c of chunks) for (let o = 0; o < c.length; o += 262144) { await w.write(enc.encode(c.slice(o, o + 262144))); await pause(); } // pedaços pequenos: compactar não segura a tela
+  await w.close();
+  return { blob: await out, mime: 'application/gzip' };
+}
+async function readNoteFile(res) { // aceita o formato antigo (JSON puro) e o novo (compactado)
+  const buf = new Uint8Array(await res.arrayBuffer());
+  const text = buf[0] === 0x1f && buf[1] === 0x8b ? await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text() : new TextDecoder().decode(buf);
+  return JSON.parse(text);
+}

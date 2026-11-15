@@ -107,13 +107,14 @@ function loadPdfLib() {
   return (_pdfLibP = _pdfLibP || new Promise((res, rej) => { const s = document.createElement('script'); s.src = new URL('vendor/pdf-lib.min.js', document.baseURI).href; s.onload = () => (window.PDFLib ? res(window.PDFLib) : rej(new Error('pdf-lib'))); s.onerror = () => { _pdfLibP = null; rej(new Error('não consegui carregar o gerador de PDF')); }; document.head.append(s); }));
 }
 const canvasBytes = (cv, type, q) => new Promise((r) => cv.toBlob(async (b) => r(new Uint8Array(await b.arrayBuffer())), type, q));
-async function exportNotePdf(note, onProgress) {
+async function exportNotePdf(note, onProgress, { shouldStop } = {}) {
   let L = null; if (note.mode !== 'infinite') try { L = await loadPdfLib(); } catch (e) { console.warn(e); }
   if (!L) return exportNotePdfRaster(note, onProgress);
   const out = await L.PDFDocument.create(); out.setTitle(note.title || 'Nota'); out.setCreator('Traço Notas');
   const srcs = new Map(), k = PDF_DPI / 96; // pixels por unidade da página (a página é medida a 96 dpi)
   for (let i = 0; i < note.pages.length; i++) {
     onProgress && onProgress(i + 1, note.pages.length);
+    if (shouldStop && shouldStop()) throw Object.assign(new Error('PDF adiado'), { deferred: true }); // você voltou a escrever: para e tenta depois
     const page = note.pages[i], wPt = page.w * 0.75, hPt = page.h * 0.75, sc = Math.min(k, 6000 / Math.max(page.w, page.h));
     let done = false;
     if (page.pdf) {
@@ -126,7 +127,8 @@ async function exportNotePdf(note, onProgress) {
           pg.drawPage(emb, { x: 0, y: 0, width: wPt, height: hPt });
           if (page.elements.length || (page.template && page.template.type !== 'blank')) {
             const cv = await renderPageCanvas(note, page, sc, { annot: true });
-            pg.drawImage(await out.embedPng(await canvasBytes(cv, 'image/png')), { x: 0, y: 0, width: wPt, height: hPt });
+            const png = await canvasBytes(cv, 'image/png'); cv.width = cv.height = 0; // libera a memória da imagem na hora
+            pg.drawImage(await out.embedPng(png), { x: 0, y: 0, width: wPt, height: hPt });
           }
           done = true;
         }
@@ -134,10 +136,12 @@ async function exportNotePdf(note, onProgress) {
     }
     if (!done) { // caderno (ou PDF que não deu para copiar): imagem nítida da página inteira
       const cv = await renderPageCanvas(note, page, sc);
-      const pg = out.addPage([wPt, hPt]); pg.drawImage(await out.embedJpg(await canvasBytes(cv, 'image/jpeg', 0.93)), { x: 0, y: 0, width: wPt, height: hPt });
+      const jpg = await canvasBytes(cv, 'image/jpeg', 0.93); cv.width = cv.height = 0; // libera a memória da imagem na hora
+      const pg = out.addPage([wPt, hPt]); pg.drawImage(await out.embedJpg(jpg), { x: 0, y: 0, width: wPt, height: hPt });
     }
-    await new Promise((r) => setTimeout(r, 0)); // deixa a tela respirar
+    await new Promise((r) => setTimeout(r, 30)); // deixa a tela respirar
   }
+  srcs.clear();
   return new Blob([await out.save()], { type: 'application/pdf' });
 }
 async function exportNotePdfRaster(note, onProgress) {

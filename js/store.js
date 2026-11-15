@@ -5,13 +5,16 @@ const DB = {
   async open() {
     try {
       this.db = await new Promise((res, rej) => {
-        const r = indexedDB.open('traco-notas', 1);
-        r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('notes', { keyPath: 'id' }); d.createObjectStore('blobs'); d.createObjectStore('meta'); };
+        const r = indexedDB.open('traco-notas', 2);
+        r.onupgradeneeded = () => { // v2: a escrita de cada página fica num registro separado (salvar só o que mudou)
+          const d = r.result, has = (n) => d.objectStoreNames.contains(n);
+          if (!has('notes')) d.createObjectStore('notes', { keyPath: 'id' }); if (!has('blobs')) d.createObjectStore('blobs'); if (!has('meta')) d.createObjectStore('meta'); if (!has('pages')) d.createObjectStore('pages');
+        };
         r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
       });
     } catch (e) {
       console.warn('IndexedDB indisponível, usando memória', e);
-      this.mem = { notes: new Map(), blobs: new Map(), meta: new Map() };
+      this.mem = { notes: new Map(), blobs: new Map(), meta: new Map(), pages: new Map() };
     }
   },
   _req(store, mode, fn) {
@@ -28,6 +31,35 @@ const DB = {
   },
   del(store, key) { if (this.mem) { this.mem[store].delete(key); return Promise.resolve(); } return this._req(store, 'readwrite', (s) => s.delete(key)); },
   all(store) { return this.mem ? Promise.resolve([...this.mem[store].values()]) : this._req(store, 'readonly', (s) => s.getAll()); },
+  getMany(store, keys) { // várias chaves numa transação só
+    if (this.mem) return Promise.resolve(keys.map((k) => this.mem[store].get(k)));
+    return new Promise((res, rej) => {
+      const t = this.db.transaction(store, 'readonly'), s = t.objectStore(store), out = new Array(keys.length);
+      keys.forEach((k, i) => { const r = s.get(k); r.onsuccess = () => { out[i] = r.result; }; });
+      t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    });
+  },
+  /* grava a nota (sem a escrita) e só as páginas indicadas, tudo numa transação */
+  writeNote(meta, pages, removeKeys, wipePrefix) {
+    if (this.mem) {
+      if (wipePrefix) for (const k of [...this.mem.pages.keys()]) if (k.startsWith(wipePrefix)) this.mem.pages.delete(k);
+      this.mem.notes.set(meta.id, meta); for (const [k, v] of pages) this.mem.pages.set(k, v); for (const k of removeKeys) this.mem.pages.delete(k); return Promise.resolve();
+    }
+    return new Promise((res, rej) => {
+      const t = this.db.transaction(['notes', 'pages'], 'readwrite'), P = t.objectStore('pages');
+      if (wipePrefix) P.delete(IDBKeyRange.bound(wipePrefix, wipePrefix + '\uffff'));
+      t.objectStore('notes').put(meta); for (const [k, v] of pages) P.put(v, k); for (const k of removeKeys) P.delete(k);
+      t.oncomplete = () => res(); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    });
+  },
+  delNote(id) {
+    const pre = id + '/';
+    if (this.mem) { this.mem.notes.delete(id); for (const k of [...this.mem.pages.keys()]) if (k.startsWith(pre)) this.mem.pages.delete(k); return Promise.resolve(); }
+    return new Promise((res, rej) => {
+      const t = this.db.transaction(['notes', 'pages'], 'readwrite'); t.objectStore('notes').delete(id); t.objectStore('pages').delete(IDBKeyRange.bound(pre, pre + '\uffff'));
+      t.oncomplete = () => res(); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    });
+  },
   keys(store) { return this.mem ? Promise.resolve([...this.mem[store].keys()]) : this._req(store, 'readonly', (s) => s.getAllKeys()); },
 };
 
@@ -137,7 +169,7 @@ const Store = {
   },
   async purgeTrash(filter = () => true) { // exclui de vez (no Drive, vai para a lixeira do Drive)
     let n = 0;
-    for (const [id, x] of Object.entries(this.trash.notes)) if (filter(x)) { await DB.del('notes', id); delete this.trash.notes[id]; delete this.dirty.notes[id]; this.dirty.deleted[id] = 1; n++; }
+    for (const [id, x] of Object.entries(this.trash.notes)) if (filter(x)) { await DB.delNote(id); delete this.trash.notes[id]; delete this.dirty.notes[id]; this.dirty.deleted[id] = 1; n++; }
     for (const [id, x] of Object.entries(this.trash.folders)) if (filter(x)) { delete this.trash.folders[id]; n++; }
     if (n) { this.dirty.lib = true; await this.saveDirty(); await this.saveTrash(); Drive.schedule(); }
     return n;
@@ -156,10 +188,28 @@ const Store = {
   saveDriveMap() { return DB.put('meta', this.driveMap, 'driveMap'); },
   saveDirty() { return DB.put('meta', this.dirty, 'dirty'); },
   markLib() { this.dirty.lib = true; this.saveDirty(); },
-  getNote(id) { return DB.get('notes', id); },
+  /* ---- notas: o "cabeçalho" (título, páginas, modelos) num registro e a escrita de cada página em outro.
+     Ao salvar, só vão as páginas que mudaram (antes a nota inteira era regravada a cada traço: segundos em notas grandes). ---- */
+  _sigs: new WeakMap(), // nota → (página → assinatura do que foi gravado)
+  pageSigOf(pg) { let h = 2166136261 ^ pg.elements.length; for (const e of pg.elements) h = Math.imul(h ^ oid(e), 16777619) >>> 0; return h + ':' + oid(pg.elements); },
+  async getNote(id) {
+    let n = await DB.get('notes', id); if (!n) return n;
+    if (DB.mem) n = { ...n, pages: n.pages.map((p) => ({ ...p })) }; // reserva em memória: não mexe no registro guardado
+    if (n.split) {
+      const els = await DB.getMany('pages', n.pages.map((p) => id + '/' + p.id));
+      n.pages.forEach((p, i) => { p.elements = els[i] || []; }); delete n.split;
+      this._sigs.set(n, new Map(n.pages.map((p) => [p.id, this.pageSigOf(p)])));
+    } // formato antigo (nota inteira num registro): sem assinaturas, o próximo salvamento grava tudo no formato novo
+    return n;
+  },
   async putNote(note, { sync = true } = {}) {
     note.updated = note.updated || Date.now();
-    await DB.put('notes', note);
+    const prev = this._sigs.get(note), cur = new Map(), writes = [];
+    for (const p of note.pages) { const s = this.pageSigOf(p); cur.set(p.id, s); if (!prev || prev.get(p.id) !== s) writes.push([note.id + '/' + p.id, p.elements]); }
+    const removed = prev ? [...prev.keys()].filter((k) => !cur.has(k)).map((k) => note.id + '/' + k) : [];
+    const meta = { ...note, split: true, pages: note.pages.map((p) => { const { elements, ...m } = p; return m; }) };
+    await DB.writeNote(meta, writes, removed, prev ? null : note.id + '/'); // nota sem histórico: grava tudo e limpa páginas antigas
+    this._sigs.set(note, cur);
     const h = this.heads[note.id] || {};
     const texts = []; note.pages.forEach((pg, i) => { pg.elements.forEach((e) => { if (e.type === 'text' && e.text) texts.push([i, e.id, e.text.slice(0, 400)]); }); if (pg.ocr && pg.ocr.text) texts.push([i, '', pg.ocr.text.slice(0, 1500)]); });
     this.heads[note.id] = { id: note.id, title: note.title, folderId: note.folderId || null, created: note.created, updated: note.updated, mode: note.mode, pages: note.pages.length, thumb: h.thumb || null, hasPdf: note.pages.some((p) => p.pdf), texts: texts.slice(0, 300), bm: note.pages.filter((p) => p.bookmark).length };
@@ -168,7 +218,7 @@ const Store = {
   },
   async setThumb(id, thumb) { if (this.heads[id]) { this.heads[id].thumb = thumb; await this.saveHeads(); } },
   async deleteNote(id) {
-    await DB.del('notes', id); delete this.heads[id]; await this.saveHeads();
+    await DB.delNote(id); delete this.heads[id]; await this.saveHeads();
     delete this.dirty.notes[id]; this.dirty.deleted[id] = 1; this.dirty.lib = true; await this.saveDirty(); Drive.schedule();
   },
   async putBlob(blob, id = uid()) { await DB.put('blobs', blob, id); this.dirty.blobs[id] = 1; await this.saveDirty(); return id; },
