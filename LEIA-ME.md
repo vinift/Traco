@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.15.0
+
+- **Tela cheia** (botão ⛶): esconde só as barras do topo — ferramentas, cores e espessuras continuam. Para sair, toque no botão discreto (meio transparente) no canto superior direito.
+- **Escrevendo com a caneta**, as barras do topo também somem e voltam ~2,5 s depois de parar. O dedo não esconde nada.
+- **Baixa latência sem piscar:** antes a tela inteira ficava no modo "rápido" e piscava ao rolar/dar zoom. Agora só a tinta vai para uma tela rápida, e apenas enquanto a caneta escreve; ao soltar, o traço passa para a página e a tela rápida some. Rolar e dar zoom usam sempre o modo fluido normal.
+
 ## Novidades da v0.14.0
 
 | Item | Como funciona |

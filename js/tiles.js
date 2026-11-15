@@ -148,7 +148,22 @@ Object.assign(Editor, {
     const fr = document.createElement('div'); fr.className = 'w-frames'; w.append(fr);
     this.world = w; this.wFrames = fr; this.wLevels = new Map(); this._frDivs = new Map();
   },
-  domMode() { return !this.lowLat && !this.noTiles; },
+  domMode() { return !this.noTiles; },
+  /* baixa latência: copia o que está na tela para a tela rápida e passa a desenhar a tinta nela */
+  inkBegin() {
+    const c = this.cInk, x = this.ictx; if (!c || !this.note) return;
+    if (c.width !== this.cMain.width || c.height !== this.cMain.height) { c.width = this.cMain.width; c.height = this.cMain.height; }
+    const z = this.cam.z, vis = { x: this.cam.x, y: this.cam.y, w: this.W / z, h: this.H / z }, st = { t0: performance.now(), rendered: 0, zooming: false }, inf = this.note.mode === 'infinite';
+    x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = inf ? (this.note.template && this.note.template.paper) || '#fff' : this.desk; x.fillRect(0, 0, c.width, c.height);
+    this.note.pages.forEach((page, i) => {
+      const o = this.layout[i]; if (!inf && !rectsHit({ x: o.x, y: o.y, w: page.w, h: page.h }, vis)) return;
+      if (!inf) { this.pageTf(x, i); x.fillStyle = '#fff'; x.fillRect(0, 0, page.w, page.h); }
+      this.drawPageTiled(x, page, i, o, vis, st);
+    });
+    x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(this.cMain, 0, 0); // seleção, destaques etc.
+    c.style.display = 'block'; this.inkOn = true;
+  },
+  inkHide() { if (this.cInk) this.cInk.style.display = 'none'; this.inkOn = false; },
   levelBox(lvl) { let b = this.wLevels.get(lvl); if (!b) { b = document.createElement('div'); b.className = 'w-lvl'; this.world.append(b); this.wLevels.set(lvl, b); } return b; },
   placeTile(t, pi) { // posição do bloco em px de tela no nível em que foi desenhado (alinhado aos pixels)
     const o = this.layout[pi]; if (!o) return; const L = t.lvl, d = this.dpr, inf = this.note.mode === 'infinite';

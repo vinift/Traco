@@ -459,7 +459,6 @@ Object.assign(Editor, {
   fingerTap(p) {
     if (this.textEl) return this.commitText();
     const { page, l, hit } = this.hitAt(p);
-    if (!hit && Focus.on && !(this.tool === 'text' || this.tool === 'sticky')) { Focus.peek(); this.sel = null; return this.requestRender(); } // tela cheia: tocar num espaço vazio mostra as barras
     if (!page) { this.sel = null; return this.requestRender(); }
     const ck = this.checkAt(page, l); if (ck) return this.toggleCheck(page, ck.e, ck.ci);
     const now = performance.now();

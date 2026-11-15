@@ -683,7 +683,11 @@ input,textarea,select,[contenteditable],[contenteditable] *,.text-edit,.text-edi
 .ch-title{top:max(10px,env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);height:var(--cr,44px);display:flex;align-items:center;padding:0 4px;border-radius:999px;background:color-mix(in srgb,var(--ch) 58%,transparent);box-shadow:0 1px 6px rgba(0,0,0,.06);max-width:30vw}
 #editor .ch-title .title-input{color:var(--chfg);opacity:.8;font-weight:500;font-size:calc(var(--tfs,15px) - 1px);text-align:center;min-width:60px;max-width:30vw;field-sizing:content;padding:4px 12px;border-radius:999px}
 #editor .ch-title .title-input:focus{opacity:1;background:var(--ch);box-shadow:0 0 0 2px var(--accent-soft)}
-#editor.immersive:not(.peek) .chrome:not(.tool-panel),#editor.writing:not(.peek) .chrome:not(.tool-panel){opacity:0;pointer-events:none}
-#editor.immersive:not(.peek) .vscroll,#editor.writing .vscroll{opacity:0}
+/* v0.15: tela cheia e escrita escondem só as barras do topo (ferramentas, cores e espessuras ficam) */
+#editor.immersive .ch-topleft,#editor.immersive .ch-topright,#editor.immersive .ch-title,#editor.writing .ch-topleft,#editor.writing .ch-topright,#editor.writing .ch-title{opacity:0;pointer-events:none}
+.full-exit{display:none;position:absolute;z-index:9;top:max(10px,env(safe-area-inset-top,0px));right:max(10px,env(safe-area-inset-right,0px));width:var(--cb,40px);height:var(--cb,40px);border-radius:50%;border:0;background:var(--ch);color:var(--chfg);opacity:.42;box-shadow:0 1px 6px rgba(0,0,0,.12);place-items:center;cursor:pointer;transition:opacity .2s}
+.full-exit svg.ic{width:var(--ci,20px);height:var(--ci,20px)}
+.full-exit:hover,.full-exit:active{opacity:.9}
+#editor.immersive .full-exit{display:grid}
 #editor.split-on .ch-title{max-width:22vw}
 @media (max-width:900px){ .ch-title{display:none} }

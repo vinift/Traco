@@ -12,7 +12,13 @@ const Editor = {
     // Baixa latência: o canvas principal (opaco) fica "dessincronizado" e a tinta da caneta é desenhada direto nele.
     // Um canvas transparente dessincronizado deixava a tela preta em alguns tablets Android.
     this.lowLat = Store.settings.lowLatency === true;
-    this.ctx = this.cMain.getContext('2d', this.lowLat ? { alpha: false, desynchronized: true } : { alpha: true }); // transparente: os blocos da página ficam por baixo
+    this.ctx = this.cMain.getContext('2d', { alpha: true }); // transparente: os blocos da página ficam por baixo
+    // v0.15 baixa latência: só a TINTA vai numa tela "rápida" (dessincronizada), mostrada apenas enquanto a caneta escreve.
+    // Rolar e dar zoom usam a camada normal — antes a tela inteira era dessincronizada e piscava ao mexer.
+    if (this.lowLat) {
+      this.cInk = document.createElement('canvas'); this.cInk.id = 'cInk'; this.cInk.style.display = 'none'; this.cMain.after(this.cInk);
+      try { this.ictx = this.cInk.getContext('2d', { alpha: false, desynchronized: true }); } catch (_) { this.ictx = this.cInk.getContext('2d', { alpha: false }); }
+    }
     this.lctx = this.cLive.getContext('2d');
     // o Android pode descartar a memória de desenho (app em segundo plano, memória cheia): refaz tudo em vez de ficar em branco
     for (const c of [this.cMain, this.cLive]) {
@@ -230,7 +236,7 @@ const Editor = {
       ctx.restore();
     });
     const a = this.action;
-    if (this.lowLat && a && a.kind === 'draw' && a.tool === 'pen' && a.inc && !a.shape && a.pts.length) { this.pageTf(ctx, a.pi); ctx.fillStyle = a.color; ctx.fill(buildRadiiPath(a.pts, penRadii(a.pts, a.width, a.pen))); }
+    if (this._inkHide && !(this.action && this.action.kind === 'draw')) { this._inkHide = false; this.inkHide(); } // traço já está nos blocos: some a tela rápida
     this.drawSelection(); this.drawFlash(ctx); this.drawGuides(); this.updateHud(); this.positionText(); this.placePull(); this.updateScroll();
     if (!allDone && !st.zooming) this.requestRender(); // ainda há blocos a desenhar: continua no próximo quadro
     this._drawnCam = { ...this.cam }; this._drawnComplete = allDone && !st.zooming;
@@ -504,7 +510,7 @@ const Editor = {
   },
   cancelAction() {
     const a = this.action; this.action = null; if (!a) return;
-    clearTimeout(a.holdT); this.clearLive();
+    clearTimeout(a.holdT); this.clearLive(); if (this.inkOn) this.inkHide();
     if (a.kind === 'erase' || a.kind === 'plugin') this.opCommit();
     if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate' || a.kind === 'tableact') { this.selTf = null; this.tPreview = null; this.guides = null; }
     this.requestRender();
@@ -518,7 +524,9 @@ const Editor = {
     const a = this.action = { ...base, kind: 'draw', pi, pts: [], color: st.color, width: st.width, opacity: base.tool === 'highlighter' ? st.opacity ?? 0.4 : 1, drawn: 0, snap: Instruments.snapFor(p), hold: { x: p.x, y: p.y } };
     a.dash = base.tool === 'pen' ? st.dash || 'solid' : 'solid';
     if (base.tool === 'pen') { a.pen = st.type || 'ball'; a.nib = st.nib ?? 45; a.inc = a.dash === 'solid' && (a.pen === 'ball' || a.pen === 'natural') && !colorHasAlpha(a.color); }
-    a.stab = stabLevel(base.tool, a.pen); a.inf = inf; this.addDrawPoint(e); Focus.writing();
+    a.stab = stabLevel(base.tool, a.pen); a.inf = inf; if (e.pointerType === 'pen') Focus.writing(); // só a caneta esconde as barras do topo
+    if (this.lowLat && e.pointerType === 'pen' && a.inc && a.tool === 'pen') this.inkBegin(); // baixa latência: tinta direto numa tela "rápida"
+    this.addDrawPoint(e);
     if (base.tool === 'highlighter' && Store.settings.hlSnapPdf !== false) { const pg = this.note.pages[pi]; if (pg && pg.pdf) PdfText.prefetch(pg.pdf); } // lê o texto do PDF enquanto você passa o marca-texto
     const S0 = Store.settings;
     if (((base.tool === 'pen' && S0.straightAlways) || (base.tool === 'highlighter' && S0.hlStraight)) && !a.snap) { // sempre linhas retas
@@ -564,7 +572,7 @@ const Editor = {
     a.shape = { id: uid(), type: 'shape', color: a.color, width: Math.max(1, a.width * 0.9), fill: null, dash: a.dash, ...r };
     a.shapeAnchor = r.kind === 'line' ? null : { x1: r.x1, y1: r.y1 };
     if (navigator.vibrate) navigator.vibrate(12);
-    if (this.lowLat) this.requestRender();
+    if (this.inkOn) this.inkHide(); // virou forma: a tinta rápida sai, a forma aparece na camada de prévia
     this.drawLiveStroke();
   },
   hlLine(a) { const sh = a.shape; return { id: sh.id, type: 'stroke', tool: 'highlighter', color: a.color, width: a.width, opacity: a.opacity, cap: 'round', pts: [r2(sh.x1), r2(sh.y1), 0.5, r2(sh.x2), r2(sh.y2), 0.5] }; },
@@ -594,12 +602,13 @@ const Editor = {
     }
     const n = a.pts.length / 3; const from = Math.max(0, a.drawn - 1);
     if (n - from < 1) return;
-    const tc = this.lowLat ? this.ctx : c; if (this.lowLat) this.pageTf(tc, a.pi);
+    const tc = this.inkOn ? this.ictx : c; if (this.inkOn) this.pageTf(tc, a.pi);
     const seg = a.pts.slice(from * 3); tc.fillStyle = a.color; tc.fill(buildRadiiPath(seg, penRadii(seg, a.width, a.pen)));
     a.drawn = n;
   },
   endDraw(a) {
     clearTimeout(a.holdT); this.clearLive(); Focus.writingEnd();
+    if (this.inkOn) { this._inkHide = true; this.requestRender(); } // some depois que os blocos já mostram o traço (sem piscar)
     const page = this.note.pages[a.pi];
     if (a.shape && !(a.straight && Math.hypot(a.shape.x2 - a.shape.x1, a.shape.y2 - a.shape.y1) < 2)) { this.recAdd(page, a.tool === 'highlighter' ? this.hlLine(a) : a.shape); this.opCommit(); return; }
     if (a.raw && !a.snap) { const n = a.pts.length; if (Math.hypot(a.pts[n - 3] - a.raw.x, a.pts[n - 2] - a.raw.y) > 0.5) a.pts.push(a.raw.x, a.raw.y, a.pts[n - 1]); }

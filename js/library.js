@@ -307,8 +307,8 @@ async function openSettings(focus) {
   const bar = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } }, UI.seg([['normal', 'Normal'], ['compact', 'Compacta'], ['mini', 'Bem compacta']], S.barSize || 'compact', (v) => { S.barSize = v; S.barScale = BAR_PRESETS[v]; Store.saveSettings(); applyBarSize(); const r = barSl.querySelector('input'); r.value = Math.round(S.barScale * 100); r.dispatchEvent(new Event('input')); }), barSl);
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Aparência e barras'),
     el('div', { class: 'field' }, el('label', {}, 'Tamanho das barras do editor (mais estreitas deixam mais espaço para escrever)'), bar),
-    UI.check('Esconder as barras enquanto escrevo com a caneta (voltam ao parar)', S.hideWhileWriting !== false, (v) => { S.hideWhileWriting = v; Store.saveSettings(); }),
-    el('p', { class: 'muted' }, 'Tela cheia: botão ⛶ no topo do editor. Com ela ligada, toque com o dedo num espaço vazio para mostrar as barras por alguns segundos.'),
+    UI.check('Esconder as barras do topo enquanto escrevo com a caneta (voltam ~2 s depois)', S.hideWhileWriting !== false, (v) => { S.hideWhileWriting = v; Store.saveSettings(); }),
+    el('p', { class: 'muted' }, 'Tela cheia: botão ⛶ no topo do editor esconde as barras do topo (ferramentas, cores e espessuras continuam). Para sair, toque no botão discreto no canto superior direito.'),
     el('div', { class: 'field' }, el('label', {}, 'Tema do app'), th)));
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Ajustes automáticos'),
     el('p', {}, 'Ao mover, redimensionar ou girar formas, textos, post-its, imagens e tabelas, o app ajuda a alinhar e mostra uma linha-guia rosa.'),
@@ -331,7 +331,7 @@ async function openSettings(focus) {
       chk('Rabiscar para apagar (zigue-zague com a caneta por cima do que quer apagar)', 'scribbleErase'),
       UI.slider('Sensibilidade à pressão', 0, 1, 0.05, S.pressureSens ?? 0.6, (v) => { S.pressureSens = v; S.pressure = v > 0; Store.saveSettings(); }, (v) => (v === 0 ? 'sem' : Math.round(v * 100) + '%')),
       chk('Reconhecer formas ao segurar a caneta parada no fim do traço', 'shapeHold'),
-      UI.check('Modo de baixa latência (a tinta aparece mais rápido; reabra o app depois de mudar)', S.lowLatency === true, (v) => { S.lowLatency = v; Store.saveSettings(); toast('Reabra o app para aplicar'); }),
+      UI.check('Modo de baixa latência para a caneta (a tinta aparece mais rápido; reabra o app depois de mudar)', S.lowLatency === true, (v) => { S.lowLatency = v; Store.saveSettings(); toast('Reabra o app para aplicar'); }),
       el('p', { class: 'muted' }, 'Estabilização do traço (0 a 10): fica no painel de cada caneta — cada tipo guarda o seu nível.'),
       )));
   body.append(penMapSection());
@@ -392,7 +392,7 @@ async function openSettings(focus) {
   const diagText = () => JSON.stringify({ versao: App.version, ua: navigator.userAgent, memoria: navigator.deviceMemory, tela: [innerWidth, innerHeight, devicePixelRatio], baixaLatencia: !!S.lowLatency, blocos: Editor.tiles ? Editor.tiles.size : 0, erros: readErrors() }, null, 1);
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Diagnóstico'),
     el('p', {}, 'Se o app travar ou as barras sumirem, os erros ficam registrados aqui. Copie e me mande para eu achar a causa.'),
-    S.lowLatency ? el('p', { style: { color: 'var(--danger)' } }, '⚠️ O modo de baixa latência está ligado. Em alguns tablets ele faz as barras sumirem — se isso acontecer, desligue em Escrita e caneta.') : null,
+    S.lowLatency ? el('p', { style: { color: 'var(--danger)' } }, 'O modo de baixa latência está ligado (desde a v0.15 ele só age enquanto a caneta escreve).') : null,
     errBox,
     el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' } },
       B('Copiar relatório', '', async () => { try { await navigator.clipboard.writeText(diagText()); toast('Relatório copiado'); } catch (_) { openModal({ title: 'Relatório', wide: true, body: el('textarea', { style: { width: '100%', height: '300px' } }, diagText()), buttons: [{ label: 'Fechar', cls: 'primary' }] }); } }),

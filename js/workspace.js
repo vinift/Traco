@@ -257,11 +257,14 @@ const Focus = {
     this.on = v; const e = this.ed(); e.classList.toggle('immersive', v); e.classList.remove('peek'); this.setIcon();
     Store.settings.immersive = v; Store.saveSettings();
     try { if (v && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {}); else if (!v && document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (_) {}
-    if (v) toast('Tela cheia — toque com o dedo num espaço vazio para mostrar as barras', 2600);
+    if (v) toast('Tela cheia — para sair, toque no botão discreto no canto superior direito', 2600);
   },
-  restore() { if (Store.settings.immersive) { this.on = true; this.ed().classList.add('immersive'); } this.setIcon(); },
+  restore() {
+    if (!$('#btnFullExit')) { const b = el('button', { id: 'btnFullExit', class: 'full-exit', title: 'Sair da tela cheia', onclick: () => this.toggle(false) }); b.innerHTML = icon('unfull'); this.ed().append(b); }
+    if (Store.settings.immersive) { this.on = true; this.ed().classList.add('immersive'); } this.setIcon();
+  },
   peek(ms = 4000) { const e = this.ed(); e.classList.add('peek'); clearTimeout(this._pT); this._pT = setTimeout(() => e.classList.remove('peek'), ms); },
   /* caneta encostou: esconde as barras (se a opção estiver ligada); voltam ~1,5 s depois de parar */
   writing() { if (Store.settings.hideWhileWriting === false || this.on) return; clearTimeout(this._wT); this.ed().classList.add('writing'); },
-  writingEnd() { clearTimeout(this._wT); this._wT = setTimeout(() => this.ed().classList.remove('writing'), 1500); },
+  writingEnd() { clearTimeout(this._wT); this._wT = setTimeout(() => this.ed().classList.remove('writing'), 2500); }, // volta ~2,5 s depois de parar de escrever
 };
