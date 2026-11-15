@@ -153,6 +153,19 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.14.0
+
+| Item | Como funciona |
+|---|---|
+| Tamanho das barras | Configurações → Aparência e barras: além de Normal/Compacta/Bem compacta, um controle de 55% a 130% |
+| Texto com o dedo | Com a ferramenta Texto (ou Post-it), tocar num espaço vazio — com o dedo ou a caneta — cria uma caixa. Em qualquer ferramenta, tocar num texto com o dedo **seleciona**; tocar de novo **edita** |
+| Editar ↔ selecionar | Na barra de edição de texto, o botão de retângulo pontilhado vira "seleção da caixa" (mover/redimensionar); na seleção, o botão T volta a editar |
+| Marca-texto reto | "Sempre reto", "segurar para ficar reto" e o marca-texto no PDF agora têm pontas redondas, como o traço normal |
+| Tela cheia | Botão ⛶ no topo: esconde todas as barras. Toque com o dedo num espaço vazio para mostrá-las por 4 s |
+| Barras somem ao escrever | Enquanto a caneta escreve, as barras somem e voltam 1,5 s depois (pode desligar em Aparência e barras) |
+| Nome da nota | Agora fica no centro do topo, discreto; toque para renomear |
+| Voltar dentro de pastas | Corrigido: o Android às vezes "pulava" o voltar e saía do app. Agora dá para voltar várias telas seguidas; na tela inicial, "volte de novo para sair" |
+
 ## Novidades da v0.13.0 — rolagem e zoom pela placa de vídeo
 
 - **Rolar e dar zoom não redesenham mais nada:** os pedaços prontos da página ficam na tela e só a "folha" inteira é movida/ampliada pela placa de vídeo (como num app nativo). O trabalho do app por quadro caiu de ~12 ms para ~1 ms ao rolar, deixando o tablet livre para acompanhar o dedo (inclusive em telas de 120/144 Hz).

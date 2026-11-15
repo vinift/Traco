@@ -386,6 +386,9 @@ Object.assign(Editor, {
     const sep = () => bar.append(el('span', { class: 'tb-sep' }));
     const hold = (fn) => { this._rtHold = true; fn(() => { this._rtHold = false; setTimeout(() => this.restoreTextSel(), 0); }); };
     this._tb = {};
+    // alternar para "seleção da caixa": mover, redimensionar, mudar cor da caixa inteira
+    B(icon('lassoRect'), 'Selecionar a caixa (mover/redimensionar)', () => { const id = this.textCtx && (this.textCtx.isNew ? this.textCtx.el.id : this.textCtx.orig.id), pg = this.textCtx && this.textCtx.page; this.commitText(); if (pg && pg.elements.some((x) => x.id === id)) { this.sel = { pageId: pg.id, ids: new Set([id]) }; this._lastTap = null; } this.requestRender(); });
+    sep();
     this._tb.font = B('<span class="tb-font">Aa</span>', 'Fonte', (b) => hold((done) => this.fontPop(b, done)), 'wide');
     sep();
     this._tb.b = B('<b>B</b>', 'Negrito', () => this.textCmd('bold'));
@@ -455,14 +458,19 @@ Object.assign(Editor, {
   checkAt(page, l) { for (const e of [...page.elements].reverse()) { const ci = rtCheckAt(e, l.x, l.y); if (ci >= 0) return { e, ci }; } return null; },
   fingerTap(p) {
     if (this.textEl) return this.commitText();
-    const { page, l, hit } = this.hitAt(p); if (!page) { this.sel = null; return this.requestRender(); }
+    const { page, l, hit } = this.hitAt(p);
+    if (!hit && Focus.on && !(this.tool === 'text' || this.tool === 'sticky')) { Focus.peek(); this.sel = null; return this.requestRender(); } // tela cheia: tocar num espaço vazio mostra as barras
+    if (!page) { this.sel = null; return this.requestRender(); }
     const ck = this.checkAt(page, l); if (ck) return this.toggleCheck(page, ck.e, ck.ci);
     const now = performance.now();
     if (!hit) { // toque duplo numa área vazia: zoom rápido
       const e0 = this._emptyTap; this._emptyTap = { t: now, x: p.x, y: p.y };
       if (e0 && now - e0.t < 380 && Math.hypot(p.x - e0.x, p.y - e0.y) < 40) { this._emptyTap = null; return this.doubleTapZoom(p); }
     }
-    if (hit && hit.type === 'text' && this._lastTap && this._lastTap.id === hit.id && now - this._lastTap.t < 450) { this._lastTap = null; this.sel = null; return this.openTextEditor(page, hit, false); }
+    // texto: 1º toque seleciona; tocar de novo no texto já selecionado abre a edição (sem pressa)
+    if (hit && hit.type === 'text' && !hit.lock && ((this.sel && this.sel.ids.size === 1 && this.sel.ids.has(hit.id)) || (this._lastTap && this._lastTap.id === hit.id && now - this._lastTap.t < 450))) { this._lastTap = null; this.sel = null; return this.openTextEditor(page, hit, false); }
+    // ferramenta de texto/post-it: toque com o dedo num espaço vazio cria uma caixa nova
+    if (!hit && (this.tool === 'text' || this.tool === 'sticky')) { this._emptyTap = null; this.sel = null; return this.textAt(this.toWorld(p.x, p.y)); }
     this._lastTap = hit ? { id: hit.id, t: now } : null; this.tsel = null;
     this.sel = hit ? { pageId: page.id, ids: new Set([hit.id]) } : null; // seleciona e continua na ferramenta atual
     this.requestRender();
@@ -471,7 +479,7 @@ Object.assign(Editor, {
     const { page, l } = this.hitAt(p); if (!page) return;
     const ck = this.checkAt(page, l); if (ck && this.sel.ids.has(ck.e.id)) return this.toggleCheck(page, ck.e, ck.ci);
     const els = this.selElements(), now = performance.now();
-    if (els.length === 1 && els[0].type === 'text' && !els[0].lock && this._lastTap && this._lastTap.id === els[0].id && now - this._lastTap.t < 450) { this._lastTap = null; const e = els[0]; this.sel = null; return this.openTextEditor(page, e, false); }
+    if (els.length === 1 && els[0].type === 'text' && !els[0].lock && (a.ptype === 'touch' || (this._lastTap && this._lastTap.id === els[0].id && now - this._lastTap.t < 450))) { this._lastTap = null; const e = els[0]; this.sel = null; return this.openTextEditor(page, e, false); }
     if (els.length === 1) this._lastTap = { id: els[0].id, t: now };
   },
   /* toque curto da caneta: alterna ☐, ou toque duplo num texto abre a edição (o pontinho só entra se não for toque duplo) */

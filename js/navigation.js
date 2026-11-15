@@ -86,23 +86,28 @@ const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8, 12, 16];
    Mantém uma entrada extra no histórico: cada "voltar" do sistema cai aqui, fecha a camada de cima
    (menu → janela → painel → seleção → nota → pasta) e a entrada é recolocada. Na tela inicial: voltar 2× para sair. */
 const Nav = {
-  armed: false, exitT: null,
+  /* v0.14: o Chrome ignora (pula) entradas do histórico criadas sem um toque do usuário — por isso, às vezes, o
+     "voltar" dentro de uma pasta saía do app. Agora as entradas extras só são criadas durante um toque (pointerup/tecla),
+     e ficam 3 de reserva: dá para voltar várias telas seguidas sem tocar em nada. */
+  RESERVE: 3, exitT: null, ignore: 0,
+  depth() { const st = history.state; return st && st.traco === 'guard' ? st.n || 1 : 0; },
   init() {
-    try { history.replaceState({ traco: 'base' }, '', /[?&]atualizar=/.test(location.search) ? location.pathname + location.hash : undefined); this.arm(); } catch (_) { return; }
-    window.addEventListener('popstate', () => { this.armed = false; this.onBack(); });
-    // se a entrada extra foi gasta (saída cancelada), recoloca no próximo toque
-    window.addEventListener('pointerdown', () => { if (!this.armed) { clearTimeout(this.exitT); this.exitT = null; this.arm(); } }, true); // tocou em algo: cancela a saída
+    try { history.replaceState({ traco: 'base' }, '', /[?&]atualizar=/.test(location.search) ? location.pathname + location.hash : undefined); } catch (_) { return; }
+    window.addEventListener('popstate', () => { if (this.ignore > 0) { this.ignore--; return; } this.onBack(); });
+    const arm = () => { if (this.exitT) { clearTimeout(this.exitT); this.exitT = null; } this.arm(); }; // tocou em algo: cancela a saída e repõe a reserva
+    window.addEventListener('pointerup', arm, true); window.addEventListener('keydown', arm, true);
   },
-  arm() { if (this.armed) return; try { history.pushState({ traco: 'guard' }, ''); this.armed = true; } catch (_) {} },
-  push() { this.arm(); }, // compatibilidade: abrir nota garante a entrada extra
+  arm() { try { let d = this.depth(); while (d < this.RESERVE) { d++; history.pushState({ traco: 'guard', n: d }, ''); } } catch (_) {} },
+  push() {}, // compatibilidade (a reserva é reposta no próprio toque que abriu a nota)
   onBack() {
     let handled = false;
     try { handled = this.closeTop(); } catch (e) { logError(e, 'voltar'); handled = true; }
-    if (handled) { clearTimeout(this.exitT); this.exitT = null; this.arm(); return; }
-    // tela inicial: primeiro "voltar" avisa, o segundo (em até 2 s) sai do app
-    if (this.exitT) return; // já avisou: deixa o sistema sair
+    if (handled) { clearTimeout(this.exitT); this.exitT = null; return; }
+    // tela inicial: o 1º "voltar" avisa e descarta a reserva; o 2º (em até 2 s) sai do app
+    if (this.exitT) return;
     toast('Volte de novo para sair', 2000);
-    this.exitT = setTimeout(() => { this.exitT = null; this.arm(); }, 2000);
+    const d = this.depth(); if (d > 0) { this.ignore = 1; history.go(-d); }
+    this.exitT = setTimeout(() => { this.exitT = null; }, 2000);
   },
   closeTop() {
     const pop = $('#popRoot'); if (pop && pop.firstChild) { closePop(); return true; }

@@ -303,9 +303,12 @@ async function openSettings(focus) {
   // --- Escrita
   const chk = (label, key, after) => UI.check(label, S[key], (v) => { S[key] = v; Store.saveSettings(); after && after(v); });
   const th = el('select', {}, el('option', { value: 'auto' }, 'Automático'), el('option', { value: 'light' }, 'Claro'), el('option', { value: 'dark' }, 'Escuro')); th.value = S.theme || 'auto'; th.addEventListener('change', () => { S.theme = th.value; Store.saveSettings(); App.applyTheme(); });
-  const bar = UI.seg([['normal', 'Normal'], ['compact', 'Compacta'], ['mini', 'Bem compacta']], S.barSize || 'compact', (v) => { S.barSize = v; Store.saveSettings(); applyBarSize(); });
+  const barSl = UI.slider('Tamanho', 55, 130, 1, Math.round(barScale() * 100), (v) => { S.barScale = v / 100; Store.saveSettings(); applyBarSize(); }, (v) => v + '%');
+  const bar = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } }, UI.seg([['normal', 'Normal'], ['compact', 'Compacta'], ['mini', 'Bem compacta']], S.barSize || 'compact', (v) => { S.barSize = v; S.barScale = BAR_PRESETS[v]; Store.saveSettings(); applyBarSize(); const r = barSl.querySelector('input'); r.value = Math.round(S.barScale * 100); r.dispatchEvent(new Event('input')); }), barSl);
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Aparência e barras'),
-    el('div', { class: 'field' }, el('label', {}, 'Largura das barras laterais do editor (mais estreitas deixam mais espaço para escrever)'), bar),
+    el('div', { class: 'field' }, el('label', {}, 'Tamanho das barras do editor (mais estreitas deixam mais espaço para escrever)'), bar),
+    UI.check('Esconder as barras enquanto escrevo com a caneta (voltam ao parar)', S.hideWhileWriting !== false, (v) => { S.hideWhileWriting = v; Store.saveSettings(); }),
+    el('p', { class: 'muted' }, 'Tela cheia: botão ⛶ no topo do editor. Com ela ligada, toque com o dedo num espaço vazio para mostrar as barras por alguns segundos.'),
     el('div', { class: 'field' }, el('label', {}, 'Tema do app'), th)));
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Ajustes automáticos'),
     el('p', {}, 'Ao mover, redimensionar ou girar formas, textos, post-its, imagens e tabelas, o app ajuda a alinhar e mostra uma linha-guia rosa.'),

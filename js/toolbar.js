@@ -626,4 +626,13 @@ const Clips = {
   async clear() { await this.save(((await DB.get('meta', 'clips')) || []).filter((c) => c.pin)); },
 };
 
-function applyBarSize() { const b = Store.settings.barSize || 'compact', e = $('#editor'); e.classList.toggle('bar-compact', b === 'compact'); e.classList.toggle('bar-mini', b === 'mini'); }
+/* tamanho das barras: escala contínua (55%–130% do "Normal"); Normal/Compacta/Bem compacta são só atalhos */
+const BAR_PRESETS = { normal: 1, compact: 0.86, mini: 0.73 };
+function barScale() { const S = Store.settings; return clamp(+S.barScale || BAR_PRESETS[S.barSize || 'compact'] || 0.86, 0.55, 1.3); }
+function applyBarSize() {
+  const k = barScale(), e = $('#editor'); if (!e) return;
+  e.classList.toggle('bar-compact', k < 0.93 && k >= 0.8); e.classList.toggle('bar-mini', k < 0.8);
+  const px = (v, min = 0) => Math.max(min, Math.round(v * k * 10) / 10) + 'px';
+  const V = { '--rw': px(58), '--cb': px(44, 24), '--ci': px(23, 13), '--cd': px(30, 16), '--wcw': px(44, 24), '--wch': px(40, 22), '--cr': px(50, 28), '--tfs': px(15, 11), '--sbb': px(38, 22), '--sbi': px(19, 12), '--ptop': px(62, 36), '--pill-pad': px(3, 1) };
+  for (const [n, v] of Object.entries(V)) e.style.setProperty(n, v);
+}

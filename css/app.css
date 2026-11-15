@@ -677,3 +677,13 @@ input,textarea,select,[contenteditable],[contenteditable] *,.text-edit,.text-edi
 #stage .w-lvl{position:absolute;left:0;top:0;transform-origin:0 0}
 #stage .world canvas.wt{position:absolute}
 #stage .w-frames,#stage .w-lvl{will-change:transform}
+
+/* ===== v0.14 — título no centro, tela cheia e barras que somem ao escrever ===== */
+#editor .chrome{transition:opacity .22s ease}
+.ch-title{top:max(10px,env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);height:var(--cr,44px);display:flex;align-items:center;padding:0 4px;border-radius:999px;background:color-mix(in srgb,var(--ch) 58%,transparent);box-shadow:0 1px 6px rgba(0,0,0,.06);max-width:30vw}
+#editor .ch-title .title-input{color:var(--chfg);opacity:.8;font-weight:500;font-size:calc(var(--tfs,15px) - 1px);text-align:center;min-width:60px;max-width:30vw;field-sizing:content;padding:4px 12px;border-radius:999px}
+#editor .ch-title .title-input:focus{opacity:1;background:var(--ch);box-shadow:0 0 0 2px var(--accent-soft)}
+#editor.immersive:not(.peek) .chrome:not(.tool-panel),#editor.writing:not(.peek) .chrome:not(.tool-panel){opacity:0;pointer-events:none}
+#editor.immersive:not(.peek) .vscroll,#editor.writing .vscroll{opacity:0}
+#editor.split-on .ch-title{max-width:22vw}
+@media (max-width:900px){ .ch-title{display:none} }

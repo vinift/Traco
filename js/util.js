@@ -139,6 +139,8 @@ const ICONS = {
   delCol: '<rect x="7" y="3" width="10" height="18" rx="1.5"/><path d="M10 9.5l4 5M14 9.5l-4 5"/>',
   distribute: '<path d="M4 4h16M4 20h16"/><rect x="6" y="8" width="12" height="8" rx="1.5"/>',
   fillCell: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/><rect x="3.8" y="3.8" width="7.4" height="7.4" fill="currentColor" stroke="none"/>',
+  full: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  unfull: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
   laser: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
 };
 function icon(name) {

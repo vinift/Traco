@@ -59,7 +59,7 @@ const Editor = {
     const views = (await DB.get('meta', 'views')) || {}; const v = views[note.id] || note.view; // continua de onde parou
     if (v) { this.cam = { ...v }; this.clampCam(); } else this.fitWidth();
     applyBarSize();
-    UI.buildToolbar(); UI.renderOptions(); this.updateUndoBtns(); Instruments.sync();
+    UI.buildToolbar(); UI.renderOptions(); this.updateUndoBtns(); Instruments.sync(); Focus.restore();
     this.requestRender();
     return true;
   },
@@ -381,7 +381,7 @@ const Editor = {
   onUp(e, cancel = false) {
     if (!this.note) return;
     const rec = this.pointers.get(e.pointerId); this.pointers.delete(e.pointerId);
-    if (e.pointerType === 'pen') { this.penDown = false; this.lastPenSeen = performance.now(); }
+    if (e.pointerType === 'pen') { this.penDown = false; this.lastPenSeen = performance.now(); Focus.writingEnd(); }
     if (!rec) return;
     if (rec.noSnap && this.action && this.action.noSnap) { this.action.noSnap--; const ap = this.pointers.get(this.action.pid); if (ap) this.moveSel({ x: ap.x, y: ap.y }); }
     if (this.action && this.action.pid === e.pointerId) { if (cancel) this.cancelAction(); else this.endAction(e); return; }
@@ -518,7 +518,7 @@ const Editor = {
     const a = this.action = { ...base, kind: 'draw', pi, pts: [], color: st.color, width: st.width, opacity: base.tool === 'highlighter' ? st.opacity ?? 0.4 : 1, drawn: 0, snap: Instruments.snapFor(p), hold: { x: p.x, y: p.y } };
     a.dash = base.tool === 'pen' ? st.dash || 'solid' : 'solid';
     if (base.tool === 'pen') { a.pen = st.type || 'ball'; a.nib = st.nib ?? 45; a.inc = a.dash === 'solid' && (a.pen === 'ball' || a.pen === 'natural') && !colorHasAlpha(a.color); }
-    a.stab = stabLevel(base.tool, a.pen); a.inf = inf; this.addDrawPoint(e);
+    a.stab = stabLevel(base.tool, a.pen); a.inf = inf; this.addDrawPoint(e); Focus.writing();
     if (base.tool === 'highlighter' && Store.settings.hlSnapPdf !== false) { const pg = this.note.pages[pi]; if (pg && pg.pdf) PdfText.prefetch(pg.pdf); } // lê o texto do PDF enquanto você passa o marca-texto
     const S0 = Store.settings;
     if (((base.tool === 'pen' && S0.straightAlways) || (base.tool === 'highlighter' && S0.hlStraight)) && !a.snap) { // sempre linhas retas
@@ -567,7 +567,7 @@ const Editor = {
     if (this.lowLat) this.requestRender();
     this.drawLiveStroke();
   },
-  hlLine(a) { const sh = a.shape; return { id: sh.id, type: 'stroke', tool: 'highlighter', color: a.color, width: a.width, opacity: a.opacity, cap: 'butt', pts: [r2(sh.x1), r2(sh.y1), 0.5, r2(sh.x2), r2(sh.y2), 0.5] }; },
+  hlLine(a) { const sh = a.shape; return { id: sh.id, type: 'stroke', tool: 'highlighter', color: a.color, width: a.width, opacity: a.opacity, cap: 'round', pts: [r2(sh.x1), r2(sh.y1), 0.5, r2(sh.x2), r2(sh.y2), 0.5] }; },
   updateHeldShape(l) {
     const a = this.action, s = a.shape;
     if (s.kind === 'poly') return;
@@ -599,7 +599,7 @@ const Editor = {
     a.drawn = n;
   },
   endDraw(a) {
-    clearTimeout(a.holdT); this.clearLive();
+    clearTimeout(a.holdT); this.clearLive(); Focus.writingEnd();
     const page = this.note.pages[a.pi];
     if (a.shape && !(a.straight && Math.hypot(a.shape.x2 - a.shape.x1, a.shape.y2 - a.shape.y1) < 2)) { this.recAdd(page, a.tool === 'highlighter' ? this.hlLine(a) : a.shape); this.opCommit(); return; }
     if (a.raw && !a.snap) { const n = a.pts.length; if (Math.hypot(a.pts[n - 3] - a.raw.x, a.pts[n - 2] - a.raw.y) > 0.5) a.pts.push(a.raw.x, a.raw.y, a.pts[n - 1]); }
@@ -611,7 +611,7 @@ const Editor = {
     }
     if (a.tool === 'highlighter' && !a.snap && page.pdf && Store.settings.hlSnapPdf !== false) { // marca-texto no PDF: vira faixa reta exatamente sobre as linhas do texto
       const segs = PdfText.snap(page, a.pts);
-      if (segs) { for (const s of segs) this.recAdd(page, { id: uid(), type: 'stroke', tool: 'highlighter', color: a.color, width: r2(s.h), opacity: a.opacity, cap: 'butt', pts: [r2(s.x1), r2(s.y), 0.5, r2(s.x2), r2(s.y), 0.5] }); this.opCommit(); this.requestRender(); return; }
+      if (segs) { for (const s of segs) { const k = Math.min(s.h * 0.4, (s.x2 - s.x1) / 2 - 0.5); this.recAdd(page, { id: uid(), type: 'stroke', tool: 'highlighter', color: a.color, width: r2(s.h), opacity: a.opacity, cap: 'round', pts: [r2(s.x1 + k), r2(s.y), 0.5, r2(s.x2 - k), r2(s.y), 0.5] }); } /* pontas redondas, como o marca-texto à mão */ this.opCommit(); this.requestRender(); return; }
     }
     if (!a.snap) smoothStroke(a.pts, (a.stab ?? 5) / 10); // alisa o traço final (pontas ficam no lugar)
     const pts = a.pts.map((v, i) => (i % 3 === 2 ? Math.round(v * 100) / 100 : r2(v)));
