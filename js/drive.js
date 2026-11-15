@@ -365,7 +365,7 @@ setInterval(() => { if (Drive.configured() && Drive.state !== 'busy' && Drive.st
 /* arquivo .traco da nota: JSON montado página por página (sem um texto gigante na memória) e compactado (gzip, ~4× menor) */
 async function noteFileBlob(note, onProgress) {
   const { pages, ...rest } = note, head = JSON.stringify({ ...rest, pages: [] }), k = head.lastIndexOf('"pages":[]');
-  const chunks = (function* () { yield head.slice(0, k) + '"pages":['; for (let i = 0; i < pages.length; i++) { onProgress && onProgress(i + 1, pages.length); yield (i ? ',' : '') + JSON.stringify(pages[i]); } yield ']' + head.slice(k + 10); })();
+  const chunks = (function* () { yield head.slice(0, k) + '"pages":['; for (let i = 0; i < pages.length; i++) { onProgress && onProgress(i + 1, pages.length); yield (i ? ',' : '') + JSON.stringify(pages[i], ptsJSON); } yield ']' + head.slice(k + 10); })();
   const pause = () => new Promise((r) => setTimeout(r, 0)); // entre uma página e outra: a tela não trava
   if (typeof CompressionStream === 'undefined') { const parts = []; for (const c of chunks) { parts.push(c); await pause(); } return { blob: new Blob(parts, { type: 'application/json' }), mime: 'application/json' }; }
   const cs = new CompressionStream('gzip'), out = new Response(cs.readable).blob(), w = cs.writable.getWriter(), enc = new TextEncoder();

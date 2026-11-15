@@ -71,7 +71,7 @@ function drawElement(ctx, e) {
       ctx.globalAlpha = e.opacity ?? 1; ctx.strokeStyle = e.color; ctx.lineWidth = e.width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       ctx.setLineDash(dashPattern(e.dash, e.width)); ctx.stroke(buildPolyPath(e.pts));
     } else if (e.tool === 'pen' && e.pen === 'fine') { ctx.globalAlpha = e.opacity ?? 1; ctx.strokeStyle = e.color; ctx.lineWidth = e.width; ctx.lineCap = 'butt'; ctx.lineJoin = 'round'; ctx.stroke(elPath(e)); }
-    else if (e.tool === 'pen') { ctx.globalAlpha = e.opacity ?? 1; ctx.fillStyle = e.color; ctx.fill(elPath(e), 'nonzero'); }
+    else if (e.tool === 'pen') { const p = elPath(e); ctx.globalAlpha = e.opacity ?? 1; if (p.strokeW) { ctx.strokeStyle = e.color; ctx.lineWidth = p.strokeW; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(p); } else { ctx.fillStyle = e.color; ctx.fill(p, 'nonzero'); } }
     else {
       ctx.globalAlpha = e.opacity ?? 0.4; ctx.globalCompositeOperation = 'multiply';
       ctx.strokeStyle = e.color; ctx.lineWidth = e.width; ctx.lineCap = e.cap || 'round'; ctx.lineJoin = 'round'; ctx.stroke(elPath(e));
@@ -133,17 +133,19 @@ function drawElement(ctx, e) {
 function drawPageContent(ctx, note, page, vis, z, opts = {}) {
   const bounded = note.mode !== 'infinite';
   const tpl = page.template || note.template;
-  if (opts.annot) { // só as anotações (fundo transparente), para ir por cima do PDF original
+  if (opts.noBg) { /* só os traços (miniatura em pedaços) */ }
+  else if (opts.annot) { // só as anotações (fundo transparente), para ir por cima do PDF original
     if (page.template && page.template.type !== 'blank') drawTemplate(ctx, page.template, vis, z, bounded, page.w, page.h, opts.dpr || 1);
   } else if (bounded) { ctx.fillStyle = page.pdf ? '#ffffff' : tpl.paper || '#fff'; ctx.fillRect(0, 0, page.w, page.h); }
   else { ctx.fillStyle = tpl.paper || '#fff'; ctx.fillRect(vis.x, vis.y, vis.w, vis.h); }
-  if (opts.annot) { /* fundo já tratado */ }
+  if (opts.annot || opts.noBg) { /* fundo já tratado */ }
   else if (page.pdf) {
     const bmp = opts.pdfBitmap || PdfCache.bitmap(page.pdf, z * (opts.dpr || 1));
     if (bmp) ctx.drawImage(bmp, 0, 0, page.w, page.h);
     if (page.template && page.template.type !== 'blank') drawTemplate(ctx, page.template, vis, z, bounded, page.w, page.h, opts.dpr || 1);
   } else drawTemplate(ctx, tpl, vis, z, bounded, page.w, page.h, opts.dpr || 1);
-  for (const e of page.elements) {
+  const els = opts.range ? page.elements.slice(opts.range[0], opts.range[1]) : page.elements;
+  for (const e of els) {
     if (opts.skip && opts.skip.has(e.id)) continue;
     if (!rectsHit(elBBox(e), vis)) continue;
     drawElement(ctx, e);

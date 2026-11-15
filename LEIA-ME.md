@@ -153,6 +153,23 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.10.0 — otimização pesada
+
+Medido com as suas notas do PF.zip (Informática: 31 páginas, 36 mil traços):
+
+| | Antes | Agora |
+|---|---|---|
+| Memória depois de rolar a nota inteira | ~1,8 GB | ~0,8 GB |
+| Preparar os traços de uma página cheia | 511 ms | 10 ms |
+| Abrir a nota | 600 ms | ~100 ms |
+| Salvar depois de um traço | 60 ms | ~33 ms |
+| Travadinhas com o app parado (prepara o entorno) | até 600 ms | ≤ 120 ms |
+
+- **Traços de espessura constante** (esferográfica e tudo que veio do Notewise) agora são desenhados como uma linha com pontas redondas — o mesmo formato de antes (diferença em 0,2% dos pixels da borda), 50× mais rápido e com muito menos memória.
+- **Pontos dos traços em formato compacto** (metade da memória; abrir e salvar mais rápido). As notas antigas são convertidas aos poucos, sem travar.
+- **Memória com teto:** os caminhos de desenho ficam só os usados por último; o PDF de fundo é desenhado uma página por vez, só as que estão na tela (rolar rápido num PDF de 200 páginas abria dezenas de desenhos ao mesmo tempo).
+- **Miniaturas em pedaços:** a imagem de fundo usada no zoom é montada aos poucos, sem segurar a tela.
+
 ## Novidades da v0.9.9
 
 - **Achado o que derrubava o app no backup:** o PDF das notas que vieram de PDF (aulas, apostilas) era montado copiando as fontes e imagens do original de novo em cada página. Um PDF de 4 MB virava 400–900 MB e estourava a memória ("Ah, não!"). Agora as páginas são copiadas juntas e o PDF sai do tamanho do original (ex.: 00 Informática, 229 páginas: 15 MB). As anotações continuam por cima, no lugar certo.

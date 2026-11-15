@@ -199,13 +199,28 @@ const Store = {
       const els = await DB.getMany('pages', n.pages.map((p) => id + '/' + p.id));
       n.pages.forEach((p, i) => { p.elements = els[i] || []; }); delete n.split;
       this._sigs.set(n, new Map(n.pages.map((p) => [p.id, this.pageSigOf(p)])));
-    } // formato antigo (nota inteira num registro): sem assinaturas, o próximo salvamento grava tudo no formato novo
+      const conv = new Set(); for (const p of n.pages) { let c = false; for (const e of p.elements) if (toPts32(e)) c = true; if (c) conv.add(p.id); }
+      if (conv.size) this._conv.set(n, conv); // páginas ainda no formato antigo: regravadas aos poucos (compactLater)
+    } else for (const p of n.pages) for (const e of p.elements) toPts32(e); // formato antigo (nota inteira num registro): o próximo salvamento grava tudo no formato novo
     return n;
+  },
+  _conv: new WeakMap(),
+  compactLater(note) { // regrava, uma página por vez e só quando você não está escrevendo, as páginas convertidas para o formato compacto
+    const conv = this._conv.get(note); if (!conv || !conv.size) return;
+    clearTimeout(this._cT);
+    this._cT = setTimeout(async () => {
+      if (typeof Editor === 'undefined' || Editor.note !== note) return;
+      if (Date.now() - (Editor.lastInput || 0) < 4000) return this.compactLater(note);
+      const id = conv.values().next().value; conv.delete(id);
+      const p = note.pages.find((x) => x.id === id);
+      if (p) try { await DB.put('pages', p.elements, note.id + '/' + p.id); } catch (e) { console.warn(e); }
+      this.compactLater(note);
+    }, 600);
   },
   async putNote(note, { sync = true } = {}) {
     note.updated = note.updated || Date.now();
     const prev = this._sigs.get(note), cur = new Map(), writes = [];
-    for (const p of note.pages) { const s = this.pageSigOf(p); cur.set(p.id, s); if (!prev || prev.get(p.id) !== s) writes.push([note.id + '/' + p.id, p.elements]); }
+    for (const p of note.pages) { const s = this.pageSigOf(p); cur.set(p.id, s); if (!prev || prev.get(p.id) !== s) { for (const e of p.elements) toPts32(e); writes.push([note.id + '/' + p.id, p.elements]); } }
     const removed = prev ? [...prev.keys()].filter((k) => !cur.has(k)).map((k) => note.id + '/' + k) : [];
     const meta = { ...note, split: true, pages: note.pages.map((p) => { const { elements, ...m } = p; return m; }) };
     await DB.writeNote(meta, writes, removed, prev ? null : note.id + '/'); // nota sem histórico: grava tudo e limpa páginas antigas

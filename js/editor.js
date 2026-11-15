@@ -55,7 +55,7 @@ const Editor = {
     this.readOnly = false; $('#editor').classList.remove('reading'); { const rb = $('#btnRead'); if (rb) rb.classList.remove('soft-on'); }
     $('#noteTitle').value = note.title;
     this.desk = getComputedStyle(document.documentElement).getPropertyValue('--desk').trim() || '#d9dde3';
-    this.computeLayout(); this.resize(true);
+    this.computeLayout(); this.resize(true); Store.compactLater(note);
     const views = (await DB.get('meta', 'views')) || {}; const v = views[note.id] || note.view; // continua de onde parou
     if (v) { this.cam = { ...v }; this.clampCam(); } else this.fitWidth();
     applyBarSize();
@@ -71,7 +71,7 @@ const Editor = {
     try { if (note) { const t = await makeThumb(note); if (t) await Store.setThumb(note.id, t); } } catch (e) { logError(e, 'fechar: miniatura'); }
     try { Instruments.hideAll(); } catch (e) { logError(e, 'fechar: instrumentos'); }
     this.note = null; this.sel = null; this.selTf = null; this.action = null; this.gesture = null; this.stopInertia();
-    this.resetTiles(); PdfCache.clear(); ImgCache.clear(); // libera a memória dos blocos, do PDF e das imagens
+    this.resetTiles(); PdfCache.clear(); ImgCache.clear(); PathLRU.clear(); // libera a memória dos blocos, do PDF e das imagens
     if (note) OCR.scheduleNote(note);
   },
   markChanged() {

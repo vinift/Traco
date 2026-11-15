@@ -1,7 +1,16 @@
 'use strict';
 /* ===== Geometria, traços e elementos ===== */
 const _bboxCache = new WeakMap();
-const _pathCache = new WeakMap();
+/* caminhos de desenho (Path2D) guardados com limite: numa nota de 36 mil traços eles chegavam a ~500 MB de memória
+   e derrubavam o app. Os blocos já guardam a imagem pronta, então basta manter os caminhos usados por último. */
+const PathLRU = {
+  map: new Map(), cost: 0, max: 1600000, // ~1,6 milhão de números de pontos (≈ 3–4 mil traços longos)
+  get(e) { const v = this.map.get(e); if (!v) return null; this.map.delete(e); this.map.set(e, v); return v.p; },
+  set(e, p) { const c = (e.pts ? e.pts.length : 60) + 40; this.map.set(e, { p, c }); this.cost += c; if (this.cost > this.max) this.trim(); },
+  trim() { for (const [k, v] of this.map) { if (this.cost <= this.max * 0.8) break; this.map.delete(k); this.cost -= v.c; } },
+  clear() { this.map.clear(); this.cost = 0; },
+};
+const _pathCache = PathLRU;
 const _textCache = new WeakMap();
 const measureCtx = document.createElement('canvas').getContext('2d');
 
@@ -132,7 +141,15 @@ function penStrokePath(pts, w, kind, nib) {
   if (kind === 'fine') return buildPolyPath(pts);
   if (kind === 'calli') return buildCalliPath(splinePts(pts), w, nib ?? 45);
   const r = penRadii(pts, w, kind), q = pts.slice(); for (let i = 0; i < r.length; i++) q[i * 3 + 2] = r[i]; // raio calculado nos pontos reais (velocidade)
-  const sp = splinePts(q), rr = []; for (let i = 2; i < sp.length; i += 3) rr.push(sp[i]);
+  let same = r.length > 0; for (let i = 1; i < r.length && same; i++) if (Math.abs(r[i] - r[0]) > 1e-6) same = false;
+  const sp = splinePts(q);
+  if (same) { // espessura constante (esferográfica, ou pressão igual — como as notas do Notewise): o contorno de círculos + cápsulas
+    // é exatamente uma linha com pontas e juntas redondas. Desenhar assim dá o mesmo traço com uma fração da memória e do tempo.
+    const path = new Path2D(), n = sp.length / 3; path.moveTo(sp[0], sp[1]);
+    if (n === 1) path.lineTo(sp[0] + 0.001, sp[1]); else for (let i = 1; i < n; i++) path.lineTo(sp[i * 3], sp[i * 3 + 1]);
+    path.strokeW = r[0] * 2; return path;
+  }
+  const rr = []; for (let i = 2; i < sp.length; i += 3) rr.push(sp[i]);
   return buildRadiiPath(sp, rr);
 }
 function buildPolyPath(pts, path = new Path2D()) {

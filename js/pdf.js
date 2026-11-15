@@ -25,10 +25,25 @@ const PdfCache = {
     const b = this.bucket(s), k = this.key(ref, b);
     const hit = this.bmps.get(k);
     if (hit) { this.bmps.delete(k); this.bmps.set(k, hit); return hit; }
-    if (!this.pending.has(k)) { this.pending.add(k); this.render(ref, b).then(() => { this.pending.delete(k); this.onReady && this.onReady(); }).catch((e) => { this.pending.delete(k); console.warn(e); }); }
+    this.want.set(k, performance.now());
+    if (!this.pending.has(k)) { this.pending.add(k); this.queue.push([k, ref, b]); this.pump(); }
     let best = null, bestB = 0;
     for (const [kk, v] of this.bmps) { const [bid, idx, bb] = kk.split(':'); if (bid === ref.blobId && +idx === ref.index && +bb > bestB) { best = v; bestB = +bb; } }
     return best;
+  },
+  /* fila: no máximo 1 página do PDF sendo desenhada por vez, e só as que ainda estão na tela
+     (rolar rápido por 200 páginas abria dezenas de desenhos ao mesmo tempo e estourava a memória) */
+  queue: [], want: new Map(), running: 0,
+  async pump() {
+    if (this.running) return;
+    while (this.queue.length) {
+      this.queue.sort((x, y) => (this.want.get(y[0]) || 0) - (this.want.get(x[0]) || 0)); // o pedido mais recente primeiro
+      const [k, ref, b] = this.queue.shift();
+      if (performance.now() - (this.want.get(k) || 0) > 1500) { this.pending.delete(k); continue; } // saiu da tela: não desenha
+      this.running++;
+      try { await this.render(ref, b); this.onReady && this.onReady(); } catch (e) { console.warn(e); }
+      finally { this.running--; this.pending.delete(k); }
+    }
   },
   async render(ref, scale) {
     const b = scale, k = this.key(ref, b);
@@ -44,11 +59,11 @@ const PdfCache = {
     this.bmps.set(k, cv); this.trim();
     return cv;
   },
-  // com os blocos, o PDF renderizado só serve de fonte: 48 Mpx (~190 MB) bastam; antes eram 90 Mpx e estouravam a memória no tablet
-  trim() { let px = 0; const ent = [...this.bmps.entries()]; for (let i = ent.length - 1; i >= 0; i--) { px += ent[i][1].width * ent[i][1].height; if (px > 48e6 && i < ent.length - 1) this.bmps.delete(ent[i][0]); } },
+  // com os blocos, o PDF renderizado só serve de fonte: 28 Mpx (~110 MB) bastam; antes eram 90 Mpx e estouravam a memória no tablet
+  trim() { let px = 0; const ent = [...this.bmps.entries()]; for (let i = ent.length - 1; i >= 0; i--) { px += ent[i][1].width * ent[i][1].height; if (px > 28e6 && i < ent.length - 1) this.bmps.delete(ent[i][0]); } },
   clear() { // ao fechar a nota: libera bitmaps e documentos
     if (!this.busy && !this.pending.size) for (const cv of this.bmps.values()) { cv.width = 0; cv.height = 0; } // libera na hora (se nada estiver usando)
-    this.bmps.clear();
+    this.bmps.clear(); this.queue = []; this.want.clear();
     clearTimeout(this._dT); this._dT = setTimeout(() => this.dropDocs(), 30000); // documentos: fecha depois, se nada mais estiver usando
   },
   busy: 0,

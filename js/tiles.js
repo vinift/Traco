@@ -14,7 +14,7 @@ Object.assign(Editor, {
   freeCanvas(c) { if (c) { c.width = 0; c.height = 0; } }, // devolve a memória na hora (sem esperar a coleta de lixo)
   resetTiles() {
     if (this.tiles) for (const t of this.tiles.values()) this.freeCanvas(t.cv);
-    if (this.pcache) for (const pc of this.pcache.values()) if (pc.preview) this.freeCanvas(pc.preview.cv);
+    if (this.pcache) for (const pc of this.pcache.values()) { if (pc.preview) this.freeCanvas(pc.preview.cv); if (pc.pjob) this.freeCanvas(pc.pjob.cv); }
     this.tiles = new Map(); this.pcache = new Map(); this.imgEpoch = (this.imgEpoch || 0) + 1;
   },
   putTile(lv, t) { // guarda um bloco novo e libera o antigo que ele substitui
@@ -47,7 +47,7 @@ Object.assign(Editor, {
         if (area) { const [tx, ty] = key.split(',').map(Number); if (!rectsHit(area, { x: (tx * TILE) / lvl, y: (ty * TILE) / lvl, w: TILE / lvl, h: TILE / lvl })) continue; }
         t.stale = true;
       }
-      if (pc.preview) pc.preview.stale = true; pc.es = es; pc.rs = rs; pc.changed = true;
+      if (pc.preview) pc.preview.stale = true; if (pc.pjob) { this.freeCanvas(pc.pjob.cv); pc.pjob = null; } pc.es = es; pc.rs = rs; pc.changed = true;
     }
     return pc;
   },
@@ -60,6 +60,21 @@ Object.assign(Editor, {
     if (!inf) { c.beginPath(); c.rect(0, 0, page.w, page.h); c.clip(); }
     drawPageContent(c, this.note, page, vis, s / this.dpr, { dpr: this.dpr });
     return { cv, pdfB: page.pdf ? PdfCache.bitmap(page.pdf, s) : null, used: 0 };
+  },
+  /* miniatura em pedaços: fundo e modelo primeiro, depois os traços aos poucos (no máx. ~budget ms por vez).
+     Antes a página inteira era desenhada de uma vez (0,3–1 s parado em notas cheias). Devolve true quando terminou. */
+  previewStep(page, pc, budget) {
+    const t0 = performance.now(), n = page.elements.length;
+    let J = pc.pjob;
+    if (!J) {
+      const s = Math.min(1.2, 960 / Math.max(page.w, page.h)), cv = this.newCanvas(Math.ceil(page.w * s), Math.ceil(page.h * s)), c = cv.getContext('2d');
+      c.setTransform(s, 0, 0, s, 0, 0); drawPageContent(c, this.note, page, { x: 0, y: 0, w: page.w, h: page.h }, s, { dpr: 1, range: [0, 0] });
+      J = pc.pjob = { cv, c, s, i: 0 };
+    }
+    while (J.i < n && performance.now() - t0 < budget) { const to = Math.min(n, J.i + 24); drawPageContent(J.c, this.note, page, { x: 0, y: 0, w: page.w, h: page.h }, J.s, { dpr: 1, range: [J.i, to], noBg: true }); J.i = to; }
+    if (J.i < n) return false;
+    if (pc.preview) this.freeCanvas(pc.preview.cv);
+    pc.preview = { cv: J.cv, s: J.s, used: this.frameNo - 1 }; pc.pjob = null; return true;
   },
   renderPreview(page) { // miniatura da página inteira (fundo provisório enquanto os blocos nítidos ficam prontos)
     const s = Math.min(1.2, 960 / Math.max(page.w, page.h)), cv = this.newCanvas(Math.ceil(page.w * s), Math.ceil(page.h * s)), c = cv.getContext('2d');
@@ -145,7 +160,7 @@ Object.assign(Editor, {
       });
       if (n < 4 && performance.now() - t0 < 12) { // miniaturas das páginas vizinhas (fundo provisório no zoom rápido)
         const ci = Math.max(0, this.currentPageIndex());
-        for (let d = 0; d <= 3 && n < 4; d++) for (const i of [ci + d, ci - d]) { const pg = this.note.pages[i]; if (!pg || performance.now() - t0 > 12) continue; const pc = this.pageCache(pg); if (!pc.preview || pc.preview.stale) { if (pc.preview) this.freeCanvas(pc.preview.cv); pc.preview = this.renderPreview(pg); pc.preview.used = this.frameNo - 1; n++; } }
+        for (let d = 0; d <= 2 && n < 4; d++) for (const i of [ci + d, ci - d]) { const pg = this.note.pages[i]; const left = 12 - (performance.now() - t0); if (!pg || left <= 1) continue; const pc = this.pageCache(pg); if (!pc.preview || pc.preview.stale) { this.previewStep(pg, pc, left); n++; } }
       }
       this.evictTiles();
       if (n) this.schedulePrefetch();

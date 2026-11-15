@@ -166,6 +166,10 @@ window.addEventListener('error', (ev) => { if (ev.error || ev.message) logError(
 window.addEventListener('unhandledrejection', (ev) => logError(ev.reason || 'rejeição', 'promessa'));
 
 function esc(t) { return String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
+/* pontos dos traços guardados como Float32Array: metade da memória e abrir/salvar muito mais rápido.
+   No JSON (Drive, cópia local) voltam a ser listas normais com 2 casas. */
+function toPts32(e) { if (e && e.pts && Array.isArray(e.pts)) { e.pts = Float32Array.from(e.pts); return true; } return false; }
+function ptsJSON(k, v) { return v instanceof Float32Array ? Array.from(v, (x) => Math.round(x * 100) / 100) : v; }
 function cmpVersion(a, b) { const A = String(a).split('.').map(Number), B = String(b).split('.').map(Number); for (let i = 0; i < Math.max(A.length, B.length); i++) { const d = (A[i] || 0) - (B[i] || 0); if (d) return Math.sign(d); } return 0; }
 
 /* ===== Toast ===== */
