@@ -692,3 +692,15 @@ input,textarea,select,[contenteditable],[contenteditable] *,.text-edit,.text-edi
 #editor.split-on .ch-title{max-width:22vw}
 @media (max-width:900px){ .ch-title{display:none} }
 .wchip.lifted,.cdot.lifted{transform:scale(1.15);box-shadow:0 4px 12px rgba(0,0,0,.25);transition:transform .12s}
+
+/* ===== v0.17 — altura estável (a barra de horário do Android não redimensiona o app) e relógio no topo ===== */
+.screen{bottom:auto;height:var(--appH,100%)}
+.note-clock{color:var(--chfg);opacity:.62;font-size:calc(var(--tfs,15px) - 2px);font-weight:500;font-variant-numeric:tabular-nums;padding:0 12px 0 2px;white-space:nowrap}
+.note-clock::before{content:'·';margin-right:8px;opacity:.6}
+
+.gm-list{display:flex;flex-direction:column;gap:4px;max-height:60vh;overflow:auto}
+.gm-row{display:flex;align-items:center;gap:4px;padding:4px 6px;border-radius:10px;background:var(--panel2)}
+.gm-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.gm-row .cbtn{width:34px;height:34px;color:var(--text)}
+.gm-row .cbtn[disabled]{opacity:.3}
+.gm-row select{max-width:170px;font-size:13px;padding:4px 6px;border-radius:8px;border:1px solid var(--line);background:var(--panel)}

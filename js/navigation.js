@@ -170,3 +170,24 @@ const ZoomGuard = {
     setTimeout(() => { if (window.visualViewport && visualViewport.scale > 1.02) toast('Faça o gesto de pinça (afastar os dedos ao contrário) na folha para voltar ao normal', 4000); }, 400);
   },
 };
+
+/* ===== Altura estável =====
+   Puxar a barra de horário/bateria do Android encolhe a tela por um instante e o app inteiro se redimensionava
+   (barras pulando, página redesenhando). Agora encolhidas pequenas e passageiras são ignoradas; teclado e giro da tela continuam valendo. */
+const StableVH = {
+  h: 0, w: 0,
+  init() { this.apply(innerHeight); addEventListener('resize', () => this.onResize()); },
+  apply(h) { this.h = h; this.w = innerWidth; document.documentElement.style.setProperty('--appH', h + 'px'); },
+  onResize() {
+    const H = innerHeight, W = innerWidth; clearTimeout(this.t);
+    if (Math.abs(W - this.w) > 2) return this.apply(H); // girou a tela
+    const dh = this.h - H;
+    if (dh <= 0) return this.apply(H); // cresceu (barra sumiu): volta ao normal
+    if (dh < 140) { this.t = setTimeout(() => this.apply(innerHeight), 8000); return; } // barra do sistema: ignora (se ficar, ajusta depois de 8 s)
+    this.apply(H); // teclado ou mudança grande
+  },
+};
+/* relógio discreto ao lado do nome da nota */
+const NoteClock = {
+  start() { const tick = () => { const c = $('#noteClock'); if (c) c.textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); clearTimeout(this.t); this.t = setTimeout(tick, 60000 - (Date.now() % 60000) + 50); }; tick(); },
+};

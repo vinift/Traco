@@ -134,6 +134,37 @@ const UI = {
     walk(null, 0); return out;
   },
   groupPath(g) { const G = Store.settings.presetGroups, names = []; let x = g, k = 0; while (x && k++ < 8) { names.unshift(x.name); x = G.find((y) => y.id === x.parentId); } return names.join(' › '); },
+  /* organizar: renomear, mover para dentro de outro grupo, subir/descer e excluir — sem precisar ativar o grupo */
+  groupManager() {
+    const S = Store.settings, body = el('div', { class: 'gm-list' });
+    const desc = (id) => { const out = new Set([id]); let grew = true; while (grew) { grew = false; for (const g of S.presetGroups) if (g.parentId && out.has(g.parentId) && !out.has(g.id)) { out.add(g.id); grew = true; } } return out; };
+    const sibs = (g) => S.presetGroups.filter((x) => (x.parentId || null) === (g.parentId || null));
+    const done = () => { this.save(); this.refresh(); render(); };
+    const render = () => {
+      body.innerHTML = '';
+      for (const [g, d] of this.groupTree()) {
+        const B = (ic, title, fn, dis) => { const b = el('button', { class: 'cbtn', title, disabled: !!dis, onclick: fn }); b.innerHTML = icon(ic); return b; };
+        const parentSel = el('select', { title: 'Dentro de…' }, el('option', { value: '' }, '— nível principal —'));
+        const no = desc(g.id); for (const [o, od] of this.groupTree()) if (!no.has(o.id)) parentSel.append(el('option', { value: o.id }, '\u2003'.repeat(od) + o.name));
+        parentSel.value = g.parentId || ''; parentSel.onchange = () => { if (parentSel.value) g.parentId = parentSel.value; else delete g.parentId; done(); };
+        const ss = sibs(g), i = ss.indexOf(g);
+        const move = (k) => { const a = S.presetGroups.indexOf(g), b = S.presetGroups.indexOf(ss[i + k]); [S.presetGroups[a], S.presetGroups[b]] = [S.presetGroups[b], S.presetGroups[a]]; done(); };
+        body.append(el('div', { class: 'gm-row', style: { paddingLeft: 6 + d * 22 + 'px' } },
+          el('span', { class: 'gm-name' }, (d ? '↳ ' : '') + g.name),
+          B('up', 'Subir', () => move(-1), i <= 0), B('down', 'Descer', () => move(1), i >= ss.length - 1),
+          B('pen', 'Renomear', async () => { const n = await askText('Renomear grupo', g.name); if (n) { g.name = n; done(); } }),
+          g.id === 'default' ? null : parentSel,
+          g.id === 'default' ? null : B('trash', 'Excluir', async () => {
+            if (!(await confirmBox('Excluir grupo', `Excluir "${g.name}"? Os subgrupos sobem um nível; notas e pastas que o usam voltam para "Geral".`, 'Excluir', true))) return;
+            for (const x of S.presetGroups) if (x.parentId === g.id) { if (g.parentId) x.parentId = g.parentId; else delete x.parentId; }
+            S.presetGroups = S.presetGroups.filter((x) => x !== g); for (const f of Store.folders) if (f.groupId === g.id) delete f.groupId;
+            if (Editor.note && Editor.note.groupId === g.id) { delete Editor.note.groupId; Editor.markChanged(); } await Store.saveFolders(); done();
+          })));
+      }
+    };
+    render();
+    openModal({ title: 'Grupos de cores', wide: true, body: el('div', {}, el('p', { class: 'muted', style: { marginTop: 0 } }, 'Escolha em "Dentro de…" para transformar um grupo em subgrupo de outro (ou voltar ao nível principal). As setas mudam a ordem.'), body), buttons: [{ label: 'Pronto', cls: 'primary' }] });
+  },
   groupMenu(anchor) {
     const S = Store.settings, note = Editor.note, cur = this.group(), folder = Store.folderOf(note);
     const items = this.groupTree().map(([g, d]) => ({ label: (g.id === cur.id ? '✓ ' : '   ') + '\u2003'.repeat(d) + (d ? '↳ ' : '') + g.name, run: () => { note.groupId = g.id; Editor.markChanged(); this.refresh(); toast('Grupo "' + this.groupPath(g) + '" nesta nota', 1300); } }));
@@ -146,6 +177,7 @@ const UI = {
     items.push({ label: 'Novo grupo (cópia do atual)…', icon: 'plus', run: () => mk(null, 'Novo grupo de predefinições') });
     items.push({ label: 'Novo subgrupo dentro de "' + cur.name + '"…', icon: 'folder', run: () => mk(cur.id, 'Novo subgrupo de "' + cur.name + '"') });
     if (cur.parentId) items.push({ label: 'Tirar "' + cur.name + '" de dentro do grupo', icon: 'up', run: () => { const p = S.presetGroups.find((g) => g.id === cur.parentId); cur.parentId = p && p.parentId ? p.parentId : undefined; if (!cur.parentId) delete cur.parentId; this.save(); this.refresh(); } });
+    items.push({ label: 'Organizar grupos e subgrupos…', icon: 'list', run: () => this.groupManager() });
     items.push({ label: 'Renomear "' + cur.name + '"…', icon: 'pen', run: async () => { const n = await askText('Renomear grupo', cur.name); if (n) { cur.name = n; this.save(); this.refresh(); } } });
     if (folder) items.push({ label: 'Usar como padrão da pasta "' + folder.name + '"', icon: 'folder', run: async () => { folder.groupId = cur.id; delete note.groupId; await Store.saveFolders(); Editor.markChanged(); toast('Padrão da pasta atualizado', 1300); } });
     if (cur.id !== 'default') items.push({ label: 'Excluir "' + cur.name + '"', icon: 'trash', danger: true, run: async () => {

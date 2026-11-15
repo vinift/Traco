@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.17.0
+
+- **Organizar grupos de cores:** menu do grupo → "Organizar grupos e subgrupos…". Para cada grupo: renomear, subir/descer, escolher "Dentro de…" (vira subgrupo de outro ou volta ao nível principal) e excluir — sem precisar ativar o grupo.
+- **A barra de horário do Android não bagunça mais o layout:** encolhidas pequenas e passageiras da tela (puxar a barra de horário/bateria) são ignoradas — o app não redimensiona nem redesenha. Teclado e giro da tela continuam ajustando normalmente.
+- **Relógio** discreto ao lado do nome da nota, no topo.
+
 ## Novidades da v0.16.0
 
 - **Cores e espessuras não se movem mais sem querer:** para reordenar, segure ~0,5 s (o item "levanta") e então arraste. Arrastar direto não faz nada; segurar parado por mais tempo mostra o × para remover.
