@@ -164,18 +164,18 @@ const Store = {
       if (!exists) { h.folderId = null; const n = await DB.get('notes', id); if (n) { n.folderId = null; await DB.put('notes', n); } }
       this.heads[id] = h; delete this.trash.notes[id];
     }
-    await this.saveFolders(); await this.saveHeads(); await this.saveTrash(); this.dirty.lib = true; await this.saveDirty();
+    await this.saveFolders(); await this.saveHeads(); await this.saveTrash(); this.dirty.lib = Date.now(); await this.saveDirty();
     return { folders: F.length, notes: N.length };
   },
   async purgeTrash(filter = () => true) { // exclui de vez (no Drive, vai para a lixeira do Drive)
     let n = 0;
     for (const [id, x] of Object.entries(this.trash.notes)) if (filter(x)) { await DB.delNote(id); delete this.trash.notes[id]; delete this.dirty.notes[id]; this.dirty.deleted[id] = 1; n++; }
     for (const [id, x] of Object.entries(this.trash.folders)) if (filter(x)) { delete this.trash.folders[id]; n++; }
-    if (n) { this.dirty.lib = true; await this.saveDirty(); await this.saveTrash(); Drive.schedule(); }
+    if (n) { this.dirty.lib = Date.now(); await this.saveDirty(); await this.saveTrash(); Drive.schedule(); }
     return n;
   },
   purgeOldTrash() { const lim = Date.now() - this.TRASH_DAYS * 864e5; return this.purgeTrash((x) => x.at < lim); },
-  saveFolders() { this.markLib(); for (const f of this.folders) this.dirty.folders[f.id] = 1; this.saveDirty(); return DB.put('meta', this.folders, 'folders'); },
+  saveFolders() { this.markLib(); const t = Date.now(); for (const f of this.folders) this.dirty.folders[f.id] = t; this.saveDirty(); return DB.put('meta', this.folders, 'folders'); },
   group(id) { const G = this.settings.presetGroups; return G.find((g) => g.id === id) || G[0]; },
   folderOf(note) { return note && note.folderId ? this.folders.find((f) => f.id === note.folderId) : null; },
   folderChain(id) { const out = []; let f = this.folders.find((x) => x.id === id), guard = 0; while (f && guard++ < 50) { out.unshift(f); f = this.folders.find((x) => x.id === f.parentId); } return out; },
@@ -187,7 +187,15 @@ const Store = {
   },
   saveDriveMap() { return DB.put('meta', this.driveMap, 'driveMap'); },
   saveDirty() { return DB.put('meta', this.dirty, 'dirty'); },
-  markLib() { this.dirty.lib = true; this.saveDirty(); },
+  markLib() { this.dirty.lib = Date.now(); this.saveDirty(); },
+  /* relê o estado do backup gravado pelo segundo plano (o que já foi enviado e onde está no Drive) */
+  async reloadSyncState() {
+    try {
+      this.driveMap = (await DB.get('meta', 'driveMap')) || {};
+      const d = await DB.get('meta', 'dirty'); if (d) this.dirty = mergeDeep({ notes: {}, blobs: {}, deleted: {}, pdfs: {}, folders: {} }, d);
+      const s = await DB.get('meta', 'settings'); if (s && s.drive) { const D = this.settings.drive; for (const k of ['lastSync', 'lastBgSync', 'folderId', 'layoutV']) if (s.drive[k] !== undefined) D[k] = s.drive[k]; }
+    } catch (e) { console.warn(e); }
+  },
   /* ---- notas: o "cabeçalho" (título, páginas, modelos) num registro e a escrita de cada página em outro.
      Ao salvar, só vão as páginas que mudaram (antes a nota inteira era regravada a cada traço: segundos em notas grandes). ---- */
   _sigs: new WeakMap(), // nota → (página → assinatura do que foi gravado)
@@ -229,12 +237,12 @@ const Store = {
     const texts = []; note.pages.forEach((pg, i) => { pg.elements.forEach((e) => { if (e.type === 'text' && e.text) texts.push([i, e.id, e.text.slice(0, 400)]); }); if (pg.ocr && pg.ocr.text) texts.push([i, '', pg.ocr.text.slice(0, 1500)]); });
     this.heads[note.id] = { id: note.id, title: note.title, folderId: note.folderId || null, created: note.created, updated: note.updated, mode: note.mode, pages: note.pages.length, thumb: h.thumb || null, hasPdf: note.pages.some((p) => p.pdf), texts: texts.slice(0, 300), bm: note.pages.filter((p) => p.bookmark).length };
     await this.saveHeads();
-    if (sync) { this.dirty.notes[note.id] = 1; this.dirty.pdfs[note.id] = Date.now(); this.dirty.lib = true; await this.saveDirty(); Drive.schedule(); }
+    if (sync) { const t = Date.now(); this.dirty.notes[note.id] = t; this.dirty.pdfs[note.id] = t; this.dirty.lib = t; await this.saveDirty(); Drive.schedule(); } // horário (não "1"): o segundo plano sabe se mudou de novo enquanto enviava
   },
   async setThumb(id, thumb) { if (this.heads[id]) { this.heads[id].thumb = thumb; await this.saveHeads(); } },
   async deleteNote(id) {
     await DB.delNote(id); delete this.heads[id]; await this.saveHeads();
-    delete this.dirty.notes[id]; this.dirty.deleted[id] = 1; this.dirty.lib = true; await this.saveDirty(); Drive.schedule();
+    delete this.dirty.notes[id]; this.dirty.deleted[id] = 1; this.dirty.lib = Date.now(); await this.saveDirty(); Drive.schedule();
   },
   async putBlob(blob, id = uid()) { await DB.put('blobs', blob, id); this.dirty.blobs[id] = 1; await this.saveDirty(); return id; },
   getBlob(id) { return DB.get('blobs', id); },

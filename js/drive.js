@@ -86,7 +86,7 @@ const Drive = {
     await DB.del('meta', 'oauth');
     const err = q.get('error') || h.get('error'); if (err) { toast('Login no Google cancelado: ' + err); return saved.back; }
     try {
-      if (h.get('access_token')) { this.token = h.get('access_token'); this.exp = Date.now() + (+h.get('expires_in') - 60) * 1000; }
+      if (h.get('access_token')) { this.token = h.get('access_token'); this.exp = Date.now() + (+h.get('expires_in') - 60) * 1000; this.persistTok(); }
       else if (q.get('code')) {
         const r = await this.tokenReq({ code: q.get('code'), grant_type: 'authorization_code', redirect_uri: this.redirectUri(), code_verifier: saved.verifier });
         if (r.refresh_token) this.cfg.refreshToken = r.refresh_token;
@@ -101,11 +101,15 @@ const Drive = {
     const res = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
     const j = await res.json();
     if (!res.ok) throw new Error(j.error_description || j.error || res.status);
-    this.token = j.access_token; this.exp = Date.now() + ((j.expires_in || 3600) - 60) * 1000;
+    this.token = j.access_token; this.exp = Date.now() + ((j.expires_in || 3600) - 60) * 1000; this.persistTok();
     return j;
   },
+  /* a chave de acesso (vale ~1 h) fica guardada no aparelho: o backup em segundo plano e o app reaberto continuam sem pedir login */
+  persistTok() { DB.put('meta', { token: this.token, exp: this.exp }, 'driveTok').catch(() => {}); },
+  async loadTok() { if (this.token && Date.now() < this.exp) return; try { const t = await DB.get('meta', 'driveTok'); if (t && t.exp > Date.now()) { this.token = t.token; this.exp = t.exp; } } catch (_) {} },
   async getToken() {
     if (this.token && Date.now() < this.exp) return this.token;
+    await this.loadTok(); if (this.token && Date.now() < this.exp) return this.token;
     if (this.cfg.refreshToken) {
       try { await this.tokenReq({ refresh_token: this.cfg.refreshToken, grant_type: 'refresh_token' }); return this.token; }
       catch (e) { if (/invalid_grant/i.test(e.message)) { delete this.cfg.refreshToken; Store.saveSettings(); } throw e; }
@@ -254,7 +258,7 @@ const Drive = {
       }
     }
     for (const id of Object.keys(Store.heads)) { Store.dirty.notes[id] = 1; Store.dirty.pdfs[id] = 1; } // reenvia com nomes legíveis
-    Store.dirty.lib = true; await Store.saveDirty();
+    Store.dirty.lib = Date.now(); await Store.saveDirty();
     this.cfg.layoutV = 4; Store.saveSettings();
   },
 
@@ -279,7 +283,25 @@ const Drive = {
   },
   pdfDpi(id) { const c = (this.cfg.pdfCrash || {})[id] || 0; return c >= 2 ? 0 : c === 1 ? 120 : +this.cfg.pdfDpi || 200; },
   later(ms = 10000) { clearTimeout(this._waitT); this._waitT = setTimeout(() => this.sync(), ms); },
-  async sync(manual = false, { background = false } = {}) {
+  /* um backup por vez entre o app e o segundo plano (service worker): trava compartilhada */
+  async sync(manual = false, opts = {}) {
+    if (!navigator.locks) return this._sync(manual, opts);
+    return navigator.locks.request('traco-drive', { ifAvailable: true }, async (lock) => {
+      if (!lock) { if (!opts.sw) this.later(20000); return; } // o segundo plano está enviando agora: tenta depois
+      if (!opts.sw) await Store.reloadSyncState(); // pega o que o segundo plano já enviou (evita enviar de novo / duplicar)
+      return this._sync(manual, opts);
+    });
+  },
+  /* pede ao Android para terminar o backup mesmo com o app fechado (Background Sync) */
+  async requestBgSync() {
+    try {
+      if (!('serviceWorker' in navigator) || !this.configured()) return;
+      const reg = await navigator.serviceWorker.ready;
+      if (reg.sync) await reg.sync.register('traco-backup');
+      if (reg.periodicSync && !this._periodic) { this._periodic = true; const st = await navigator.permissions.query({ name: 'periodic-background-sync' }).catch(() => null); if (st && st.state === 'granted') await reg.periodicSync.register('traco-backup', { minInterval: 6 * 3600e3 }); }
+    } catch (e) { console.warn('bg sync', e); }
+  },
+  async _sync(manual = false, { background = false, noPdf = false, sw = false } = {}) {
     if (!this.configured()) { this.refreshStatus(); return; }
     if (!navigator.onLine) { this.setStatus('pending', 'sem internet'); return; }
     if (this.running) { this.again = true; return; }
@@ -309,6 +331,7 @@ const Drive = {
       let pdfWait = false;
       for (const id of Object.keys(d.pdfs)) {
         if (this.cfg.pdf === false) { delete d.pdfs[id]; continue; }
+        if (noPdf) { pdfWait = !sw; continue; } // segundo plano: PDF fica para quando o app estiver aberto
         if (!manual && !this.pdfAllowed()) { pdfWait = true; continue; } // com nota aberta e em uso: PDF fica para depois (pesa muito)
         const note = typeof Editor !== 'undefined' && Editor.note && Editor.note.id === id ? Editor.note : await Store.getNote(id);
         const dpi = this.pdfDpi(id);
@@ -325,7 +348,7 @@ const Drive = {
         await this.upsert('lib', { name: 'biblioteca.json', mime: 'application/json', data: JSON.stringify({ v: 1, folders: Store.folders, heads, groups: Store.settings.presetGroups, saved: Date.now() }), parent: data, props: { traco: 'lib' } });
         d.lib = false; await Store.saveDirty(); done();
       }
-      this.cfg.lastSync = Date.now(); Store.saveSettings(); this.pg = null;
+      this.cfg.lastSync = Date.now(); if (sw) this.cfg.lastBgSync = this.cfg.lastSync; Store.saveSettings(); this.pg = null;
       this.refreshStatus(); if (manual) toast(pg.total ? `Backup no Drive concluído (${pg.total} ${pg.total === 1 ? 'item' : 'itens'})` : 'Backup no Drive concluído');
       if (pdfWait) { clearTimeout(this._pdfT); this._pdfT = setTimeout(() => this.sync(), 60000); }
     } catch (e) {
@@ -378,9 +401,18 @@ const Drive = {
     return n;
   },
 };
-window.addEventListener('online', () => Drive.schedule());
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && Drive.configured() && Drive.hasAuth()) { Drive.schedule.cancel(); Drive.sync(false, { background: true }); } }); // saindo do app: salva as notas (PDF continua esperando)
-setInterval(() => { if (Drive.configured() && Drive.state !== 'busy' && Drive.state !== 'ok' && Drive.hasAuth()) Drive.sync(); }, 120000);
+if (typeof importScripts !== 'function') { // só no app (no service worker este arquivo é usado sem tela)
+  window.addEventListener('online', () => Drive.schedule());
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'hidden') {
+      if (!Drive.configured()) return;
+      Drive.requestBgSync(); // se o app for pausado no meio, o Android termina o envio depois
+      if (Drive.hasAuth()) { Drive.schedule.cancel(); Drive.sync(false, { background: true }); } // saindo do app: salva as notas (PDF continua esperando)
+    } else { const before = Drive.cfg.lastBgSync; await Store.reloadSyncState(); Drive.refreshStatus(); if (Drive.cfg.lastBgSync && Drive.cfg.lastBgSync !== before) toast('Backup concluído em segundo plano ✓', 2200); }
+  });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', async (e) => { if (e.data && e.data.type === 'traco-synced') { await Store.reloadSyncState(); Drive.refreshStatus(); } });
+  setInterval(() => { if (Drive.configured() && Drive.state !== 'busy' && Drive.state !== 'ok' && Drive.hasAuth()) Drive.sync(); }, 120000);
+}
 
 /* arquivo .traco da nota: JSON montado página por página (sem um texto gigante na memória) e compactado (gzip, ~4× menor) */
 async function noteFileBlob(note, onProgress) {

@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.11.0',
+  version: '0.12.0',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -15,6 +15,7 @@ const App = {
     this.wire();
     try { Drive.checkCrash(); } catch (e) { console.warn(e); } // o app fechou sozinho na última vez? registra e deixa o backup mais leve
     const back = await Drive.handleRedirect();
+    await Drive.loadTok(); // login de até 1 h atrás continua valendo
     Drive.refreshStatus();
     Library.show();
     if (back && Store.heads[back]) this.openNote(back);

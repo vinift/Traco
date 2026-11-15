@@ -153,6 +153,17 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.12.0 — backup em segundo plano
+
+Ao sair do app, ele começa a enviar o backup na hora e também pede ao Android para **terminar o envio em segundo plano** (recurso "Background Sync" do Chrome). Se o app for pausado ou fechado no meio, o service worker (a parte do app que roda sem tela) continua enviando quando houver internet.
+
+- Vai em segundo plano: notas, imagens e PDFs anexados, pastas, exclusões e a lista da biblioteca.
+- Fica para quando o app estiver aberto: o **PDF gerado** de cada nota (desenhar as páginas precisa da tela).
+- O app e o segundo plano nunca enviam ao mesmo tempo (trava compartilhada), e nada é enviado duas vezes.
+- Ao voltar para o app, aparece "Backup concluído em segundo plano ✓" quando foi o caso.
+- O login do Google agora fica guardado por até 1 hora: reabrir o app não pede para conectar de novo nesse tempo.
+- Quem decide quando roda é o Android (normalmente assim que há internet). Com economia de bateria muito agressiva, pode atrasar — se acontecer, em Configurações do Android → Apps → Traço Notas (ou Chrome) → Bateria, escolha "Sem restrições".
+
 ## Novidades da v0.11.0
 
 | Item | Como usar |
