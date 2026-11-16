@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.23.4
+
+- **Tirar o zoom não puxa mais a tela para o centro:** quando a folha fica mais estreita que a tela (abaixo de ~150% no Pad 7), ela não é mais centralizada à força; só precisa continuar inteira dentro da tela. O ponto entre os dedos fica onde estava.
+- **Qualidade ao tirar o zoom: "Econômica" passa a ser o padrão** (a "Alta" continua disponível em Configurações → Zoom, mas pesou no tablet).
+
 ## Novidades da v0.23.3
 
 - **A página em que você está fica nítida ao tirar o zoom, inteira:** com a tela parada, o app prepara aos poucos a página atual completa (mais a área em volta) com ~71% do zoom atual. Ao tirar o zoom, letra e modelo continuam nítidos do começo ao fim do gesto, e a rolagem dentro da página também fica coberta.

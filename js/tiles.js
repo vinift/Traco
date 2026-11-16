@@ -11,7 +11,7 @@ function oid(o) { if (!o || typeof o !== 'object') return 0; let n = _oid.get(o)
 Object.assign(Editor, {
   // memória: cada bloco tem 1 MB; o Chrome do Android derruba a tela (barras somem) se a memória de desenho estoura
   /* v0.23.3: limite de blocos (cada um ~1 MB). "Alta" (padrão) dá espaço para a página atual inteira ficar nítida ao tirar o zoom; "econômica" = limite antigo */
-  tileCap() { const big = (navigator.deviceMemory || 4) >= 8, hi = (Store.settings.zoomQuality || 'high') === 'high'; return hi ? (big ? 200 : 110) : (big ? 130 : 70); },
+  tileCap() { const big = (navigator.deviceMemory || 4) >= 8, hi = Store.settings.zoomQuality === 'high'; /* v0.23.4: econômica é o padrão */ return hi ? (big ? 200 : 110) : (big ? 130 : 70); },
   pfMargin: 0.35, previewMax: (navigator.deviceMemory || 4) >= 8 ? 18 : 10, tileBudgetMs: 10,
   freeCanvas(c) { if (c) { if (c.parentNode) c.remove(); c.width = 0; c.height = 0; } }, // devolve a memória na hora (sem esperar a coleta de lixo)
   resetTiles() {

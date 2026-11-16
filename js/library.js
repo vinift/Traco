@@ -344,7 +344,7 @@ async function openSettings(focus) {
     UI.slider('Zoom mínimo (afastar)', 10, 100, 5, +S.zoomMin || 20, (v) => { S.zoomMin = v; Store.saveSettings(); zApply(); }, (v) => v + '%'),
     (() => { /* v0.23.3 */
       const sel = el('select', { onchange: () => { S.zoomQuality = sel.value; Store.saveSettings(); if (typeof Editor !== 'undefined' && Editor.evictTiles && Editor.tiles) Editor.evictTiles(); } }, el('option', { value: 'high' }, 'Alta — a página atual fica nítida ao tirar o zoom (usa mais memória)'), el('option', { value: 'eco' }, 'Econômica — menos memória (as bordas podem desfocar por um instante)'));
-      sel.value = S.zoomQuality || 'high';
+      sel.value = S.zoomQuality === 'high' ? 'high' : 'eco';
       return el('div', { class: 'field' }, el('label', {}, 'Qualidade ao tirar o zoom'), sel);
     })(),
     UI.slider('Zoom máximo (aproximar)', 200, 2000, 100, +S.zoomMax || 800, (v) => { S.zoomMax = v; Store.saveSettings(); zApply(); }, (v) => v + '%'),
