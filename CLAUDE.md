@@ -9,6 +9,7 @@ App de notas manuscritas estilo Notewise, feito para o **Xiaomi Pad 7** (caneta 
 - Use `vinift` em URLs de exemplo (github.com/vinift, vinift.github.io).
 - Cada rodada = **uma versão nova** (ex.: 0.18.0 → 0.19.0), com as novidades registradas no `LEIA-ME.md`.
 - Publicar = commit na `main` (o GitHub Pages atualiza em ~1 min). No tablet o usuário usa "Verificar atualização" na tela inicial.
+- **Autorização permanente:** o Vinicius autorizou publicar toda versão/patch direto na `main` (sem perguntar antes), além do branch de trabalho da sessão.
 - Nunca apague arquivos que só existem no repositório (ex.: `.well-known/assetlinks.json` do TWA, se existir).
 
 ## Lançar uma versão (checklist)
