@@ -1,5 +1,5 @@
 /* Service worker: deixa o app funcionando offline */
-const VERSION = 'traco-v0.23.7';
+const VERSION = 'traco-v0.24.0';
 /* backup em segundo plano: o mesmo código do app, rodando sem tela */
 self.window = self;
 self.document = { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], addEventListener() {}, createElement: () => ({ getContext: () => ({}) }), visibilityState: 'hidden' };
@@ -9,6 +9,17 @@ const FILES = ['./', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'vendor/pdf.min.mjs', 'vendor/pdf-lib.min.js', 'vendor/pdf.worker.min.mjs', 'icons/icon-192.png', 'icons/icon-512.png', 'privacidade.html'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(VERSION).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== VERSION && k !== 'traco-fonts').map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
+/* v0.24: notificações do cronômetro — tocar abre o app; Pausar/Continuar/Iniciar foco são repassados para a página */
+self.addEventListener('notificationclick', (e) => {
+  const act = e.action || 'open', d = e.notification.data || {}; if (!d.timer) return;
+  if (act === 'open' || e.notification.tag === 'traco-timer-end') e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (cs) => {
+    let c = cs[0];
+    if (act !== 'open' && c) { c.postMessage({ type: 'traco-timer', action: act }); if (e.notification.tag === 'traco-timer') return; }
+    if (c && c.focus) { try { await c.focus(); } catch (_) {} } else if (self.clients.openWindow) c = await self.clients.openWindow('./');
+    if (act !== 'open' && c && !cs.length) setTimeout(() => c.postMessage({ type: 'traco-timer', action: act }), 1500);
+  }));
+});
 self.addEventListener('fetch', (e) => {
   const u = new URL(e.request.url);
   if (e.request.method === 'GET' && /^fonts\.(googleapis|gstatic)\.com$/.test(u.hostname)) { // fontes: guarda para usar offline

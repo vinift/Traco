@@ -72,7 +72,7 @@ const StudyTimer = {
   start() {
     const s = this.st, t = Date.now(); if (s.running) return;
     if (this.hasTarget() && this.remaining(t) <= 0) this.resetPhase();
-    s.running = true; s.runStart = t; this.boundary(t); this.unlockAudio(); this.paint(); this.renderPanel();
+    s.running = true; s.runStart = t; this.boundary(t); this.unlockAudio(); this.askNotify(); this.paint(); this.renderPanel();
   },
   pause() {
     const s = this.st, t = Date.now(); if (!s.running) return;
@@ -110,6 +110,7 @@ const StudyTimer = {
   alert(msg, endT, quiet) {
     if (quiet) return toast(msg, 2500);
     const late = Date.now() - endT > 5000; // terminou enquanto o app estava fechado/em segundo plano
+    this.sysAlarm(msg, endT, late); // v0.24: alarme também como notificação do sistema
     toast((late ? `(às ${new Date(endT).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}) ` : '⏰ ') + msg, 7000);
     if (late) return;
     if (navigator.vibrate) navigator.vibrate([220, 120, 220, 120, 220]);
@@ -129,6 +130,7 @@ const StudyTimer = {
   display(t = Date.now()) { return this.fmt(this.hasTarget() ? this.remaining(t) : this.elapsed(t)); },
   phaseName() { const s = this.st; return s.mode === 'stopwatch' ? 'Cronômetro' : s.mode === 'countdown' ? 'Temporizador' : s.phase === 'focus' ? 'Foco' : s.phase === 'long' ? 'Pausa longa' : 'Pausa'; },
   paint() {
+    this.sysSync(); this.armEnd();
     const s = this.st, show = !this.idle(), txt = this.display(), brk = s.mode === 'pomodoro' && s.phase !== 'focus';
     for (const id of ['noteTimer', 'libTimer']) {
       const n = document.getElementById(id); if (!n) continue;
@@ -166,6 +168,11 @@ const StudyTimer = {
       kids.push(el('div', { class: 'tm-pomo' }, f('Foco', 'focus', 'min'), f('Pausa', 'short', 'min'), f('Pausa longa', 'long', 'min'), f('Longa a cada', 'every', 'focos')));
     }
     if (s.mode === 'pomodoro') kids.push(el('p', { class: 'tm-hint' }, 'A pausa começa sozinha quando o foco acaba; o próximo foco espera você tocar em Iniciar. As pausas não entram no tempo de estudo.'));
+    { /* v0.24: avisos pelo sistema */
+      const perm = 'Notification' in window ? Notification.permission : 'denied', on = Store.settings.timerNotify !== false;
+      const cb = el('input', { type: 'checkbox', checked: on && perm === 'granted', onchange: () => { Store.settings.timerNotify = cb.checked; Store.saveSettings(); if (cb.checked) { if (perm === 'default') this.askNotify(); else if (perm === 'denied') toast('As notificações estão bloqueadas para o Traço nas configurações do Android (Apps → Traço → Notificações)', 4200); } this._sysKey = null; this.sysSync(); this.renderPanel(); } });
+      kids.push(el('label', { class: 'tm-sys' }, cb, el('span', {}, 'Avisar pelas notificações do tablet', el('small', {}, perm === 'denied' ? 'bloqueadas no Android — libere em Apps → Traço → Notificações' : 'tempo na tela de bloqueio e alarme ao terminar'))));
+    }
     kids.push(this.statsEl()); this._statT = Date.now();
     box.innerHTML = ''; box.append(...kids.filter(Boolean));
   },
@@ -186,3 +193,60 @@ const StudyTimer = {
       top.length ? el('div', { class: 'tm-notes' }, el('div', { class: 'tm-h' }, 'Notas nos últimos 7 dias'), ...top.map(([id, v]) => el('div', { class: 'tm-row' }, el('span', {}, id === '_' ? 'Fora das notas' : curTitle(id)), el('b', {}, this.fmtDur(v))))) : el('p', { class: 'tm-hint' }, 'O tempo estudado aparece aqui, por dia e por nota.'));
   },
 };
+
+/* ===== v0.24 — cronômetro integrado às notificações do sistema (Android) =====
+   • Enquanto roda: notificação fixa e silenciosa ("Foco · termina às 14:32") na cortina e na tela de bloqueio, com Pausar/Abrir.
+   • Ao terminar: alarme do sistema com vibração, que fica até você tocar (com o app em segundo plano ou a tela apagada).
+   Limite do Android/Chrome: um site não consegue tocar alarme com o app totalmente encerrado; nesse caso o aviso aparece ao voltar.
+   Em segundo plano por muito tempo o Chrome pode atrasar o alarme em até ~1 min. Desligável no painel do cronômetro. */
+Object.assign(StudyTimer, {
+  sysOn() { return Store.settings.timerNotify !== false && 'Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator; },
+  askNotify() {
+    if (Store.settings.timerNotify === false || !('Notification' in window) || Notification.permission !== 'default') return;
+    try { Notification.requestPermission().then((p) => { if (p === 'granted') { toast('Avisos do cronômetro ligados nas notificações do tablet', 2200); this._sysKey = null; this.sysSync(); } }); } catch (_) {}
+  },
+  async sysShow(tag, title, opts) {
+    try { const r = await navigator.serviceWorker.ready; await r.showNotification(title, { tag, icon: 'icons/icon-192.png', lang: 'pt-BR', ...opts }); } catch (e) { console.warn('notificação', e); }
+  },
+  async sysClose(tag) { try { const r = await navigator.serviceWorker.ready; for (const n of await r.getNotifications({ tag })) n.close(); } catch (_) {} },
+  hhmm(t) { return new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); },
+  /* notificação fixa: só é refeita quando algo muda (não a cada segundo) */
+  sysSync() {
+    const s = this.st; if (!s) return;
+    if (!this.sysOn()) { if (this._sysKey) { this._sysKey = null; this.sysClose('traco-timer'); } return; }
+    const t = Date.now(), endAt = this.hasTarget() && s.running ? t + this.remaining(t) : 0;
+    const key = this.idle() ? '' : `${s.mode}|${s.phase}|${s.running}|${Math.round(endAt / 30000)}|${s.running ? 0 : Math.round(this.elapsed(t) / 1000)}`;
+    if (key === this._sysKey) return; this._sysKey = key;
+    if (!key) return this.sysClose('traco-timer');
+    const name = this.phaseName(), note = s.segTitle ? ' · ' + s.segTitle : '';
+    let title, body;
+    if (!s.running) { title = `⏸ ${name} pausado`; body = (this.hasTarget() ? `Faltam ${this.fmt(this.remaining(t))}` : `${this.fmt(this.elapsed(t))} até agora`) + note; }
+    else if (endAt) { title = `⏱ ${name} · termina às ${this.hhmm(endAt)}`; body = `Começou às ${this.hhmm(t - this.elapsed(t))}` + (s.mode === 'pomodoro' ? ` · 🍅 ${s.cycle % s.pomo.every}/${s.pomo.every}` : '') + note; }
+    else { title = `⏱ Cronômetro rodando desde ${this.hhmm(t - this.elapsed(t))}`; body = 'Toque para abrir' + note; }
+    this.sysShow('traco-timer', title, { body, silent: true, renotify: false, requireInteraction: true, data: { timer: true },
+      actions: s.running ? [{ action: 'timer-pause', title: 'Pausar' }, { action: 'open', title: 'Abrir' }] : [{ action: 'timer-start', title: 'Continuar' }, { action: 'open', title: 'Abrir' }] });
+  },
+  /* alarme no instante exato do fim (o tick de 1 s pode ser atrasado pelo Chrome com o app em segundo plano) */
+  armEnd() {
+    const s = this.st; clearTimeout(this._endT); this._endT = null;
+    if (!s.running || !this.hasTarget()) return;
+    const left = this.remaining(Date.now()); if (left > 0) this._endT = setTimeout(() => this.tick(), left + 30);
+  },
+  sysAlarm(msg, endT, late) {
+    if (!this.sysOn()) return;
+    const s = this.st, brk = s.mode === 'pomodoro' && s.phase !== 'focus';
+    this.sysShow('traco-timer-end', late ? `⏰ Terminou às ${this.hhmm(endT)}` : '⏰ ' + (s.mode === 'countdown' ? 'Tempo esgotado!' : brk ? 'Hora da pausa' : 'Hora de voltar ao foco'), {
+      body: msg, silent: false, renotify: true, requireInteraction: true, vibrate: [300, 150, 300, 150, 600], timestamp: endT, data: { timer: true },
+      actions: s.mode === 'pomodoro' && !s.running ? [{ action: 'timer-start', title: 'Iniciar foco' }, { action: 'open', title: 'Abrir' }] : [{ action: 'open', title: 'Abrir' }],
+    });
+    this._sysKey = null; this.sysSync();
+  },
+  /* botões das notificações (o service worker repassa para cá) */
+  onSysAction(a) {
+    if (!this.st) return setTimeout(() => this.onSysAction(a), 800); // app acabou de abrir pela notificação
+    if (a === 'timer-pause') this.pause();
+    else if (a === 'timer-start') this.start();
+    this.sysClose('traco-timer-end');
+  },
+});
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.type === 'traco-timer') StudyTimer.onSysAction(e.data.action); });

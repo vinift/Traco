@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.24.0
+
+- **Cronômetro nas notificações do tablet:** ao iniciar o cronômetro pela primeira vez, o app pede permissão para notificar.
+  - **Enquanto roda:** fica uma notificação fixa e silenciosa na cortina e na tela de bloqueio ("⏱ Foco · termina às 14:32"), com os botões **Pausar** e **Abrir**. Pausado, mostra quanto falta e o botão **Continuar**.
+  - **Ao terminar:** aparece um alarme do sistema com vibração, que fica até você tocar. Funciona com o app em segundo plano ou a tela apagada. No Pomodoro, quando a pausa acaba, a notificação tem o botão **Iniciar foco**.
+  - **Liga/desliga:** no painel do cronômetro, "Avisar pelas notificações do tablet".
+  - **Limites do Android/Chrome:** um site instalado não consegue tocar alarme se o Android tiver encerrado o app (nesse caso o aviso aparece quando você volta), e depois de muito tempo em segundo plano o alarme pode atrasar até ~1 min. Se as notificações não aparecerem, libere em Configurações do Android → Apps → Traço → Notificações.
+
 ## Novidades da v0.23.7
 
 - **Zoom de volta ao jeito de antes, com ajustes:**

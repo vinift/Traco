@@ -789,3 +789,9 @@ input:not(:focus),textarea:not(:focus){-webkit-user-select:none;user-select:none
 /* v0.23: escrevendo ou em tela cheia, o topo some, mas o tempo de estudo continua à vista no mesmo lugar */
 #editor.writing .ch-title.has-timer,#editor.immersive .ch-title.has-timer{opacity:1;pointer-events:none;background:transparent;box-shadow:none}
 #editor.writing .ch-title.has-timer>:not(.note-timer),#editor.immersive .ch-title.has-timer>:not(.note-timer){visibility:hidden}
+
+/* ===== v0.24: avisos do cronômetro pelo sistema ===== */
+.tm-sys{display:flex;gap:10px;align-items:flex-start;font-size:13px;cursor:pointer}
+.tm-sys input{margin-top:2px;width:18px;height:18px;accent-color:var(--accent)}
+.tm-sys span{display:flex;flex-direction:column;gap:1px}
+.tm-sys small{color:var(--muted);font-size:11.5px}
