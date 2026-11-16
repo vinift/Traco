@@ -141,7 +141,7 @@ const Editor = {
   camMaxBase() { const z = this.cam.z, vh = this.H / z; return Math.max(this.camMinY(), this.totalH - vh + 90 / z); },
   camMaxY() { return this.camMaxBase() + (this.pull || 0) * 0.6 / this.cam.z; }, // ao puxar, a folha sobe um pouco (efeito elástico)
   /* ---------- puxar para adicionar página (como no Notewise) ---------- */
-  PULL_MAX: 150, PULL_ADD: 95,
+  PULL_MAX: 260, PULL_ADD: 190, /* v0.23.6: mais exigente (~340 px de puxada, antes ~150) */
   setPull(px) {
     px = this.note && this.note.mode !== 'infinite' && !this.readOnly ? Math.max(0, px) : 0;
     const eased = px ? this.PULL_MAX * (1 - Math.exp(-px / this.PULL_MAX)) : 0; // resistência elástica
@@ -475,6 +475,7 @@ const Editor = {
   /* ---------- Gestos de navegação ---------- */
   startGesture() {
     const f = this.pointers.get(this.touchIds()[0]); const g = this.gesture = { t0: performance.now(), moved: false, max: 0, p0: f ? { x: f.x, y: f.y } : null }; this.rebaseGesture();
+    g.atEnd = !!(this.note && this.note.mode !== 'infinite' && !this._inertia && this.cam.y >= this.camMaxBase() - 4 / this.cam.z); // já parado no fim da nota
     /* v0.22: com o laço, segurar o dedo parado abre o painel de colar da biblioteca */
     if (this.tool === 'lasso' && !this.readOnly && !this.crop && g.p0 && g.n === 1) g.holdT = setTimeout(() => { if (this.gesture === g && !g.moved && g.n === 1 && g.max === 1) { g.held = true; this.lassoHoldPaste(g.p0); } }, 550);
   },
@@ -503,18 +504,18 @@ const Editor = {
       /* v0.23.2: trava vertical bem mais leve — só quando o dedo sai quase reto (até ~11°) e solta com 14 px para o lado (antes ~22° e 32 px: o horizontal parecia preso) */
       if (!g.lock && Math.hypot(dx, dy) > 10) { g.lock = Math.abs(dx) <= Math.abs(dy) * 0.2 ? 'v' : 'free'; g.xoff = 0; }
       if (g.lock === 'v' && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 0.18) { g.lock = 'free'; g.xoff = dx; } // foi para o lado de propósito
-      const ex = g.lock === 'free' ? dx - (g.xoff || 0) : 0;
+      const ex = g.lock === 'free' && g.cam.z >= 0.5 ? dx - (g.xoff || 0) : 0; /* v0.23.6: abaixo de 50% de zoom, só rolagem vertical */
       this.cam = { z: g.cam.z, x: g.cam.x - ex / g.cam.z, y: g.cam.y - dy / g.cam.z };
     }
     if (P.length === 1) { const now = performance.now(); (g.vs = g.vs || []).push([now, this.cam.x, this.cam.y]); while (g.vs.length > 2 && now - g.vs[0][0] > 90) g.vs.shift(); } else g.vs = null;
-    const over = P.length === 1 ? (this.cam.y - this.camMaxBase()) * this.cam.z : 0; // passou do fim da última página
+    const over = P.length === 1 && g.atEnd ? (this.cam.y - this.camMaxBase()) * this.cam.z : 0; // passou do fim da última página (v0.23.6: só se o gesto começou já parado no fim)
     this.setPull(over > 0 ? over : 0);
     this.clampCam(); this.requestRender(); if (P.length >= 2) Instruments.redraw();
   },
   endGesture() {
     const g = this.gesture; this.gesture = null; if (!g) return; clearTimeout(g.holdT); if (g.held) return;
     if (this.pull) this.releasePull();
-    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v');
+    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v' || this.cam.z < 0.5);
     const dt = performance.now() - g.t0;
     /* v0.23: destro → toques de 2/3 dedos só valem na metade esquerda (a palma apoia na direita); canhoto → o contrário */
     const hand = Store.settings.hand || 'right', half = this.W / 2, sideOk = hand === 'none' || (hand === 'right' ? g.maxX < half : g.minX > half);

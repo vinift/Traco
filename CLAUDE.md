@@ -65,4 +65,5 @@ Não há suíte no repositório: os testes eram scripts Playwright avulsos. Para
 - v0.23.3 — `prefetchOverview` cobre a página atual inteira + metade de 2× a tela das vizinhas; nível escolhido por orçamento (`tileCap()` − blocos do zoom atual com margem `pfMargin` 0,35): 71%, 50% ou 35% do zoom; blocos de `_ovNext` protegidos; `tileCap()` = 200/110 (alta, `S.zoomQuality`) ou 130/70 (econômica), em Configurações → Zoom.
 - v0.23.4 — `clampCam`: folha mais estreita que a tela fica livre entre as bordas (sem centralizar; `lo/hi` invertidos); `zoomQuality` padrão = econômica (a alta pesou no Pad 7).
 - v0.23.5 — `clampCam` horizontal: `vm = min(largura da folha, 0,5·vw)` e `c.x ∈ [L + vm − vw, R − vm]` (independe do zoom; o foco da pinça não desliza).
+- v0.23.6 — `moveGesture`: com `g.cam.z < 0.5` o arrasto de 1 dedo e a inércia são só verticais; `PULL_MAX/PULL_ADD` 260/190 e o "puxar para adicionar" só conta se o gesto começou no fim (`g.atEnd`).
 - Ideias sugeridas e ainda não feitas: importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9).

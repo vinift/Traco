@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.23.6
+
+- **Abaixo de 50% de zoom, rolagem só na vertical:** arrastar com um dedo (e o embalo depois de soltar) não mexe mais para os lados quando a página está bem afastada. A pinça continua normal.
+- **"Puxe para adicionar uma página" mais exigente:** é preciso puxar cerca de 340 px além do fim (antes ~150), e só vale se o gesto começar com você já parado no fim da nota. Uma rolagem que chega ao fim e continua no mesmo movimento não adiciona página.
+
 ## Novidades da v0.23.5
 
 - **Tirar o zoom só diminui, sem mexer a tela:** o ponto da folha que está entre os seus dedos fica exatamente no lugar durante todo o gesto. Antes, perto das bordas da folha, a tela ia para o centro no meio do gesto e depois voltava. A regra de limite agora é única e não muda com o zoom: a folha precisa ocupar pelo menos metade da largura da tela (ou aparecer inteira, quando é mais estreita).
