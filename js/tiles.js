@@ -11,8 +11,12 @@ function oid(o) { if (!o || typeof o !== 'object') return 0; let n = _oid.get(o)
 Object.assign(Editor, {
   // memória: cada bloco tem 1 MB; o Chrome do Android derruba a tela (barras somem) se a memória de desenho estoura
   /* v0.23.3: limite de blocos (cada um ~1 MB). "Alta" (padrão) dá espaço para a página atual inteira ficar nítida ao tirar o zoom; "econômica" = limite antigo */
-  tileCap() { const big = (navigator.deviceMemory || 4) >= 8, hi = Store.settings.zoomQuality === 'high'; /* v0.23.4: econômica é o padrão */ return hi ? (big ? 200 : 110) : (big ? 130 : 70); },
-  pfMargin: 0.35, previewMax: (navigator.deviceMemory || 4) >= 8 ? 18 : 10, tileBudgetMs: 10,
+  /* v0.24.1: "Econômica" (padrão) volta à memória de antes da v0.23.1 — as barras piscavam no zoom com dois dedos (memória de desenho cheia no Android).
+     Os extras (mais blocos, mais miniaturas, camada afastada e miniaturas montadas durante o gesto) ficam só na "Alta" */
+  hiQ() { return Store.settings.zoomQuality === 'high'; },
+  tileCap() { const big = (navigator.deviceMemory || 4) >= 8; return this.hiQ() ? (big ? 200 : 110) : (big ? 90 : 60); },
+  previewCap() { return this.hiQ() && (navigator.deviceMemory || 4) >= 8 ? 18 : 10; },
+  pfMargin: 0.35, tileBudgetMs: 10,
   freeCanvas(c) { if (c) { if (c.parentNode) c.remove(); c.width = 0; c.height = 0; } }, // devolve a memória na hora (sem esperar a coleta de lixo)
   resetTiles() {
     if (this.tiles) for (const t of this.tiles.values()) this.freeCanvas(t.cv);
@@ -114,7 +118,7 @@ Object.assign(Editor, {
     const arr = [...this.tiles.entries()].sort((a, b) => a[1].used - b[1].used);
     for (let i = 0; i < arr.length - this.tileCap(); i++) { const [k, t] = arr[i]; if (t.used === this.frameNo) break; this.tiles.delete(k); this.freeCanvas(t.cv); const pc = this.pcache.get(t.pid); if (pc) { const lv = pc.levels.get(t.lvl); if (lv) { lv.delete(t.key); if (!lv.size) pc.levels.delete(t.lvl); } } }
     const prev = [...this.pcache.values()].filter((pc) => pc.preview).sort((a, b) => a.preview.used - b.preview.used);
-    for (let i = 0; i < prev.length - this.previewMax; i++) { this.freeCanvas(prev[i].preview.cv); prev[i].preview = null; }
+    for (let i = 0; i < prev.length - this.previewCap(); i++) { this.freeCanvas(prev[i].preview.cv); prev[i].preview = null; }
   },
   /* desenha uma página usando os blocos; devolve false se precisou adiar algo (pede outro quadro) */
   drawPageTiled(ctx, page, pi, o, vis, st) {
@@ -245,7 +249,7 @@ Object.assign(Editor, {
     n.pages.forEach((page, i) => {
       const o = this.layout[i]; if (!inf && !rectsHit({ x: o.x, y: o.y, w: page.w, h: page.h }, vis)) return;
       const pc = this.pageCache(page); this.attachPreview(page, pc); this.keepVisible(pc, page, o, vis);
-      if (!inf && (!pc.preview || pc.preview.stale) && (lvl == null || this.gesture || this._inertia)) needPrev.push([page, pc]);
+      if (this.hiQ() && !inf && (!pc.preview || pc.preview.stale) && (lvl == null || this.gesture || this._inertia)) needPrev.push([page, pc]); // só na qualidade alta: criar miniatura no meio do gesto aloca memória
       const f = this._frDivs.get(page.id); if (f) f.classList.toggle('direct', skipPages.has(page.id));
       if (skipPages.has(page.id)) return; // esta página está sendo desenhada direto na camada de cima
       if (lvl == null) { allDone = false; fbNeeded = true; return; }
@@ -276,6 +280,7 @@ Object.assign(Editor, {
      Ao tirar o zoom, as bordas que aparecem já têm conteúdo nítido (no máximo 2× esticado), em vez da miniatura borrada da página.
      Só troca a camada visível quando a nova está completa. */
   prefetchOverview(t0) {
+    if (!this.hiQ()) { if (this._ovLvl != null || this._ovNext != null) { this._ovLvl = null; this._ovNext = null; this.requestRender(); } return 0; } // camada afastada só na qualidade alta
     /* v0.23.3: cobre a PÁGINA ATUAL INTEIRA (mais 2× a área da tela em volta), com ~71% do zoom atual (esticada no máx. 1,4× no começo do gesto).
        Se a página pedir blocos demais (zoom muito alto), cai para 50% do zoom, para não pesar */
     const d = this.dpr, s = this.cam.z * d, inf = this.note.mode === 'infinite';

@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.24.1
+
+- **Barras piscando no zoom com dois dedos:**
+  - **Menos memória na qualidade "Econômica" (padrão):** ela volta ao consumo de antes da v0.23.1 (menos blocos e miniaturas guardados, sem a camada afastada e sem criar miniaturas no meio do gesto). Com a memória de desenho cheia, o Android redesenhava as barras piscando. No teste, o pico durante as pinças caiu de ~145 MB para ~105 MB. Os extras continuam na qualidade "Alta".
+  - **Número do zoom na barra de cima:** durante a pinça, ele é atualizado no máximo ~8 vezes por segundo, em vez de a cada quadro, então a barra não é redesenhada o tempo todo.
+
 ## Novidades da v0.24.0
 
 - **Cronômetro nas notificações do tablet:** ao iniciar o cronômetro pela primeira vez, o app pede permissão para notificar.

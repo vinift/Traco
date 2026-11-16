@@ -309,7 +309,10 @@ const Editor = {
   },
   updateHud() { // só mexe na tela quando o texto muda (a cada quadro isso custava um recálculo de layout)
     const ci = this.currentPageIndex(), pg = this.note.pages[ci], key = `${Math.round(this.cam.z * 100)}|${ci}|${this.note.pages.length}|${this.note.mode}|${!!(pg && pg.bookmark)}`;
-    if (key === this._hudKey) return; this._hudKey = key;
+    if (key === this._hudKey) return;
+    /* v0.24.1: na pinça o zoom muda a cada quadro; reescrever o "157%" a cada quadro redesenhava a barra de cima o tempo todo (piscava no Android) */
+    if (this.gesture && this._hudKey && performance.now() - (this._hudT || 0) < 120) { clearTimeout(this._hudTO); this._hudTO = setTimeout(() => this.updateHud(), 130); return; }
+    this._hudKey = key; this._hudT = performance.now();
     $('#hudZoom').textContent = Math.round(this.cam.z * 100) + '%';
     const hp = $('#hudPage');
     if (this.note.mode === 'infinite') hp.classList.add('hidden');
