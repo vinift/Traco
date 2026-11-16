@@ -21,7 +21,7 @@ App de notas manuscritas estilo Notewise, feito para o **Xiaomi Pad 7** (caneta 
 
 ## Arquitetura (JS puro, sem build)
 
-- Scripts clássicos que compartilham globais, carregados nesta ordem: util, store, geom, render, pdf, tpl-import, drive, editor, toolbar, tables, tiles, navigation, richtext, colorpicker, ui, ocr, import-notewise, library, plugins, workspace, app.
+- Scripts clássicos que compartilham globais, carregados nesta ordem: util, store, geom, render, pdf, tpl-import, drive, editor, toolbar, tables, tiles, navigation, richtext, crop, colorpicker, ui, ocr, import-notewise, library, plugins, workspace, app.
 - `const Editor`, `const UI` etc. **não** ficam em `window`: use `typeof Editor !== 'undefined'`.
 - Comentários: prefira `/* */` em linhas longas — um `//` já engoliu código mais de uma vez.
 - `vendor/`: pdf.js (`pdf.min.mjs` + worker) e `pdf-lib.min.js`.
@@ -53,4 +53,5 @@ Não há suíte no repositório: os testes eram scripts Playwright avulsos. Para
 ## Histórico recente
 
 - v0.18.0 — recorte de imagem (laço → Recortar imagem), importação do Notewise respeitando o recorte, "Corrigir imagens recortadas" na Biblioteca → Importar.
-- Ideias sugeridas e ainda não feitas: importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9); recortar direto na página com alças, sem janela.
+- v0.19.0 — recorte direto na página (`js/crop.js`: `Editor.crop`, `cropSel/applyCrop/cancelCrop`, ações `crop`/`cropout`; a janela `cropDialog` saiu), bateria ao lado do relógio (`NoteClock.battery`), `SafeArea` (margens `--sat/--sar/--sab/--sal` congeladas no lugar de `env(safe-area-inset-*)` no CSS) e `SystemBar` (theme-color segue a tela), desfazer de páginas (`Editor.recPages(fn)` → mudança `{k:'pages', a, b}` no histórico).
+- Ideias sugeridas e ainda não feitas: importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9).

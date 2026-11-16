@@ -303,7 +303,7 @@ const PageManager = {
     const head = el('div', { class: 'pm-head' }, iconEl('pages'), filt, el('span', { class: 'sp' }),
       B('grid', 'Modelo de página', () => { this.close(); templateModal(); }),
       B('file', 'Inserir PDF no fim', () => this.insertPdf()),
-      B('plus', 'Nova página no fim', () => { n.pages.push(newPage(n.pages[n.pages.length - 1].pdf ? 794 : n.pages[n.pages.length - 1].w, n.pages[n.pages.length - 1].pdf ? 1123 : n.pages[n.pages.length - 1].h)); Editor.markChanged(); this.render(); }),
+      B('plus', 'Nova página no fim', () => { const L = n.pages[n.pages.length - 1]; Editor.recPages(() => n.pages.push(newPage(L.pdf ? 794 : L.w, L.pdf ? 1123 : L.h))); this.render(); }),
       B('checkSq', this.selecting ? 'Sair da seleção' : 'Selecionar páginas', () => { this.selecting = !this.selecting; this.selected.clear(); this.render(); }, this.selecting ? 'soft-on' : ''),
       B('x', 'Fechar', () => this.close()));
     box.append(head);
@@ -313,11 +313,11 @@ const PageManager = {
       box.append(el('div', { class: 'pm-actions' }, el('b', {}, nsel ? `${nsel} selecionada(s)` : 'Toque nas páginas para selecionar'), el('span', { class: 'sp' }),
         A('Selecionar todas', () => { n.pages.forEach((p) => this.selected.add(p.id)); this.render(); }),
         A('Marcar', () => { const all = n.pages.filter((p) => this.selected.has(p.id)); const v = !all.every((p) => p.bookmark); all.forEach((p) => (p.bookmark = v)); Editor.markChanged(); this.render(); }),
-        A('Duplicar', () => { const ids = [...this.selected]; for (const id of ids) { const i = n.pages.findIndex((p) => p.id === id); const c = clone(n.pages[i]); c.id = uid(); c.elements.forEach((e) => (e.id = uid())); n.pages.splice(i + 1, 0, c); } Editor.markChanged(); this.selected.clear(); this.render(); }),
+        A('Duplicar', () => { const ids = [...this.selected]; Editor.recPages(() => { for (const id of ids) { const i = n.pages.findIndex((p) => p.id === id); const c = clone(n.pages[i]); c.id = uid(); c.elements.forEach((e) => (e.id = uid())); n.pages.splice(i + 1, 0, c); } }); this.selected.clear(); this.render(); }),
         A('Excluir', async () => {
           if (this.selected.size >= n.pages.length) return toast('A nota precisa de pelo menos uma página');
-          if (!(await confirmBox('Excluir páginas', `Excluir ${this.selected.size} página(s)? Isso não pode ser desfeito.`, 'Excluir', true))) return;
-          n.pages = n.pages.filter((p) => !this.selected.has(p.id)); Editor.undoStack = []; Editor.redoStack = []; Editor.sel = null; Editor.markChanged(); this.selected.clear(); this.render();
+          if (!(await confirmBox('Excluir páginas', `Excluir ${this.selected.size} página(s)? Dá para voltar atrás com o botão Desfazer.`, 'Excluir', true))) return;
+          const k = this.selected.size; Editor.sel = null; Editor.recPages(() => { n.pages = n.pages.filter((p) => !this.selected.has(p.id)); }); this.selected.clear(); this.render(); toast(`${k} página(s) excluída(s) · Desfazer traz de volta`, 2200);
         }, true)));
     }
     const grid = el('div', { class: 'pm-grid' });
@@ -359,7 +359,7 @@ const PageManager = {
       if (drag) {
         card.classList.remove('drag'); drag = false; const n = Editor.note;
         const order = $$('.pm-card', card.parentNode).map((c) => n.pages.find((p) => p.id === c.dataset.id)).filter(Boolean);
-        if (order.length === n.pages.length) { n.pages = order; Editor.markChanged(); }
+        if (order.length === n.pages.length) Editor.recPages(() => { n.pages = order; });
         this.render();
       } else if (t !== null || Math.hypot(e.clientX - sx, e.clientY - sy) < 10) tap();
       t = null;
@@ -371,24 +371,24 @@ const PageManager = {
     const blank = () => newPage(p.pdf ? 794 : p.w, p.pdf ? 1123 : p.h, p.pdf ? null : p.template ? clone(p.template) : null);
     menu(anchor, [
       { label: 'Abrir página', icon: 'eye', run: () => { this.close(); Editor.goToPage(i); } },
-      { label: 'Nova página antes', icon: 'up', run: () => { n.pages.splice(i, 0, blank()); Editor.markChanged(); this.render(); } },
-      { label: 'Nova página depois', icon: 'down', run: () => { n.pages.splice(i + 1, 0, blank()); Editor.markChanged(); this.render(); } },
-      { label: 'Duplicar', icon: 'copy', run: () => { const c = clone(p); c.id = uid(); c.elements.forEach((e) => (e.id = uid())); n.pages.splice(i + 1, 0, c); Editor.markChanged(); this.render(); } },
-      { label: 'Mover para o início', icon: 'up', run: () => { n.pages.splice(i, 1); n.pages.unshift(p); Editor.markChanged(); this.render(); } },
-      { label: 'Mover para o fim', icon: 'down', run: () => { n.pages.splice(i, 1); n.pages.push(p); Editor.markChanged(); this.render(); } },
+      { label: 'Nova página antes', icon: 'up', run: () => { Editor.recPages(() => n.pages.splice(i, 0, blank())); this.render(); } },
+      { label: 'Nova página depois', icon: 'down', run: () => { Editor.recPages(() => n.pages.splice(i + 1, 0, blank())); this.render(); } },
+      { label: 'Duplicar', icon: 'copy', run: () => { const c = clone(p); c.id = uid(); c.elements.forEach((e) => (e.id = uid())); Editor.recPages(() => n.pages.splice(i + 1, 0, c)); this.render(); } },
+      { label: 'Mover para o início', icon: 'up', run: () => { Editor.recPages(() => { n.pages.splice(i, 1); n.pages.unshift(p); }); this.render(); } },
+      { label: 'Mover para o fim', icon: 'down', run: () => { Editor.recPages(() => { n.pages.splice(i, 1); n.pages.push(p); }); this.render(); } },
       { label: p.bookmark ? 'Remover marcador' : 'Marcar página', icon: 'bookmark', run: () => { p.bookmark = !p.bookmark; Editor.markChanged(); this.render(); } },
       { label: 'Modelo desta página…', icon: 'grid', run: () => { this.close(); templateModal(i); } },
       '-',
       { label: 'Excluir página', icon: 'trash', danger: true, run: async () => {
         if (n.pages.length <= 1) return toast('A nota precisa de pelo menos uma página');
-        if (!(await confirmBox('Excluir página', `Excluir a página ${i + 1}? Isso não pode ser desfeito.`, 'Excluir', true))) return;
-        n.pages.splice(i, 1); Editor.undoStack = []; Editor.redoStack = []; Editor.sel = null; Editor.markChanged(); this.render();
+        if (!(await confirmBox('Excluir página', `Excluir a página ${i + 1}? Dá para voltar atrás com o botão Desfazer.`, 'Excluir', true))) return;
+        Editor.sel = null; Editor.recPages(() => n.pages.splice(n.pages.indexOf(p), 1)); this.render(); toast('Página excluída · Desfazer traz de volta', 2000);
       } },
     ]);
   },
   async insertPdf() {
     const f = await pickFile('application/pdf'); if (!f) return; toast('Importando PDF…', 8000);
-    try { const pages = await importPdfFile(f); Editor.note.pages.push(...pages); Editor.markChanged(); toast(`${pages.length} página(s) inseridas`); this.render(); }
+    try { const pages = await importPdfFile(f); Editor.recPages(() => Editor.note.pages.push(...pages)); toast(`${pages.length} página(s) inseridas`); this.render(); }
     catch (e) { toast('Erro ao abrir PDF: ' + e.message, 5000); }
   },
 };

@@ -457,6 +457,7 @@ Object.assign(Editor, {
   },
   checkAt(page, l) { for (const e of [...page.elements].reverse()) { const ci = rtCheckAt(e, l.x, l.y); if (ci >= 0) return { e, ci }; } return null; },
   fingerTap(p) {
+    if (this.crop) return this.applyCrop(); // recorte na página: tocar fora da imagem aplica
     if (this.textEl) return this.commitText();
     const { page, l, hit } = this.hitAt(p);
     if (!page) { this.sel = null; return this.requestRender(); }

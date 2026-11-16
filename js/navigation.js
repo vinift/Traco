@@ -187,7 +187,60 @@ const StableVH = {
     this.apply(H); // teclado ou mudança grande
   },
 };
-/* relógio discreto ao lado do nome da nota */
+/* ===== v0.19: barra de horário/bateria do Android =====
+   1) Quando a barra do sistema aparece por cima (deslizar do topo), o Chrome aumenta a "área segura" do topo e todas as barras do app
+      desciam ~30 px e voltavam. Agora as margens ficam congeladas: o app só aceita quando elas diminuem (barra sumiu) ou quando a tela gira.
+   2) A cor da barra do sistema (theme-color) acompanha a tela atual, para não aparecer uma faixa cinza/roxa destoando. */
+const SafeArea = {
+  v: null, w: 0, last: 0,
+  init() {
+    this.p = el('div', { class: 'sa-probe', 'aria-hidden': 'true' }); document.body.append(this.p);
+    this.measure(true);
+    addEventListener('resize', () => this.measure());
+    if (screen.orientation) screen.orientation.addEventListener('change', () => { setTimeout(() => this.measure(true), 250); setTimeout(() => this.measure(), 1500); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => this.measure(), 400); });
+    addEventListener('pointerdown', () => { const t = Date.now(); if (t - this.last > 2500) { this.last = t; this.measure(); } }, { passive: true, capture: true });
+    for (const ms of [800, 3000]) setTimeout(() => this.measure(), ms);
+  },
+  read() { const c = getComputedStyle(this.p); return { t: parseFloat(c.paddingTop) || 0, r: parseFloat(c.paddingRight) || 0, b: parseFloat(c.paddingBottom) || 0, l: parseFloat(c.paddingLeft) || 0 }; },
+  measure(force) {
+    if (!this.p) return; const m = this.read(), W = innerWidth;
+    if (force || !this.v || Math.abs(W - this.w) > 2) { this.v = m; this.w = W; } // início ou giro da tela: vale o que o sistema diz
+    else { let ch = false; for (const k of 'trbl') if (m[k] < this.v[k] - 0.5) { this.v[k] = m[k]; ch = true; } if (!ch) return; } // só diminui: barra passageira não empurra nada
+    const st = document.documentElement.style; for (const k of 'trbl') st.setProperty('--sa' + k, this.v[k] + 'px');
+  },
+};
+const SystemBar = {
+  init() {
+    this.meta = document.querySelector('meta[name=theme-color]'); if (!this.meta) return;
+    const upd = () => this.update();
+    const mo = new MutationObserver(upd);
+    for (const id of ['editor', 'library']) { const n = document.getElementById(id); if (n) mo.observe(n, { attributes: true, attributeFilter: ['class'] }); }
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', upd);
+    upd();
+  },
+  update() {
+    const ed = document.getElementById('editor'), onEd = ed && !ed.classList.contains('hidden');
+    const cs = getComputedStyle(document.documentElement), c = (cs.getPropertyValue(onEd ? '--desk' : '--home') || '').trim();
+    if (c && this.meta.content !== c) this.meta.content = c;
+  },
+};
+/* relógio discreto ao lado do nome da nota (v0.19: e a bateria do tablet) */
 const NoteClock = {
-  start() { const tick = () => { const c = $('#noteClock'); if (c) c.textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); clearTimeout(this.t); this.t = setTimeout(tick, 60000 - (Date.now() % 60000) + 50); }; tick(); },
+  start() { this.battery(); const tick = () => { const c = $('#noteClock'); if (c) c.textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); clearTimeout(this.t); this.t = setTimeout(tick, 60000 - (Date.now() % 60000) + 50); }; tick(); },
+  /* bateria: Battery Status API do Chrome (no Android funciona no app instalado). Sem ela, o indicador fica escondido. */
+  async battery() {
+    if (!navigator.getBattery) return;
+    let b; try { b = await navigator.getBattery(); } catch (e) { return; }
+    const paint = () => {
+      const s = $('#noteBat'); if (!s) return;
+      const pct = Math.round((b.level || 0) * 100), low = pct <= 15 && !b.charging;
+      const fill = Math.max(1.5, 13 * (b.level || 0));
+      s.innerHTML = `<svg viewBox="0 0 22 12" width="20" height="11" aria-hidden="true"><rect x=".75" y=".75" width="17.5" height="10.5" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="19.4" y="3.6" width="1.9" height="4.8" rx=".9" fill="currentColor"/><rect x="2.6" y="2.6" width="${fill.toFixed(1)}" height="6.8" rx="1.2" fill="currentColor"/>${b.charging ? '<path d="M10.6 1.6 7 6.6h3l-1.2 3.8 3.9-5.2H9.7l.9-3.6Z" style="fill:var(--ch,#fff)" stroke="currentColor" stroke-width=".6"/>' : ''}</svg>${pct}%`;
+      s.classList.remove('hidden'); s.classList.toggle('low', low); s.title = `Bateria: ${pct}%` + (b.charging ? ' (carregando)' : '');
+    };
+    for (const ev of ['levelchange', 'chargingchange']) b.addEventListener(ev, paint);
+    paint();
+  },
 };

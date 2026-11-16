@@ -80,6 +80,7 @@ const UI = {
 
   /* ---------- ferramenta ativa ---------- */
   setTool(t, keepSel = false) {
+    if (Editor.crop) Editor.applyCrop(); // trocou de ferramenta no meio do recorte: aplica
     Editor.commitText();
     if (Editor.readOnly) Editor.setReadOnly(false);
     if (this.clipsOpen) this.closePanel();
@@ -691,75 +692,3 @@ function applyBarSize() {
   for (const [n, v] of Object.entries(V)) e.style.setProperty(n, v);
 }
 
-/* ===== editor de recorte de imagem =====
-   Mostra a imagem inteira; a moldura marca a parte que fica visível. Arraste as alças (cantos e lados) ou o meio.
-   Devolve o recorte em frações {x, y, w, h} da imagem original, ou null se cancelar. */
-function cropDialog(bmp, crop) {
-  const IW = bmp.width, IH = bmp.height;
-  const maxW = Math.min(innerWidth - 80, 820), maxH = Math.min(innerHeight - 340, 620);
-  const k = Math.min(maxW / IW, maxH / IH, 4), W = Math.max(40, Math.round(IW * k)), H = Math.max(40, Math.round(IH * k));
-  const cv = el('canvas', { class: 'crop-img' }); const dpr = Math.min(2, devicePixelRatio || 1);
-  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px';
-  const x = cv.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(bmp, 0, 0, cv.width, cv.height);
-  let c = { ...crop }, ratio = 0; // ratio = largura/altura em pixels da imagem (0 = livre)
-  const box = el('div', { class: 'crop-box' }, el('i', { class: 'crop-g1' }), el('i', { class: 'crop-g2' }));
-  const H8 = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
-  for (const h of H8) box.append(el('b', { class: 'crop-h crop-' + h, 'data-h': h }));
-  const stage = el('div', { class: 'crop-stage', style: { width: W + 'px', height: H + 'px' } }, cv, box);
-  const info = el('span', { class: 'crop-info' });
-  const MIN = 12; // tamanho mínimo da moldura, em pixels da tela
-  const draw = () => {
-    box.style.left = c.x * W + 'px'; box.style.top = c.y * H + 'px'; box.style.width = c.w * W + 'px'; box.style.height = c.h * H + 'px';
-    info.textContent = `${Math.round(c.w * IW)} × ${Math.round(c.h * IH)} px`;
-  };
-  const fitRatio = () => { // aplica a proporção escolhida mantendo o centro
-    if (!ratio) return;
-    const cx = c.x + c.w / 2, cy = c.y + c.h / 2; let w = c.w * IW, h = c.h * IH;
-    if (w / h > ratio) w = h * ratio; else h = w / ratio;
-    c.w = w / IW; c.h = h / IH; c.x = clamp(cx - c.w / 2, 0, 1 - c.w); c.y = clamp(cy - c.h / 2, 0, 1 - c.h);
-  };
-  let drag = null;
-  stage.addEventListener('pointerdown', (ev) => {
-    const r = stage.getBoundingClientRect(), hd = ev.target.dataset && ev.target.dataset.h;
-    const px = (ev.clientX - r.left) / W, py = (ev.clientY - r.top) / H;
-    if (!hd && !(px >= c.x && px <= c.x + c.w && py >= c.y && py <= c.y + c.h)) { // fora da moldura: começa uma nova
-      c = { x: clamp(px, 0, 1), y: clamp(py, 0, 1), w: 0, h: 0 }; drag = { h: 'se', r, c0: { ...c }, p0: [px, py], fresh: true };
-    } else drag = { h: hd || 'move', r, c0: { ...c }, p0: [px, py] };
-    stage.setPointerCapture(ev.pointerId); ev.preventDefault();
-  });
-  stage.addEventListener('pointermove', (ev) => {
-    if (!drag) return;
-    const { r, c0, p0, h } = drag, px = clamp((ev.clientX - r.left) / W, 0, 1), py = clamp((ev.clientY - r.top) / H, 0, 1), dx = px - p0[0], dy = py - p0[1];
-    const mw = MIN / W, mh = MIN / H;
-    if (h === 'move') { c.x = clamp(c0.x + dx, 0, 1 - c0.w); c.y = clamp(c0.y + dy, 0, 1 - c0.h); }
-    else {
-      let x1 = c0.x, y1 = c0.y, x2 = c0.x + c0.w, y2 = c0.y + c0.h;
-      if (h.includes('w')) x1 = clamp(x1 + dx, 0, x2 - mw); if (h.includes('e')) x2 = clamp(x2 + dx, x1 + mw, 1);
-      if (h.includes('n')) y1 = clamp(y1 + dy, 0, y2 - mh); if (h.includes('s')) y2 = clamp(y2 + dy, y1 + mh, 1);
-      if (ratio) { // mantém a proporção: o lado arrastado manda, o outro acompanha
-        let w = (x2 - x1) * IW, hh = (y2 - y1) * IH;
-        if (h === 'n' || h === 's') w = hh * ratio; else if (h === 'e' || h === 'w') hh = w / ratio; else if (w / hh > ratio) hh = w / ratio; else w = hh * ratio;
-        w = Math.min(w, (h.includes('w') ? x2 : 1 - x1) * IW); hh = w / ratio;
-        hh = Math.min(hh, (h.includes('n') ? y2 : 1 - y1) * IH); w = hh * ratio;
-        if (h.includes('w')) x1 = x2 - w / IW; else x2 = x1 + w / IW;
-        if (h.includes('n')) y1 = y2 - hh / IH; else y2 = y1 + hh / IH;
-      }
-      c = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
-    }
-    draw();
-  });
-  const end = () => { if (drag && (c.w * W < MIN || c.h * H < MIN)) c = drag.fresh ? { ...drag.c0, w: 1 - drag.c0.x, h: 1 - drag.c0.y } : drag.c0; drag = null; draw(); };
-  stage.addEventListener('pointerup', end); stage.addEventListener('pointercancel', end);
-  const chips = el('div', { class: 'crop-ratios' });
-  const RAT = [['Livre', 0], ['Original', IW / IH], ['1:1', 1], ['4:3', 4 / 3], ['3:4', 3 / 4], ['16:9', 16 / 9]];
-  const paintChips = () => [...chips.children].forEach((b, i) => b.classList.toggle('on', RAT[i][1] === ratio));
-  for (const [n, v] of RAT) chips.append(el('button', { class: 'crop-chip', onclick: () => { ratio = v; if (v && n === 'Original') c = { x: 0, y: 0, w: 1, h: 1 }; fitRatio(); paintChips(); draw(); } }, n));
-  paintChips(); draw();
-  const body = el('div', { class: 'crop-wrap' }, stage, el('div', { class: 'crop-bar' }, chips, info),
-    el('p', { class: 'lbl-sm' }, 'Arraste os cantos ou lados da moldura. Arraste o meio para mover; toque fora para desenhar uma nova. O recorte pode ser desfeito ou refeito depois sem perder a imagem.'));
-  return openModal({ title: 'Recortar imagem', body, wide: true, buttons: [
-    { label: 'Restaurar original', action: () => { ratio = 0; paintChips(); c = { x: 0, y: 0, w: 1, h: 1 }; draw(); return false; } },
-    { label: 'Cancelar', value: null },
-    { label: 'Aplicar', cls: 'primary', action: () => { const r5 = (v) => Math.round(v * 1e5) / 1e5; return { x: r5(c.x), y: r5(c.y), w: r5(c.w), h: r5(c.h) }; } },
-  ] }).then((v) => v || null);
-}

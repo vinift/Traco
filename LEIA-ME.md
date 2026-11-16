@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.19.0
+
+- **Recorte direto na página:** laço → selecione a imagem → botão de recorte. A imagem inteira aparece apagadinha no próprio lugar, com a moldura do recorte e 8 alças. Arraste as alças com a caneta ou o dedo; arraste o meio para mover a moldura; toque na parte apagada para desenhar outra moldura. Proporções Livre, Original, 1:1, 4:3, 3:4 e 16:9 na barrinha, além de ↻ (restaurar a imagem inteira), ✕ (cancelar) e ✓ (aplicar). Também aplica com Enter, tocando fora da imagem ou trocando de ferramenta; Esc ou desfazer cancela. Fora da imagem o dedo continua rolando e dando zoom. Funciona com imagens giradas.
+- **Bateria do tablet** ao lado do horário e do nome da nota (com raio quando está carregando e em vermelho abaixo de 15%).
+- **Barra de horário/bateria do Android:** as barras do app não descem mais quando a barra do sistema aparece por cima (as margens da "área segura" ficam congeladas; só mudam quando a tela gira). A cor da barra do sistema agora acompanha a tela atual (fundo da mesa na nota, fundo da biblioteca no início), em vez de uma cor fixa.
+- **Desfazer/refazer páginas:** adicionar, excluir, duplicar, mudar a ordem (arrastar ou "Mover para o início/fim") e inserir PDF agora entram no Desfazer/Refazer (botões, 2/3 dedos ou atalhos da caneta). Excluir páginas não apaga mais o histórico de desfazer.
+
 ## Novidades da v0.18.0
 
 - **Recortar imagem:** selecione a imagem com o laço → botão de recorte na barra da seleção. Arraste cantos/lados da moldura (ou o meio para mover; toque fora para desenhar outra), com proporções Livre, Original, 1:1, 4:3, 3:4 e 16:9. O recorte não apaga nada da imagem: dá para refazer ou "Restaurar original" depois, e o desfazer funciona. Funciona também com imagens giradas.

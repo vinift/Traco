@@ -57,7 +57,7 @@ const Editor = {
     const note = await Store.getNote(id); if (!note) { toast('Nota não encontrada'); return false; }
     if (fixNotewiseHeights(note)) { await Store.putNote(note); Store.setThumb(note.id, await makeThumb(note)); } // corrige notas importadas antes (grade meia linha fora)
     this.resetTiles(); this._prevZ = undefined; this.lastInput = Date.now(); // nota recém-aberta conta como "em uso" (o backup pesado espera)
-    this.note = note; this.undoStack = []; this.redoStack = []; this.sel = null; this.selTf = null; this.action = null; this.editingId = null;
+    if (this.crop) this.cancelCrop(); this.note = note; this.undoStack = []; this.redoStack = []; this.sel = null; this.selTf = null; this.action = null; this.editingId = null;
     this.readOnly = false; $('#editor').classList.remove('reading'); { const rb = $('#btnRead'); if (rb) rb.classList.remove('soft-on'); }
     $('#noteTitle').value = note.title;
     this.desk = getComputedStyle(document.documentElement).getPropertyValue('--desk').trim() || '#d9dde3';
@@ -76,6 +76,7 @@ const Editor = {
     const note = this.note;
     try { if (note) { const t = await makeThumb(note); if (t) await Store.setThumb(note.id, t); } } catch (e) { logError(e, 'fechar: miniatura'); }
     try { Instruments.hideAll(); } catch (e) { logError(e, 'fechar: instrumentos'); }
+    if (this.crop) this.cancelCrop();
     this.note = null; this.sel = null; this.selTf = null; this.action = null; this.gesture = null; this.stopInertia();
     this.resetTiles(); PdfCache.clear(); ImgCache.clear(); PathLRU.clear(); // libera a memória dos blocos, do PDF e das imagens
     if (note) OCR.scheduleNote(note);
@@ -188,6 +189,7 @@ const Editor = {
     const vis = { x: this.cam.x, y: this.cam.y, w: this.W / z, h: this.H / z };
     const skip = new Set(); if (this.editingId) skip.add(this.editingId);
     const selActive = this.sel && this.selTf; if (selActive) for (const id of this.sel.ids) skip.add(id);
+    if (this.crop) skip.add(this.crop.id); // recorte na página: a imagem é desenhada por cima, inteira
     const att = selActive && this.action && this.action.attached && !this.selTf.free ? this.action.attached : null; if (att) for (const id of att) skip.add(id);
     const pv = this.tPreview; if (pv) { for (const id of pv.map.keys()) skip.add(id); for (const x of pv.removed) skip.add(x.id); }
     // zoom em andamento: usa os blocos já prontos (esticados) e redesenha nítido quando o zoom para
@@ -234,6 +236,7 @@ const Editor = {
         for (const e of page.elements) { const n = pv.map.get(e.id); if (n) drawElement(ctx, n); }
       }
       ctx.restore();
+      if (this.crop && this.crop.pageId === page.id) { this.pageTf(ctx, i); this.drawCropImage(ctx); }
     });
     const a = this.action;
     if (this._inkHide && !(this.action && this.action.kind === 'draw')) { this._inkHide = false; this.inkHide(); } // traço já está nos blocos: some a tela rápida
@@ -254,6 +257,7 @@ const Editor = {
   },
   drawSelection() {
     const bar = $('#selBar');
+    if (this.crop) { bar.classList.add('hidden'); this.drawCropUI(); return; }
     if (!this.sel) { bar.classList.add('hidden'); return; }
     const box = this.selScreenBox();
     if (!box) { this.sel = null; bar.classList.add('hidden'); return; }
@@ -301,32 +305,56 @@ const Editor = {
   tplSnap() { return { nt: clone(this.note.template), pages: this.note.pages.map((p) => [p.id, clone(p.template || null)]) }; },
   tplApply(s) { this.note.template = clone(s.nt); for (const [id, t] of s.pages) { const p = this.pageById(id); if (p) p.template = clone(t); } },
   recTemplate(fn) { const a = this.tplSnap(); fn(); const b = this.tplSnap(); if (JSON.stringify(a) === JSON.stringify(b)) return; this.opBegin(); this.curOp.changes.push({ k: 'tpl', a, b }); this.opCommit(); },
+  /* v0.19: adicionar, excluir, duplicar e mudar a ordem das páginas também entra no desfazer/refazer.
+     Guarda a lista de páginas antes e depois (as próprias páginas, não cópias: o resto do histórico continua apontando para elas). */
+  recPages(fn) {
+    const a = this.note.pages.slice(), r = fn(), b = this.note.pages.slice();
+    if (a.length === b.length && a.every((p, i) => p === b[i])) return r;
+    this.opBegin(); this.curOp.changes.push({ k: 'pages', a, b }); this.opCommit(); this.computeLayout(); this.clampCam();
+    return r;
+  },
   opCommit() {
     const op = this.curOp; this.curOp = null;
     if (op && op.changes.length) { this.undoStack.push(op); if (this.undoStack.length > 300) this.undoStack.shift(); this.redoStack = []; this.markChanged(); }
     this.requestRender();
   },
   undo() {
-    this.commitText(); const op = this.undoStack.pop(); if (!op) return;
+    if (this.crop) return this.cancelCrop(); // desfazer durante o recorte: só cancela o recorte
+    this.commitText(); const op = this.undoStack.pop(); if (!op) return; let pg = false;
     for (let j = op.changes.length - 1; j >= 0; j--) {
       const c = op.changes[j]; if (c.k === 'tpl') { this.tplApply(c.a); continue; }
+      if (c.k === 'pages') { this.note.pages = c.a.slice(); pg = true; continue; }
       const page = this.pageById(c.p); if (!page) continue; const els = page.elements;
       if (c.k === 'add') { const i = els.findIndex((e) => e.id === c.el.id); if (i >= 0) els.splice(i, 1); }
       else if (c.k === 'rem') els.splice(Math.min(c.i, els.length), 0, c.el);
       else { const i = els.findIndex((e) => e.id === c.el.id); if (i >= 0) els[i] = c.old; }
     }
-    this.redoStack.push(op); this.sel = null; this.markChanged(); this.requestRender();
+    this.redoStack.push(op); this.sel = null; if (pg) this.pagesUndone(op, true); this.markChanged(); this.requestRender();
   },
   redo() {
-    const op = this.redoStack.pop(); if (!op) return;
+    if (this.crop) return;
+    const op = this.redoStack.pop(); if (!op) return; let pg = false;
     for (const c of op.changes) {
       if (c.k === 'tpl') { this.tplApply(c.b); continue; }
+      if (c.k === 'pages') { this.note.pages = c.b.slice(); pg = true; continue; }
       const page = this.pageById(c.p); if (!page) continue; const els = page.elements;
       if (c.k === 'add') els.splice(Math.min(c.i, els.length), 0, c.el);
       else if (c.k === 'rem') { const i = els.findIndex((e) => e.id === c.el.id); if (i >= 0) els.splice(i, 1); }
       else { const i = els.findIndex((e) => e.id === c.old.id); if (i >= 0) els[i] = c.el; }
     }
-    this.undoStack.push(op); this.sel = null; this.markChanged(); this.requestRender();
+    this.undoStack.push(op); this.sel = null; if (pg) this.pagesUndone(op, false); this.markChanged(); this.requestRender();
+  },
+  /* depois de desfazer/refazer uma mudança de páginas: refaz o layout e mostra a página que voltou (ou a vizinha da que saiu) */
+  pagesUndone(op, undo) {
+    const c = op.changes.find((x) => x.k === 'pages'), from = undo ? c.b : c.a, to = undo ? c.a : c.b;
+    this.computeLayout(); this.clampCam();
+    if (typeof PageManager !== 'undefined' && PageManager.root) PageManager.render();
+    if (this.note.mode === 'infinite') return;
+    const back = to.findIndex((p) => !from.includes(p)); // página que voltou
+    if (back >= 0) { this.goToPage(back); toast(undo ? 'Página restaurada' : 'Página refeita', 1100); return; }
+    const gone = from.findIndex((p) => !to.includes(p)); // página que saiu
+    if (gone >= 0) { this.goToPage(Math.min(gone, to.length - 1)); toast(undo ? 'Página adicionada foi desfeita' : 'Página excluída de novo', 1100); return; }
+    const moved = to.findIndex((p, i) => from[i] !== p); if (moved >= 0) toast('Ordem das páginas desfeita', 1100);
   },
   updateUndoBtns() { const u = $('#btnUndo'), r = $('#btnRedo'); if (u) u.disabled = !this.undoStack.length; if (r) r.disabled = !this.redoStack.length; },
 
@@ -341,7 +369,7 @@ const Editor = {
     if (this._eyedrop && !(e.target.closest && e.target.closest('#selBar,#textBar,#hbar'))) { e.preventDefault(); this.takeEyedrop(this.pt(e)); return; } // conta-gotas
     if (this.textEl && this.textEl.contains(e.target)) return;
     if (e.target.closest && e.target.closest('#textBar,#hbar')) return;
-    if (e.target.closest && e.target.closest('#selBar')) return; // botões da seleção não iniciam novo laço
+    if (e.target.closest && e.target.closest('#selBar,#cropBar')) return; // botões da seleção não iniciam novo laço
     if (UI.panelOpen) UI.closePanel();
     try { this.stage.setPointerCapture(e.pointerId); } catch (_) {}
     const p = this.pt(e); const rec = { ...p, sx: p.x, sy: p.y, type: e.pointerType, t0: performance.now() };
@@ -349,6 +377,7 @@ const Editor = {
     if (e.pointerType === 'pen') { this.penDown = true; this.lastPenSeen = performance.now(); if (this.gesture) this.endGesture(); }
     if (this.readOnly && e.pointerType !== 'touch') { rec.type = 'touch'; this.startGesture(); return; } // modo leitura: caneta só navega
     if (e.pointerType === 'pen' && (!(e.buttons & 1) || this.penClickHeld(e))) { rec.ignored = true; return; } // sem encostar (só botão) ou botão com atalho de clique: não desenha
+    if (this.crop && this.cropDown(e, p, rec)) return; // recorte na página: alças e moldura
     if (e.pointerType === 'touch') {
       const tr = this.action && ['move', 'scale', 'rotate'].includes(this.action.kind) && this.action.pid !== e.pointerId;
       if (tr) { // segundo dedo enquanto move/redimensiona: sem ajustes automáticos (palma grande é ignorada)
@@ -412,6 +441,7 @@ const Editor = {
     if (/INPUT|TEXTAREA/.test(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
     const ksig = 'key:' + (e.code || e.key); if ((Store.settings.penMap || {})[ksig]) { e.preventDefault(); return this.firePenSig(ksig); }
     const k = e.key.toLowerCase();
+    if (this.crop) { if (k === 'escape') this.cancelCrop(); else if (k === 'enter') this.applyCrop(); return; }
     if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); }
     else if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); this.redo(); }
     else if ((e.ctrlKey || e.metaKey) && k === 'c') this.copySel();
@@ -487,6 +517,8 @@ const Editor = {
     if (a.kind === 'draw') { for (const ev of evs) this.addDrawPoint(ev); this.drawLiveStroke(); return; }
     const p = this.pt(e), w = this.toWorld(p.x, p.y);
     if (a.kind === 'erase') { this.eraseAt(a.last, w); a.last = w; this.drawEraserCursor(p); return; }
+    if (a.kind === 'crop') return this.cropMove(p);
+    if (a.kind === 'cropout') return;
     if (a.kind === 'lasso') { if (a.mode === 'free') a.pts.push([p.x, p.y]); else a.pts = [a.pts[0], [p.x, p.y]]; this.drawLasso(); return; }
     if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate') return this.moveSel(p);
     if (a.kind === 'tableact') return this.moveTableAct(p);
@@ -498,6 +530,8 @@ const Editor = {
     const a = this.action; if (!a) return; this.action = null; this._lastAction = a;
     const rec = [...this.pointers.values()].find((r) => r.drawing); if (rec) rec.drawing = false;
     if (a.kind === 'tableact') return this.endTableAct();
+    if (a.kind === 'crop') return this.cropEnd(a);
+    if (a.kind === 'cropout') { const p = this.pt(e); if (Math.hypot(p.x - a.sx, p.y - a.sy) < 10) this.applyCrop(); return; } // tocar fora da imagem aplica
     if (a.kind === 'draw') return this.endDraw(a);
     if (a.kind === 'erase') { this.clearLive(); this.opCommit(); return; }
     if (a.kind === 'lasso') return this.endLasso(a);
@@ -511,6 +545,7 @@ const Editor = {
   cancelAction() {
     const a = this.action; this.action = null; if (!a) return;
     clearTimeout(a.holdT); this.clearLive(); if (this.inkOn) this.inkHide();
+    if (a.kind === 'crop' && this.crop) this.crop.c = a.fresh ? a.prev : a.c0;
     if (a.kind === 'erase' || a.kind === 'plugin') this.opCommit();
     if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate' || a.kind === 'tableact') { this.selTf = null; this.tPreview = null; this.guides = null; }
     this.requestRender();
@@ -746,21 +781,7 @@ const Editor = {
     this.opCommit(); this.sel = { pageId: page.id, ids: new Set(ids) }; if (this.tool !== 'lasso') UI.setTool('lasso', true); this.requestRender();
   },
   pasteElements(els) { const keep = this.clip; this.clip = clone(els); this.paste(); this.clip = keep; UI.renderOptions(); },
-  /* recortar imagem: abre o editor de recorte e troca a caixa visível sem mover o resto da imagem (inclusive girada) */
-  async cropSel() {
-    const els = this.selElements(); if (els.length !== 1 || els[0].type !== 'image' || els[0].lock) return;
-    const e = els[0], page = this.pageById(this.sel.pageId);
-    const bmp = await ImgCache.load(e.blobId); if (!bmp) return toast('A imagem ainda não carregou. Tente de novo.', 2500);
-    const oc = e.crop || { x: 0, y: 0, w: 1, h: 1 };
-    const nc = await cropDialog(bmp, oc); if (!nc || !this.sel) return;
-    const cur = page.elements.find((x) => x.id === e.id); if (!cur) return;
-    const fw = cur.w / oc.w, fh = cur.h / oc.h, fx = cur.x - oc.x * fw, fy = cur.y - oc.y * fh; // imagem inteira no referencial sem giro
-    let nw = nc.w * fw, nh = nc.h * fh, nx = fx + nc.x * fw, ny = fy + nc.y * fh;
-    if (cur.rot) { const q = rotPt(nx + nw / 2, ny + nh / 2, cur.x + cur.w / 2, cur.y + cur.h / 2, cur.rot); nx = q[0] - nw / 2; ny = q[1] - nh / 2; }
-    const n = { ...cur, x: nx, y: ny, w: nw, h: nh };
-    if (nc.x < 1e-4 && nc.y < 1e-4 && nc.w > 0.9999 && nc.h > 0.9999) delete n.crop; else n.crop = nc;
-    this.recReplace(page, cur, n); this.opCommit(); UI.buildSelBar(); this.requestRender();
-  },
+  /* recortar imagem: direto na página (js/crop.js) */
   recolorSel(color) {
     const page = this.pageById(this.sel.pageId);
     for (const e of this.selElements()) if (!e.lock && ['stroke', 'shape', 'text'].includes(e.type)) this.recReplace(page, e, { ...e, color });
@@ -927,14 +948,14 @@ const Editor = {
   addPage(after = this.currentPageIndex(), page) {
     const ref = this.note.pages[after] || this.note.pages[0];
     const p = page || newPage(ref.pdf ? 794 : ref.w, ref.pdf ? 1123 : ref.h, ref.pdf ? null : ref.template ? clone(ref.template) : null);
-    this.note.pages.splice(after + 1, 0, p); this.afterPagesChanged(); this.goToPage(after + 1); return p;
+    this.recPages(() => this.note.pages.splice(after + 1, 0, p)); this.afterPagesChanged(); this.goToPage(after + 1); return p;
   },
   deletePage(i) {
     if (this.note.pages.length <= 1) return toast('A nota precisa de pelo menos uma página');
-    this.note.pages.splice(i, 1); this.undoStack = []; this.redoStack = []; this.sel = null; this.afterPagesChanged();
+    this.sel = null; this.recPages(() => this.note.pages.splice(i, 1)); this.afterPagesChanged();
   },
   duplicatePage(i) { const p = clone(this.note.pages[i]); p.id = uid(); p.elements.forEach((e) => (e.id = uid())); this.addPage(i, p); },
-  movePage(i, d) { const j = i + d, P = this.note.pages; if (j < 0 || j >= P.length) return; [P[i], P[j]] = [P[j], P[i]]; this.afterPagesChanged(); },
+  movePage(i, d) { const j = i + d, P = this.note.pages; if (j < 0 || j >= P.length) return; this.recPages(() => { [P[i], P[j]] = [P[j], P[i]]; }); this.afterPagesChanged(); },
   afterPagesChanged() { this.computeLayout(); this.clampCam(); this.markChanged(); this.requestRender(); },
   goToPage(i) {
     if (this.note.mode === 'infinite') return; const o = this.layout[i]; if (!o) return;
