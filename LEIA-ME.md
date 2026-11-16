@@ -153,6 +153,20 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.22.0
+
+- **Tempo de estudo só com o app aberto:** o histórico soma apenas o tempo em que o cronômetro/temporizador/Pomodoro roda **com o app na tela**. Com o app fechado, em segundo plano ou com a tela do tablet apagada, não conta (o relógio do cronômetro continua andando, só o histórico não soma).
+- **Horário, bateria e tempo maiores** no topo, mais fáceis de ler.
+- **Sem o menu do Chrome ao segurar:** segurar o dedo em botões, miniaturas, textos e campos parados não abre mais seleção nem menu do navegador. Em um campo de texto que você já está usando, copiar/colar continua funcionando.
+- **Espessuras da seleção:** ao mudar a espessura de algo selecionado, aparecem as mesmas espessuras da sua barra da caneta (as do grupo atual).
+- **Segurar o dedo com o laço:** abre um painel com o último item salvo na biblioteca (toque para colar exatamente onde segurou) e os itens recentes, além de um atalho para a biblioteca completa.
+- **Alças em todos os lados:** a seleção agora tem alças nos 4 cantos (redimensionam mantendo a proporção, presos no canto oposto) e no meio dos 4 lados (esticam só a largura ou só a altura). Em texto, as alças laterais mudam a largura da caixa. Itens girados ficam só com os cantos.
+- **Escrita mais fiel:** a estabilização deixou de "puxar com corda" nos níveis normais (isso arredondava e encolhia letras pequenas), ficou um pouco mais leve e o alisamento depois de levantar a caneta é mais suave. Se quiser mais firmeza, aumente a estabilização da caneta no painel da ferramenta.
+- **Escrita mais rápida e sem travadas:**
+  - cada traço novo é pintado direto por cima da página, em vez de redesenhar todos os traços da área (em páginas cheias isso travava o começo do próximo traço);
+  - os pontos da caneta são lidos assim que chegam, sem esperar o próximo quadro da tela;
+  - no modo de baixa latência, a tela rápida já fica preparada antes de a caneta encostar.
+
 ## Novidades da v0.21.0
 
 - **Cronômetro de estudo:** toque no horário, no topo da nota, para abrir o painel. Três modos:

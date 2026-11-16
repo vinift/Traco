@@ -18,7 +18,12 @@ const StudyTimer = {
     if (this._on) return this.tick(); this._on = true; // eventos só uma vez
     for (const id of ['noteClock', 'noteTimer', 'libTimer']) { const n = document.getElementById(id); if (n) { n.classList.add('tm-click'); n.addEventListener('click', (e) => { e.stopPropagation(); this.open(n); }); } }
     { const c = document.getElementById('noteClock'); if (c) c.title = 'Horário · toque para o cronômetro de estudo'; }
-    document.addEventListener('visibilitychange', () => { if (document.hidden) { if (this.st.running) this.boundary(Date.now()); } else this.tick(); });
+    /* v0.22: o histórico só soma o tempo com o app aberto na tela (fechado, em segundo plano ou com a tela apagada não conta) */
+    const away = () => { if (this.st.running) this.boundary(Date.now()); this.st.segAway = true; this.save(); };
+    const back = () => { if (this.st.segAway) { this.st.segAway = false; this.st.segStart = Date.now(); this.save(); } this.tick(); };
+    document.addEventListener('visibilitychange', () => (document.hidden ? away() : back()));
+    addEventListener('pagehide', away);
+    if (this.st.running) { this.st.segAway = false; this.st.segStart = Date.now(); this.save(); } // app reaberto: o tempo fechado fica de fora
     setInterval(() => this.tick(), 1000);
     this.tick();
   },
@@ -47,7 +52,7 @@ const StudyTimer = {
   /* fecha o trecho atual (troca de nota, pausa, fim de fase ou a cada minuto) e começa outro */
   boundary(t) {
     const s = this.st;
-    if (this.counts() && s.segStart) this.addLog(s.segStart, t, s.segNote, s.segTitle);
+    if (this.counts() && s.segStart && !s.segAway) this.addLog(s.segStart, t, s.segNote, s.segTitle);
     const n = this.curNote(); s.segStart = t; s.segNote = n ? n.id : null; s.segTitle = n ? n.title : ''; this.save();
   },
   save() { DB.put('meta', clone(this.st), 'studyTimer').catch(() => {}); },
@@ -166,7 +171,7 @@ const StudyTimer = {
   },
   /* totais: hoje, 7 dias (barrinhas) e as notas da semana */
   statsEl() {
-    const L = this.log, s = this.st, t = Date.now(), pend = this.counts() && s.segStart ? t - s.segStart : 0, today = this.dayKey(t);
+    const L = this.log, s = this.st, t = Date.now(), pend = this.counts() && s.segStart && !s.segAway ? t - s.segStart : 0, today = this.dayKey(t);
     const dayTotal = (k) => { const d = L.days[k] || {}; let v = 0; for (const x in d) v += d[x]; return v + (k === today ? pend : 0); };
     const days = []; for (let i = 6; i >= 0; i--) { const d = new Date(t); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); days.push({ k: this.dayKey(d.getTime()), d }); }
     const vals = days.map((x) => dayTotal(x.k)), max = Math.max(...vals, 1), week = vals.reduce((a, b) => a + b, 0);

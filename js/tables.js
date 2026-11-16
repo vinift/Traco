@@ -175,22 +175,28 @@ Object.assign(Editor, {
       let ang = Math.atan2(p.y - c.y, p.x - c.x) - Math.atan2(a.start.y - c.y, a.start.x - c.x);
       if (this.snapOn('snapAngle') && !a.noSnap) { const sn = Math.round(ang / (Math.PI / 12)) * (Math.PI / 12); if (Math.abs(ang - sn) < 0.06) ang = sn; } // gruda a cada 15°
       this.selTf = { ox: b.x, oy: b.y, sx: 1, sy: 1, dx: 0, dy: 0, rot: ang, cx: b.x + b.w / 2, cy: b.y + b.h / 2 };
-    } else if (a.free) { // um objeto só: largura e altura livres
-      const rb = a.rb; let w = Math.max(8 / z, rb.w + (p.x - a.start.x) / z), h = Math.max(8 / z, rb.h + (p.y - a.start.y) / z);
-      const sx = this.snap1([rb.x + w], a.tx, a.grid && this.gridLines(a.grid, a.page, 0), tol), sy = this.snap1([rb.y + h], a.ty, a.grid && this.gridLines(a.grid, a.page, 1), tol);
-      if (sx) w += sx.d; if (sy) h += sy.d;
+    } else if (a.free && (a.el.type === 'text' || a.el.type === 'table')) { // texto e tabela: largura e altura livres (o texto reflui, não muda a letra)
+      const hh = a.hh || 'se', dX = hh.includes('e') ? 1 : hh.includes('w') ? -1 : 0, dY = hh.includes('s') ? 1 : hh.includes('n') ? -1 : 0;
+      const rb = a.rb; let w = Math.max(8 / z, rb.w + dX * (p.x - a.start.x) / z), h = Math.max(8 / z, rb.h + dY * (p.y - a.start.y) / z);
+      const ex = dX < 0 ? rb.x + rb.w - w : rb.x + w, ey = dY < 0 ? rb.y + rb.h - h : rb.y + h; /* borda que está andando */
+      const sx = dX && this.snap1([ex], a.tx, a.grid && this.gridLines(a.grid, a.page, 0), tol), sy = dY && this.snap1([ey], a.ty, a.grid && this.gridLines(a.grid, a.page, 1), tol);
+      if (sx) w += dX * sx.d; if (sy) h += dY * sy.d;
       let label = null;
-      if (this.snapOn('snapRatio') && !a.noSnap) {
+      if (dX && dY && this.snapOn('snapRatio') && !a.noSnap) {
         for (const [r, lab] of [[1, '1:1'], [a.ratio, 'proporção original']]) { if (Math.abs(w / h - r) / r < 0.06) { h = w / r; label = lab; break; } }
       }
       this.setGuides(a, sx, label ? null : sy); this.ratioLabel = a.noSnap ? 'livre' : label;
-      const t = { ox: rb.x, oy: rb.y, sx: w / rb.w, sy: h / rb.h, dx: 0, dy: 0, free: true };
+      const t = { ox: dX < 0 ? rb.x + rb.w : rb.x, oy: dY < 0 ? rb.y + rb.h : rb.y, sx: w / rb.w, sy: h / rb.h, dx: 0, dy: 0, free: true };
       if (a.el.type === 'table') { const n = transformEl(a.el, t); this.tPreview = Tables.relayout(a.page, a.el, n, null, null, a.page.elements.filter((x) => a.attached.has(x.id))); this.selTf = null; }
       else this.selTf = t;
-    } else {
-      const bw = a.box.w, bh = a.box.h;
-      const s = Math.max(0.05, Math.max((bw + (p.x - a.start.x)) / bw, (bh + (p.y - a.start.y)) / bh));
-      this.selTf = { ox: b.x, oy: b.y, sx: s, sy: s, dx: 0, dy: 0 };
+    } else { /* v0.22: cantos mantêm a proporção (ancorados no canto oposto); lados esticam só a largura ou só a altura */
+      const hh = a.hh || 'se', dX = hh.includes('e') ? 1 : hh.includes('w') ? -1 : 0, dY = hh.includes('s') ? 1 : hh.includes('n') ? -1 : 0;
+      const bw = Math.max(b.w, 1), bh = Math.max(b.h, 1), fx = (bw + dX * (p.x - a.start.x) / z) / bw, fy = (bh + dY * (p.y - a.start.y) / z) / bh;
+      let sx, sy;
+      if (dX && dY) sx = sy = Math.max(0.05, Math.max(fx, fy));
+      else if (dX) { sx = Math.max(0.05, fx); sy = 1; } else { sy = Math.max(0.05, fy); sx = 1; }
+      this.selTf = { ox: dX < 0 ? b.x + b.w : b.x, oy: dY < 0 ? b.y + b.h : b.y, sx, sy, dx: 0, dy: 0, free: !!a.free };
+      this.ratioLabel = dX && dY ? null : `${Math.round(sx * 100)}% × ${Math.round(sy * 100)}%`;
     }
     this.requestRender();
   },

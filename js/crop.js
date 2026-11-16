@@ -218,3 +218,22 @@ Object.assign(Editor, {
     this.requestRender();
   },
 });
+
+/* ===== v0.22 — segurar o dedo com o laço: colar da biblioteca =====
+   Mostra o último item salvo em destaque e os recentes embaixo; tocar cola no lugar onde o dedo segurou. */
+Object.assign(Editor, {
+  async lassoHoldPaste(p) {
+    if (navigator.vibrate) navigator.vibrate(15);
+    const all = (await Clips.all()).slice().sort((a, b) => b.at - a.at); // o mais recente primeiro (fixados não furam a fila aqui)
+    if (!all.length) return toast('A biblioteca está vazia: copie algo com o laço para colar aqui depois', 2600);
+    const r = this.stage.getBoundingClientRect(), X = r.left + p.x, Y = r.top + p.y;
+    const anchor = { getBoundingClientRect: () => ({ left: X, right: X, top: Y, bottom: Y, width: 0, height: 0 }) };
+    const paste = (c) => { closePop(); this.pasteAt(c.els, p.x, p.y); toast('Colado', 900); };
+    const [last, ...rest] = all;
+    const big = el('button', { class: 'hp-last', onclick: () => paste(last) }, el('img', { src: last.thumb || '', alt: '' }), el('span', {}, el('b', {}, 'Colar aqui'), el('small', {}, last.label || 'último item')));
+    const box = el('div', { class: 'hp-pop' }, el('div', { class: 'hp-h' }, 'Último item da biblioteca'), big);
+    if (rest.length) box.append(el('div', { class: 'hp-h' }, 'Recentes'), el('div', { class: 'hp-grid' }, ...rest.slice(0, 8).map((c) => el('button', { class: 'hp-item', title: c.label || '', onclick: () => paste(c) }, el('img', { src: c.thumb || '', alt: '' })))));
+    box.append(el('button', { class: 'btn ghost hp-all', onclick: () => { closePop(); UI.openClips(); } }, 'Abrir a biblioteca'));
+    openPop(anchor, box);
+  },
+});

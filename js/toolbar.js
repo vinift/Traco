@@ -572,7 +572,7 @@ const UI = {
   selWidthPop(anchor) {
     const els = Editor.selElements().filter((e) => (e.type === 'stroke' || e.type === 'shape') && !e.lock); if (!els.length) return;
     const onlyHl = els.every((e) => e.tool === 'highlighter'), [mn, mx, step] = WIDTH_RANGE[onlyHl ? 'highlighter' : 'pen'];
-    const cur = els[0].width, presets = (Store.settings.widthPresets[onlyHl ? 'highlighter' : 'pen'] || []).slice(0, 10);
+    const cur = els[0].width, presets = [...new Set(this.widthList(onlyHl ? 'highlighter' : 'pen'))].slice(0, 14); /* v0.22: as mesmas espessuras da barra da caneta (grupo atual) */
     const val = el('b', { class: 'tp-val' }, fmtW(cur) + (onlyHl ? '' : ' mm'));
     const set = (v) => { v = clamp(Math.round(v / step) * step, mn, mx); Editor.widthSel(() => v); val.textContent = fmtW(v); r.value = v; };
     const chips = el('div', { class: 'sw-chips' }, ...presets.map((w) => el('button', { class: 'sw-chip', title: fmtW(w), onclick: () => set(w) }, el('i', { style: { height: Math.max(1, Math.min(14, w * (onlyHl ? 0.4 : 1.6))) + 'px' } }), el('span', {}, fmtW(w)))));

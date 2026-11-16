@@ -36,6 +36,8 @@ const Editor = {
     const s = this.stage;
     s.addEventListener('pointerdown', (e) => this.onDown(e));
     s.addEventListener('pointermove', (e) => this.onMove(e));
+    /* v0.22: pointerrawupdate entrega os pontos da caneta assim que chegam (o pointermove espera o próximo quadro): a tinta sai mais colada na ponta */
+    if ('onpointerrawupdate' in window) s.addEventListener('pointerrawupdate', (e) => this.onRaw(e));
     s.addEventListener('pointerup', (e) => this.onUp(e));
     s.addEventListener('pointercancel', (e) => this.onUp(e, true));
     s.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
@@ -245,7 +247,8 @@ const Editor = {
     this.drawSelection(); this.drawFlash(ctx); this.drawGuides(); this.updateHud(); this.positionText(); this.placePull(); this.updateScroll();
     if (!allDone && !st.zooming) this.requestRender(); // ainda há blocos a desenhar: continua no próximo quadro
     this._drawnCam = { ...this.cam }; this._drawnComplete = allDone && !st.zooming;
-    this.evictTiles(); if (allDone && !st.zooming) this.schedulePrefetch();
+    if (st.rendered && !this.inkOn) this._inkKey = null; /* blocos novos: o fundo da tela rápida precisa ser refeito */
+    this.evictTiles(); if (allDone && !st.zooming) { this.schedulePrefetch(); if (this.lowLat) this.inkPrepLater(); }
     if (this._lastCam !== `${this.cam.x}|${this.cam.y}|${this.cam.z}`) { this._lastCam = `${this.cam.x}|${this.cam.y}|${this.cam.z}`; this.viewDebounced(); }
   },
   selElements() { if (!this.sel) return []; const p = this.pageById(this.sel.pageId); return p ? p.elements.filter((e) => this.sel.ids.has(e.id)) : []; },
@@ -269,8 +272,10 @@ const Editor = {
       ctx.fillStyle = '#6b7280'; ctx.beginPath(); ctx.roundRect(box.x + box.w - 22, box.y - 26, 22, 20, 6); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6; ctx.strokeRect(box.x + box.w - 16, box.y - 18, 10, 7); ctx.beginPath(); ctx.arc(box.x + box.w - 11, box.y - 19, 3, Math.PI, 0); ctx.stroke(); ctx.restore();
     } else {
     ctx.save(); ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(box.x + box.w, box.y + box.h, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.arc(box.x + box.w, box.y + box.h, 4, 0, Math.PI * 2); ctx.fill();
+    for (const [h, x, y] of this.selHandles(box)) { /* v0.22: alças em todos os cantos e lados */
+      ctx.fillStyle = '#fff'; ctx.beginPath(); if (h.length === 2) ctx.arc(x, y, 8, 0, Math.PI * 2); else ctx.roundRect(x - 6, y - 6, 12, 12, 3); ctx.fill(); ctx.stroke();
+      if (h === 'se') { ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill(); }
+    }
     const rx = box.x + box.w / 2, ry = box.y - 34; // alça de rotação
     ctx.beginPath(); ctx.moveTo(rx, box.y); ctx.lineTo(rx, ry + 11); ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(rx, ry, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
@@ -391,7 +396,7 @@ const Editor = {
       const drawingTouch = this.action && this.action.ptype === 'touch';
       if (!this.gesture && !drawingTouch && this.touchIds().length === 1 && this.sel && !this.readOnly) { // dedo também move, redimensiona e gira a seleção
         const k = this.selHit(p);
-        if (k) { rec.drawing = true; this.action = { pid: e.pointerId, ptype: 'touch', tool: 'lasso', sx: p.x, sy: p.y, kind: k, start: p, box: this.selScreenBox() }; if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
+        if (k) { rec.drawing = true; this.action = { pid: e.pointerId, ptype: 'touch', tool: 'lasso', sx: p.x, sy: p.y, kind: k, hh: this._sh, start: p, box: this.selScreenBox() }; if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
       }
       if (Store.settings.fingerDraws && !this.readOnly && !this.gesture && !drawingTouch && this.touchIds().length === 1) { rec.drawing = true; this.startAction(e, p); return; }
       if (drawingTouch) { const ap = this.pointers.get(this.action.pid); this.cancelAction(); if (ap) ap.drawing = false; }
@@ -400,6 +405,13 @@ const Editor = {
     if (e.pointerType === 'mouse' && e.button !== 0) { rec.type = 'touch'; this.startGesture(); return; }
     if (this.action) return;
     this.startAction(e, p);
+  },
+  onRaw(e) {
+    const a = this.action; if (!a || a.kind !== 'draw' || a.pid !== e.pointerId || e.pointerType !== 'pen' || !this.note) return;
+    const rec = this.pointers.get(e.pointerId); if (!rec || rec.ignored) return;
+    const p = this.pt(e); rec.x = p.x; rec.y = p.y; this.lastPenSeen = performance.now(); this.lastInput = Date.now(); a.raw2 = true;
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
+    this.moveAction(evs && evs.length ? evs : [e], e);
   },
   onMove(e) {
     if (e.buttons || e.pressure) this.lastInput = Date.now();
@@ -410,6 +422,7 @@ const Editor = {
     const p = this.pt(e); rec.x = p.x; rec.y = p.y;
     if (rec.ignored) return;
     if (this.action && this.action.pid === e.pointerId) {
+      if (this.action.raw2 && this.action.kind === 'draw') return; // já tratado no pointerrawupdate
       const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
       this.moveAction(evs && evs.length ? evs : [e], e); return;
     }
@@ -453,10 +466,14 @@ const Editor = {
   },
 
   /* ---------- Gestos de navegação ---------- */
-  startGesture() { const f = this.pointers.get(this.touchIds()[0]); this.gesture = { t0: performance.now(), moved: false, max: 0, p0: f ? { x: f.x, y: f.y } : null }; this.rebaseGesture(); },
+  startGesture() {
+    const f = this.pointers.get(this.touchIds()[0]); const g = this.gesture = { t0: performance.now(), moved: false, max: 0, p0: f ? { x: f.x, y: f.y } : null }; this.rebaseGesture();
+    /* v0.22: com o laço, segurar o dedo parado abre o painel de colar da biblioteca */
+    if (this.tool === 'lasso' && !this.readOnly && !this.crop && g.p0 && g.n === 1) g.holdT = setTimeout(() => { if (this.gesture === g && !g.moved && g.n === 1 && g.max === 1) { g.held = true; this.lassoHoldPaste(g.p0); } }, 550);
+  },
   rebaseGesture() {
     const g = this.gesture; if (!g) return;
-    const ids = this.touchIds(); g.max = Math.max(g.max, ids.length);
+    const ids = this.touchIds(); g.max = Math.max(g.max, ids.length); if (ids.length > 1) clearTimeout(g.holdT);
     const P = ids.map((id) => this.pointers.get(id));
     g.cam = { ...this.cam }; g.n = P.length;
     if (P.length >= 2) { g.mid = { x: (P[0].x + P[1].x) / 2, y: (P[0].y + P[1].y) / 2 }; g.dist = Math.hypot(P[0].x - P[1].x, P[0].y - P[1].y) || 1; }
@@ -466,7 +483,7 @@ const Editor = {
     const g = this.gesture, ids = this.touchIds(); if (!ids.length) return;
     if (ids.length !== g.n) this.rebaseGesture();
     const P = ids.map((id) => this.pointers.get(id));
-    for (const p of P) if (Math.hypot(p.x - p.sx, p.y - p.sy) > 10) g.moved = true;
+    for (const p of P) if (Math.hypot(p.x - p.sx, p.y - p.sy) > 10) { g.moved = true; clearTimeout(g.holdT); }
     if (P.length >= 2) {
       const mid = { x: (P[0].x + P[1].x) / 2, y: (P[0].y + P[1].y) / 2 }, dist = Math.hypot(P[0].x - P[1].x, P[0].y - P[1].y) || 1;
       const [a, b] = this.zoomLimits(); const z = clamp(g.cam.z * dist / g.dist, a, b);
@@ -486,7 +503,7 @@ const Editor = {
     this.clampCam(); this.requestRender(); if (P.length >= 2) Instruments.redraw();
   },
   endGesture() {
-    const g = this.gesture; this.gesture = null; if (!g) return;
+    const g = this.gesture; this.gesture = null; if (!g) return; clearTimeout(g.holdT); if (g.held) return;
     if (this.pull) this.releasePull();
     else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v');
     const dt = performance.now() - g.t0;
@@ -582,10 +599,10 @@ const Editor = {
     if (n) {
       const lx = a.pts[n - 3], ly = a.pts[n - 2], lp = a.pts[n - 1];
       // "corda": nos níveis altos a ponta só puxa o traço depois de se afastar um pouquinho (some o tremido fino)
-      const L = a.stab ?? 5, rope = a.snap ? 0 : Math.max(0, L - 5) * 0.55;
+      const L = a.stab ?? 5, rope = a.snap ? 0 : Math.max(0, L - 8) * 0.45; /* v0.22: "corda" só nos níveis 9–10 (antes desde o 6: arredondava e encolhia letras pequenas) */
       if (rope) { const d = Math.hypot(l.x - lx, l.y - ly) * this.cam.z; if (d <= rope) { a.raw = l; return; } const t = (d - rope) / d; l.x = lx + (l.x - lx) * t; l.y = ly + (l.y - ly) * t; }
       // estabilização adaptativa: segura o tremido em movimentos lentos e acompanha os rápidos
-      const sb = clamp(L / 10, 0, 1), kb = 1 - sb * 0.85;
+      const sb = clamp(L / 10, 0, 1), kb = 1 - sb * 0.75;
       const spd = Math.hypot(l.x - lx, l.y - ly) * this.cam.z; // px de tela desde a última amostra
       const k = a.snap ? 1 : clamp(kb + spd / (40 + 80 * sb), kb, 1);
       const x = lx + (l.x - lx) * k, y = ly + (l.y - ly) * k;
@@ -659,7 +676,7 @@ const Editor = {
       const segs = PdfText.snap(page, a.pts);
       if (segs) { for (const s of segs) { const k = Math.min(s.h * 0.4, (s.x2 - s.x1) / 2 - 0.5); this.recAdd(page, { id: uid(), type: 'stroke', tool: 'highlighter', color: a.color, width: r2(s.h), opacity: a.opacity, cap: 'round', pts: [r2(s.x1 + k), r2(s.y), 0.5, r2(s.x2 - k), r2(s.y), 0.5] }); } /* pontas redondas, como o marca-texto à mão */ this.opCommit(); this.requestRender(); return; }
     }
-    if (!a.snap) smoothStroke(a.pts, (a.stab ?? 5) / 10); // alisa o traço final (pontas ficam no lugar)
+    if (!a.snap) smoothStroke(a.pts, (a.stab ?? 5) / 20); // alisa o traço final, de leve (v0.22: no máx. 2 passadas; antes 3–4 deformavam letras pequenas)
     const pts = a.pts.map((v, i) => (i % 3 === 2 ? Math.round(v * 100) / 100 : r2(v)));
     const el = { id: uid(), type: 'stroke', tool: a.tool, color: a.color, width: a.width, pts };
     if (a.tool === 'highlighter') { el.opacity = a.opacity; if (a.snap) el.cap = 'butt'; }
@@ -700,7 +717,7 @@ const Editor = {
   startLasso(base, p, w) {
     const mode = (Store.settings.tools.lasso || {}).mode || 'free';
     const k = mode !== 'shot' && this.sel && this.selHit(p);
-    if (k) { this.action = { ...base, kind: k, start: p, box: this.selScreenBox() }; if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
+    if (k) { this.action = { ...base, kind: k, hh: this._sh, start: p, box: this.selScreenBox() }; if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
     this.tsel = null;
     this.sel = null; this.requestRender();
     const pi = this.pageIndexAt(w.x, w.y, true);
@@ -733,10 +750,22 @@ const Editor = {
     this.lastShot = { img, blob };
     UI.shotPop(img, blob, cv);
   },
+  /* alças de redimensionar: 4 cantos (proporcional) e 4 lados (estica um eixo). Sem alças dos lados em itens girados;
+     no texto, só as laterais (a altura do texto acompanha o conteúdo); caixa pequena demais esconde as do meio */
+  selHandles(box) {
+    const els = this.selElements(), x1 = box.x, y1 = box.y, x2 = box.x + box.w, y2 = box.y + box.h, xm = (x1 + x2) / 2, ym = (y1 + y2) / 2;
+    const H = [['se', x2, y2], ['nw', x1, y1], ['ne', x2, y1], ['sw', x1, y2]];
+    if (!els.some((e) => e.rot)) {
+      const onlyText = els.length === 1 && els[0].type === 'text';
+      if (box.h > 46) H.push(['e', x2, ym], ['w', x1, ym]);
+      if (box.w > 64 && !onlyText) H.push(['s', xm, y2], ['n', xm, y1]);
+    }
+    return H;
+  },
   selHit(p) {
     const box = this.selScreenBox(); if (!box) return null;
     if (this.selLocked()) return null; // bloqueados não se movem
-    if (Math.hypot(p.x - (box.x + box.w), p.y - (box.y + box.h)) < 28) return 'scale';
+    { let best = null, bd = 26; for (const [h, x, y] of this.selHandles(box)) { const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = h; } } if (best) { this._sh = best; return 'scale'; } }
     if (Math.hypot(p.x - (box.x + box.w / 2), p.y - (box.y - 34)) < 24) return 'rotate';
     const te = this.selTable();
     if (te) { const h = this.tableHit(te, p); this._thit = h; return h ? (h.k === 'tmove' ? 'move' : 'tableact') : null; }
@@ -780,6 +809,14 @@ const Editor = {
     else { const c = this.toWorld(this.W / 2, this.H / 2), l = this.local(pi, c.x, c.y); dx = l.x - (b.x + b.w / 2); dy = l.y - (b.y + b.h / 2); }
     const ids = [];
     for (const e of this.clip) { const n = transformEl({ ...clone(e), id: uid() }, { ox: 0, oy: 0, sx: 1, sy: 1, dx, dy }); ids.push(n.id); this.recAdd(page, n); }
+    this.opCommit(); this.sel = { pageId: page.id, ids: new Set(ids) }; if (this.tool !== 'lasso') UI.setTool('lasso', true); this.requestRender();
+  },
+  /* cola com o centro no ponto da tela (sx, sy), na página que está ali */
+  pasteAt(els, sx, sy) {
+    if (!els || !els.length || !this.note) return;
+    const w = this.toWorld(sx, sy); let pi = this.pageIndexAt(w.x, w.y, true); if (pi < 0) pi = this.currentPageIndex();
+    const page = this.note.pages[pi], l = this.local(pi, w.x, w.y), b = bboxUnion(els), dx = l.x - (b.x + b.w / 2), dy = l.y - (b.y + b.h / 2), ids = [];
+    for (const e of els) { const n = transformEl({ ...clone(e), id: uid() }, { ox: 0, oy: 0, sx: 1, sy: 1, dx, dy }); delete n.lock; ids.push(n.id); this.recAdd(page, n); }
     this.opCommit(); this.sel = { pageId: page.id, ids: new Set(ids) }; if (this.tool !== 'lasso') UI.setTool('lasso', true); this.requestRender();
   },
   pasteElements(els) { const keep = this.clip; this.clip = clone(els); this.paste(); this.clip = keep; UI.renderOptions(); },

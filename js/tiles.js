@@ -37,22 +37,34 @@ Object.assign(Editor, {
     if (!pc) { pc = { es, rs, levels: new Map(), preview: null, lastLevel: null, els: this.elMap(page) }; this.pcache.set(page.id, pc); }
     else if (pc.es !== es || pc.rs !== rs) {
       // só itens adicionados/removidos/alterados: invalida apenas os blocos da área mexida; o resto (modelo, tamanho…) invalida tudo
-      let area = null;
+      let area = null, added = [], removed = 0;
       if (pc.rs === rs && pc.els) {
         const now = this.elMap(page); let changed = 0;
-        for (const [k, e] of now) if (!pc.els.has(k)) { area = unionBox(area, elBBox(e)); changed++; }
-        for (const [k, e] of pc.els) if (!now.has(k)) { area = unionBox(area, elBBox(e)); changed++; }
+        for (const [k, e] of now) if (!pc.els.has(k)) { area = unionBox(area, elBBox(e)); changed++; added.push(e); }
+        for (const [k, e] of pc.els) if (!now.has(k)) { area = unionBox(area, elBBox(e)); changed++; removed++; }
         if (!changed) area = null; // só mudou a ordem: redesenha tudo
         pc.els = now;
       } else pc.els = this.elMap(page);
       const m = 14; if (area) area = { x: area.x - m, y: area.y - m, w: area.w + 2 * m, h: area.h + 2 * m };
+      /* v0.22: só itens novos no fim da lista (o caso de cada traço): pinta só eles por cima dos blocos que já existem.
+         O resultado é igual a redesenhar (a ordem de desenho é a mesma), mas leva microssegundos em vez de redesenhar a página inteira entre um traço e outro */
+      const E = page.elements, tail = added.length && !removed && added.length <= 64 ? E.slice(E.length - added.length) : null;
+      const addSet = new Set(added), appendOnly = !!(tail && area && tail.every((e) => addSet.has(e)));
       for (const [lvl, lv] of pc.levels) for (const [key, t] of lv) {
         if (area) { const [tx, ty] = key.split(',').map(Number); if (!rectsHit(area, { x: (tx * TILE) / lvl, y: (ty * TILE) / lvl, w: TILE / lvl, h: TILE / lvl })) continue; }
+        if (appendOnly && !t.stale && t.cv && t.cv.width) { try { this.paintOnTile(t, page, lvl, key, tail); continue; } catch (e) { console.warn(e); } }
         t.stale = true;
       }
       if (pc.preview) pc.preview.stale = true; if (pc.pjob) { this.freeCanvas(pc.pjob.cv); pc.pjob = null; } pc.es = es; pc.rs = rs; pc.changed = true;
     }
     return pc;
+  },
+  paintOnTile(t, page, lvl, key, els) {
+    const [tx, ty] = key.split(',').map(Number), c = t.cv.getContext('2d'), vis = { x: (tx * TILE) / lvl, y: (ty * TILE) / lvl, w: TILE / lvl, h: TILE / lvl };
+    c.save(); c.setTransform(lvl, 0, 0, lvl, -tx * TILE, -ty * TILE);
+    if (this.note.mode !== 'infinite') { c.beginPath(); c.rect(0, 0, page.w, page.h); c.clip(); }
+    for (const e of els) if (rectsHit(elBBox(e), vis)) drawElement(c, e);
+    c.restore();
   },
   elMap(page) { const m = new Map(); for (const e of page.elements) m.set(oid(e), e); return m; },
   newCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; },
@@ -150,7 +162,19 @@ Object.assign(Editor, {
   },
   domMode() { return !this.noTiles; },
   /* baixa latência: copia o que está na tela para a tela rápida e passa a desenhar a tinta nela */
+  inkKey() { const c = this.cam; return `${c.x}|${c.y}|${c.z}|${this.note && this.note.updated}|${this.W}x${this.H}|${this._layoutVer || 0}|${this.sel ? 'S' : ''}${this.flash ? 'F' : ''}${this.guides ? 'G' : ''}${this.textEl ? 'T' : ''}`; },
+  /* fundo da tela rápida pronto antes de a caneta encostar (quando a tela está parada e os blocos prontos) */
+  inkPrepLater() {
+    if (!this.cInk || this.inkOn || this._inkPrepT) return;
+    const go = () => { this._inkPrepT = null; if (!this.note || this.inkOn || this.action || !this._drawnComplete || this._inkKey === this.inkKey()) return; this.inkPaint(); };
+    this._inkPrepT = window.requestIdleCallback ? requestIdleCallback(go, { timeout: 400 }) : setTimeout(go, 120);
+  },
   inkBegin() {
+    const c = this.cInk; if (!c || !this.note) return;
+    if (c.width === this.cMain.width && c.height === this.cMain.height && this._inkKey === this.inkKey()) { c.style.display = 'block'; this.inkOn = true; return; } // já pronto
+    this.inkPaint(); c.style.display = 'block'; this.inkOn = true;
+  },
+  inkPaint() {
     const c = this.cInk, x = this.ictx; if (!c || !this.note) return;
     if (c.width !== this.cMain.width || c.height !== this.cMain.height) { c.width = this.cMain.width; c.height = this.cMain.height; }
     const z = this.cam.z, vis = { x: this.cam.x, y: this.cam.y, w: this.W / z, h: this.H / z }, st = { t0: performance.now(), rendered: 0, zooming: false }, inf = this.note.mode === 'infinite';
@@ -161,9 +185,9 @@ Object.assign(Editor, {
       this.drawPageTiled(x, page, i, o, vis, st);
     });
     x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(this.cMain, 0, 0); // seleção, destaques etc.
-    c.style.display = 'block'; this.inkOn = true;
+    this._inkKey = this.inkKey();
   },
-  inkHide() { if (this.cInk) this.cInk.style.display = 'none'; this.inkOn = false; },
+  inkHide() { if (this.cInk) this.cInk.style.display = 'none'; this.inkOn = false; this._inkKey = null; /* tinta ao vivo ficou nela: prepara de novo */ },
   levelBox(lvl) { let b = this.wLevels.get(lvl); if (!b) { b = document.createElement('div'); b.className = 'w-lvl'; this.world.append(b); this.wLevels.set(lvl, b); } return b; },
   placeTile(t, pi) { // posição do bloco em px de tela no nível em que foi desenhado (alinhado aos pixels)
     const o = this.layout[pi]; if (!o) return; const L = t.lvl, d = this.dpr, inf = this.note.mode === 'infinite';

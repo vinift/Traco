@@ -148,8 +148,11 @@ const ZoomGuard = {
     document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
     document.addEventListener('dblclick', (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
     // segurar o dedo: nada de menu do navegador (fora de campos de texto, onde copiar/colar continua funcionando)
-    document.addEventListener('contextmenu', (e) => { const t = e.target; if (t && t.closest && t.closest('input,textarea,select,[contenteditable="true"],[contenteditable=""],.text-edit')) return; e.preventDefault(); });
-    document.addEventListener('selectstart', (e) => { const t = e.target && e.target.nodeType === 1 ? e.target : e.target && e.target.parentElement; if (t && t.closest && t.closest('input,textarea,[contenteditable="true"],[contenteditable=""],.text-edit,.errlog')) return; e.preventDefault(); });
+    /* v0.22: campo de texto só aceita o menu/seleção de segurar se já estava em uso (tocado antes); segurar num campo parado, em botões, miniaturas etc. não abre nada */
+    let focusAtDown = null; document.addEventListener('pointerdown', () => { focusAtDown = document.activeElement; }, true);
+    const editable = (t, sel) => { const f = t && t.closest && t.closest(sel); return !!(f && focusAtDown && focusAtDown !== document.body && (f === focusAtDown || f.contains(focusAtDown))); };
+    document.addEventListener('contextmenu', (e) => { if (editable(e.target, 'input,textarea,[contenteditable="true"],[contenteditable=""],.text-edit')) return; e.preventDefault(); }, true);
+    document.addEventListener('selectstart', (e) => { const t = e.target && e.target.nodeType === 1 ? e.target : e.target && e.target.parentElement; if (t && t.closest && t.closest('.errlog')) return; if (editable(t, 'input,textarea,[contenteditable="true"],[contenteditable=""],.text-edit')) return; e.preventDefault(); }, true);
     document.addEventListener('dragstart', (e) => { if (e.target && e.target.tagName === 'IMG') e.preventDefault(); });
     window.addEventListener('wheel', (e) => { if ((e.ctrlKey || e.metaKey) && !(e.target.closest && e.target.closest('#stage'))) e.preventDefault(); }, { passive: false });
     const vv = window.visualViewport; if (!vv) return;
