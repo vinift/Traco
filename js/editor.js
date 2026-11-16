@@ -498,8 +498,9 @@ const Editor = {
     } else { // 1 dedo: prioriza o movimento vertical (o horizontal só entra quando o dedo vai claramente para o lado)
       const p = P[0], dx = p.x - g.mid.x, dy = p.y - g.mid.y;
       // v0.13: trava só quando o gesto começa quase reto na vertical (até ~22°) e solta fácil se o dedo for para o lado
-      if (!g.lock && Math.hypot(dx, dy) > 10) { g.lock = Math.abs(dx) <= Math.abs(dy) * 0.4 ? 'v' : 'free'; g.xoff = 0; }
-      if (g.lock === 'v' && Math.abs(dx) > 32 && Math.abs(dx) > Math.abs(dy) * 0.3) { g.lock = 'free'; g.xoff = dx; } // foi para o lado de propósito
+      /* v0.23.2: trava vertical bem mais leve — só quando o dedo sai quase reto (até ~11°) e solta com 14 px para o lado (antes ~22° e 32 px: o horizontal parecia preso) */
+      if (!g.lock && Math.hypot(dx, dy) > 10) { g.lock = Math.abs(dx) <= Math.abs(dy) * 0.2 ? 'v' : 'free'; g.xoff = 0; }
+      if (g.lock === 'v' && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 0.18) { g.lock = 'free'; g.xoff = dx; } // foi para o lado de propósito
       const ex = g.lock === 'free' ? dx - (g.xoff || 0) : 0;
       this.cam = { z: g.cam.z, x: g.cam.x - ex / g.cam.z, y: g.cam.y - dy / g.cam.z };
     }

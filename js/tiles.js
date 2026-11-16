@@ -10,7 +10,7 @@ function oid(o) { if (!o || typeof o !== 'object') return 0; let n = _oid.get(o)
 
 Object.assign(Editor, {
   // memória: cada bloco tem 1 MB; o Chrome do Android derruba a tela (barras somem) se a memória de desenho estoura
-  tileMax: (navigator.deviceMemory || 4) >= 8 ? 90 : 60, previewMax: (navigator.deviceMemory || 4) >= 8 ? 18 : 10, tileBudgetMs: 10,
+  tileMax: (navigator.deviceMemory || 4) >= 8 ? 130 : 70, previewMax: (navigator.deviceMemory || 4) >= 8 ? 18 : 10, tileBudgetMs: 10,
   freeCanvas(c) { if (c) { if (c.parentNode) c.remove(); c.width = 0; c.height = 0; } }, // devolve a memória na hora (sem esperar a coleta de lixo)
   resetTiles() {
     if (this.tiles) for (const t of this.tiles.values()) this.freeCanvas(t.cv);
@@ -18,7 +18,7 @@ Object.assign(Editor, {
     this.tiles = new Map(); this.pcache = new Map(); this.imgEpoch = (this.imgEpoch || 0) + 1;
     if (this.wLevels) { for (const b of this.wLevels.values()) b.remove(); this.wLevels.clear(); }
     if (this.wFrames) { this.wFrames.innerHTML = ''; this._frSig = null; this._frDivs = new Map(); }
-    this._curLvl = null; this._fbLvl = null;
+    this._curLvl = null; this._fbLvl = null; this._ovLvl = null; this._ovNext = null;
   },
   putTile(lv, t) { // guarda um bloco novo e libera o antigo que ele substitui
     const k = t.pid + '|' + t.lvl + '|' + t.key, prev = this.tiles.get(k);
@@ -234,10 +234,10 @@ Object.assign(Editor, {
        Antes, uma pausa no meio do gesto fazia um nível pela metade virar reserva e o completo sumia (partes da página desapareciam) */
     if (lvl != null && lvl !== this._curLvl) { if (this._curLvl != null && (this._curDone || this._fbLvl == null)) this._fbLvl = this._curLvl; this._curLvl = lvl; this._curDone = false; }
     for (const [L, b] of this.wLevels) {
-      const show = L === this._curLvl || L === this._fbLvl;
+      const show = L === this._curLvl || L === this._fbLvl || L === this._ovLvl; // + camada "afastada" por baixo de tudo
       b.style.display = show ? '' : 'none';
-      if (show) { b.style.transform = Math.abs(s / L - 1) < 1e-6 ? '' : `scale(${s / L})`; b.style.zIndex = L === this._curLvl && lvl != null ? 3 : 2; }
-      if (!b.childElementCount && L !== this._curLvl && L !== this._fbLvl) { b.remove(); this.wLevels.delete(L); }
+      if (show) { b.style.transform = Math.abs(s / L - 1) < 1e-6 ? '' : `scale(${s / L})`; b.style.zIndex = L === this._curLvl && lvl != null ? 3 : L === this._curLvl || L === this._fbLvl ? 2 : 1; }
+      if (!b.childElementCount && L !== this._curLvl && L !== this._fbLvl && L !== this._ovLvl && L !== this._ovNext) { b.remove(); this.wLevels.delete(L); }
     }
     let allDone = true, fbNeeded = false; const needPrev = [];
     n.pages.forEach((page, i) => {
@@ -270,12 +270,38 @@ Object.assign(Editor, {
     if (needPrev.length) { const t0 = performance.now(); for (const [page, pc] of needPrev) { const left = 4 - (performance.now() - t0); if (left <= 0.5) { allDone = false; break; } if (this.previewStep(page, pc, left)) this.attachPreview(page, pc); else allDone = false; } }
     return allDone;
   },
+  /* camada "afastada": blocos com METADE do zoom atual cobrindo 2× a largura e a altura da tela, feitos aos poucos quando a tela está parada.
+     Ao tirar o zoom, as bordas que aparecem já têm conteúdo nítido (no máximo 2× esticado), em vez da miniatura borrada da página.
+     Só troca a camada visível quando a nova está completa. */
+  prefetchOverview(t0) {
+    const d = this.dpr, s = this.cam.z * d, L = +(s * 0.5).toFixed(5), inf = this.note.mode === 'infinite';
+    if (L < 0.45 * d) return 0; // já bem afastado: a página inteira cabe e a miniatura dá conta
+    if (this._ovLvl === L) return 0;
+    this._ovNext = L;
+    const z = this.cam.z, vw = this.W / z, vh = this.H / z, area = { x: this.cam.x - vw / 2, y: this.cam.y - vh / 2, w: vw * 2, h: vh * 2 };
+    let n = 0, missing = 0;
+    this.note.pages.forEach((page, i) => {
+      const o = this.layout[i]; if (!inf && !rectsHit({ x: o.x, y: o.y, w: page.w, h: page.h }, area)) return;
+      const pc = this.pageCache(page), lv = pc.levels.get(L) || (pc.levels.set(L, new Map()), pc.levels.get(L));
+      const x0 = Math.max(inf ? -Infinity : 0, area.x - o.x), y0 = Math.max(inf ? -Infinity : 0, area.y - o.y), x1 = Math.min(inf ? Infinity : page.w, area.x - o.x + area.w), y1 = Math.min(inf ? Infinity : page.h, area.y - o.y + area.h);
+      if (x1 <= x0 || y1 <= y0) return;
+      for (let ty = Math.floor((y0 * L) / TILE); ty <= Math.floor((y1 * L - 0.001) / TILE); ty++) for (let tx = Math.floor((x0 * L) / TILE); tx <= Math.floor((x1 * L - 0.001) / TILE); tx++) {
+        const key = tx + ',' + ty, t = lv.get(key); if (t && !t.stale) { t.used = this.frameNo; continue; }
+        if (performance.now() - t0 > 12 || n >= 4) { missing++; continue; }
+        const nt = this.renderTile(page, i, L, tx, ty); nt.pid = page.id; nt.lvl = L; nt.key = key; nt.used = this.frameNo;
+        this.putTile(lv, nt); if (this.domMode()) this.placeTile(nt, i); n++;
+      }
+    });
+    if (!missing && !n) { this._ovLvl = L; this._ovNext = null; this.requestRender(); } // completa: passa a ser a camada de baixo
+    return n || (missing ? 1 : 0);
+  },
   /* blocos da reserva que estão na tela e a miniatura não podem ser descartados da memória enquanto aparecem */
   keepVisible(pc, page, o, vis) {
     if (pc.preview) pc.preview.used = this.frameNo;
     const inf = this.note.mode === 'infinite';
-    for (const L of [this._fbLvl, this._curLvl]) {
+    for (const L of [this._fbLvl, this._curLvl, this._ovLvl]) {
       const lv = L != null && pc.levels.get(L); if (!lv) continue;
+      if (L === this._ovLvl && L !== this._curLvl) { for (const t of lv.values()) t.used = this.frameNo; continue; } // camada afastada: inteira (é pequena e é ela que cobre ao tirar o zoom)
       for (const [key, t] of lv) { const [tx, ty] = key.split(',').map(Number), r = { x: (inf ? 0 : o.x) + (tx * TILE) / L, y: (inf ? 0 : o.y) + (ty * TILE) / L, w: TILE / L, h: TILE / L }; if (rectsHit(r, vis)) t.used = this.frameNo; }
     }
   },
@@ -301,6 +327,7 @@ Object.assign(Editor, {
           this.putTile(lv, nt); if (this.domMode()) this.placeTile(nt, i); n++;
         }
       });
+      if (!n) n += this.prefetchOverview(t0); // v0.23.2: camada afastada (metade do zoom, área 2×) para tirar o zoom sem desfoque
       if (n < 4 && performance.now() - t0 < 12) { // miniaturas das páginas vizinhas (fundo provisório no zoom rápido)
         const ci = Math.max(0, this.currentPageIndex());
         for (let d = 0; d <= 4 && n < 4; d++) for (const i of [ci + d, ci - d]) { const pg = this.note.pages[i]; const left = 12 - (performance.now() - t0); if (!pg || left <= 1) continue; const pc = this.pageCache(pg); if (!pc.preview || pc.preview.stale) { if (this.previewStep(pg, pc, left) && this.domMode()) this.attachPreview(pg, pc); n++; } }

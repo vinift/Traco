@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.23.2
+
+- **Movimento horizontal mais livre:** a trava que segura a tela na vertical agora só entra quando o dedo sai quase reto (até ~11°, antes ~22°) e solta com 14 px para o lado (antes 32 px). Arrastar levemente na diagonal já move para o lado.
+- **Tirar o zoom sem desfoque nas bordas:** com a tela parada, o app prepara aos poucos uma camada com metade do zoom atual cobrindo o dobro da largura e da altura da tela. Ao tirar o zoom, as bordas que aparecem já vêm nítidas (letra e modelo), em vez da miniatura borrada da página. Quando você solta, a qualidade total volta logo em seguida.
+
 ## Novidades da v0.23.1
 
 - **Tirar o zoom não faz mais nada sumir:**
