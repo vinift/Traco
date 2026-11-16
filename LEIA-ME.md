@@ -153,6 +153,16 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.23.1
+
+- **Tirar o zoom não faz mais nada sumir:**
+  - durante o gesto, a reserva de blocos é sempre o último zoom que ficou completo (antes, uma pausa no meio do gesto podia esconder partes da página);
+  - a miniatura de cada página (o fundo que aparece enquanto os blocos nítidos ficam prontos) não é mais jogada fora a cada traço: ela recebe o traço novo na hora e, se precisar ser refeita, a antiga fica na tela até a nova ficar pronta;
+  - as miniaturas das páginas que entram na tela são montadas durante o próprio gesto, e as de até 4 páginas de cada lado ficam prontas com antecedência;
+  - o que está na tela não é mais descartado da memória enquanto aparece.
+
+  Zoom e rolagem passam a parecer uma folha só, sem página em branco nem piscada.
+
 ## Novidades da v0.23.0
 
 - **Tela não pisca mais ao parar de escrever:** a prévia do traço só sai quando a página já mostra o traço pronto (antes sumia um quadro antes, ou vários quando a área precisava ser redesenhada).

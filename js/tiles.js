@@ -10,7 +10,7 @@ function oid(o) { if (!o || typeof o !== 'object') return 0; let n = _oid.get(o)
 
 Object.assign(Editor, {
   // memória: cada bloco tem 1 MB; o Chrome do Android derruba a tela (barras somem) se a memória de desenho estoura
-  tileMax: (navigator.deviceMemory || 4) >= 8 ? 90 : 60, previewMax: 10, tileBudgetMs: 10,
+  tileMax: (navigator.deviceMemory || 4) >= 8 ? 90 : 60, previewMax: (navigator.deviceMemory || 4) >= 8 ? 18 : 10, tileBudgetMs: 10,
   freeCanvas(c) { if (c) { if (c.parentNode) c.remove(); c.width = 0; c.height = 0; } }, // devolve a memória na hora (sem esperar a coleta de lixo)
   resetTiles() {
     if (this.tiles) for (const t of this.tiles.values()) this.freeCanvas(t.cv);
@@ -55,7 +55,12 @@ Object.assign(Editor, {
         if (appendOnly && !t.stale && t.cv && t.cv.width) { try { this.paintOnTile(t, page, lvl, key, tail); continue; } catch (e) { console.warn(e); } }
         t.stale = true;
       }
-      if (pc.preview) pc.preview.stale = true; if (pc.pjob) { this.freeCanvas(pc.pjob.cv); pc.pjob = null; } pc.es = es; pc.rs = rs; pc.changed = true;
+      /* v0.23.1: miniatura também recebe só os itens novos (não fica "velha" a cada traço — ela é o fundo que aparece ao tirar o zoom) */
+      let prevOk = false;
+      if (appendOnly && pc.preview && !pc.preview.stale) { try { this.paintOnPreview(pc.preview, page, tail); prevOk = true; } catch (e) { console.warn(e); } }
+      if (pc.preview && !prevOk) pc.preview.stale = true;
+      if (pc.pjob && !appendOnly) { this.freeCanvas(pc.pjob.cv); pc.pjob = null; }
+      pc.es = es; pc.rs = rs; pc.changed = true;
     }
     return pc;
   },
@@ -64,6 +69,12 @@ Object.assign(Editor, {
     c.save(); c.setTransform(lvl, 0, 0, lvl, -tx * TILE, -ty * TILE);
     if (this.note.mode !== 'infinite') { c.beginPath(); c.rect(0, 0, page.w, page.h); c.clip(); }
     for (const e of els) if (rectsHit(elBBox(e), vis)) drawElement(c, e);
+    c.restore();
+  },
+  paintOnPreview(pv, page, els) {
+    const c = pv.cv.getContext('2d'); c.save(); c.setTransform(pv.s, 0, 0, pv.s, 0, 0);
+    if (this.note.mode !== 'infinite') { c.beginPath(); c.rect(0, 0, page.w, page.h); c.clip(); }
+    for (const e of els) drawElement(c, e);
     c.restore();
   },
   elMap(page) { const m = new Map(); for (const e of page.elements) m.set(oid(e), e); return m; },
@@ -210,7 +221,7 @@ Object.assign(Editor, {
       for (const t of this.tiles.values()) { const pi = n.pages.findIndex((p) => p.id === t.pid); if (pi >= 0) this.placeTile(t, pi); } // páginas mudaram de lugar
     }
   },
-  attachPreview(page, pc) { const f = this._frDivs.get(page.id); if (pc.preview && pc.preview.stale && pc.preview.cv.parentNode) pc.preview.cv.remove(); if (!f || !pc.preview || pc.preview.stale) return; const cv = pc.preview.cv; if (cv.parentNode !== f) { cv.className = 'pgprev'; f.append(cv); } },
+  attachPreview(page, pc) { const f = this._frDivs.get(page.id); if (!f || !pc.preview) return; pc.preview.used = this.frameNo; const cv = pc.preview.cv; if (cv.parentNode !== f) { cv.className = 'pgprev'; f.append(cv); } }, // a velha fica até a nova ficar pronta
   /* um quadro na camada de composição: só ajusta transformações e encaixa os blocos que faltam (dentro do orçamento) */
   drawDom(vis, st, skipPages) {
     this.domInit(); this.world.style.display = '';
@@ -219,17 +230,20 @@ Object.assign(Editor, {
     this.world.style.transform = `translate3d(${Math.round(-this.cam.x * s) / d}px,${Math.round(-this.cam.y * s) / d}px,0)`;
     this.wFrames.style.transform = `scale(${z})`;
     const lvl = st.zooming ? null : +s.toFixed(5);
-    if (lvl != null && lvl !== this._curLvl) { if (this._curLvl != null) this._fbLvl = this._curLvl; this._curLvl = lvl; }
+    /* v0.23.1: a reserva (blocos esticados durante/depois do zoom) é sempre o último nível que ficou COMPLETO.
+       Antes, uma pausa no meio do gesto fazia um nível pela metade virar reserva e o completo sumia (partes da página desapareciam) */
+    if (lvl != null && lvl !== this._curLvl) { if (this._curLvl != null && (this._curDone || this._fbLvl == null)) this._fbLvl = this._curLvl; this._curLvl = lvl; this._curDone = false; }
     for (const [L, b] of this.wLevels) {
       const show = L === this._curLvl || L === this._fbLvl;
       b.style.display = show ? '' : 'none';
       if (show) { b.style.transform = Math.abs(s / L - 1) < 1e-6 ? '' : `scale(${s / L})`; b.style.zIndex = L === this._curLvl && lvl != null ? 3 : 2; }
       if (!b.childElementCount && L !== this._curLvl && L !== this._fbLvl) { b.remove(); this.wLevels.delete(L); }
     }
-    let allDone = true, fbNeeded = false;
+    let allDone = true, fbNeeded = false; const needPrev = [];
     n.pages.forEach((page, i) => {
       const o = this.layout[i]; if (!inf && !rectsHit({ x: o.x, y: o.y, w: page.w, h: page.h }, vis)) return;
-      const pc = this.pageCache(page); this.attachPreview(page, pc);
+      const pc = this.pageCache(page); this.attachPreview(page, pc); this.keepVisible(pc, page, o, vis);
+      if (!inf && (!pc.preview || pc.preview.stale) && (lvl == null || this.gesture || this._inertia)) needPrev.push([page, pc]);
       const f = this._frDivs.get(page.id); if (f) f.classList.toggle('direct', skipPages.has(page.id));
       if (skipPages.has(page.id)) return; // esta página está sendo desenhada direto na camada de cima
       if (lvl == null) { allDone = false; fbNeeded = true; return; }
@@ -250,8 +264,20 @@ Object.assign(Editor, {
       }
       if (!want.length || want.every((w) => { const t = lv.get(w[2]); return t && !t.stale; })) { pc.changed = false; pc.lastLevel = lvl; } else { allDone = false; fbNeeded = true; }
     });
+    if (!fbNeeded && lvl != null) this._curDone = true;
     if (!fbNeeded && this._fbLvl != null && lvl != null) { const b = this.wLevels.get(this._fbLvl); if (b) b.style.display = 'none'; this._fbLvl = null; } // nível novo completo: some o antigo
+    /* E) durante zoom/rolagem: monta aos poucos a miniatura das páginas que entram na tela sem ter uma (fundo para não aparecer página em branco) */
+    if (needPrev.length) { const t0 = performance.now(); for (const [page, pc] of needPrev) { const left = 4 - (performance.now() - t0); if (left <= 0.5) { allDone = false; break; } if (this.previewStep(page, pc, left)) this.attachPreview(page, pc); else allDone = false; } }
     return allDone;
+  },
+  /* blocos da reserva que estão na tela e a miniatura não podem ser descartados da memória enquanto aparecem */
+  keepVisible(pc, page, o, vis) {
+    if (pc.preview) pc.preview.used = this.frameNo;
+    const inf = this.note.mode === 'infinite';
+    for (const L of [this._fbLvl, this._curLvl]) {
+      const lv = L != null && pc.levels.get(L); if (!lv) continue;
+      for (const [key, t] of lv) { const [tx, ty] = key.split(',').map(Number), r = { x: (inf ? 0 : o.x) + (tx * TILE) / L, y: (inf ? 0 : o.y) + (ty * TILE) / L, w: TILE / L, h: TILE / L }; if (rectsHit(r, vis)) t.used = this.frameNo; }
+    }
   },
   /* depois do quadro: prepara os blocos em volta da tela (rolagem sem espera) */
   schedulePrefetch() {
@@ -277,7 +303,7 @@ Object.assign(Editor, {
       });
       if (n < 4 && performance.now() - t0 < 12) { // miniaturas das páginas vizinhas (fundo provisório no zoom rápido)
         const ci = Math.max(0, this.currentPageIndex());
-        for (let d = 0; d <= 2 && n < 4; d++) for (const i of [ci + d, ci - d]) { const pg = this.note.pages[i]; const left = 12 - (performance.now() - t0); if (!pg || left <= 1) continue; const pc = this.pageCache(pg); if (!pc.preview || pc.preview.stale) { if (this.previewStep(pg, pc, left) && this.domMode()) this.attachPreview(pg, pc); n++; } }
+        for (let d = 0; d <= 4 && n < 4; d++) for (const i of [ci + d, ci - d]) { const pg = this.note.pages[i]; const left = 12 - (performance.now() - t0); if (!pg || left <= 1) continue; const pc = this.pageCache(pg); if (!pc.preview || pc.preview.stale) { if (this.previewStep(pg, pc, left) && this.domMode()) this.attachPreview(pg, pc); n++; } }
       }
       this.evictTiles();
       if (n) this.schedulePrefetch();
