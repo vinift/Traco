@@ -779,3 +779,13 @@ input:not(:focus),textarea:not(:focus){-webkit-user-select:none;user-select:none
 .hp-item{padding:0;border:1px solid var(--line);border-radius:8px;background:#fff;aspect-ratio:1;cursor:pointer;overflow:hidden}
 .hp-item img{width:100%;height:100%;object-fit:contain;display:block}
 .hp-all{align-self:center}
+
+/* ===== v0.23: tempo de estudo bem visível (fundo cheio, letra branca) ===== */
+.note-timer,.timer-pill{background:var(--chacc,#7c3aed);color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.timer-pill{background:var(--accent)}
+.note-timer.brk,.timer-pill.brk{background:#15803d;color:#fff}
+.note-timer.paused,.timer-pill.paused{background:#b45309;color:#fff}
+.note-timer.paused b,.timer-pill.paused b{animation:none}
+/* v0.23: escrevendo ou em tela cheia, o topo some, mas o tempo de estudo continua à vista no mesmo lugar */
+#editor.writing .ch-title.has-timer,#editor.immersive .ch-title.has-timer{opacity:1;pointer-events:none;background:transparent;box-shadow:none}
+#editor.writing .ch-title.has-timer>:not(.note-timer),#editor.immersive .ch-title.has-timer>:not(.note-timer){visibility:hidden}

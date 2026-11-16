@@ -243,7 +243,12 @@ const Editor = {
       if (this.crop && this.crop.pageId === page.id) { this.pageTf(ctx, i); this.drawCropImage(ctx); }
     });
     const a = this.action;
-    if (this._inkHide && !(this.action && this.action.kind === 'draw')) { this._inkHide = false; this.inkHide(); } // traço já está nos blocos: some a tela rápida
+    /* v0.23: a tinta ao vivo (tela rápida ou camada de prévia) só some quando os blocos já mostram o traço inteiro — antes sumia um quadro antes (ou vários, se a área precisava ser redesenhada) e a tela piscava */
+    const drawing = this.action && this.action.kind === 'draw';
+    if (!drawing && (this._inkHide || this._liveClear) && (allDone || performance.now() - (this._liveT || 0) > 600)) {
+      if (this._inkHide) { this._inkHide = false; this.inkHide(); }
+      if (this._liveClear) { this._liveClear = false; this.clearLive(); }
+    }
     this.drawSelection(); this.drawFlash(ctx); this.drawGuides(); this.updateHud(); this.positionText(); this.placePull(); this.updateScroll();
     if (!allDone && !st.zooming) this.requestRender(); // ainda há blocos a desenhar: continua no próximo quadro
     this._drawnCam = { ...this.cam }; this._drawnComplete = allDone && !st.zooming;
@@ -475,6 +480,7 @@ const Editor = {
     const g = this.gesture; if (!g) return;
     const ids = this.touchIds(); g.max = Math.max(g.max, ids.length); if (ids.length > 1) clearTimeout(g.holdT);
     const P = ids.map((id) => this.pointers.get(id));
+    for (const q of P) { g.minX = Math.min(g.minX ?? Infinity, q.sx ?? q.x); g.maxX = Math.max(g.maxX ?? -Infinity, q.sx ?? q.x); } /* onde os dedos encostaram (destro/canhoto) */
     g.cam = { ...this.cam }; g.n = P.length;
     if (P.length >= 2) { g.mid = { x: (P[0].x + P[1].x) / 2, y: (P[0].y + P[1].y) / 2 }; g.dist = Math.hypot(P[0].x - P[1].x, P[0].y - P[1].y) || 1; }
     else if (P.length === 1) g.mid = { x: P[0].x, y: P[0].y };
@@ -507,6 +513,9 @@ const Editor = {
     if (this.pull) this.releasePull();
     else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v');
     const dt = performance.now() - g.t0;
+    /* v0.23: destro → toques de 2/3 dedos só valem na metade esquerda (a palma apoia na direita); canhoto → o contrário */
+    const hand = Store.settings.hand || 'right', half = this.W / 2, sideOk = hand === 'none' || (hand === 'right' ? g.maxX < half : g.minX > half);
+    if (!g.moved && dt < 350 && g.max >= 2 && !sideOk) return;
     if (!g.moved && dt < 350) { if (g.max === 2) { this.undo(); toast('Desfeito', 900); } else if (g.max === 3) { this.redo(); toast('Refeito', 900); } else if (g.max === 1 && g.p0 && !this.readOnly) this.fingerTap(g.p0); }
   },
 
@@ -575,6 +584,7 @@ const Editor = {
     const inf = this.note.mode === 'infinite';
     const pi = this.pageIndexAt(w.x, w.y); if (pi < 0) return;
     const st = Store.settings.tools[base.tool];
+    if (this._liveClear && this._drawnComplete) { this._liveClear = false; this.clearLive(); }
     const a = this.action = { ...base, kind: 'draw', pi, pts: [], color: st.color, width: st.width, opacity: base.tool === 'highlighter' ? st.opacity ?? 0.4 : 1, drawn: 0, snap: Instruments.snapFor(p), hold: { x: p.x, y: p.y } };
     a.dash = base.tool === 'pen' ? st.dash || 'solid' : 'solid';
     if (base.tool === 'pen') { a.pen = st.type || 'ball'; a.nib = st.nib ?? 45; a.inc = a.dash === 'solid' && (a.pen === 'ball' || a.pen === 'natural') && !colorHasAlpha(a.color); }
@@ -661,7 +671,8 @@ const Editor = {
     a.drawn = n;
   },
   endDraw(a) {
-    clearTimeout(a.holdT); this.clearLive(); Focus.writingEnd();
+    clearTimeout(a.holdT); Focus.writingEnd();
+    this._liveClear = true; this._liveT = performance.now(); this.requestRender(); // a prévia sai no próximo desenho completo (sem piscar)
     if (this.inkOn) { this._inkHide = true; this.requestRender(); } // some depois que os blocos já mostram o traço (sem piscar)
     const page = this.note.pages[a.pi];
     if (a.shape && !(a.straight && Math.hypot(a.shape.x2 - a.shape.x1, a.shape.y2 - a.shape.y1) < 2)) { this.recAdd(page, a.tool === 'highlighter' ? this.hlLine(a) : a.shape); this.opCommit(); return; }
@@ -676,7 +687,10 @@ const Editor = {
       const segs = PdfText.snap(page, a.pts);
       if (segs) { for (const s of segs) { const k = Math.min(s.h * 0.4, (s.x2 - s.x1) / 2 - 0.5); this.recAdd(page, { id: uid(), type: 'stroke', tool: 'highlighter', color: a.color, width: r2(s.h), opacity: a.opacity, cap: 'round', pts: [r2(s.x1 + k), r2(s.y), 0.5, r2(s.x2 - k), r2(s.y), 0.5] }); } /* pontas redondas, como o marca-texto à mão */ this.opCommit(); this.requestRender(); return; }
     }
-    if (!a.snap) smoothStroke(a.pts, (a.stab ?? 5) / 20); // alisa o traço final, de leve (v0.22: no máx. 2 passadas; antes 3–4 deformavam letras pequenas)
+    if (!a.snap) { /* v0.23: caneta → "melhorar escrita" automático (alisa por distância e guarda os cantos); marca-texto → alisamento leve de antes */
+      const sg = a.tool === 'pen' && typeof smoothArc === 'function' ? autoBeautifySigma(this.cam.z) : 0;
+      if (sg) a.pts = smoothArc(a.pts, sg); else smoothStroke(a.pts, (a.stab ?? 5) / 20);
+    }
     const pts = a.pts.map((v, i) => (i % 3 === 2 ? Math.round(v * 100) / 100 : r2(v)));
     const el = { id: uid(), type: 'stroke', tool: a.tool, color: a.color, width: a.width, pts };
     if (a.tool === 'highlighter') { el.opacity = a.opacity; if (a.snap) el.cap = 'butt'; }

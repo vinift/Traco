@@ -153,6 +153,17 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.23.0
+
+- **Tela não pisca mais ao parar de escrever:** a prévia do traço só sai quando a página já mostra o traço pronto (antes sumia um quadro antes, ou vários quando a área precisava ser redesenhada).
+- **Espessura da seleção com − 0,1 e + 0,1:** na janela de espessura do laço, ajusta todos os itens selecionados de 0,1 em 0,1.
+- **Tempo de estudo bem visível:** fundo roxo cheio com letra branca (verde nas pausas do Pomodoro, laranja quando pausado). Escrevendo ou em tela cheia, o topo some, mas o tempo continua à vista.
+- **Toque duplo com a caneta (antes triplo):** dois toques rápidos no mesmo lugar. A ação é escolhida em Configurações → Botões da caneta → "Toque duplo com a ponta": alternar laço ↔ caneta (padrão), alternar caneta ↔ borracha, desfazer, refazer, modo leitura ou nada. Os toques não deixam marca. Dois pontos escritos um embaixo do outro (":") não disparam.
+- **Destro/canhoto:** Configurações → Escrita e caneta → "Mão que escreve". Destro (padrão): toques de 2 e 3 dedos (desfazer/refazer) só valem na metade esquerda da tela; a palma apoiada na direita não desfaz mais nada. Canhoto: o contrário.
+- **Melhorar escrita:**
+  - **Automático** ao levantar a caneta: arredonda as curvas e tira o tremido medindo pela distância percorrida (não pelo número de pontos), e mantém os cantos das letras (v, z, r…) no lugar. Nível em Configurações → Escrita e caneta (0 desliga; padrão 5).
+  - **Botão ✨ "Melhorar escrita"** no laço (escrita selecionada): alisa com mais força, endireita cada linha e deixa as palavras do mesmo tamanho e na mesma altura. Pontuação fica como está. Desfazer volta ao original.
+
 ## Novidades da v0.22.0
 
 - **Tempo de estudo só com o app aberto:** o histórico soma apenas o tempo em que o cronômetro/temporizador/Pomodoro roda **com o app na tela**. Com o app fechado, em segundo plano ou com a tela do tablet apagada, não conta (o relógio do cronômetro continua andando, só o histórico não soma).

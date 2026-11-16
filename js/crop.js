@@ -177,11 +177,12 @@ Object.assign(Editor, {
    desfaz o que os toques criaram (pontinhos, borrachadas, seleção, caixa de texto) e troca para o laço. */
 Object.assign(Editor, {
   initPenTriple() {
-    const TAP_MS = 260, GAP_MS = 380, MOVE = 9, NEAR = 60;
+    /* v0.23: toque DUPLO (antes triplo), no mesmo lugar; a ação vem de Configurações → Botões da caneta (penDouble) */
+    const TAP_MS = 230, GAP_MS = 330, MOVE = 8, NEAR = 26;
     const skip = (e) => e.target.closest && e.target.closest('#selBar,#cropBar,#textBar,#hbar,.chrome');
     let down = null, taps = [];
     this.stage.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'pen' || !(e.buttons & 1) || !Store.settings.penTriple || !this.note || this.crop || skip(e)) { down = null; return; }
+      if (e.pointerType !== 'pen' || !(e.buttons & 1) || penDoubleAction() === 'none' || !this.note || this.crop || skip(e)) { down = null; return; }
       const now = performance.now(), last = taps[taps.length - 1];
       if (!last || now - last.up > GAP_MS || Math.hypot(e.clientX - taps[0].x, e.clientY - taps[0].y) > NEAR) {
         taps = [];
@@ -196,9 +197,9 @@ Object.assign(Editor, {
       if (!down || e.pointerId !== down.id) return; const d = down; down = null; const now = performance.now();
       if (d.far || now - d.t > TAP_MS) { taps = []; return; }
       taps.push({ x: d.x, y: d.y, up: now });
-      if (taps.length < 3) return;
+      if (taps.length < 2) return;
       taps = []; const base = this._tripleBase, was = this._tripleTool;
-      setTimeout(() => this.penTripleFire(base, was), 0); // depois que o editor terminar de tratar o 3º toque
+      setTimeout(() => this.penTripleFire(base, was), 0); // depois que o editor terminar de tratar o 2º toque
     };
     this.stage.addEventListener('pointerup', up, true);
     this.stage.addEventListener('pointercancel', () => { down = null; }, true);
@@ -212,9 +213,15 @@ Object.assign(Editor, {
     while (this.undoStack.length && this.undoStack[this.undoStack.length - 1].t >= base) { this.undo(); n++; }
     if (n) this.redoStack.splice(this.redoStack.length - n, n);
     this.sel = null; this.updateUndoBtns();
-    /* v0.21: se o laço já estava ativo, volta para a caneta (com o tipo, cor e espessura de antes) */
-    const to = was === 'lasso' ? 'pen' : 'lasso';
-    UI.setTool(to, true); toast(to === 'pen' ? 'Caneta' : 'Laço', 700); if (navigator.vibrate) navigator.vibrate(12);
+    if (navigator.vibrate) navigator.vibrate(12);
+    const act = penDoubleAction();
+    if (act === 'lassoToggle') { /* laço ↔ caneta (a caneta volta com o tipo, cor e espessura de antes) */
+      const to = was === 'lasso' ? 'pen' : 'lasso'; UI.setTool(to, true); toast(to === 'pen' ? 'Caneta' : 'Laço', 700);
+    } else if (act === 'eraserToggle') {
+      const to = was === 'eraser' ? (this._prevTool && this._prevTool !== 'eraser' ? this._prevTool : 'pen') : 'eraser'; if (to === 'eraser') this._prevTool = was; UI.setTool(to, true); toast(to === 'eraser' ? 'Borracha' : 'Caneta', 700);
+    } else if (act === 'undo') { this.undo(); toast('Desfeito', 700); }
+    else if (act === 'redo') { this.redo(); toast('Refeito', 700); }
+    else if (act === 'read') { this.setReadOnly(!this.readOnly); toast(this.readOnly ? 'Modo leitura' : 'Edição', 700); }
     this.requestRender();
   },
 });
@@ -237,3 +244,7 @@ Object.assign(Editor, {
     openPop(anchor, box);
   },
 });
+
+/* ação do toque duplo da caneta (configuração; quem tinha desligado os "três toques" fica com "nada") */
+const PEN_DOUBLE_ACTIONS = [['lassoToggle', 'Alternar laço ↔ caneta'], ['eraserToggle', 'Alternar caneta ↔ borracha'], ['undo', 'Desfazer'], ['redo', 'Refazer'], ['read', 'Modo leitura liga/desliga'], ['none', 'Nada (desligado)']];
+function penDoubleAction() { const S = Store.settings; return S.penDouble || (S.penTriple === false ? 'none' : 'lassoToggle'); }

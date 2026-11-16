@@ -564,6 +564,7 @@ const UI = {
     if (Editor.selElements().some((e) => e.type === 'stroke' && e.tool === 'pen')) {
       B('ocr', 'Reconhecer texto (copiar ou converter)', () => recognizeSelection());
       B('align', 'Alinhar a escrita na horizontal', () => straightenSelection());
+      B('sparkle', 'Melhorar escrita (alisa, endireita e iguala o tamanho das palavras)', () => beautifySelection());
     }
     const d = B('trash', 'Excluir', () => Editor.deleteSel()); d.style.color = 'var(--danger)';
   },
@@ -578,9 +579,11 @@ const UI = {
     const chips = el('div', { class: 'sw-chips' }, ...presets.map((w) => el('button', { class: 'sw-chip', title: fmtW(w), onclick: () => set(w) }, el('i', { style: { height: Math.max(1, Math.min(14, w * (onlyHl ? 0.4 : 1.6))) + 'px' } }), el('span', {}, fmtW(w)))));
     const r = el('input', { type: 'range', min: mn, max: mx, step, value: cur }); r.addEventListener('change', () => set(+r.value)); r.addEventListener('input', () => (val.textContent = fmtW(+r.value)));
     const scale = (k) => Editor.widthSel((w) => clamp(Math.round((w * k) / step) * step, mn, mx));
+    const nudge = (d) => { let first = null; Editor.widthSel((w) => { const v = clamp(Math.round((w + d) * 10) / 10, mn, mx); if (first == null) first = v; return v; }); if (first != null) { val.textContent = fmtW(first) + (onlyHl ? '' : ' mm'); r.value = first; } }; /* v0.23: ±0,1 */
     const box = el('div', { class: 'sw-pop' },
       el('div', { class: 'sw-head' }, el('span', {}, `Espessura de ${els.length} ${els.length === 1 ? 'item' : 'itens'}`), val),
       chips, r,
+      el('div', { class: 'sw-row' }, el('button', { class: 'btn', title: 'Todos os itens 0,1 mais finos', onclick: () => nudge(-0.1) }, '− 0,1'), el('button', { class: 'btn', title: 'Todos os itens 0,1 mais grossos', onclick: () => nudge(0.1) }, '+ 0,1')),
       el('div', { class: 'sw-row' }, el('button', { class: 'btn', onclick: () => scale(1 / 1.25) }, 'Mais fino'), el('button', { class: 'btn', onclick: () => scale(1.25) }, 'Mais grosso')),
       el('p', { class: 'sw-hint' }, '"Mais fino/grosso" mantém a diferença entre traços de espessuras diferentes.'));
     openPop(anchor, box);

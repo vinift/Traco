@@ -1,11 +1,11 @@
 /* Service worker: deixa o app funcionando offline */
-const VERSION = 'traco-v0.22.0';
+const VERSION = 'traco-v0.23.0';
 /* backup em segundo plano: o mesmo código do app, rodando sem tela */
 self.window = self;
 self.document = { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], addEventListener() {}, createElement: () => ({ getContext: () => ({}) }), visibilityState: 'hidden' };
 try { importScripts('js/util.js', 'js/store.js', 'js/drive.js', 'js/bg-sync.js'); } catch (e) { console.warn('segundo plano indisponível', e); }
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'css/app.css',
-  'js/util.js', 'js/store.js', 'js/geom.js', 'js/render.js', 'js/pdf.js', 'js/tpl-import.js', 'js/drive.js', 'js/editor.js', 'js/toolbar.js', 'js/tables.js', 'js/tiles.js', 'js/navigation.js', 'js/richtext.js', 'js/crop.js', 'js/colorpicker.js', 'js/ui.js', 'js/ocr.js', 'js/import-notewise.js', 'js/library.js', 'js/plugins.js', 'js/workspace.js', 'js/timer.js', 'js/bg-sync.js', 'js/app.js',
+  'js/util.js', 'js/store.js', 'js/geom.js', 'js/render.js', 'js/pdf.js', 'js/tpl-import.js', 'js/drive.js', 'js/editor.js', 'js/toolbar.js', 'js/tables.js', 'js/tiles.js', 'js/navigation.js', 'js/richtext.js', 'js/crop.js', 'js/colorpicker.js', 'js/ui.js', 'js/ocr.js', 'js/beautify.js', 'js/import-notewise.js', 'js/library.js', 'js/plugins.js', 'js/workspace.js', 'js/timer.js', 'js/bg-sync.js', 'js/app.js',
   'vendor/pdf.min.mjs', 'vendor/pdf-lib.min.js', 'vendor/pdf.worker.min.mjs', 'icons/icon-192.png', 'icons/icon-512.png', 'privacidade.html'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(VERSION).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== VERSION && k !== 'traco-fonts').map((k) => caches.delete(k)))).then(() => self.clients.claim())); });

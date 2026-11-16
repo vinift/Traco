@@ -348,10 +348,16 @@ async function openSettings(focus) {
     el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
       chk('Ignorar a palma da mão (toques são ignorados enquanto a caneta está perto da tela)', 'palmGuard'),
       chk('Escrever com o dedo (o mesmo que o botão de mão no editor)', 'fingerDraws'),
-      chk('Três toques rápidos com a caneta mudam para o laço (os toques não deixam marca)', 'penTriple'),
       chk('Rabiscar para apagar (zigue-zague com a caneta por cima do que quer apagar)', 'scribbleErase'),
       UI.slider('Sensibilidade à pressão', 0, 1, 0.05, S.pressureSens ?? 0.6, (v) => { S.pressureSens = v; S.pressure = v > 0; Store.saveSettings(); }, (v) => (v === 0 ? 'sem' : Math.round(v * 100) + '%')),
       chk('Reconhecer formas ao segurar a caneta parada no fim do traço', 'shapeHold'),
+      (() => { /* v0.23: mão que escreve → onde valem os toques de 2/3 dedos (desfazer/refazer) */
+        const sel = el('select', { onchange: () => { S.hand = sel.value; Store.saveSettings(); } }, el('option', { value: 'right' }, 'Destro (vale só na metade esquerda)'), el('option', { value: 'left' }, 'Canhoto (vale só na metade direita)'), el('option', { value: 'none' }, 'Tela toda'));
+        sel.value = S.hand || 'right';
+        return el('div', { class: 'field' }, el('label', {}, 'Mão que escreve — toques de 2 e 3 dedos (desfazer/refazer) do lado da palma são ignorados'), sel);
+      })(),
+      UI.slider('Melhorar escrita automático (ao levantar a caneta)', 0, 10, 1, autoBeautifyLevel(), (v) => { S.autoBeautify = v; Store.saveSettings(); }, (v) => (v === 0 ? 'desligado' : String(v))),
+      el('p', { class: 'muted' }, 'Arredonda as curvas e tira o tremido sem apagar os cantos das letras. Para arrumar algo já escrito: laço → botão ✨ "Melhorar escrita" (também iguala o tamanho e a altura das palavras).'),
       UI.check('Modo de baixa latência para a caneta (a tinta aparece mais rápido; reabra o app depois de mudar)', S.lowLatency === true, (v) => { S.lowLatency = v; Store.saveSettings(); toast('Reabra o app para aplicar'); }),
       el('p', { class: 'muted' }, 'Estabilização do traço (0 a 10): fica no painel de cada caneta — cada tipo guarda o seu nível.'),
       )));
@@ -506,6 +512,10 @@ function penMapSection() {
   const S = Store.settings; S.penMap = S.penMap || {};
   const sec = el('div', { class: 'set-sec' }, el('h3', {}, 'Botões da caneta (Focus Pen)'),
     el('p', {}, 'Toque em "Definir" e aperte o botão da caneta que você quer usar, com a ponta perto da tela. Se nada acontecer, o Android pode estar usando esse botão para outra função: nas configurações do tablet, procure Caneta → Atalhos dos botões e desative o atalho do sistema.'));
+  /* v0.23: toque duplo com a ponta da caneta (os dois toques não deixam marca) */
+  const dsel = el('select', { onchange: () => { S.penDouble = dsel.value; Store.saveSettings(); toast('Toque duplo: ' + dsel.selectedOptions[0].textContent, 1500); } }, ...PEN_DOUBLE_ACTIONS.map(([k, n]) => el('option', { value: k }, n)));
+  dsel.value = penDoubleAction();
+  sec.append(el('div', { class: 'pen-map-row' }, el('span', { class: 'nm' }, 'Toque duplo com a ponta', el('div', { class: 'lbl-sm' }, 'dois toques rápidos no mesmo lugar, com qualquer ferramenta (não deixam marca)')), dsel));
   const list = el('div', {}); sec.append(list);
   const render = () => {
     list.innerHTML = '';
