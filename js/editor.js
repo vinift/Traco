@@ -129,12 +129,11 @@ const Editor = {
   clampCam() {
     const [a, b] = this.zoomLimits(); const c = this.cam; c.z = clamp(c.z, a, b);
     if (this.note.mode === 'infinite') return;
-    const vw = this.W / c.z, vh = this.H / c.z, L = -this.maxW / 2, R = this.maxW / 2;
-    const m = 60 / c.z + clamp(R - L - vw, 0, vw * 0.35); /* v0.20: com zoom dá para passar da borda da folha (até ~1/3 da tela); cresce aos poucos para não pular */
-    /* v0.23.4: folha mais estreita que a tela (zoom baixo) não é mais puxada para o centro: ela só precisa ficar inteira dentro da tela,
-       então o ponto entre os dedos fica onde estava ao tirar o zoom. Folha mais larga: pode passar da borda um pouco (como antes) */
-    const lo = L - m, hi = R + m - vw;
-    c.x = lo <= hi ? clamp(c.x, lo, hi) : clamp(c.x, hi, lo);
+    const vw = this.W / c.z, L = -this.maxW / 2, R = this.maxW / 2;
+    /* v0.23.5: regra única, que não muda com o zoom: a folha precisa ocupar pelo menos metade da largura da tela (ou aparecer inteira, se for mais estreita).
+       Antes a folga além da borda encolhia ao tirar o zoom e empurrava a tela para o centro no meio do gesto (e depois soltava). Agora tirar o zoom só diminui, sem mexer */
+    const vm = Math.min(R - L, vw * 0.5);
+    c.x = clamp(c.x, L + vm - vw, R - vm);
     c.y = clamp(c.y, this.camMinY(), this.camMaxY());
   },
   /* fim da rolagem: o fim da última página fica um pouco acima da borda de baixo da tela (daí em diante é "puxar para adicionar") */

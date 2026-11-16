@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.23.5
+
+- **Tirar o zoom só diminui, sem mexer a tela:** o ponto da folha que está entre os seus dedos fica exatamente no lugar durante todo o gesto. Antes, perto das bordas da folha, a tela ia para o centro no meio do gesto e depois voltava. A regra de limite agora é única e não muda com o zoom: a folha precisa ocupar pelo menos metade da largura da tela (ou aparecer inteira, quando é mais estreita).
+
 ## Novidades da v0.23.4
 
 - **Tirar o zoom não puxa mais a tela para o centro:** quando a folha fica mais estreita que a tela (abaixo de ~150% no Pad 7), ela não é mais centralizada à força; só precisa continuar inteira dentro da tela. O ponto entre os dedos fica onde estava.
