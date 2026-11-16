@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.19.1
+
+- **Grade da tela infinita corrigida:** acima e à esquerda do ponto inicial, alguns pedaços ficavam só com linhas ou só com colunas (e o canto, vazio). Agora a grade, as linhas e os pontos continuam em todas as direções, sem falhas nas emendas.
+
 ## Novidades da v0.19.0
 
 - **Recorte direto na página:** laço → selecione a imagem → botão de recorte. A imagem inteira aparece apagadinha no próprio lugar, com a moldura do recorte e 8 alças. Arraste as alças com a caneta ou o dedo; arraste o meio para mover a moldura; toque na parte apagada para desenhar outra moldura. Proporções Livre, Original, 1:1, 4:3, 3:4 e 16:9 na barrinha, além de ↻ (restaurar a imagem inteira), ✕ (cancelar) e ✓ (aplicar). Também aplica com Enter, tocando fora da imagem ou trocando de ferramenta; Esc ou desfazer cancela. Fora da imagem o dedo continua rolando e dando zoom. Funciona com imagens giradas.

@@ -36,16 +36,19 @@ function drawTemplate(ctx, tpl, vis, z, bounded, pw, ph, dpr = 1) {
     ox = (pw - nx * s) / 2; oy = (ph - ny * s) / 2; xEnd = ox + nx * s + 0.01; yEnd = oy + ny * s + 0.01;
     const dy = +tpl.dy || 0; if (dy) { oy += dy; yEnd += dy; if (oy - s > -0.01) { oy -= s; } yEnd = Math.min(yEnd, ph); } // deslocamento fino (páginas redimensionadas no Notewise)
   }
-  const first = (v, o, st = s) => o + Math.max(0, Math.ceil((v - o) / st)) * st;
+  /* 1ª linha visível. Na folha a grade começa na borda (nada antes de 0); na tela infinita ela continua para cima e para a esquerda
+     (v0.19.1: antes os pedaços com coordenada negativa ficavam só com linhas ou só com colunas) */
+  const first = (v, o, st = s) => { const k = Math.ceil((v - o) / st); return o + (bounded ? Math.max(0, k) : k) * st; };
+  const m = L.w; /* folga de meia linha: a linha que cai na emenda de dois blocos sai inteira nos dois */
   ctx.beginPath();
   if (tpl.type === 'lines' || tpl.type === 'grid') {
     const startY = tpl.type === 'lines' && !tpl.center ? top : oy;
-    for (let y = first(y1, startY); y <= Math.min(y2, yEnd); y += s) { const q = L.at(y); ctx.moveTo(x1, q); ctx.lineTo(x2, q); }
-    if (tpl.type === 'grid') for (let x = first(x1, ox); x <= Math.min(x2, xEnd); x += s) { const q = L.at(x); ctx.moveTo(q, y1); ctx.lineTo(q, y2); }
+    for (let y = first(y1 - m, startY); y <= Math.min(y2 + m, yEnd); y += s) { const q = L.at(y); ctx.moveTo(x1, q); ctx.lineTo(x2, q); }
+    if (tpl.type === 'grid') for (let x = first(x1 - m, ox); x <= Math.min(x2 + m, xEnd); x += s) { const q = L.at(x); ctx.moveTo(q, y1); ctx.lineTo(q, y2); }
     ctx.stroke();
   } else if (tpl.type === 'dots') {
     const r = Math.max(th * 1.1, 0.8 / z);
-    for (let y = first(y1, oy); y <= Math.min(y2, yEnd); y += s) for (let x = first(x1, ox); x <= Math.min(x2, xEnd); x += s) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); }
+    for (let y = first(y1 - r, oy); y <= Math.min(y2 + r, yEnd); y += s) for (let x = first(x1 - r, ox); x <= Math.min(x2 + r, xEnd); x += s) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); }
     ctx.fill();
   }
   if (tpl.type === 'lines' && tpl.margin && bounded) {
