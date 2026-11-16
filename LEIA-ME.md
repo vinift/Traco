@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.23.7
+
+- **Zoom de volta ao jeito de antes, com ajustes:**
+  - **Até 60% de zoom:** a folha fica centralizada e a rolagem é só vertical.
+  - **Acima de 60%:** a folha pode passar da borda da tela como antes (até ~35% da tela), mas essa folga não encolhe mais ao tirar o zoom.
+  - **Durante a pinça:** o ponto entre os dedos fica parado; depois que você solta, a tela fica onde está (sem pulo), e arrastar só traz a folha de volta para dentro.
+
 ## Novidades da v0.23.6
 
 - **Abaixo de 50% de zoom, rolagem só na vertical:** arrastar com um dedo (e o embalo depois de soltar) não mexe mais para os lados quando a página está bem afastada. A pinça continua normal.

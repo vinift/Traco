@@ -66,4 +66,5 @@ Não há suíte no repositório: os testes eram scripts Playwright avulsos. Para
 - v0.23.4 — `clampCam`: folha mais estreita que a tela fica livre entre as bordas (sem centralizar; `lo/hi` invertidos); `zoomQuality` padrão = econômica (a alta pesou no Pad 7).
 - v0.23.5 — `clampCam` horizontal: `vm = min(largura da folha, 0,5·vw)` e `c.x ∈ [L + vm − vw, R − vm]` (independe do zoom; o foco da pinça não desliza).
 - v0.23.6 — `moveGesture`: com `g.cam.z < 0.5` o arrasto de 1 dedo e a inércia são só verticais; `PULL_MAX/PULL_ADD` 260/190 e o "puxar para adicionar" só conta se o gesto começou no fim (`g.atEnd`).
+- v0.23.7 — `clampCam` horizontal: `z ≤ 0,6` centraliza (rolagem só vertical em `moveGesture`/inércia); acima, margem fixa em tela `p = 0,35·vw + 60/z`; durante a pinça (`_pinching`) limite folgado (folha cobre ≥ metade da tela); depois, `_xHold` guarda a posição fora do limite e só deixa voltar para dentro.
 - Ideias sugeridas e ainda não feitas: importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9).

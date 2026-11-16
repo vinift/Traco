@@ -60,7 +60,7 @@ const Editor = {
     const note = await Store.getNote(id); if (!note) { toast('Nota não encontrada'); return false; }
     if (fixNotewiseHeights(note)) { await Store.putNote(note); Store.setThumb(note.id, await makeThumb(note)); } // corrige notas importadas antes (grade meia linha fora)
     this.resetTiles(); this._prevZ = undefined; this.lastInput = Date.now(); // nota recém-aberta conta como "em uso" (o backup pesado espera)
-    if (this.crop) this.cancelCrop(); this.note = note; this.undoStack = []; this.redoStack = []; this.sel = null; this.selTf = null; this.action = null; this.editingId = null;
+    if (this.crop) this.cancelCrop(); this._xHold = null; this.note = note; this.undoStack = []; this.redoStack = []; this.sel = null; this.selTf = null; this.action = null; this.editingId = null;
     this.readOnly = false; $('#editor').classList.remove('reading'); { const rb = $('#btnRead'); if (rb) rb.classList.remove('soft-on'); }
     $('#noteTitle').value = note.title;
     this.desk = getComputedStyle(document.documentElement).getPropertyValue('--desk').trim() || '#d9dde3';
@@ -130,10 +130,18 @@ const Editor = {
     const [a, b] = this.zoomLimits(); const c = this.cam; c.z = clamp(c.z, a, b);
     if (this.note.mode === 'infinite') return;
     const vw = this.W / c.z, L = -this.maxW / 2, R = this.maxW / 2;
-    /* v0.23.5: regra única, que não muda com o zoom: a folha precisa ocupar pelo menos metade da largura da tela (ou aparecer inteira, se for mais estreita).
-       Antes a folga além da borda encolhia ao tirar o zoom e empurrava a tela para o centro no meio do gesto (e depois soltava). Agora tirar o zoom só diminui, sem mexer */
-    const vm = Math.min(R - L, vw * 0.5);
-    c.x = clamp(c.x, L + vm - vw, R - vm);
+    /* v0.23.7: até 60% de zoom a folha fica centralizada (e a rolagem é só vertical). Acima disso, a borda da folha pode entrar até 35% da tela + 60 px
+       (como na v0.20), mas essa folga é fixa em relação à tela — antes encolhia ao tirar o zoom e empurrava a tela no meio do gesto */
+    if (c.z <= 0.6) { c.x = (L + R) / 2 - vw / 2; this._xHold = null; }
+    else {
+      const p = vw * 0.35 + 60 / c.z, loN = L - p, hiN = R + p - vw; let lo = loN, hi = hiN;
+      /* na pinça o limite fica folgado (a folha só precisa cobrir metade da tela): o ponto entre os dedos não desliza */
+      if (this._pinching) { const vm = Math.min(R - L, vw * 0.5); lo = Math.min(lo, L + vm - vw); hi = Math.max(hi, R - vm); }
+      /* depois da pinça a tela fica onde você deixou: dá para trazer a folha para dentro, não para levar mais para fora */
+      if (this._xHold != null) { lo = Math.min(lo, this._xHold); hi = Math.max(hi, this._xHold); }
+      c.x = lo <= hi ? clamp(c.x, lo, hi) : (L + R) / 2 - vw / 2;
+      this._xHold = c.x >= loN - 1e-6 && c.x <= hiN + 1e-6 ? null : c.x;
+    }
     c.y = clamp(c.y, this.camMinY(), this.camMaxY());
   },
   /* fim da rolagem: o fim da última página fica um pouco acima da borda de baixo da tela (daí em diante é "puxar para adicionar") */
@@ -497,25 +505,25 @@ const Editor = {
       const mid = { x: (P[0].x + P[1].x) / 2, y: (P[0].y + P[1].y) / 2 }, dist = Math.hypot(P[0].x - P[1].x, P[0].y - P[1].y) || 1;
       const [a, b] = this.zoomLimits(); const z = clamp(g.cam.z * dist / g.dist, a, b);
       const wx = g.cam.x + g.mid.x / g.cam.z, wy = g.cam.y + g.mid.y / g.cam.z;
-      this.cam = { z, x: wx - mid.x / z, y: wy - mid.y / z };
+      this.cam = { z, x: wx - mid.x / z, y: wy - mid.y / z }; this._pinching = true;
     } else { // 1 dedo: prioriza o movimento vertical (o horizontal só entra quando o dedo vai claramente para o lado)
       const p = P[0], dx = p.x - g.mid.x, dy = p.y - g.mid.y;
       // v0.13: trava só quando o gesto começa quase reto na vertical (até ~22°) e solta fácil se o dedo for para o lado
       /* v0.23.2: trava vertical bem mais leve — só quando o dedo sai quase reto (até ~11°) e solta com 14 px para o lado (antes ~22° e 32 px: o horizontal parecia preso) */
       if (!g.lock && Math.hypot(dx, dy) > 10) { g.lock = Math.abs(dx) <= Math.abs(dy) * 0.2 ? 'v' : 'free'; g.xoff = 0; }
       if (g.lock === 'v' && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 0.18) { g.lock = 'free'; g.xoff = dx; } // foi para o lado de propósito
-      const ex = g.lock === 'free' && g.cam.z >= 0.5 ? dx - (g.xoff || 0) : 0; /* v0.23.6: abaixo de 50% de zoom, só rolagem vertical */
+      const ex = g.lock === 'free' && g.cam.z > 0.6 ? dx - (g.xoff || 0) : 0; /* até 60% de zoom, só rolagem vertical (v0.23.7) */
       this.cam = { z: g.cam.z, x: g.cam.x - ex / g.cam.z, y: g.cam.y - dy / g.cam.z };
     }
     if (P.length === 1) { const now = performance.now(); (g.vs = g.vs || []).push([now, this.cam.x, this.cam.y]); while (g.vs.length > 2 && now - g.vs[0][0] > 90) g.vs.shift(); } else g.vs = null;
     const over = P.length === 1 && g.atEnd ? (this.cam.y - this.camMaxBase()) * this.cam.z : 0; // passou do fim da última página (v0.23.6: só se o gesto começou já parado no fim)
     this.setPull(over > 0 ? over : 0);
-    this.clampCam(); this.requestRender(); if (P.length >= 2) Instruments.redraw();
+    this.clampCam(); this._pinching = false; this.requestRender(); if (P.length >= 2) Instruments.redraw();
   },
   endGesture() {
     const g = this.gesture; this.gesture = null; if (!g) return; clearTimeout(g.holdT); if (g.held) return;
     if (this.pull) this.releasePull();
-    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v' || this.cam.z < 0.5);
+    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v' || this.cam.z <= 0.6);
     const dt = performance.now() - g.t0;
     /* v0.23: destro → toques de 2/3 dedos só valem na metade esquerda (a palma apoia na direita); canhoto → o contrário */
     const hand = Store.settings.hand || 'right', half = this.W / 2, sideOk = hand === 'none' || (hand === 'right' ? g.maxX < half : g.minX > half);
