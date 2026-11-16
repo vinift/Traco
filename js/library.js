@@ -348,6 +348,7 @@ async function openSettings(focus) {
     el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
       chk('Ignorar a palma da mão (toques são ignorados enquanto a caneta está perto da tela)', 'palmGuard'),
       chk('Escrever com o dedo (o mesmo que o botão de mão no editor)', 'fingerDraws'),
+      chk('Três toques rápidos com a caneta mudam para o laço (os toques não deixam marca)', 'penTriple'),
       chk('Rabiscar para apagar (zigue-zague com a caneta por cima do que quer apagar)', 'scribbleErase'),
       UI.slider('Sensibilidade à pressão', 0, 1, 0.05, S.pressureSens ?? 0.6, (v) => { S.pressureSens = v; S.pressure = v > 0; Store.saveSettings(); }, (v) => (v === 0 ? 'sem' : Math.round(v * 100) + '%')),
       chk('Reconhecer formas ao segurar a caneta parada no fim do traço', 'shapeHold'),

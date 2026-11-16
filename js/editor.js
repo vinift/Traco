@@ -20,6 +20,7 @@ const Editor = {
       try { this.ictx = this.cInk.getContext('2d', { alpha: false, desynchronized: true }); } catch (_) { this.ictx = this.cInk.getContext('2d', { alpha: false }); }
     }
     this.lctx = this.cLive.getContext('2d');
+    this.initPenTriple();
     // o Android pode descartar a memória de desenho (app em segundo plano, memória cheia): refaz tudo em vez de ficar em branco
     for (const c of [this.cMain, this.cLive]) {
       c.addEventListener('contextlost', (ev) => { ev.preventDefault(); logError('contexto do canvas perdido (memória)', 'canvas'); });
@@ -126,7 +127,8 @@ const Editor = {
   clampCam() {
     const [a, b] = this.zoomLimits(); const c = this.cam; c.z = clamp(c.z, a, b);
     if (this.note.mode === 'infinite') return;
-    const vw = this.W / c.z, vh = this.H / c.z, L = -this.maxW / 2, R = this.maxW / 2, m = 60 / c.z;
+    const vw = this.W / c.z, vh = this.H / c.z, L = -this.maxW / 2, R = this.maxW / 2;
+    const m = 60 / c.z + clamp(R - L - vw, 0, vw * 0.35); /* v0.20: com zoom dá para passar da borda da folha (até ~1/3 da tela); cresce aos poucos para não pular */
     if (R - L <= vw) c.x = (L + R) / 2 - vw / 2; else c.x = clamp(c.x, L - m, R + m - vw);
     c.y = clamp(c.y, this.camMinY(), this.camMaxY());
   },
@@ -314,7 +316,7 @@ const Editor = {
     return r;
   },
   opCommit() {
-    const op = this.curOp; this.curOp = null;
+    const op = this.curOp; this.curOp = null; if (op) op.t = performance.now();
     if (op && op.changes.length) { this.undoStack.push(op); if (this.undoStack.length > 300) this.undoStack.shift(); this.redoStack = []; this.markChanged(); }
     this.requestRender();
   },

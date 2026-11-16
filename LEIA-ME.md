@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.20.0
+
+- **Grade não engrossa mais ao tirar o zoom:** as linhas (e os pontos) afinam junto com a folha até o mínimo de 1 pixel da tela do tablet; daí para baixo ficam mais claras, em vez de grossas. Antes o mínimo era ~3 pixels no Pad 7, e a grade parecia mais pesada afastando.
+- **Três toques rápidos com a caneta = laço:** com qualquer ferramenta, toque três vezes rápido no mesmo lugar com a caneta e o app muda para o laço. O que os toques criariam (pontinhos, borrachadas, seleção, caixa de texto) é descartado e não fica no desfazer. Dá para desligar em Configurações → Escrita e caneta.
+- **Mais espaço dos lados com zoom:** com a folha maior que a tela, dá para arrastar além da borda da página (até cerca de 1/3 da tela), para escrever confortável perto das margens. A folga cresce aos poucos com o zoom, sem pulos.
+
 ## Novidades da v0.19.1
 
 - **Grade da tela infinita corrigida:** acima e à esquerda do ponto inicial, alguns pedaços ficavam só com linhas ou só com colunas (e o canto, vazio). Agora a grade, as linhas e os pontos continuam em todas as direções, sem falhas nas emendas.

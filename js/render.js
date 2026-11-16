@@ -21,10 +21,15 @@ function drawTemplate(ctx, tpl, vis, z, bounded, pw, ph, dpr = 1) {
   if (!tpl || tpl.type === 'blank') return;
   if (tpl.type === 'custom') return drawCustomTemplate(ctx, tpl, vis, z, pw, dpr); // modelo importado de PDF
   const s = Math.max(4, +tpl.spacing || 32);
-  const th = Math.max(+tpl.thickness || 1, (tpl.type === 'dots' ? 0.6 : 1) / z), op = clamp(+tpl.opacity || 1, 0.05, 1); // afastando: linhas com pelo menos 1 px de tela (a grade não "some")
+  /* v0.20: afastando, a linha afina junto com a folha até 1 pixel do aparelho; daí para baixo ela clareia em vez de engrossar
+     (antes o mínimo era 1 px "CSS" = ~3 pixels no tablet, e a grade parecia mais grossa ao tirar o zoom) */
+  const S = z * dpr, th0 = +tpl.thickness || 1, dev = th0 * S;
+  let op = clamp(+tpl.opacity || 1, 0.05, 1);
+  const th = tpl.type === 'dots' ? th0 : Math.max(th0, 1 / S);
+  const fade = tpl.type === 'dots' ? 1 : Math.max(0.2, Math.min(1, dev));
   // muito afastado: em vez de sumir, a grade vira um tom suave do papel (mesmo "peso" visual)
-  if (s * z < (tpl.type === 'dots' ? 2.4 : 1.8)) return tintTemplate(ctx, tpl.color, op * patternCoverage(tpl.type, th, s), vis, bounded, pw, ph);
-  ctx.save(); ctx.globalAlpha = op;
+  if (s * z < (tpl.type === 'dots' ? 2.4 : 1.8)) return tintTemplate(ctx, tpl.color, op * patternCoverage(tpl.type, th0, s), vis, bounded, pw, ph);
+  ctx.save(); ctx.globalAlpha = op * fade;
   const L = crispLine(th, z * dpr);
   ctx.strokeStyle = ctx.fillStyle = tpl.color; ctx.lineWidth = L.w;
   const top = bounded ? (+tpl.top || 0) : 0;
@@ -47,12 +52,12 @@ function drawTemplate(ctx, tpl, vis, z, bounded, pw, ph, dpr = 1) {
     if (tpl.type === 'grid') for (let x = first(x1 - m, ox); x <= Math.min(x2 + m, xEnd); x += s) { const q = L.at(x); ctx.moveTo(q, y1); ctx.lineTo(q, y2); }
     ctx.stroke();
   } else if (tpl.type === 'dots') {
-    const r = Math.max(th * 1.1, 0.8 / z);
+    let r = th0 * 1.1; const rMin = 0.7 / S; if (r < rMin) { ctx.globalAlpha = op * Math.max(0.25, (r / rMin) ** 2); r = rMin; } /* ponto pequeno demais: 0,7 px do aparelho, mais claro */
     for (let y = first(y1 - r, oy); y <= Math.min(y2 + r, yEnd); y += s) for (let x = first(x1 - r, ox); x <= Math.min(x2 + r, xEnd); x += s) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); }
     ctx.fill();
   }
   if (tpl.type === 'lines' && tpl.margin && bounded) {
-    const M = crispLine(Math.max(th, 1), z * dpr); ctx.beginPath(); ctx.strokeStyle = tpl.marginColor || '#f19a9a'; ctx.lineWidth = M.w;
+    const M = crispLine(Math.max(th0, 1 / S), S); ctx.globalAlpha = op * Math.max(0.35, Math.min(1, th0 * S)); ctx.beginPath(); ctx.strokeStyle = tpl.marginColor || '#f19a9a'; ctx.lineWidth = M.w;
     const mx = M.at(Math.round(s * 2.5)); ctx.moveTo(mx, y1); ctx.lineTo(mx, y2); ctx.stroke();
   }
   ctx.restore();

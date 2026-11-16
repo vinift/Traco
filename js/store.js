@@ -78,7 +78,7 @@ const PAGE_SIZES = {
   wide: { label: 'Widescreen 16:9', w: 1280, h: 720 }, custom: { label: 'Personalizado', w: 900, h: 1200 },
 };
 const DEFAULT_SETTINGS = {
-  fingerDraws: false, palmGuard: true, pressure: true, pressureSens: 0.6, stabilizer: 0.55, shapeHold: true, scribbleErase: true, lowLatency: false, theme: 'auto',
+  fingerDraws: false, palmGuard: true, penTriple: true, pressure: true, pressureSens: 0.6, stabilizer: 0.55, shapeHold: true, scribbleErase: true, lowLatency: false, theme: 'auto',
   colorPresets: {
     pen: ['#111827', '#4b5563', '#2563eb', '#0d9488', '#16a34a', '#dc2626', '#ea580c', '#7c3aed'],
     highlighter: ['#fde047', '#86efac', '#7dd3fc', '#f9a8d4', '#fdba74', '#c4b5fd'],

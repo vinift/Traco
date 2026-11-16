@@ -171,3 +171,48 @@ Object.assign(Editor, {
   paintCropBar() { const K = this.crop; $$('#cropBar .crop-chip').forEach((b) => b.classList.toggle('on', K && +b.dataset.r === (K.ratioKey || 0))); },
   removeCropBar() { const b = $('#cropBar'); if (b) b.remove(); },
 });
+
+/* ===== v0.20 — três toques rápidos com a caneta = laço =====
+   Funciona com qualquer ferramenta. Só observa os eventos (captura no #stage, antes do editor) e, no 3º toque,
+   desfaz o que os toques criaram (pontinhos, borrachadas, seleção, caixa de texto) e troca para o laço. */
+Object.assign(Editor, {
+  initPenTriple() {
+    const TAP_MS = 260, GAP_MS = 380, MOVE = 9, NEAR = 60;
+    const skip = (e) => e.target.closest && e.target.closest('#selBar,#cropBar,#textBar,#hbar,.chrome');
+    let down = null, taps = [];
+    this.stage.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'pen' || !(e.buttons & 1) || !Store.settings.penTriple || !this.note || this.crop || skip(e)) { down = null; return; }
+      const now = performance.now(), last = taps[taps.length - 1];
+      if (!last || now - last.up > GAP_MS || Math.hypot(e.clientX - taps[0].x, e.clientY - taps[0].y) > NEAR) {
+        taps = [];
+        /* início de uma possível sequência: o que já estava pendente fica valendo (não entra no "desfazer" dos toques) */
+        if (this.textEl) this.commitText(); if (this._penDot) this.flushPenDot();
+      }
+      down = { id: e.pointerId, t: now, x: e.clientX, y: e.clientY, far: false };
+      if (!taps.length) this._tripleBase = now;
+    }, true);
+    this.stage.addEventListener('pointermove', (e) => { if (down && e.pointerId === down.id && Math.hypot(e.clientX - down.x, e.clientY - down.y) > MOVE) down.far = true; }, true);
+    const up = (e) => {
+      if (!down || e.pointerId !== down.id) return; const d = down; down = null; const now = performance.now();
+      if (d.far || now - d.t > TAP_MS) { taps = []; return; }
+      taps.push({ x: d.x, y: d.y, up: now });
+      if (taps.length < 3) return;
+      taps = []; const base = this._tripleBase;
+      setTimeout(() => this.penTripleFire(base), 0); // depois que o editor terminar de tratar o 3º toque
+    };
+    this.stage.addEventListener('pointerup', up, true);
+    this.stage.addEventListener('pointercancel', () => { down = null; }, true);
+  },
+  penTripleFire(base) {
+    if (!this.note) return;
+    if (this._penDot) { clearTimeout(this._penDot.timer); this._penDot = null; } // pontinho ainda não gravado: descarta
+    if (this.textEl) this.commitText();
+    if (this.action) this.cancelAction();
+    let n = 0; // desfaz só o que nasceu durante os toques
+    while (this.undoStack.length && this.undoStack[this.undoStack.length - 1].t >= base) { this.undo(); n++; }
+    if (n) this.redoStack.splice(this.redoStack.length - n, n);
+    this.sel = null; this.updateUndoBtns();
+    UI.setTool('lasso', true); toast('Laço', 700); if (navigator.vibrate) navigator.vibrate(12);
+    this.requestRender();
+  },
+});
