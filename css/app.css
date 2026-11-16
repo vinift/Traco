@@ -692,7 +692,7 @@ input,textarea,select,[contenteditable],[contenteditable] *,.text-edit,.text-edi
 .full-exit:hover,.full-exit:active{opacity:.9}
 #editor.immersive .full-exit{display:grid}
 #editor.split-on .ch-title{max-width:22vw}
-@media (max-width:900px){ .ch-title{display:none} }
+@media (max-width:900px){ .ch-title:not(.has-timer){display:none} .ch-title.has-timer .title-input,.ch-title.has-timer .note-clock,.ch-title.has-timer .note-bat{display:none} }
 .wchip.lifted,.cdot.lifted{transform:scale(1.15);box-shadow:0 4px 12px rgba(0,0,0,.25);transition:transform .12s}
 
 /* ===== v0.17 — altura estável (a barra de horário do Android não redimensiona o app) e relógio no topo ===== */
@@ -721,3 +721,42 @@ input,textarea,select,[contenteditable],[contenteditable] *,.text-edit,.text-edi
 .note-bat.low{color:#dc2626;opacity:.95}
 .sa-probe{position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
 .ch-title{max-width:42vw}
+
+/* ===== v0.21: cronômetro de estudo ===== */
+.tm-click{cursor:pointer}
+.note-timer{display:inline-flex;align-items:center;gap:4px;margin:0 6px 0 0;padding:3px 10px 3px 7px;border-radius:999px;background:color-mix(in srgb,var(--chacc,#7c3aed) 14%,transparent);color:var(--chacc,#7c3aed);font-size:calc(var(--tfs,15px) - 2px);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.note-timer svg.ic,.timer-pill svg.ic{width:15px;height:15px}
+.note-timer.brk,.timer-pill.brk{background:color-mix(in srgb,#16a34a 15%,transparent);color:#16a34a}
+.note-timer.paused b,.timer-pill.paused b{animation:tmBlink 1.4s steps(2,start) infinite}
+@keyframes tmBlink{to{opacity:.35}}
+.timer-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 12px 5px 9px;border-radius:999px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap}
+.tm-pop{display:flex;flex-direction:column;gap:12px;width:min(340px,88vw)}
+.tm-tabs{display:flex;gap:4px;background:var(--panel2);border-radius:12px;padding:3px}
+.tm-tab{flex:1;border:0;background:transparent;border-radius:10px;padding:7px 4px;font-size:13px;cursor:pointer;color:var(--text)}
+.tm-tab.on{background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.12);font-weight:600;color:var(--accent)}
+.tm-face{text-align:center;padding:6px 0 2px;color:var(--accent)}
+.tm-face.brk{color:#16a34a}
+.tm-big{font-size:46px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:.5px}
+.tm-sub{font-size:13px;color:var(--muted);margin-top:2px}
+.tm-ctrl{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.tm-chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center}
+.tm-chip{padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:12.5px;cursor:pointer}
+.tm-chip.on{background:var(--accent);border-color:transparent;color:#fff}
+.tm-own{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;color:var(--muted)}
+.tm-num{width:58px;padding:4px 6px;border-radius:8px;border:1px solid var(--line);background:var(--panel);text-align:center}
+.tm-pomo{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tm-field{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+.tm-field span{flex:1}
+.tm-hint{margin:0;font-size:12px;color:var(--muted);line-height:1.35}
+.tm-stats{border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:10px}
+.tm-tot{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+.tm-tot b{color:var(--text);margin-left:3px}
+.tm-bars{display:flex;gap:6px;height:64px;align-items:flex-end}
+.tm-bar{flex:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px}
+.tm-bar i{display:block;width:100%;min-height:2px;border-radius:4px 4px 2px 2px;background:color-mix(in srgb,var(--accent) 35%,transparent)}
+.tm-bar.today i{background:var(--accent)}
+.tm-bar small{font-size:10.5px;color:var(--muted)}
+.tm-notes{display:flex;flex-direction:column;gap:4px}
+.tm-h{font-size:12px;color:var(--muted)}
+.tm-row{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.tm-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

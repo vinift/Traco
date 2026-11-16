@@ -153,6 +153,17 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.21.0
+
+- **Cronômetro de estudo:** toque no horário, no topo da nota, para abrir o painel. Três modos:
+  - **Cronômetro** — conta para cima (Iniciar, Pausar, Continuar, Zerar).
+  - **Temporizador** — contagem regressiva com atalhos (5 a 90 min) ou o tempo que você digitar; avisa com som, vibração e mensagem quando acaba.
+  - **Pomodoro** — foco e pausa automáticos (padrão 25/5, pausa longa de 15 a cada 4 focos, tudo ajustável). A pausa começa sozinha; o próximo foco espera você tocar em Iniciar. Dá para pular a fase.
+  - Enquanto está ligado, o tempo aparece no topo ao lado do horário e da bateria (verde nas pausas, piscando quando pausado) e também na tela inicial, ao lado do backup. Com o tablet em pé, onde o título some, o tempo continua aparecendo.
+  - **Histórico:** o tempo de estudo é somado por dia e pela nota que estava aberta (as pausas do Pomodoro não contam). O painel mostra o total de hoje, dos últimos 7 dias (com barrinhas por dia) e as notas em que você mais estudou na semana.
+  - O tempo continua certo com o app em segundo plano ou fechado. Se um temporizador acabar com o app fechado, o aviso aparece quando você voltar (com o horário em que acabou).
+- **Três toques com a caneta, de novo:** se o laço já estiver ativo, os três toques voltam para a caneta (com o tipo, a cor e a espessura de antes).
+
 ## Novidades da v0.20.0
 
 - **Grade não engrossa mais ao tirar o zoom:** as linhas (e os pontos) afinam junto com a folha até o mínimo de 1 pixel da tela do tablet; daí para baixo ficam mais claras, em vez de grossas. Antes o mínimo era ~3 pixels no Pad 7, e a grade parecia mais pesada afastando.

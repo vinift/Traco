@@ -21,7 +21,7 @@ App de notas manuscritas estilo Notewise, feito para o **Xiaomi Pad 7** (caneta 
 
 ## Arquitetura (JS puro, sem build)
 
-- Scripts clássicos que compartilham globais, carregados nesta ordem: util, store, geom, render, pdf, tpl-import, drive, editor, toolbar, tables, tiles, navigation, richtext, crop, colorpicker, ui, ocr, import-notewise, library, plugins, workspace, app.
+- Scripts clássicos que compartilham globais, carregados nesta ordem: util, store, geom, render, pdf, tpl-import, drive, editor, toolbar, tables, tiles, navigation, richtext, crop, colorpicker, ui, ocr, import-notewise, library, plugins, workspace, timer, app.
 - `const Editor`, `const UI` etc. **não** ficam em `window`: use `typeof Editor !== 'undefined'`.
 - Comentários: prefira `/* */` em linhas longas — um `//` já engoliu código mais de uma vez.
 - `vendor/`: pdf.js (`pdf.min.mjs` + worker) e `pdf-lib.min.js`.
@@ -56,4 +56,5 @@ Não há suíte no repositório: os testes eram scripts Playwright avulsos. Para
 - v0.19.0 — recorte direto na página (`js/crop.js`: `Editor.crop`, `cropSel/applyCrop/cancelCrop`, ações `crop`/`cropout`; a janela `cropDialog` saiu), bateria ao lado do relógio (`NoteClock.battery`), `SafeArea` (margens `--sat/--sar/--sab/--sal` congeladas no lugar de `env(safe-area-inset-*)` no CSS) e `SystemBar` (theme-color segue a tela), desfazer de páginas (`Editor.recPages(fn)` → mudança `{k:'pages', a, b}` no histórico).
 - v0.19.1 — grade da tela infinita: `first()` em `drawTemplate` só limita a 0 quando a folha tem borda (`bounded`); folga de meia linha nas emendas dos blocos.
 - v0.20.0 — grade: espessura mínima de 1 pixel do aparelho (`z*dpr`) e esmaecimento abaixo disso em `drawTemplate`; triplo toque da caneta → laço (`initPenTriple`/`penTripleFire` em `js/crop.js`, ouvintes em captura no `#stage`; desfaz as operações com `op.t >= início`, configuração `penTriple`); folga lateral com zoom em `clampCam` (`60/z + até 35% da largura visível`).
+- v0.21.0 — `js/timer.js` (`StudyTimer`): cronômetro/temporizador/Pomodoro baseado em `Date.now()` (estado em meta 'studyTimer'), histórico em meta 'studyLog' `{days:{'AAAA-MM-DD':{noteId|'_':ms}}, titles}` gravado por trechos (`boundary`: troca de nota, pausa, fim de fase e a cada minuto); exibido em `#noteTimer` (topo) e `#libTimer` (biblioteca), painel via `openPop`. Triplo toque com o laço ativo volta para a caneta.
 - Ideias sugeridas e ainda não feitas: importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9).

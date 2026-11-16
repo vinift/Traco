@@ -1,0 +1,183 @@
+'use strict';
+/* ===== v0.21 — Cronômetro de estudo =====
+   Três modos: cronômetro (conta para cima), temporizador (contagem regressiva) e Pomodoro (foco/pausa automáticos).
+   Fica no topo, ao lado do horário e da bateria (e na biblioteca, ao lado do backup); tocar no horário ou no tempo abre o painel.
+   O tempo é calculado por horários (Date.now), então continua certo com o app em segundo plano ou fechado.
+   Histórico: o tempo de estudo (não conta as pausas do Pomodoro) é somado por dia e pela nota que estava aberta.
+   Guardado em meta 'studyTimer' (estado) e meta 'studyLog' ({ days: { 'AAAA-MM-DD': { idDaNota | '_': ms } }, titles: { id: título } }). */
+
+const StudyTimer = {
+  DEF: { mode: 'stopwatch', running: false, acc: 0, runStart: 0, target: 25 * 60000, phase: 'focus', cycle: 0, segStart: 0, segNote: null, segTitle: '', cdMin: 25, pomo: { focus: 25, short: 5, long: 15, every: 4 } },
+  st: null, log: null,
+
+  async init() {
+    let s = null, l = null;
+    try { s = await DB.get('meta', 'studyTimer'); l = await DB.get('meta', 'studyLog'); } catch (e) { console.warn('cronômetro', e); }
+    this.st = { ...clone(this.DEF), ...(s || {}) }; this.st.pomo = { ...this.DEF.pomo, ...(this.st.pomo || {}) };
+    this.log = l && l.days ? l : { days: {}, titles: {} };
+    if (this._on) return this.tick(); this._on = true; // eventos só uma vez
+    for (const id of ['noteClock', 'noteTimer', 'libTimer']) { const n = document.getElementById(id); if (n) { n.classList.add('tm-click'); n.addEventListener('click', (e) => { e.stopPropagation(); this.open(n); }); } }
+    { const c = document.getElementById('noteClock'); if (c) c.title = 'Horário · toque para o cronômetro de estudo'; }
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { if (this.st.running) this.boundary(Date.now()); } else this.tick(); });
+    setInterval(() => this.tick(), 1000);
+    this.tick();
+  },
+
+  /* ---------- contas ---------- */
+  now() { return Date.now(); },
+  elapsed(t = Date.now()) { const s = this.st; return s.acc + (s.running ? t - s.runStart : 0); },
+  hasTarget() { return this.st.mode !== 'stopwatch'; },
+  remaining(t) { return this.st.target - this.elapsed(t); },
+  counts() { const s = this.st; return s.running && (s.mode !== 'pomodoro' || s.phase === 'focus'); }, // pausa do Pomodoro não é estudo
+  idle() { const s = this.st; return !s.running && s.acc === 0 && !(s.mode === 'pomodoro' && (s.cycle > 0 || s.phase !== 'focus')); },
+  curNote() { const ed = document.getElementById('editor'); return typeof Editor !== 'undefined' && Editor.note && ed && !ed.classList.contains('hidden') ? Editor.note : null; },
+  dayKey(t) { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; },
+
+  /* soma no histórico o trecho [a, b), separando na meia-noite */
+  addLog(a, b, noteId, title) {
+    if (!(b > a)) return; const L = this.log, k = noteId || '_';
+    while (a < b) {
+      const d = new Date(a); d.setHours(24, 0, 0, 0); const e = Math.min(b, d.getTime()), key = this.dayKey(a);
+      const day = L.days[key] || (L.days[key] = {}); day[k] = (day[k] || 0) + (e - a); a = e;
+    }
+    if (noteId && title) L.titles[noteId] = title;
+    const keys = Object.keys(L.days).sort(); while (keys.length > 400) delete L.days[keys.shift()]; // guarda ~1 ano e pouco
+    this.saveLog();
+  },
+  /* fecha o trecho atual (troca de nota, pausa, fim de fase ou a cada minuto) e começa outro */
+  boundary(t) {
+    const s = this.st;
+    if (this.counts() && s.segStart) this.addLog(s.segStart, t, s.segNote, s.segTitle);
+    const n = this.curNote(); s.segStart = t; s.segNote = n ? n.id : null; s.segTitle = n ? n.title : ''; this.save();
+  },
+  save() { DB.put('meta', clone(this.st), 'studyTimer').catch(() => {}); },
+  saveLog() { DB.put('meta', this.log, 'studyLog').catch(() => {}); },
+
+  tick() {
+    const s = this.st; if (!s) return; const t = Date.now();
+    if (s.running) {
+      if (this.hasTarget()) { const left = this.remaining(t); if (left <= 0) { this.phaseEnd(t + left); return this.tick(); } }
+      const n = this.curNote();
+      if ((n ? n.id : null) !== s.segNote || t - s.segStart > 60000) this.boundary(t);
+    }
+    this.paint();
+  },
+
+  /* ---------- controles ---------- */
+  start() {
+    const s = this.st, t = Date.now(); if (s.running) return;
+    if (this.hasTarget() && this.remaining(t) <= 0) this.resetPhase();
+    s.running = true; s.runStart = t; this.boundary(t); this.unlockAudio(); this.paint(); this.renderPanel();
+  },
+  pause() {
+    const s = this.st, t = Date.now(); if (!s.running) return;
+    this.boundary(t); s.acc += t - s.runStart; s.running = false; this.save(); this.paint(); this.renderPanel();
+  },
+  reset() {
+    this.pause(); const s = this.st; s.acc = 0; s.cycle = 0; s.phase = 'focus'; this.resetPhase(); this.save(); this.paint(); this.renderPanel();
+  },
+  resetPhase() {
+    const s = this.st, P = s.pomo; s.acc = 0;
+    s.target = s.mode === 'countdown' ? s.cdMin * 60000 : s.mode === 'pomodoro' ? (s.phase === 'focus' ? P.focus : s.phase === 'long' ? P.long : P.short) * 60000 : 0;
+  },
+  setMode(m) {
+    const s = this.st; if (s.mode === m) return; this.pause();
+    s.mode = m; s.acc = 0; s.cycle = 0; s.phase = 'focus'; this.resetPhase(); this.save(); this.paint(); this.renderPanel();
+  },
+  setCountdown(min) { const s = this.st; min = clamp(Math.round(min), 1, 600); s.cdMin = min; if (!s.running && s.acc === 0) s.target = min * 60000; this.save(); this.paint(); this.renderPanel(); },
+  setPomo(k, v) { const s = this.st; s.pomo[k] = clamp(Math.round(v) || 1, 1, k === 'every' ? 12 : 180); if (this.idle() || (!s.running && s.acc === 0)) this.resetPhase(); this.save(); this.paint(); },
+  /* Pomodoro: pula para a próxima fase */
+  skip() { const t = Date.now(), s = this.st; if (s.mode !== 'pomodoro') return; if (!s.running) { s.running = true; s.runStart = t; s.segStart = t; } /* pausado: o tempo parado não vira estudo */ this.phaseEnd(t, true); this.renderPanel(); },
+
+  /* fim do temporizador ou de uma fase do Pomodoro (endT = quando acabou de verdade, pode ser no passado) */
+  phaseEnd(endT, skipped) {
+    const s = this.st, P = s.pomo; this.boundary(endT);
+    if (s.mode === 'countdown') { s.running = false; s.acc = 0; s.target = s.cdMin * 60000; this.save(); this.alert('Tempo esgotado! ' + this.fmtDur(s.cdMin * 60000) + ' de estudo', endT, skipped); this.paint(); this.renderPanel(); return; }
+    if (s.phase === 'focus') { // foco acabou: a pausa começa sozinha
+      s.cycle++; s.phase = s.cycle % P.every === 0 ? 'long' : 'short'; this.resetPhase(); s.running = true; s.runStart = endT; s.segStart = endT;
+      this.alert(`Foco concluído (${s.cycle}º). Pausa ${s.phase === 'long' ? 'longa ' : ''}de ${s.phase === 'long' ? P.long : P.short} min`, endT, skipped);
+    } else { // pausa acabou: espera você tocar para começar o próximo foco
+      s.phase = 'focus'; this.resetPhase(); s.running = false;
+      this.alert('Pausa terminou. Toque em Iniciar para o próximo foco', endT, skipped);
+    }
+    this.save(); this.paint(); this.renderPanel();
+  },
+  alert(msg, endT, quiet) {
+    if (quiet) return toast(msg, 2500);
+    const late = Date.now() - endT > 5000; // terminou enquanto o app estava fechado/em segundo plano
+    toast((late ? `(às ${new Date(endT).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}) ` : '⏰ ') + msg, 7000);
+    if (late) return;
+    if (navigator.vibrate) navigator.vibrate([220, 120, 220, 120, 220]);
+    this.beep();
+  },
+  unlockAudio() { try { if (!this.ac) this.ac = new (window.AudioContext || window.webkitAudioContext)(); if (this.ac.state === 'suspended') this.ac.resume(); } catch (_) {} },
+  beep() {
+    try {
+      this.unlockAudio(); const ac = this.ac; if (!ac) return; const t0 = ac.currentTime;
+      for (let i = 0; i < 3; i++) { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 880; o.type = 'sine'; o.connect(g); g.connect(ac.destination); const a = t0 + i * 0.35; g.gain.setValueAtTime(0.0001, a); g.gain.exponentialRampToValueAtTime(0.35, a + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, a + 0.25); o.start(a); o.stop(a + 0.27); }
+    } catch (_) {}
+  },
+
+  /* ---------- tela ---------- */
+  fmt(ms) { ms = Math.max(0, Math.round(ms / 1000)); const h = Math.floor(ms / 3600), m = Math.floor((ms % 3600) / 60), s = ms % 60; return (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(s).padStart(2, '0'); },
+  fmtDur(ms) { const m = Math.round(ms / 60000); if (m < 1) return ms > 0 ? '<1 min' : '0 min'; const h = Math.floor(m / 60); return h ? `${h}h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') + 'min' : ''}` : m + ' min'; },
+  display(t = Date.now()) { return this.fmt(this.hasTarget() ? this.remaining(t) : this.elapsed(t)); },
+  phaseName() { const s = this.st; return s.mode === 'stopwatch' ? 'Cronômetro' : s.mode === 'countdown' ? 'Temporizador' : s.phase === 'focus' ? 'Foco' : s.phase === 'long' ? 'Pausa longa' : 'Pausa'; },
+  paint() {
+    const s = this.st, show = !this.idle(), txt = this.display(), brk = s.mode === 'pomodoro' && s.phase !== 'focus';
+    for (const id of ['noteTimer', 'libTimer']) {
+      const n = document.getElementById(id); if (!n) continue;
+      n.classList.toggle('hidden', !show); if (!show) continue;
+      const key = txt + '|' + s.running + '|' + brk; if (n._k === key) continue; n._k = key;
+      n.innerHTML = icon('timer') + '<b>' + txt + '</b>'; n.classList.toggle('paused', !s.running); n.classList.toggle('brk', brk);
+      n.title = `${this.phaseName()}${s.running ? '' : ' (pausado)'} · toque para abrir`;
+    }
+    const ct = document.querySelector('.ch-title'); if (ct) ct.classList.toggle('has-timer', show);
+    if (this.pop && this.pop.isConnected) { const b = this.pop.querySelector('.tm-big'); if (b) b.textContent = txt; const st = this.pop.querySelector('.tm-stats'); if (st && (!this._statT || Date.now() - this._statT > 15000)) { this._statT = Date.now(); st.replaceWith(this.statsEl()); } }
+  },
+
+  /* ---------- painel ---------- */
+  open(anchor) { const box = el('div', { class: 'tm-pop' }); this.pop = box; this.renderPanel(true); openPop(anchor, box, { onClose: () => { if (this.pop === box) this.pop = null; } }); this.pop = box; },
+  renderPanel(force) {
+    const box = this.pop; if (!box || (!force && !box.isConnected)) return;
+    const s = this.st, P = s.pomo, idle = !s.running && s.acc === 0;
+    const tab = (m, label) => el('button', { class: 'tm-tab' + (s.mode === m ? ' on' : ''), onclick: () => this.setMode(m) }, label);
+    const btn = (label, fn, cls = '') => el('button', { class: 'btn ' + cls, onclick: fn }, label);
+    const sub = s.mode === 'pomodoro' ? `${this.phaseName()} · 🍅 ${s.cycle % P.every}/${P.every}${s.cycle >= P.every ? ` (${s.cycle} no total)` : ''}` : this.phaseName();
+    const kids = [
+      el('div', { class: 'tm-tabs' }, tab('stopwatch', 'Cronômetro'), tab('countdown', 'Temporizador'), tab('pomodoro', 'Pomodoro')),
+      el('div', { class: 'tm-face' + (s.mode === 'pomodoro' && s.phase !== 'focus' ? ' brk' : '') }, el('div', { class: 'tm-big' }, this.display()), el('div', { class: 'tm-sub' }, sub + (!s.running && s.acc > 0 ? ' · pausado' : ''))),
+      el('div', { class: 'tm-ctrl' },
+        s.running ? btn('Pausar', () => this.pause()) : btn(s.acc > 0 ? 'Continuar' : 'Iniciar', () => this.start(), 'primary'),
+        !this.idle() ? btn(s.mode === 'pomodoro' ? 'Parar' : 'Zerar', () => this.reset()) : null,
+        s.mode === 'pomodoro' && !this.idle() ? btn(s.phase === 'focus' ? 'Pular para a pausa' : 'Pular pausa', () => this.skip()) : null),
+    ];
+    if (s.mode === 'countdown' && idle) {
+      const inp = el('input', { type: 'number', min: 1, max: 600, value: s.cdMin, class: 'tm-num', onchange: () => this.setCountdown(+inp.value || s.cdMin) });
+      kids.push(el('div', { class: 'tm-chips' }, ...[5, 10, 15, 25, 30, 45, 60, 90].map((m) => el('button', { class: 'tm-chip' + (s.cdMin === m ? ' on' : ''), onclick: () => this.setCountdown(m) }, m + ' min')), el('label', { class: 'tm-own' }, inp, 'min')));
+    }
+    if (s.mode === 'pomodoro' && this.idle()) {
+      const f = (label, k, unit) => { const i = el('input', { type: 'number', min: 1, value: P[k], class: 'tm-num', onchange: () => { this.setPomo(k, +i.value); this.renderPanel(); } }); return el('label', { class: 'tm-field' }, el('span', {}, label), i, unit); };
+      kids.push(el('div', { class: 'tm-pomo' }, f('Foco', 'focus', 'min'), f('Pausa', 'short', 'min'), f('Pausa longa', 'long', 'min'), f('Longa a cada', 'every', 'focos')));
+    }
+    if (s.mode === 'pomodoro') kids.push(el('p', { class: 'tm-hint' }, 'A pausa começa sozinha quando o foco acaba; o próximo foco espera você tocar em Iniciar. As pausas não entram no tempo de estudo.'));
+    kids.push(this.statsEl()); this._statT = Date.now();
+    box.innerHTML = ''; box.append(...kids.filter(Boolean));
+  },
+  /* totais: hoje, 7 dias (barrinhas) e as notas da semana */
+  statsEl() {
+    const L = this.log, s = this.st, t = Date.now(), pend = this.counts() && s.segStart ? t - s.segStart : 0, today = this.dayKey(t);
+    const dayTotal = (k) => { const d = L.days[k] || {}; let v = 0; for (const x in d) v += d[x]; return v + (k === today ? pend : 0); };
+    const days = []; for (let i = 6; i >= 0; i--) { const d = new Date(t); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); days.push({ k: this.dayKey(d.getTime()), d }); }
+    const vals = days.map((x) => dayTotal(x.k)), max = Math.max(...vals, 1), week = vals.reduce((a, b) => a + b, 0);
+    const per = {}; for (const { k } of days) { const d = L.days[k] || {}; for (const x in d) per[x] = (per[x] || 0) + d[x]; }
+    if (pend) { const k = s.segNote || '_'; per[k] = (per[k] || 0) + pend; }
+    const top = Object.entries(per).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const WD = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+    const curTitle = (id) => (id === s.segNote && s.segTitle) || L.titles[id] || (typeof Store !== 'undefined' && Store.heads[id] && Store.heads[id].title) || 'Nota apagada';
+    return el('div', { class: 'tm-stats' },
+      el('div', { class: 'tm-tot' }, el('span', {}, 'Hoje ', el('b', {}, this.fmtDur(vals[6]))), el('span', {}, '7 dias ', el('b', {}, this.fmtDur(week)))),
+      el('div', { class: 'tm-bars' }, ...days.map((x, i) => el('div', { class: 'tm-bar' + (i === 6 ? ' today' : ''), title: `${x.d.toLocaleDateString('pt-BR')}: ${this.fmtDur(vals[i])}` }, el('i', { style: { height: Math.round((vals[i] / max) * 100) + '%' } }), el('small', {}, WD[x.d.getDay()])))),
+      top.length ? el('div', { class: 'tm-notes' }, el('div', { class: 'tm-h' }, 'Notas nos últimos 7 dias'), ...top.map(([id, v]) => el('div', { class: 'tm-row' }, el('span', {}, id === '_' ? 'Fora das notas' : curTitle(id)), el('b', {}, this.fmtDur(v))))) : el('p', { class: 'tm-hint' }, 'O tempo estudado aparece aqui, por dia e por nota.'));
+  },
+};

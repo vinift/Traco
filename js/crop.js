@@ -172,7 +172,7 @@ Object.assign(Editor, {
   removeCropBar() { const b = $('#cropBar'); if (b) b.remove(); },
 });
 
-/* ===== v0.20 — três toques rápidos com a caneta = laço =====
+/* ===== v0.20 — três toques rápidos com a caneta = laço (v0.21: e, com o laço ativo, de volta para a caneta) =====
    Funciona com qualquer ferramenta. Só observa os eventos (captura no #stage, antes do editor) e, no 3º toque,
    desfaz o que os toques criaram (pontinhos, borrachadas, seleção, caixa de texto) e troca para o laço. */
 Object.assign(Editor, {
@@ -189,7 +189,7 @@ Object.assign(Editor, {
         if (this.textEl) this.commitText(); if (this._penDot) this.flushPenDot();
       }
       down = { id: e.pointerId, t: now, x: e.clientX, y: e.clientY, far: false };
-      if (!taps.length) this._tripleBase = now;
+      if (!taps.length) { this._tripleBase = now; this._tripleTool = this.tool; } /* ferramenta de antes dos toques */
     }, true);
     this.stage.addEventListener('pointermove', (e) => { if (down && e.pointerId === down.id && Math.hypot(e.clientX - down.x, e.clientY - down.y) > MOVE) down.far = true; }, true);
     const up = (e) => {
@@ -197,13 +197,13 @@ Object.assign(Editor, {
       if (d.far || now - d.t > TAP_MS) { taps = []; return; }
       taps.push({ x: d.x, y: d.y, up: now });
       if (taps.length < 3) return;
-      taps = []; const base = this._tripleBase;
-      setTimeout(() => this.penTripleFire(base), 0); // depois que o editor terminar de tratar o 3º toque
+      taps = []; const base = this._tripleBase, was = this._tripleTool;
+      setTimeout(() => this.penTripleFire(base, was), 0); // depois que o editor terminar de tratar o 3º toque
     };
     this.stage.addEventListener('pointerup', up, true);
     this.stage.addEventListener('pointercancel', () => { down = null; }, true);
   },
-  penTripleFire(base) {
+  penTripleFire(base, was) {
     if (!this.note) return;
     if (this._penDot) { clearTimeout(this._penDot.timer); this._penDot = null; } // pontinho ainda não gravado: descarta
     if (this.textEl) this.commitText();
@@ -212,7 +212,9 @@ Object.assign(Editor, {
     while (this.undoStack.length && this.undoStack[this.undoStack.length - 1].t >= base) { this.undo(); n++; }
     if (n) this.redoStack.splice(this.redoStack.length - n, n);
     this.sel = null; this.updateUndoBtns();
-    UI.setTool('lasso', true); toast('Laço', 700); if (navigator.vibrate) navigator.vibrate(12);
+    /* v0.21: se o laço já estava ativo, volta para a caneta (com o tipo, cor e espessura de antes) */
+    const to = was === 'lasso' ? 'pen' : 'lasso';
+    UI.setTool(to, true); toast(to === 'pen' ? 'Caneta' : 'Laço', 700); if (navigator.vibrate) navigator.vibrate(12);
     this.requestRender();
   },
 });
