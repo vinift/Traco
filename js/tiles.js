@@ -10,7 +10,9 @@ function oid(o) { if (!o || typeof o !== 'object') return 0; let n = _oid.get(o)
 
 Object.assign(Editor, {
   // memória: cada bloco tem 1 MB; o Chrome do Android derruba a tela (barras somem) se a memória de desenho estoura
-  tileMax: (navigator.deviceMemory || 4) >= 8 ? 130 : 70, previewMax: (navigator.deviceMemory || 4) >= 8 ? 18 : 10, tileBudgetMs: 10,
+  /* v0.23.3: limite de blocos (cada um ~1 MB). "Alta" (padrão) dá espaço para a página atual inteira ficar nítida ao tirar o zoom; "econômica" = limite antigo */
+  tileCap() { const big = (navigator.deviceMemory || 4) >= 8, hi = (Store.settings.zoomQuality || 'high') === 'high'; return hi ? (big ? 200 : 110) : (big ? 130 : 70); },
+  pfMargin: 0.35, previewMax: (navigator.deviceMemory || 4) >= 8 ? 18 : 10, tileBudgetMs: 10,
   freeCanvas(c) { if (c) { if (c.parentNode) c.remove(); c.width = 0; c.height = 0; } }, // devolve a memória na hora (sem esperar a coleta de lixo)
   resetTiles() {
     if (this.tiles) for (const t of this.tiles.values()) this.freeCanvas(t.cv);
@@ -108,9 +110,9 @@ Object.assign(Editor, {
     return { cv, s, used: 0 };
   },
   evictTiles() {
-    if (this.tiles.size <= this.tileMax) return;
+    if (this.tiles.size <= this.tileCap()) return;
     const arr = [...this.tiles.entries()].sort((a, b) => a[1].used - b[1].used);
-    for (let i = 0; i < arr.length - this.tileMax; i++) { const [k, t] = arr[i]; if (t.used === this.frameNo) break; this.tiles.delete(k); this.freeCanvas(t.cv); const pc = this.pcache.get(t.pid); if (pc) { const lv = pc.levels.get(t.lvl); if (lv) { lv.delete(t.key); if (!lv.size) pc.levels.delete(t.lvl); } } }
+    for (let i = 0; i < arr.length - this.tileCap(); i++) { const [k, t] = arr[i]; if (t.used === this.frameNo) break; this.tiles.delete(k); this.freeCanvas(t.cv); const pc = this.pcache.get(t.pid); if (pc) { const lv = pc.levels.get(t.lvl); if (lv) { lv.delete(t.key); if (!lv.size) pc.levels.delete(t.lvl); } } }
     const prev = [...this.pcache.values()].filter((pc) => pc.preview).sort((a, b) => a.preview.used - b.preview.used);
     for (let i = 0; i < prev.length - this.previewMax; i++) { this.freeCanvas(prev[i].preview.cv); prev[i].preview = null; }
   },
@@ -274,34 +276,50 @@ Object.assign(Editor, {
      Ao tirar o zoom, as bordas que aparecem já têm conteúdo nítido (no máximo 2× esticado), em vez da miniatura borrada da página.
      Só troca a camada visível quando a nova está completa. */
   prefetchOverview(t0) {
-    const d = this.dpr, s = this.cam.z * d, L = +(s * 0.5).toFixed(5), inf = this.note.mode === 'infinite';
-    if (L < 0.45 * d) return 0; // já bem afastado: a página inteira cabe e a miniatura dá conta
-    if (this._ovLvl === L) return 0;
-    this._ovNext = L;
-    const z = this.cam.z, vw = this.W / z, vh = this.H / z, area = { x: this.cam.x - vw / 2, y: this.cam.y - vh / 2, w: vw * 2, h: vh * 2 };
+    /* v0.23.3: cobre a PÁGINA ATUAL INTEIRA (mais 2× a área da tela em volta), com ~71% do zoom atual (esticada no máx. 1,4× no começo do gesto).
+       Se a página pedir blocos demais (zoom muito alto), cai para 50% do zoom, para não pesar */
+    const d = this.dpr, s = this.cam.z * d, inf = this.note.mode === 'infinite';
+    const z = this.cam.z, vw = this.W / z, vh = this.H / z, view2 = { x: this.cam.x - vw / 2, y: this.cam.y - vh / 2, w: vw * 2, h: vh * 2 };
+    const ci = inf ? -1 : this.currentPageIndex(), cp = ci >= 0 ? this.note.pages[ci] : null, co = cp ? this.layout[ci] : null;
+    const tilesFor = (L) => (cp ? Math.ceil((cp.w * L) / TILE) * Math.ceil((cp.h * L) / TILE) : 0);
+    /* orçamento de memória: o que sobra do limite depois dos blocos do zoom atual (tela + margem de pré-carga) */
+    const tiles = (L, a) => Math.max(0, Math.ceil((a.w * L) / TILE) + 1) * Math.max(0, Math.ceil((a.h * L) / TILE) + 1);
+    const curNeed = tiles(s, { w: vw * 1.3, h: vh * (1 + 2 * this.pfMargin) }), budget = this.tileCap() - curNeed - 8;
+    const need = (L) => tilesFor(L) + (inf ? tiles(L, view2) : Math.round(tiles(L, view2) * 0.5)); // página atual inteira + parte das vizinhas
+    let L = null; for (const f of [0.7071, 0.5, 0.3536]) { const c = +(s * f).toFixed(5); if (need(c) <= budget) { L = c; break; } }
+    if (L == null || L < 0.45 * d) return 0; // sem espaço, ou já bem afastado (a página inteira cabe na tela e os blocos normais dão conta)
+    if (this._ovNext !== L && this._ovLvl !== L) this._ovNext = L;
     let n = 0, missing = 0;
     this.note.pages.forEach((page, i) => {
-      const o = this.layout[i]; if (!inf && !rectsHit({ x: o.x, y: o.y, w: page.w, h: page.h }, area)) return;
+      const o = this.layout[i], isCur = i === ci;
+      const area = isCur ? { x: o.x, y: o.y, w: page.w, h: page.h } : view2;
+      if (!inf && !rectsHit({ x: o.x, y: o.y, w: page.w, h: page.h }, view2) && !isCur) return;
       const pc = this.pageCache(page), lv = pc.levels.get(L) || (pc.levels.set(L, new Map()), pc.levels.get(L));
       const x0 = Math.max(inf ? -Infinity : 0, area.x - o.x), y0 = Math.max(inf ? -Infinity : 0, area.y - o.y), x1 = Math.min(inf ? Infinity : page.w, area.x - o.x + area.w), y1 = Math.min(inf ? Infinity : page.h, area.y - o.y + area.h);
       if (x1 <= x0 || y1 <= y0) return;
+      /* da tela para fora: os blocos mais perto do centro da tela primeiro */
+      const want = [], cx = (this.cam.x + vw / 2 - o.x) * L, cy = (this.cam.y + vh / 2 - o.y) * L;
       for (let ty = Math.floor((y0 * L) / TILE); ty <= Math.floor((y1 * L - 0.001) / TILE); ty++) for (let tx = Math.floor((x0 * L) / TILE); tx <= Math.floor((x1 * L - 0.001) / TILE); tx++) {
         const key = tx + ',' + ty, t = lv.get(key); if (t && !t.stale) { t.used = this.frameNo; continue; }
+        want.push([tx, ty, key, Math.hypot((tx + 0.5) * TILE - cx, (ty + 0.5) * TILE - cy)]);
+      }
+      want.sort((a, b) => a[3] - b[3]);
+      for (const [tx, ty, key] of want) {
         if (performance.now() - t0 > 12 || n >= 4) { missing++; continue; }
         const nt = this.renderTile(page, i, L, tx, ty); nt.pid = page.id; nt.lvl = L; nt.key = key; nt.used = this.frameNo;
         this.putTile(lv, nt); if (this.domMode()) this.placeTile(nt, i); n++;
       }
     });
-    if (!missing && !n) { this._ovLvl = L; this._ovNext = null; this.requestRender(); } // completa: passa a ser a camada de baixo
+    if (!missing && !n && this._ovLvl !== L) { this._ovLvl = L; this._ovNext = null; this.requestRender(); } // completa: passa a ser a camada de baixo
     return n || (missing ? 1 : 0);
   },
   /* blocos da reserva que estão na tela e a miniatura não podem ser descartados da memória enquanto aparecem */
   keepVisible(pc, page, o, vis) {
     if (pc.preview) pc.preview.used = this.frameNo;
     const inf = this.note.mode === 'infinite';
-    for (const L of [this._fbLvl, this._curLvl, this._ovLvl]) {
+    for (const L of [this._fbLvl, this._curLvl, this._ovLvl, this._ovNext]) {
       const lv = L != null && pc.levels.get(L); if (!lv) continue;
-      if (L === this._ovLvl && L !== this._curLvl) { for (const t of lv.values()) t.used = this.frameNo; continue; } // camada afastada: inteira (é pequena e é ela que cobre ao tirar o zoom)
+      if ((L === this._ovLvl || L === this._ovNext) && L !== this._curLvl) { for (const t of lv.values()) t.used = this.frameNo; continue; } // camada afastada: inteira (é pequena e é ela que cobre ao tirar o zoom)
       for (const [key, t] of lv) { const [tx, ty] = key.split(',').map(Number), r = { x: (inf ? 0 : o.x) + (tx * TILE) / L, y: (inf ? 0 : o.y) + (ty * TILE) / L, w: TILE / L, h: TILE / L }; if (rectsHit(r, vis)) t.used = this.frameNo; }
     }
   },
@@ -310,7 +328,7 @@ Object.assign(Editor, {
     clearTimeout(this._pfT);
     this._pfT = setTimeout(() => {
       if (!this.note || this.gesture || this._inertia || this.action) return this.schedulePrefetch();
-      const s = this.cam.z * this.dpr, lvl = +s.toFixed(5), z = this.cam.z, m = 0.6; // 60% de uma tela acima e abaixo
+      const s = this.cam.z * this.dpr, lvl = +s.toFixed(5), z = this.cam.z, m = this.pfMargin; // v0.23.3: 35% de uma tela acima e abaixo (antes 60%; a camada afastada cobre a rolagem)
       const vis = { x: this.cam.x - (this.W / z) * 0.15, y: this.cam.y - (this.H / z) * m, w: (this.W / z) * 1.3, h: (this.H / z) * (1 + 2 * m) };
       const t0 = performance.now(); let n = 0;
       this.note.pages.forEach((page, i) => {
