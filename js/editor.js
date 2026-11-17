@@ -799,7 +799,10 @@ const Editor = {
   selHit(p) {
     const box = this.selScreenBox(); if (!box) return null;
     if (this.selLocked()) return null; // bloqueados não se movem
-    { let best = null, bd = 26; for (const [h, x, y] of this.selHandles(box)) { const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = h; } } if (best) { this._sh = best; return 'scale'; } }
+    /* v0.24.6: objeto pequeno (ponto, acento…): tocar DENTRO da caixa sempre move; as alças só pegam do lado de fora dos cantos.
+       Antes o raio de 26 px das alças cobria a caixa inteira e não dava para arrastar coisas pequenas */
+    const small = Math.min(box.w, box.h), inBox = p.x >= box.x && p.x <= box.x + box.w && p.y >= box.y && p.y <= box.y + box.h;
+    if (!(small < 70 && inBox && !this.selTable())) { let best = null, bd = small < 70 ? 20 : 26; for (const [h, x, y] of this.selHandles(box)) { const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = h; } } if (best) { this._sh = best; return 'scale'; } }
     if (Math.hypot(p.x - (box.x + box.w / 2), p.y - (box.y - 34)) < 24) return 'rotate';
     const te = this.selTable();
     if (te) { const h = this.tableHit(te, p); this._thit = h; return h ? (h.k === 'tmove' ? 'move' : 'tableact') : null; }

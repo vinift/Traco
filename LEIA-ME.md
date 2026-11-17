@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.24.6
+
+- **Mover objetos pequenos:** em pontos, acentos e outras coisas pequenas selecionadas, tocar dentro da seleção sempre move; as alças de redimensionar só pegam quando você toca do lado de fora dos cantos (com área de toque menor). Em objetos grandes nada mudou.
+
 ## Novidades da v0.24.5
 
 - **Rabisco leve em qualquer direção:** vertical, diagonal ou horizontal. O app mede a direção principal do rabisco.

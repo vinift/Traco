@@ -90,7 +90,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 - Laço + segurar o dedo parado 550 ms → painel "colar" da biblioteca (`lassoHoldPaste`, cola no ponto com `pasteAt`).
 
 ### Seleção
-- Alças: 4 cantos (proporcional, ancorado no canto oposto) + 4 lados (estica um eixo); texto só tem laterais; itens girados só cantos. Alça de girar em cima.
+- Alças: 4 cantos (proporcional, ancorado no canto oposto) + 4 lados (estica um eixo); texto só tem laterais; itens girados só cantos. Alça de girar em cima. Seleção pequena (caixa < 70 px na tela): tocar dentro sempre move; alças só por fora, raio 20 px (`selHit`).
 - Barra da seleção: cor, espessura (com ±0,1 e as espessuras do grupo), copiar/recortar/duplicar, frente, bloquear, recortar imagem, OCR, endireitar, ✨ melhorar escrita, excluir.
 
 ### Páginas e desfazer
@@ -150,6 +150,7 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 - v0.24.0 — cronômetro integrado às notificações do sistema (`sysSync`, `armEnd`, `sysAlarm`, `askNotify`; `notificationclick` no `sw.js`; `S.timerNotify`).
 - v0.24.1 — barras piscando na pinça: econômica volta a `tileCap` 90/60 e `previewCap()` 10; camada afastada e miniaturas durante o gesto só na alta; `updateHud` ~8×/s no gesto.
 - v0.24.2 — trava de rolagem/centralização em 70%.
+- v0.24.6 — `selHit`: objetos pequenos movem ao tocar dentro (alças só por fora, raio 20).
 - v0.24.5 — rabisco leve em qualquer direção (`lightPasses`, PCA), protege o "B"; desfazer já restaurava o apagado (op normal no histórico).
 - v0.24.4 — rabisco "leve" (ver seção 5 → Caneta e escrita). Teste: ao mudar `Editor.cam.z` no teste, recentralize `cam.x` — senão o ponto pode cair fora da folha e a caneta não escreve (parece bug, não é).
 - v0.24.3 — rabiscar para apagar coisas pequenas (`rawPts`, medidas em px de tela, `someInside`, margem 1,5 px); trava de rolagem configurável (`Editor.lockZ()`/`S.lockZoom`); respiro entre controles das seções de configuração. Teste: `openSettings()` só resolve ao fechar — chame sem `await`.
