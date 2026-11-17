@@ -416,16 +416,36 @@ function isScribble(flat, z = 1) {
   if ((okH || okV) && len > 2.4 * (w + h)) return 2; // rabisco "forte": 4 idas e voltas
   /* v0.24.4: rabisco "leve" — 3 idas e voltas (ou voltinhas/caracóis), mais curto. Só apaga o que ficar BEM coberto (ver scribbleTargets),
      e se não houver nada embaixo vira tinta normal: por isso pode ser bem menos exigente */
-  /* só idas e voltas HORIZONTAIS (o jeito comum de rabiscar): as verticais são as corcovas de m, n, u, w escritos em cursiva */
-  const lH = passes(0, 0.35);
-  /* com só 3 passadas elas precisam ficar empilhadas perto (um "z" desce a altura toda na diagonal); com 4+ é bem tolerante */
-  const okL = (lH.n >= 4 && lH.drift < Math.max(12 * px, h * 0.9)) || (lH.n === 3 && lH.maxDrift < Math.max(4 * px, h * 0.75));
-  return okL && len > 1.2 * (w + h) ? 1 : 0;
+  /* v0.24.5: em QUALQUER direção (vertical, diagonal ou horizontal): mede na direção principal do rabisco e na perpendicular.
+     As passadas precisam ficar juntinhas (deslocamento ≤ 40% do comprimento da passada): isso deixa de fora as barrigas do "B", o "z" e as corcovas largas */
+  let mx = 0, my = 0; for (let i = 0; i < n; i++) { mx += flat[i * 3]; my += flat[i * 3 + 1]; } mx /= n; my /= n;
+  let sxx = 0, syy = 0, sxy = 0; for (let i = 0; i < n; i++) { const dx = flat[i * 3] - mx, dy = flat[i * 3 + 1] - my; sxx += dx * dx; syy += dy * dy; sxy += dx * dy; }
+  const th = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+  for (const ang of [th, th + Math.PI / 2, 0, Math.PI / 2]) {
+    const c = Math.cos(-ang), si = Math.sin(-ang), R = new Array(n * 3); let a1 = Infinity, a2 = -Infinity, b1 = Infinity, b2 = -Infinity;
+    for (let i = 0; i < n; i++) { const dx = flat[i * 3] - mx, dy = flat[i * 3 + 1] - my, u = dx * c - dy * si, v = dx * si + dy * c; R[i * 3] = u; R[i * 3 + 1] = v; a1 = Math.min(a1, u); a2 = Math.max(a2, u); b1 = Math.min(b1, v); b2 = Math.max(b2, v); }
+    const W = a2 - a1, Hh = b2 - b1, L = lightPasses(R, n, W, px);
+    if (!L.n || L.ratio > 0.4 || Hh > 1.2 * L.plen) continue; // compacto: as corcovas de "m"/"nn" se espalham para o lado
+    const ok = L.n >= 4 || (L.n === 3 && L.ratio <= 0.28 && L.maxDrift < Math.max(4 * px, Hh * 0.75));
+    if (ok && len > 1.2 * (W + Hh)) return 1;
+  }
+  return 0;
 }
 // Apaga tudo o que estiver majoritariamente dentro da área do rabisco, mesmo sem encostar
 function someInside(e, hull) {
   if (e.type === 'stroke' && e.pts) { for (let i = 0; i < e.pts.length; i += 3) if (pointInPoly(e.pts[i], e.pts[i + 1], hull)) return true; return false; }
   const b = elBBox(e); return [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h], [b.x + b.w / 2, b.y + b.h / 2]].some(([x, y]) => pointInPoly(x, y, hull));
+}
+/* passadas ao longo do eixo x de pontos já girados: quantas, deslocamento médio/máximo entre elas e comprimento médio */
+function lightPasses(R, n, ext, px) {
+  if (ext < 3 * px) return { n: 0 };
+  const thr = Math.max(ext * 0.12, 1.2 * px); let dir = 0, ex = R[0], exC = R[1]; const turns = [[ex, exC]];
+  for (let i = 1; i < n; i++) { const v = R[i * 3], c = R[i * 3 + 1]; if (!dir) { if (Math.abs(v - ex) > thr) { dir = Math.sign(v - ex); ex = v; exC = c; } continue; } if ((v - ex) * dir > 0) { ex = v; exC = c; } else if (Math.abs(v - ex) > thr) { turns.push([ex, exC]); dir = -dir; ex = v; exC = c; } }
+  turns.push([ex, exC]);
+  const dr = [], ln = []; for (let k = 1; k < turns.length; k++) { const L = Math.abs(turns[k][0] - turns[k - 1][0]); if (L >= ext * 0.35) { dr.push(Math.abs(turns[k][1] - turns[k - 1][1])); ln.push(L); } }
+  if (!dr.length) return { n: 0 };
+  const md = dr.reduce((a, b) => a + b, 0) / dr.length, ml = ln.reduce((a, b) => a + b, 0) / ln.length;
+  return { n: dr.length, maxDrift: Math.max(...dr), ratio: md / ml, plen: ml };
 }
 /* fração do item que fica dentro da área do rabisco (traços: pelos pontos; outros: cantos e centro da caixa) */
 function coverIn(e, hull) {

@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.24.5
+
+- **Rabisco leve em qualquer direção:** vertical, diagonal ou horizontal. O app mede a direção principal do rabisco.
+- **Escrever "B" maiúsculo não apaga mais a haste:** o rabisco leve agora exige linhas bem juntinhas e compactas, e as barrigas do "B", as corcovas de "m"/"nn" e o "z" ficam de fora. Voltinhas largas ("ondinhas") deixam de valer como rabisco leve.
+- **Desfazer** (botão, 2 dedos na metade esquerda ou atalho da caneta) devolve o que o rabisco apagou.
+- **Rabisco forte apaga também o que está encostado:** com 5 ou mais idas e voltas, o rabisco apaga tudo o que toca por dentro (ex.: riscar a haste de um "a" leva a bolinha junto). Para tirar só um traço, use 3 ou 4 passadas.
+
 ## Novidades da v0.24.4
 
 - **Rabiscar para apagar bem menos exigente:** agora há o "rabisco leve" — 3 idas e voltas na horizontal (ou voltinhas/caracóis), curtinho, em cima de uma letra ou de um traço só (como a haste de um "a" de forma) — que apaga só o que ficou bem coberto pelo rabisco (pelo menos ~35%). O rabisco forte (4+ idas e voltas) continua apagando tudo em que passa por cima, como antes.
