@@ -153,6 +153,16 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.24.8
+
+- **Carimbo de data com linha:** no painel da ferramenta (toque de novo no 📅), ligue "Adicionar uma linha embaixo da data". Dá para escolher:
+  - o estilo (contínua, tracejada, traço longo, pontilhada, traço e ponto);
+  - o comprimento (até a margem da página ou do tamanho do texto);
+  - a espessura e a cor.
+  
+  A data e a linha entram juntas, e um "desfazer" tira as duas.
+- **Carimbo de data junto com as outras ferramentas na barra lateral**, sem divisória (o ponteiro laser também).
+
 ## Novidades da v0.24.7
 
 - **Compartilhar notas voltou a funcionar:** o Android só abre o menu de compartilhar logo depois de um toque, e gerar o PDF demorava o suficiente para esse toque "expirar". Agora aparece a janela **PDF pronto** com os botões **Compartilhar** (abre o menu do Android: WhatsApp, Drive, e-mail…) e **Salvar**. Também dá para compartilhar direto da biblioteca: menu da nota → "Compartilhar PDF…".

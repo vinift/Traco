@@ -107,14 +107,15 @@ const UI = {
       const b = B(t.icon, t.name, () => this.setTool(t.id), Editor.tool === t.id ? 'on' : '');
       if ((t.id === 'pen' || t.id === 'highlighter') && Editor.tool !== t.id) b.append(el('span', { style: { position: 'absolute', right: '7px', bottom: '7px', width: '9px', height: '9px', borderRadius: '50%', background: S.tools[t.id].color, boxShadow: '0 0 0 1.5px var(--ch)' } }));
     }
+    /* v0.24.8: ferramentas próprias (carimbo de data etc.) junto com as outras, sem divisória */
+    for (const t of Plugins.tools) B(null, t.name, () => this.setTool(t.id), Editor.tool === t.id ? 'on' : '', pluginIcon(t.icon));
     B('image', 'Inserir imagem', async () => Editor.insertImage(await pickFile('image/*')));
     B('library', 'Biblioteca (itens copiados)', () => this.openClips(), this.clipsOpen ? 'soft-on' : '').id = 'btnClips';
     r.append(el('div', { class: 'sep' }));
     B('ruler', 'Régua', () => Instruments.toggle('ruler'), Instruments.ruler.on ? 'soft-on' : '');
     B('protractor', 'Transferidor', () => Instruments.toggle('prot'), Instruments.prot.on ? 'soft-on' : '');
-    if (Plugins.tools.length || Plugins.actions.length) {
+    if (Plugins.actions.length) {
       r.append(el('div', { class: 'sep' }));
-      for (const t of Plugins.tools) B(null, t.name, () => this.setTool(t.id), Editor.tool === t.id ? 'on' : '', pluginIcon(t.icon));
       for (const a of Plugins.actions) B(null, a.name, () => Plugins.runAction(a), '', pluginIcon(a.icon));
     }
     r.append(el('div', { class: 'grow' }));

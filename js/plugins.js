@@ -2,11 +2,12 @@
 /* ===== Ferramentas próprias (plugins em JavaScript) ===== */
 const EXAMPLE_PLUGINS = [
   {
-    id: 'ex-data', name: 'Carimbo de data', enabled: true, builtin: true, ver: 2,
+    id: 'ex-data', name: 'Carimbo de data', enabled: true, builtin: true, ver: 3,
     code: `// Toque na página para inserir a data. Personalize o texto no painel de ajustes da ferramenta.
 const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-const PADRAO = { formato: 'Aula dia {dd}/{mm}/{aaaa}', size: 20, color: '#2563eb', bold: true };
+const PADRAO = { formato: 'Aula dia {dd}/{mm}/{aaaa}', size: 20, color: '#2563eb', bold: true, line: false, lineDash: 'solid', lineW: 1.5, lineColor: '#2563eb', lineLen: 'margem' };
+const TRACOS = [['solid', 'Contínua'], ['short', 'Tracejada'], ['long', 'Traço longo'], ['dot', 'Pontilhada'], ['dashdot', 'Traço e ponto']];
 const MODELOS = ['Aula dia {dd}/{mm}/{aaaa}', 'Aula {dd}/{mm} — {Dia}', '{Dia}, {dd} de {mes} de {aaaa}', '{dd}/{mm}/{aaaa}', 'Revisão — {dd} de {mes}'];
 const cfg = (api) => Object.assign({}, PADRAO, api.store.get('cfg') || {});
 function formatar(f, d = new Date()) {
@@ -18,8 +19,13 @@ function formatar(f, d = new Date()) {
 Traco.registerTool({
   id: 'carimbo-data', name: 'Carimbo de data', icon: '📅',
   onUp(p, api) {
-    const c = cfg(api), txt = formatar(c.formato);
-    api.addText(p.x, p.y - c.size * 0.6, txt, { size: c.size, color: c.color, bold: c.bold, w: Math.max(120, txt.length * c.size * 0.62) });
+    const c = cfg(api), txt = formatar(c.formato), w = Math.max(120, txt.length * c.size * 0.62), y = p.y - c.size * 0.6;
+    const els = [{ type: 'text', x: p.x, y, w, text: txt, size: c.size, color: c.color, bold: !!c.bold }];
+    if (c.line) { /* linha embaixo da data: até a margem direita da página, ou só do tamanho do texto */
+      const ly = y + c.size * 1.55, x2 = c.lineLen === 'texto' ? p.x + Math.min(w, txt.length * c.size * 0.55) : Math.max(p.x + 40, (api.page.w || p.x + 600) - 30);
+      els.push({ type: 'shape', kind: 'line', x1: p.x, y1: ly, x2, y2: ly, color: c.lineColor, width: c.lineW, dash: c.lineDash, fill: null });
+    }
+    api.addElements(els); // data e linha num passo só do desfazer
   },
   renderOptions(box, api) {
     const { el, slider, switchRow, colorSection } = Traco.ui;
@@ -35,6 +41,22 @@ Traco.registerTool({
       slider('Tamanho', c.size, 10, 60, 1, (v) => v, (v) => { c.size = v; upd(); }),
       switchRow('Negrito', null, c.bold, (v) => { c.bold = v; upd(); }),
       colorSection('Cor', c.color, (v) => { c.color = v; upd(); }));
+    /* linha junto com a data */
+    const lprev = el('div', { style: { height: '14px', margin: '6px 2px 10px', borderBottom: c.lineW + 'px ' + (c.lineDash === 'solid' ? 'solid' : c.lineDash === 'dot' ? 'dotted' : 'dashed') + ' ' + c.lineColor } });
+    const lupd = () => { lprev.style.borderBottom = Math.max(1, c.lineW) + 'px ' + (c.lineDash === 'solid' ? 'solid' : c.lineDash === 'dot' ? 'dotted' : 'dashed') + ' ' + c.lineColor; lprev.style.display = c.line ? '' : 'none'; opts.style.display = c.line ? '' : 'none'; save(); };
+    const dash = el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '6px 0' } });
+    const paintDash = () => [...dash.children].forEach((b) => b.classList.toggle('primary', b.dataset.k === c.lineDash));
+    for (const [k, n] of TRACOS) dash.append(el('button', { class: 'btn', 'data-k': k, style: { height: '32px', fontSize: '12.5px', padding: '0 10px' }, onclick: () => { c.lineDash = k; paintDash(); lupd(); } }, n));
+    paintDash();
+    const len = el('div', { style: { display: 'flex', gap: '6px', margin: '6px 0' } });
+    const paintLen = () => [...len.children].forEach((b) => b.classList.toggle('primary', b.dataset.k === c.lineLen));
+    for (const [k, n] of [['margem', 'Até a margem'], ['texto', 'Do tamanho do texto']]) len.append(el('button', { class: 'btn', 'data-k': k, style: { height: '32px', fontSize: '12.5px', padding: '0 10px' }, onclick: () => { c.lineLen = k; paintLen(); lupd(); } }, n));
+    paintLen();
+    const opts = el('div', {}, lprev, el('div', { class: 'tp-sec' }, 'Estilo da linha'), dash, el('div', { class: 'tp-sec' }, 'Comprimento'), len,
+      slider('Espessura da linha', c.lineW, 0.5, 8, 0.5, (v) => String(v).replace('.', ','), (v) => { c.lineW = v; lupd(); }),
+      colorSection('Cor da linha', c.lineColor, (v) => { c.lineColor = v; lupd(); }));
+    box.append(el('div', { class: 'tp-sec' }, 'Linha'), switchRow('Adicionar uma linha embaixo da data', null, c.line, (v) => { c.line = v; lupd(); }), opts);
+    lupd();
   },
 });`,
   },
@@ -125,7 +147,8 @@ const Plugins = {
       addElement: add,
       addText: (x, y, text, o = {}) => add({ type: 'text', x, y, w: o.w || 320, text: String(text), size: o.size || S.tools.text.size, color: o.color || S.tools.text.color, bold: !!o.bold }),
       addStroke: (points, o = {}) => add({ type: 'stroke', tool: o.tool || 'pen', color: o.color || S.tools.pen.color, width: o.width || S.tools.pen.width, opacity: o.opacity, pts: points.flatMap((q) => [q[0], q[1], q[2] ?? 0.5]) }),
-      addShape: (kind, x1, y1, x2, y2, o = {}) => add({ type: 'shape', kind, x1, y1, x2, y2, color: o.color || S.tools.shape.color, width: o.width ?? S.tools.shape.width, fill: o.fill || null }),
+      addShape: (kind, x1, y1, x2, y2, o = {}) => add({ type: 'shape', kind, x1, y1, x2, y2, color: o.color || S.tools.shape.color, width: o.width ?? S.tools.shape.width, fill: o.fill || null, dash: o.dash || undefined }),
+      addElements: (list) => { const ids = []; for (const e of list) { e.id = e.id || uid(); Editor.recAdd(page, e); ids.push(e.id); } Editor.opCommit(); return ids; }, // vários itens num passo só do desfazer
       removeElement: (id) => { const e = page.elements.find((x) => x.id === id); if (e) { Editor.recRemove(page, e); Editor.opCommit(); } },
       elements: () => page.elements,
       preview: (fn) => { Editor.clearLive(); Editor.pageTf(Editor.lctx, pi); Editor.lctx.save(); fn(Editor.lctx); Editor.lctx.restore(); },
