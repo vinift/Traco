@@ -132,7 +132,7 @@ const Editor = {
     const vw = this.W / c.z, L = -this.maxW / 2, R = this.maxW / 2;
     /* v0.23.7: até 60% de zoom a folha fica centralizada (e a rolagem é só vertical). Acima disso, a borda da folha pode entrar até 35% da tela + 60 px
        (como na v0.20), mas essa folga é fixa em relação à tela — antes encolhia ao tirar o zoom e empurrava a tela no meio do gesto */
-    if (c.z <= 0.6) { c.x = (L + R) / 2 - vw / 2; this._xHold = null; }
+    if (c.z <= this.LOCK_Z) { c.x = (L + R) / 2 - vw / 2; this._xHold = null; }
     else {
       const p = vw * 0.35 + 60 / c.z, loN = L - p, hiN = R + p - vw; let lo = loN, hi = hiN;
       /* na pinça o limite fica folgado (a folha só precisa cobrir metade da tela): o ponto entre os dedos não desliza */
@@ -149,6 +149,7 @@ const Editor = {
   camMaxBase() { const z = this.cam.z, vh = this.H / z; return Math.max(this.camMinY(), this.totalH - vh + 90 / z); },
   camMaxY() { return this.camMaxBase() + (this.pull || 0) * 0.6 / this.cam.z; }, // ao puxar, a folha sobe um pouco (efeito elástico)
   /* ---------- puxar para adicionar página (como no Notewise) ---------- */
+  LOCK_Z: 0.7, /* v0.24.2: até 70% de zoom a folha fica centralizada e a rolagem é só vertical (antes 60%) */
   PULL_MAX: 260, PULL_ADD: 190, /* v0.23.6: mais exigente (~340 px de puxada, antes ~150) */
   setPull(px) {
     px = this.note && this.note.mode !== 'infinite' && !this.readOnly ? Math.max(0, px) : 0;
@@ -515,7 +516,7 @@ const Editor = {
       /* v0.23.2: trava vertical bem mais leve — só quando o dedo sai quase reto (até ~11°) e solta com 14 px para o lado (antes ~22° e 32 px: o horizontal parecia preso) */
       if (!g.lock && Math.hypot(dx, dy) > 10) { g.lock = Math.abs(dx) <= Math.abs(dy) * 0.2 ? 'v' : 'free'; g.xoff = 0; }
       if (g.lock === 'v' && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 0.18) { g.lock = 'free'; g.xoff = dx; } // foi para o lado de propósito
-      const ex = g.lock === 'free' && g.cam.z > 0.6 ? dx - (g.xoff || 0) : 0; /* até 60% de zoom, só rolagem vertical (v0.23.7) */
+      const ex = g.lock === 'free' && g.cam.z > this.LOCK_Z ? dx - (g.xoff || 0) : 0; /* até LOCK_Z (70%) de zoom, só rolagem vertical */
       this.cam = { z: g.cam.z, x: g.cam.x - ex / g.cam.z, y: g.cam.y - dy / g.cam.z };
     }
     if (P.length === 1) { const now = performance.now(); (g.vs = g.vs || []).push([now, this.cam.x, this.cam.y]); while (g.vs.length > 2 && now - g.vs[0][0] > 90) g.vs.shift(); } else g.vs = null;
@@ -526,7 +527,7 @@ const Editor = {
   endGesture() {
     const g = this.gesture; this.gesture = null; if (!g) return; clearTimeout(g.holdT); if (g.held) return;
     if (this.pull) this.releasePull();
-    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v' || this.cam.z <= 0.6);
+    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v' || this.cam.z <= this.LOCK_Z);
     const dt = performance.now() - g.t0;
     /* v0.23: destro → toques de 2/3 dedos só valem na metade esquerda (a palma apoia na direita); canhoto → o contrário */
     const hand = Store.settings.hand || 'right', half = this.W / 2, sideOk = hand === 'none' || (hand === 'right' ? g.maxX < half : g.minX > half);

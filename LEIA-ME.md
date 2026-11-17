@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.24.2
+
+- **Trava de rolagem a partir de 70%:** com zoom de 70% ou menos (antes 60%), a folha fica centralizada e a rolagem é só vertical.
+
 ## Novidades da v0.24.1
 
 - **Barras piscando no zoom com dois dedos:**
