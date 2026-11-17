@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.24.7
+
+- **Compartilhar notas voltou a funcionar:** o Android só abre o menu de compartilhar logo depois de um toque, e gerar o PDF demorava o suficiente para esse toque "expirar". Agora aparece a janela **PDF pronto** com os botões **Compartilhar** (abre o menu do Android: WhatsApp, Drive, e-mail…) e **Salvar**. Também dá para compartilhar direto da biblioteca: menu da nota → "Compartilhar PDF…".
+- **Tempo da tela cheia ao escrever ajustável:** Configurações → Aparência e barras → "Barras voltam depois de parar de escrever" (1 a 15 s; padrão 2,5 s).
+- **Depois de "Verificar atualização", você volta para a pasta em que estava** na biblioteca (antes voltava para o Início).
+
 ## Novidades da v0.24.6
 
 - **Mover objetos pequenos:** em pontos, acentos e outras coisas pequenas selecionadas, tocar dentro da seleção sempre move; as alças de redimensionar só pegam quando você toca do lado de fora dos cantos (com área de toque menor). Em objetos grandes nada mudou.

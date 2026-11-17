@@ -269,5 +269,5 @@ const Focus = {
   peek(ms = 4000) { const e = this.ed(); e.classList.add('peek'); clearTimeout(this._pT); this._pT = setTimeout(() => e.classList.remove('peek'), ms); },
   /* caneta encostou: esconde as barras (se a opção estiver ligada); voltam ~1,5 s depois de parar */
   writing() { if (Store.settings.hideWhileWriting === false || this.on) return; clearTimeout(this._wT); this.ed().classList.add('writing'); },
-  writingEnd() { clearTimeout(this._wT); this._wT = setTimeout(() => this.ed().classList.remove('writing'), 2500); }, // volta ~2,5 s depois de parar de escrever
+  writingEnd() { clearTimeout(this._wT); this._wT = setTimeout(() => this.ed().classList.remove('writing'), (+Store.settings.writeHideSec || 2.5) * 1000); }, // v0.24.7: tempo ajustável (Configurações → Aparência e barras; padrão 2,5 s)
 };

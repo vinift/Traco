@@ -440,9 +440,22 @@ async function exportPdfFlow(note, share = false) {
     if (Editor.note && Editor.note.id === note.id) await Editor.saveNow();
     const blob = await exportNotePdf(note, (i, t) => toast(`Gerando PDF… ${i}/${t}`, 4000));
     const name = safeName(note.title) + '.pdf';
-    if (share && navigator.canShare) { const f = new File([blob], name, { type: 'application/pdf' }); if (navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: note.title }); return; } }
+    if (share) return sharePdfReady(blob, name, note.title);
     downloadBlob(blob, name); toast('PDF gerado');
   } catch (e) { console.error(e); toast('Erro ao exportar: ' + e.message, 5000); }
+}
+
+/* v0.24.7: o Android só abre o menu de compartilhar logo depois de um toque; gerar o PDF demora e esse "toque" expirava (compartilhar falhava).
+   Agora o PDF fica pronto numa janelinha e o toque em "Compartilhar" abre o menu do sistema na hora */
+function sharePdfReady(blob, name, title) {
+  const f = new File([blob], name, { type: 'application/pdf' });
+  const can = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [f] }));
+  if (!can) { downloadBlob(blob, name); return toast('Este aparelho não deixou compartilhar direto: o PDF foi salvo em Downloads', 3500); }
+  const doShare = () => { navigator.share({ files: [f], title }).catch((e) => { if (e && e.name !== 'AbortError') { toast('Não deu para compartilhar (' + e.message + '). Salvando o PDF…', 3500); downloadBlob(blob, name); } }); return true; };
+  return openModal({ title: 'PDF pronto', body: el('p', {}, `"${name}" (${Math.max(1, Math.round(blob.size / 1024))} KB)`), buttons: [
+    { label: 'Salvar', action: () => { downloadBlob(blob, name); return true; } },
+    { label: 'Compartilhar', cls: 'primary', action: doShare },
+  ] });
 }
 
 function defaultNoteTitle(d = new Date()) { const p = (n) => String(n).padStart(2, '0'); return `Nova nota ${p(d.getDate())}/${p(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`; }

@@ -1,5 +1,5 @@
 /* Service worker: deixa o app funcionando offline */
-const VERSION = 'traco-v0.24.6';
+const VERSION = 'traco-v0.24.7';
 /* backup em segundo plano: o mesmo código do app, rodando sem tela */
 self.window = self;
 self.document = { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], addEventListener() {}, createElement: () => ({ getContext: () => ({}) }), visibilityState: 'hidden' };

@@ -96,8 +96,12 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 ### Páginas e desfazer
 - Adicionar/excluir/duplicar/mover/inserir PDF passam por `Editor.recPages(fn)` → mudança `{k:'pages', a, b}` no histórico (desfazer restaura as próprias páginas).
 
+### Compartilhar e atualizar
+- Compartilhar PDF (`exportPdfFlow(note, true)` → `sharePdfReady` em ui.js): o PDF é gerado e aparece a janela "PDF pronto"; `navigator.share` só é chamado no toque do botão "Compartilhar" — o Android exige um toque recente (gerar o PDF demora e a permissão expirava). Também no menu da nota na biblioteca.
+- "Verificar atualização" (`App.checkUpdate`) e a troca de service worker chamam `App.keepPlace()` (pasta/visão da biblioteca em `sessionStorage` 'traco-lib-place'); `App.restorePlace()` no início volta para ela.
+
 ### Topo da nota
-- `.ch-title`: título + relógio (`#noteClock`, toque abre o cronômetro) + bateria (`#noteBat`, Battery API) + tempo de estudo (`#noteTimer`, roxo cheio / verde na pausa / laranja pausado). Escrevendo ou em tela cheia, o topo some mas o tempo de estudo fica.
+- `.ch-title`: título + relógio (`#noteClock`, toque abre o cronômetro) + bateria (`#noteBat`, Battery API) + tempo de estudo (`#noteTimer`, roxo cheio / verde na pausa / laranja pausado). Escrevendo ou em tela cheia, o topo some mas o tempo de estudo fica. Ao parar de escrever, as barras voltam depois de `S.writeHideSec` s (padrão 2,5; `Focus.writingEnd`; desliga com `S.hideWhileWriting`).
 - Barra de status do Android: margens de área segura congeladas (`--sat/--sar/--sab/--sal` no CSS em vez de `env(safe-area-inset-*)`); `theme-color` acompanha a tela. A cor/transparência real da barra depende do TWA (no PWABuilder, modo de tela cheia "sticky"/imersivo, se disponível) — não dá para controlar só pelo site.
 - Segurar o dedo não abre menu/seleção do Chrome em nada, exceto em campo de texto que já estava em uso antes do toque.
 
@@ -108,7 +112,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 
 ## 6. Configurações (`Store.settings`, chaves usadas)
 
-`penDouble` (ação do toque duplo), `penTriple` (legado: false → toque duplo desligado), `hand` (right/left/none), `lockZoom` (% da trava de rolagem), `palmGuard`, `fingerDraws`, `scribbleErase`, `shapeHold`, `pressure`/`pressureSens`, `stabPen` (por tipo de caneta)/`stabHl`/`stabilizer` (legado), `autoBeautify` (0–10), `lowLatency`, `zoomQuality` (eco/high), `zoomMin`/`zoomMax`, `timerNotify`, `penMap` (botões físicos da caneta → ação), `presetGroups` (grupos de cores/espessuras), `widthPresets`/`colorPresets`, `tools` (estado de cada ferramenta), `barScale`/`barSize`, `theme`, `snap*` (guias), `hlSnapPdf`/`hlStraight`/`hlHold`, `straightAlways`, `ocr`, `drive`, `plugins`.
+`penDouble` (ação do toque duplo), `penTriple` (legado: false → toque duplo desligado), `hand` (right/left/none), `lockZoom` (% da trava de rolagem), `writeHideSec`/`hideWhileWriting` (barras ao escrever), `palmGuard`, `fingerDraws`, `scribbleErase`, `shapeHold`, `pressure`/`pressureSens`, `stabPen` (por tipo de caneta)/`stabHl`/`stabilizer` (legado), `autoBeautify` (0–10), `lowLatency`, `zoomQuality` (eco/high), `zoomMin`/`zoomMax`, `timerNotify`, `penMap` (botões físicos da caneta → ação), `presetGroups` (grupos de cores/espessuras), `widthPresets`/`colorPresets`, `tools` (estado de cada ferramenta), `barScale`/`barSize`, `theme`, `snap*` (guias), `hlSnapPdf`/`hlStraight`/`hlHold`, `straightAlways`, `ocr`, `drive`, `plugins`.
 
 ## 7. Testes (scripts Playwright avulsos — nada disso vai para o repositório)
 
@@ -150,6 +154,7 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 - v0.24.0 — cronômetro integrado às notificações do sistema (`sysSync`, `armEnd`, `sysAlarm`, `askNotify`; `notificationclick` no `sw.js`; `S.timerNotify`).
 - v0.24.1 — barras piscando na pinça: econômica volta a `tileCap` 90/60 e `previewCap()` 10; camada afastada e miniaturas durante o gesto só na alta; `updateHud` ~8×/s no gesto.
 - v0.24.2 — trava de rolagem/centralização em 70%.
+- v0.24.7 — compartilhar via janela "PDF pronto" (`sharePdfReady`), `S.writeHideSec`, `App.keepPlace/restorePlace`. Teste: simule `navigator.share` exigindo `navigator.userActivation.isActive`.
 - v0.24.6 — `selHit`: objetos pequenos movem ao tocar dentro (alças só por fora, raio 20).
 - v0.24.5 — rabisco leve em qualquer direção (`lightPasses`, PCA), protege o "B"; desfazer já restaurava o apagado (op normal no histórico).
 - v0.24.4 — rabisco "leve" (ver seção 5 → Caneta e escrita). Teste: ao mudar `Editor.cam.z` no teste, recentralize `cam.x` — senão o ponto pode cair fora da folha e a caneta não escreve (parece bug, não é).

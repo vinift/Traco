@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.24.6',
+  version: '0.24.7',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -17,7 +17,7 @@ const App = {
     const back = await Drive.handleRedirect();
     await Drive.loadTok(); // login de até 1 h atrás continua valendo
     Drive.refreshStatus();
-    Library.show();
+    this.restorePlace(); Library.show();
     if (back && Store.heads[back]) this.openNote(back);
     else this.reopenLast();
     SplitView.restore();
@@ -26,7 +26,7 @@ const App = {
       const hadController = !!navigator.serviceWorker.controller; let reloaded = false;
       navigator.serviceWorker.addEventListener('controllerchange', async () => { // versão nova instalada: recarrega uma vez
         if (!hadController || reloaded) return; reloaded = true;
-        if (Editor.note) await Editor.saveNow(); location.reload();
+        if (Editor.note) await Editor.saveNow(); App.keepPlace(); location.reload();
       });
       navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch((e) => console.warn('SW', e));
     }
@@ -41,6 +41,13 @@ const App = {
     try { localStorage.setItem('traco-reopen-try', id); } catch (_) {}
     this.openNote(id).finally(() => setTimeout(() => { try { localStorage.removeItem('traco-reopen-try'); } catch (_) {} }, 8000));
   },
+  /* v0.24.7: lembra a pasta/visão da biblioteca antes de recarregar (atualização) e volta para ela depois */
+  keepPlace() { try { sessionStorage.setItem('traco-lib-place', JSON.stringify({ folder: Library.folder, view: Library.view })); } catch (_) {} },
+  restorePlace() {
+    let p = null; try { p = JSON.parse(sessionStorage.getItem('traco-lib-place') || 'null'); sessionStorage.removeItem('traco-lib-place'); } catch (_) {}
+    if (!p) return; Library.view = p.view || 'home';
+    Library.folder = p.folder && Store.folderChain(p.folder).length ? p.folder : null;
+  },
   /* procura uma versão nova no GitHub; se houver, salva a nota, atualiza e reinicia */
   async checkUpdate(btn) {
     if (!navigator.onLine) return toast('Sem internet para verificar');
@@ -54,7 +61,7 @@ const App = {
       if (Editor.note) await Editor.saveNow();
       const reg = 'serviceWorker' in navigator && (await navigator.serviceWorker.getRegistration());
       if (reg) { try { await reg.update(); } catch (_) {} }
-      setTimeout(() => location.replace(location.pathname + '?atualizar=' + Date.now()), 600);
+      this.keepPlace(); setTimeout(() => location.replace(location.pathname + '?atualizar=' + Date.now()), 600);
     } catch (e) { toast('Não consegui verificar: ' + e.message, 3000); }
     finally { btn && btn.classList.remove('spin'); }
   },
