@@ -132,7 +132,7 @@ const Editor = {
     const vw = this.W / c.z, L = -this.maxW / 2, R = this.maxW / 2;
     /* v0.23.7: até 60% de zoom a folha fica centralizada (e a rolagem é só vertical). Acima disso, a borda da folha pode entrar até 35% da tela + 60 px
        (como na v0.20), mas essa folga é fixa em relação à tela — antes encolhia ao tirar o zoom e empurrava a tela no meio do gesto */
-    if (c.z <= this.LOCK_Z) { c.x = (L + R) / 2 - vw / 2; this._xHold = null; }
+    if (c.z <= this.lockZ()) { c.x = (L + R) / 2 - vw / 2; this._xHold = null; }
     else {
       const p = vw * 0.35 + 60 / c.z, loN = L - p, hiN = R + p - vw; let lo = loN, hi = hiN;
       /* na pinça o limite fica folgado (a folha só precisa cobrir metade da tela): o ponto entre os dedos não desliza */
@@ -149,7 +149,8 @@ const Editor = {
   camMaxBase() { const z = this.cam.z, vh = this.H / z; return Math.max(this.camMinY(), this.totalH - vh + 90 / z); },
   camMaxY() { return this.camMaxBase() + (this.pull || 0) * 0.6 / this.cam.z; }, // ao puxar, a folha sobe um pouco (efeito elástico)
   /* ---------- puxar para adicionar página (como no Notewise) ---------- */
-  LOCK_Z: 0.7, /* v0.24.2: até 70% de zoom a folha fica centralizada e a rolagem é só vertical (antes 60%) */
+  /* v0.24.3: até este zoom a folha fica centralizada e a rolagem é só vertical — ajustável em Configurações → Zoom (S.lockZoom, em %; 0 = desligada; padrão 70) */
+  lockZ() { const v = Store.settings.lockZoom; return (v == null ? 70 : +v) / 100; },
   PULL_MAX: 260, PULL_ADD: 190, /* v0.23.6: mais exigente (~340 px de puxada, antes ~150) */
   setPull(px) {
     px = this.note && this.note.mode !== 'infinite' && !this.readOnly ? Math.max(0, px) : 0;
@@ -516,7 +517,7 @@ const Editor = {
       /* v0.23.2: trava vertical bem mais leve — só quando o dedo sai quase reto (até ~11°) e solta com 14 px para o lado (antes ~22° e 32 px: o horizontal parecia preso) */
       if (!g.lock && Math.hypot(dx, dy) > 10) { g.lock = Math.abs(dx) <= Math.abs(dy) * 0.2 ? 'v' : 'free'; g.xoff = 0; }
       if (g.lock === 'v' && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 0.18) { g.lock = 'free'; g.xoff = dx; } // foi para o lado de propósito
-      const ex = g.lock === 'free' && g.cam.z > this.LOCK_Z ? dx - (g.xoff || 0) : 0; /* até LOCK_Z (70%) de zoom, só rolagem vertical */
+      const ex = g.lock === 'free' && g.cam.z > this.lockZ() ? dx - (g.xoff || 0) : 0; /* até lockZ() de zoom, só rolagem vertical */
       this.cam = { z: g.cam.z, x: g.cam.x - ex / g.cam.z, y: g.cam.y - dy / g.cam.z };
     }
     if (P.length === 1) { const now = performance.now(); (g.vs = g.vs || []).push([now, this.cam.x, this.cam.y]); while (g.vs.length > 2 && now - g.vs[0][0] > 90) g.vs.shift(); } else g.vs = null;
@@ -527,7 +528,7 @@ const Editor = {
   endGesture() {
     const g = this.gesture; this.gesture = null; if (!g) return; clearTimeout(g.holdT); if (g.held) return;
     if (this.pull) this.releasePull();
-    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v' || this.cam.z <= this.LOCK_Z);
+    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v' || this.cam.z <= this.lockZ());
     const dt = performance.now() - g.t0;
     /* v0.23: destro → toques de 2/3 dedos só valem na metade esquerda (a palma apoia na direita); canhoto → o contrário */
     const hand = Store.settings.hand || 'right', half = this.W / 2, sideOk = hand === 'none' || (hand === 'right' ? g.maxX < half : g.minX > half);
@@ -621,6 +622,7 @@ const Editor = {
     const w = this.toWorld(p.x, p.y), l = this.local(a.pi, w.x, w.y);
     let pr = 0.5;
     if (ev.pointerType === 'pen' && a.tool === 'pen' && (Store.settings.pressureSens ?? 0.6) > 0) pr = mapPressure(ev.pressure || 0.5);
+    if (a.tool === 'pen' && !a.snap) (a.rawPts || (a.rawPts = [])).push(l.x, l.y, pr); /* v0.24.3: pontos crus (sem estabilização) para reconhecer o rabisco de apagar */
     const n = a.pts.length;
     if (n) {
       const lx = a.pts[n - 3], ly = a.pts[n - 2], lp = a.pts[n - 1];
@@ -695,8 +697,9 @@ const Editor = {
     if (a.raw && !a.snap) { const n = a.pts.length; if (Math.hypot(a.pts[n - 3] - a.raw.x, a.pts[n - 2] - a.raw.y) > 0.5) a.pts.push(a.raw.x, a.raw.y, a.pts[n - 1]); }
     if (!a.pts.length) return;
     if (this.penTap(a, page)) return; // toque da caneta: caixinha ☐ ou toque duplo num texto
-    if (a.tool === 'pen' && !a.snap && Store.settings.scribbleErase && isScribble(a.pts)) {
-      const targets = scribbleTargets(page.elements, a.pts);
+    const sp = a.rawPts && a.rawPts.length >= 24 ? a.rawPts : a.pts; // a estabilização arredonda o vai-e-vem rápido: o rabisco é lido nos pontos crus
+    if (a.tool === 'pen' && !a.snap && Store.settings.scribbleErase && isScribble(sp, this.cam.z)) {
+      const targets = scribbleTargets(page.elements, sp, this.cam.z);
       if (targets.length) { for (const e of targets) this.recRemove(page, e); this.sel = null; this.opCommit(); return; }
     }
     if (a.tool === 'highlighter' && !a.snap && page.pdf && Store.settings.hlSnapPdf !== false) { // marca-texto no PDF: vira faixa reta exatamente sobre as linhas do texto

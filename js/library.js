@@ -347,6 +347,7 @@ async function openSettings(focus) {
       sel.value = S.zoomQuality === 'high' ? 'high' : 'eco';
       return el('div', { class: 'field' }, el('label', {}, 'Qualidade ao tirar o zoom'), sel);
     })(),
+    UI.slider('Trava de rolagem (folha centralizada, só vertical) até', 0, 150, 5, S.lockZoom == null ? 70 : +S.lockZoom, (v) => { S.lockZoom = v; Store.saveSettings(); if (typeof Editor !== 'undefined' && Editor.note) { Editor.clampCam(); Editor.requestRender(); } }, (v) => (v === 0 ? 'desligada' : v + '%')),
     UI.slider('Zoom máximo (aproximar)', 200, 2000, 100, +S.zoomMax || 800, (v) => { S.zoomMax = v; Store.saveSettings(); zApply(); }, (v) => v + '%'),
     el('p', { class: 'muted' }, 'No modo tela infinita o mínimo padrão é 10%.')));
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Escrita e caneta'),

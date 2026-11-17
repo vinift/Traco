@@ -795,3 +795,7 @@ input:not(:focus),textarea:not(:focus){-webkit-user-select:none;user-select:none
 .tm-sys input{margin-top:2px;width:18px;height:18px;accent-color:var(--accent)}
 .tm-sys span{display:flex;flex-direction:column;gap:1px}
 .tm-sys small{color:var(--muted);font-size:11.5px}
+
+/* v0.24.3: respiro entre os controles das seções de configuração (a seção Zoom estava apertada) */
+.set-sec > .grp, .set-sec > .field { margin: 10px 0; }
+.set-sec > .grp > label { flex: 1; min-width: 0; }

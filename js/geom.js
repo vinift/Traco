@@ -391,39 +391,49 @@ function recognizeShape(flat) {
 /* ===== Rabiscar para apagar ===== */
 // Rabisco = vai e volta várias vezes sobre a MESMA região, cruzando quase toda a largura (ou altura) a cada passada.
 // A letra cursiva avança para a direita, então as passadas não se sobrepõem — isso evita apagar por engano.
-function isScribble(flat) {
-  const n = flat.length / 3; if (n < 10) return false;
+/* rabisco de apagar (zigue-zague por cima). v0.24.3: medidas em pixels de TELA (z = zoom) — antes eram fixas na folha e rabiscos
+   pequenos (para apagar um acento, um ponto, uma letra) não contavam; passada longa = 40% do tamanho (antes 50%) */
+function isScribble(flat, z = 1) {
+  const n = flat.length / 3; if (n < 8) return false;
   let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity, len = 0;
   for (let i = 0; i < n; i++) { const x = flat[i * 3], y = flat[i * 3 + 1]; x1 = Math.min(x1, x); x2 = Math.max(x2, x); y1 = Math.min(y1, y); y2 = Math.max(y2, y); if (i) len += Math.hypot(x - flat[i * 3 - 3], y - flat[i * 3 - 2]); }
-  const w = x2 - x1, h = y2 - y1; if (w + h < 16) return false;
+  const w = x2 - x1, h = y2 - y1, px = 1 / z; if (w + h < 9 * px) return false; // menor que ~9 px de tela: é um ponto/tique
   const passes = (axis) => { // passadas longas ao longo de um eixo (com histerese para ignorar tremidas)
-    const ext = axis ? h : w; if (ext < 12) return { n: 0, drift: Infinity };
-    const thr = ext * 0.12; let dir = 0, ex = flat[axis], exC = flat[1 - axis]; const turns = [[ex, exC]];
+    const ext = axis ? h : w; if (ext < 5 * px) return { n: 0, drift: Infinity };
+    const thr = Math.max(ext * 0.12, 1.2 * px); let dir = 0, ex = flat[axis], exC = flat[1 - axis]; const turns = [[ex, exC]];
     for (let i = 1; i < n; i++) {
       const v = flat[i * 3 + axis], c = flat[i * 3 + 1 - axis];
       if (!dir) { if (Math.abs(v - ex) > thr) { dir = Math.sign(v - ex); ex = v; exC = c; } continue; }
       if ((v - ex) * dir > 0) { ex = v; exC = c; } else if (Math.abs(v - ex) > thr) { turns.push([ex, exC]); dir = -dir; ex = v; exC = c; }
     }
     turns.push([ex, exC]);
-    const long = []; for (let k = 1; k < turns.length; k++) { const L = Math.abs(turns[k][0] - turns[k - 1][0]); if (L >= ext * 0.5) long.push(Math.abs(turns[k][1] - turns[k - 1][1])); }
+    const long = []; for (let k = 1; k < turns.length; k++) { const L = Math.abs(turns[k][0] - turns[k - 1][0]); if (L >= ext * 0.4) long.push(Math.abs(turns[k][1] - turns[k - 1][1])); }
     return { n: long.length, drift: long.length ? long.reduce((s2, d) => s2 + d, 0) / long.length : Infinity };
   };
   const H = passes(0), V = passes(1);
-  const okH = H.n >= 4 && H.drift < Math.max(14, h * 0.5);           // vai-e-volta horizontal
-  const okV = V.n >= 4 && V.drift < Math.max(14, w * 0.3) && w / Math.max(h, 1) < 2.2; // vai-e-volta vertical, compacto
-  return (okH || okV) && len > 2.4 * (w + h); // v0.9.5: 4 idas e voltas bastam (letras como M e W continuam a salvo pelo comprimento)
+  const okH = H.n >= 4 && H.drift < Math.max(10 * px, h * 0.5);           // vai-e-volta horizontal
+  const okV = V.n >= 4 && V.drift < Math.max(10 * px, w * 0.3) && w / Math.max(h, 1e-6) < 2.2; // vai-e-volta vertical, compacto
+  return (okH || okV) && len > 2.4 * (w + h); // 4 idas e voltas; letras como M, W e "mm" continuam a salvo pelo comprimento
 }
 // Apaga tudo o que estiver majoritariamente dentro da área do rabisco, mesmo sem encostar
-function scribbleTargets(elements, flat) {
+function someInside(e, hull) {
+  if (e.type === 'stroke' && e.pts) { for (let i = 0; i < e.pts.length; i += 3) if (pointInPoly(e.pts[i], e.pts[i + 1], hull)) return true; return false; }
+  const b = elBBox(e); return [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h], [b.x + b.w / 2, b.y + b.h / 2]].some(([x, y]) => pointInPoly(x, y, hull));
+}
+function scribbleTargets(elements, flat, z = 1) {
   const P = []; for (let i = 0; i < flat.length; i += 3) P.push([flat[i], flat[i + 1]]);
   const hull = convexHull(P); if (hull.length < 3) return [];
   let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity; for (const [x, y] of hull) { x1 = Math.min(x1, x); x2 = Math.max(x2, x); y1 = Math.min(y1, y); y2 = Math.max(y2, y); }
-  const sb = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
-  const out = [];
+  const tol = Math.max(0.8, 1.5 / z), sb = { x: x1 - tol, y: y1 - tol, w: x2 - x1 + 2 * tol, h: y2 - y1 + 2 * tol }; /* margem de ~1,5 px de tela: não pega o vizinho (ex.: a haste do "i" ao apagar o pingo) */
+  const out = [], step = Math.max(1, Math.floor(P.length / 120));
   for (const e of elements) {
     const b = elBBox(e); if (!rectsHit(b, sb)) continue;
     if (e.type === 'image' || e.type === 'table' || e.lock) continue; // imagens, tabelas e bloqueados ficam
-    let hits = 0; for (let i = 0; i < P.length && hits < 3; i += 2) if (hitElement(e, P[i][0], P[i][1], 2)) hits++;
+    /* coisa pequena (ponto, acento, letra) com a caixa toda dentro da área do rabisco: apaga */
+    if (b.x >= sb.x && b.y >= sb.y && b.x + b.w <= sb.x + sb.w && b.y + b.h <= sb.y + sb.h && (b.w + b.h) < (sb.w + sb.h) * 1.2) { out.push(e); continue; }
+    let hits = 0; for (let i = 0; i < P.length && hits < 3; i += step) if (hitElement(e, P[i][0], P[i][1], tol)) hits++;
+    /* encostar pela borda não basta: o item precisa ter algum ponto DENTRO da área do rabisco (riscar parte de uma palavra apaga; raspar no vizinho não) */
+    if (hits >= 3 && !someInside(e, hull)) hits = 0;
     if (hits >= 3 || elInLasso(e, hull)) out.push(e);
   }
   return out;

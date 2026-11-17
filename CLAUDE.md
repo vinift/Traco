@@ -68,7 +68,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 ## 5. Mapa de comportamentos (onde está cada coisa)
 
 ### Zoom, rolagem e memória (muita ida-e-volta — não mude sem perguntar)
-- **`clampCam` (editor.js), horizontal:** `z ≤ LOCK_Z` (0,7) → folha **centralizada** e rolagem **só vertical** (arrasto de 1 dedo e inércia). Acima: a borda da folha pode entrar até `p = 0,35·vw + 60/z` (folga fixa em relação à tela — não pode encolher com o zoom, senão empurra a tela no meio da pinça). Durante a pinça (`_pinching`) o limite fica folgado (folha cobre ≥ metade da tela) para o **ponto entre os dedos não deslizar**; depois, `_xHold` mantém a posição e só deixa voltar para dentro (sem pulo).
+- **`clampCam` (editor.js), horizontal:** `z ≤ lockZ()` (`S.lockZoom` em %, padrão 70, 0 = desligada; Configurações → Zoom) → folha **centralizada** e rolagem **só vertical** (arrasto de 1 dedo e inércia). Acima: a borda da folha pode entrar até `p = 0,35·vw + 60/z` (folga fixa em relação à tela — não pode encolher com o zoom, senão empurra a tela no meio da pinça). Durante a pinça (`_pinching`) o limite fica folgado (folha cobre ≥ metade da tela) para o **ponto entre os dedos não deslizar**; depois, `_xHold` mantém a posição e só deixa voltar para dentro (sem pulo).
 - **Trava vertical do arrasto (moveGesture):** trava se o dedo sai quase reto (|dx| ≤ 0,2·|dy|) e solta com 14 px para o lado.
 - **Puxar para adicionar página:** `PULL_MAX/PULL_ADD` 260/190 (~340 px de puxada) e só conta se o gesto começou já parado no fim (`g.atEnd`).
 - **Blocos (tiles.js):** cada nível de zoom tem seus blocos; durante o gesto (`st.zooming`) não se renderiza nível novo, usa-se a reserva `_fbLvl` (sempre o último nível **completo**, `_curDone`) esticada. Miniatura da página (`pc.preview`, até 960 px) é o fundo de última instância; a velha fica na tela até a nova ficar pronta. Itens acrescentados no fim da página são pintados direto nos blocos e na miniatura (`paintOnTile`/`paintOnPreview`) em vez de redesenhar. `keepVisible` protege da remoção o que está na tela.
@@ -82,7 +82,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 - Baixa latência (`S.lowLatency`): tinta numa tela `desynchronized` opaca (`cInk`) só durante o traço; o fundo dela é preparado em ocioso (`inkPrepLater`/`inkKey`/`inkPaint`).
 - **Sem piscar ao levantar a caneta:** a prévia ao vivo (`cLive`/`cInk`) só sai quando os blocos já mostram o traço (`_liveClear`/`_inkHide` + `allDone`).
 - Toque duplo da caneta (mesmo lugar, ≤ 26 px, toques < 230 ms, intervalo < 330 ms): ação em `S.penDouble` (padrão alternar laço ↔ caneta); desfaz o que os toques criaram (`op.t >= início`).
-- Segurar a caneta parada no fim do traço → reconhece forma (`S.shapeHold`). Rabiscar por cima → apaga (`S.scribbleErase`).
+- Segurar a caneta parada no fim do traço → reconhece forma (`S.shapeHold`). Rabiscar por cima → apaga (`S.scribbleErase`): `isScribble(pts, z)`/`scribbleTargets(els, pts, z)` em geom.js, lidos nos pontos crus `action.rawPts` (sem estabilização), medidas em px de tela; só apaga item com algum ponto dentro da área do rabisco (`someInside`).
 
 ### Dedo e gestos
 - 2 dedos = desfazer, 3 = refazer (toque rápido). `S.hand` ('right' padrão): destro só aceita esses toques na **metade esquerda** da tela (a palma apoia na direita).
@@ -108,7 +108,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 
 ## 6. Configurações (`Store.settings`, chaves usadas)
 
-`penDouble` (ação do toque duplo), `penTriple` (legado: false → toque duplo desligado), `hand` (right/left/none), `palmGuard`, `fingerDraws`, `scribbleErase`, `shapeHold`, `pressure`/`pressureSens`, `stabPen` (por tipo de caneta)/`stabHl`/`stabilizer` (legado), `autoBeautify` (0–10), `lowLatency`, `zoomQuality` (eco/high), `zoomMin`/`zoomMax`, `timerNotify`, `penMap` (botões físicos da caneta → ação), `presetGroups` (grupos de cores/espessuras), `widthPresets`/`colorPresets`, `tools` (estado de cada ferramenta), `barScale`/`barSize`, `theme`, `snap*` (guias), `hlSnapPdf`/`hlStraight`/`hlHold`, `straightAlways`, `ocr`, `drive`, `plugins`.
+`penDouble` (ação do toque duplo), `penTriple` (legado: false → toque duplo desligado), `hand` (right/left/none), `lockZoom` (% da trava de rolagem), `palmGuard`, `fingerDraws`, `scribbleErase`, `shapeHold`, `pressure`/`pressureSens`, `stabPen` (por tipo de caneta)/`stabHl`/`stabilizer` (legado), `autoBeautify` (0–10), `lowLatency`, `zoomQuality` (eco/high), `zoomMin`/`zoomMax`, `timerNotify`, `penMap` (botões físicos da caneta → ação), `presetGroups` (grupos de cores/espessuras), `widthPresets`/`colorPresets`, `tools` (estado de cada ferramenta), `barScale`/`barSize`, `theme`, `snap*` (guias), `hlSnapPdf`/`hlStraight`/`hlHold`, `straightAlways`, `ocr`, `drive`, `plugins`.
 
 ## 7. Testes (scripts Playwright avulsos — nada disso vai para o repositório)
 
@@ -149,7 +149,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 - v0.23.7 — volta à regra da v0.20 com folga fixa em tela; centraliza e trava vertical até 60%; pinça com limite folgado + `_xHold`.
 - v0.24.0 — cronômetro integrado às notificações do sistema (`sysSync`, `armEnd`, `sysAlarm`, `askNotify`; `notificationclick` no `sw.js`; `S.timerNotify`).
 - v0.24.1 — barras piscando na pinça: econômica volta a `tileCap` 90/60 e `previewCap()` 10; camada afastada e miniaturas durante o gesto só na alta; `updateHud` ~8×/s no gesto.
-- v0.24.2 — trava de rolagem/centralização em `Editor.LOCK_Z` = 0,7.
+- v0.24.2 — trava de rolagem/centralização em 70%.
+- v0.24.3 — rabiscar para apagar coisas pequenas (`rawPts`, medidas em px de tela, `someInside`, margem 1,5 px); trava de rolagem configurável (`Editor.lockZ()`/`S.lockZoom`); respiro entre controles das seções de configuração. Teste: `openSettings()` só resolve ao fechar — chame sem `await`.
 
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9).

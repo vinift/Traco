@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.24.3
+
+- **Rabiscar para apagar funciona com coisas pequenas:** um rabisco pequeno em cima de um ponto, acento, pingo do "i" ou letra pequena agora apaga só aquilo, sem levar o vizinho.
+  - O rabisco é reconhecido pelos pontos reais da caneta, antes da estabilização (que arredondava o vai-e-vem rápido).
+  - O tamanho mínimo é medido na tela (~9 px), e não na folha, então funciona igual em qualquer zoom.
+  - Letras com vai-e-vem (m, w, M, "mm", "nn", "uu", z) continuam sem ser confundidas com rabisco.
+- **Trava de rolagem ajustável:** Configurações → Zoom → "Trava de rolagem". Escolha até que zoom a folha fica centralizada e só rola na vertical (padrão 70%; 0 desliga).
+
 ## Novidades da v0.24.2
 
 - **Trava de rolagem a partir de 70%:** com zoom de 70% ou menos (antes 60%), a folha fica centralizada e a rolagem é só vertical.
