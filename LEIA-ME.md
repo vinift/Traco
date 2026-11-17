@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.24.4
+
+- **Rabiscar para apagar bem menos exigente:** agora há o "rabisco leve" — 3 idas e voltas na horizontal (ou voltinhas/caracóis), curtinho, em cima de uma letra ou de um traço só (como a haste de um "a" de forma) — que apaga só o que ficou bem coberto pelo rabisco (pelo menos ~35%). O rabisco forte (4+ idas e voltas) continua apagando tudo em que passa por cima, como antes.
+  - Se não houver nada embaixo, o rabisco vira tinta normal; e letras cursivas como m, n, u, w (idas e voltas na vertical) e "z" não são tomadas por rabisco, mesmo encostadas em outras letras.
+
 ## Novidades da v0.24.3
 
 - **Rabiscar para apagar funciona com coisas pequenas:** um rabisco pequeno em cima de um ponto, acento, pingo do "i" ou letra pequena agora apaga só aquilo, sem levar o vizinho.

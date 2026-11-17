@@ -697,9 +697,10 @@ const Editor = {
     if (a.raw && !a.snap) { const n = a.pts.length; if (Math.hypot(a.pts[n - 3] - a.raw.x, a.pts[n - 2] - a.raw.y) > 0.5) a.pts.push(a.raw.x, a.raw.y, a.pts[n - 1]); }
     if (!a.pts.length) return;
     if (this.penTap(a, page)) return; // toque da caneta: caixinha ☐ ou toque duplo num texto
-    const sp = a.rawPts && a.rawPts.length >= 24 ? a.rawPts : a.pts; // a estabilização arredonda o vai-e-vem rápido: o rabisco é lido nos pontos crus
-    if (a.tool === 'pen' && !a.snap && Store.settings.scribbleErase && isScribble(sp, this.cam.z)) {
-      const targets = scribbleTargets(page.elements, sp, this.cam.z);
+    const sp = a.rawPts && a.rawPts.length >= 24 /* 8 pontos */ ? a.rawPts : a.pts; // a estabilização arredonda o vai-e-vem rápido: o rabisco é lido nos pontos crus
+    const scr = a.tool === 'pen' && !a.snap && Store.settings.scribbleErase ? isScribble(sp, this.cam.z) : 0;
+    if (scr) {
+      const targets = scribbleTargets(page.elements, sp, this.cam.z, scr);
       if (targets.length) { for (const e of targets) this.recRemove(page, e); this.sel = null; this.opCommit(); return; }
     }
     if (a.tool === 'highlighter' && !a.snap && page.pdf && Store.settings.hlSnapPdf !== false) { // marca-texto no PDF: vira faixa reta exatamente sobre as linhas do texto

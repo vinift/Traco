@@ -398,8 +398,8 @@ function isScribble(flat, z = 1) {
   let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity, len = 0;
   for (let i = 0; i < n; i++) { const x = flat[i * 3], y = flat[i * 3 + 1]; x1 = Math.min(x1, x); x2 = Math.max(x2, x); y1 = Math.min(y1, y); y2 = Math.max(y2, y); if (i) len += Math.hypot(x - flat[i * 3 - 3], y - flat[i * 3 - 2]); }
   const w = x2 - x1, h = y2 - y1, px = 1 / z; if (w + h < 9 * px) return false; // menor que ~9 px de tela: é um ponto/tique
-  const passes = (axis) => { // passadas longas ao longo de um eixo (com histerese para ignorar tremidas)
-    const ext = axis ? h : w; if (ext < 5 * px) return { n: 0, drift: Infinity };
+  const passes = (axis, minFrac = 0.4) => { // passadas longas ao longo de um eixo (com histerese para ignorar tremidas)
+    const ext = axis ? h : w; if (ext < 3 * px) return { n: 0, drift: Infinity };
     const thr = Math.max(ext * 0.12, 1.2 * px); let dir = 0, ex = flat[axis], exC = flat[1 - axis]; const turns = [[ex, exC]];
     for (let i = 1; i < n; i++) {
       const v = flat[i * 3 + axis], c = flat[i * 3 + 1 - axis];
@@ -407,20 +407,32 @@ function isScribble(flat, z = 1) {
       if ((v - ex) * dir > 0) { ex = v; exC = c; } else if (Math.abs(v - ex) > thr) { turns.push([ex, exC]); dir = -dir; ex = v; exC = c; }
     }
     turns.push([ex, exC]);
-    const long = []; for (let k = 1; k < turns.length; k++) { const L = Math.abs(turns[k][0] - turns[k - 1][0]); if (L >= ext * 0.4) long.push(Math.abs(turns[k][1] - turns[k - 1][1])); }
-    return { n: long.length, drift: long.length ? long.reduce((s2, d) => s2 + d, 0) / long.length : Infinity };
+    const long = []; for (let k = 1; k < turns.length; k++) { const L = Math.abs(turns[k][0] - turns[k - 1][0]); if (L >= ext * minFrac) long.push(Math.abs(turns[k][1] - turns[k - 1][1])); }
+    return { n: long.length, drift: long.length ? long.reduce((s2, d) => s2 + d, 0) / long.length : Infinity, maxDrift: long.length ? Math.max(...long) : Infinity };
   };
   const H = passes(0), V = passes(1);
   const okH = H.n >= 4 && H.drift < Math.max(10 * px, h * 0.5);           // vai-e-volta horizontal
   const okV = V.n >= 4 && V.drift < Math.max(10 * px, w * 0.3) && w / Math.max(h, 1e-6) < 2.2; // vai-e-volta vertical, compacto
-  return (okH || okV) && len > 2.4 * (w + h); // 4 idas e voltas; letras como M, W e "mm" continuam a salvo pelo comprimento
+  if ((okH || okV) && len > 2.4 * (w + h)) return 2; // rabisco "forte": 4 idas e voltas
+  /* v0.24.4: rabisco "leve" — 3 idas e voltas (ou voltinhas/caracóis), mais curto. Só apaga o que ficar BEM coberto (ver scribbleTargets),
+     e se não houver nada embaixo vira tinta normal: por isso pode ser bem menos exigente */
+  /* só idas e voltas HORIZONTAIS (o jeito comum de rabiscar): as verticais são as corcovas de m, n, u, w escritos em cursiva */
+  const lH = passes(0, 0.35);
+  /* com só 3 passadas elas precisam ficar empilhadas perto (um "z" desce a altura toda na diagonal); com 4+ é bem tolerante */
+  const okL = (lH.n >= 4 && lH.drift < Math.max(12 * px, h * 0.9)) || (lH.n === 3 && lH.maxDrift < Math.max(4 * px, h * 0.75));
+  return okL && len > 1.2 * (w + h) ? 1 : 0;
 }
 // Apaga tudo o que estiver majoritariamente dentro da área do rabisco, mesmo sem encostar
 function someInside(e, hull) {
   if (e.type === 'stroke' && e.pts) { for (let i = 0; i < e.pts.length; i += 3) if (pointInPoly(e.pts[i], e.pts[i + 1], hull)) return true; return false; }
   const b = elBBox(e); return [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h], [b.x + b.w / 2, b.y + b.h / 2]].some(([x, y]) => pointInPoly(x, y, hull));
 }
-function scribbleTargets(elements, flat, z = 1) {
+/* fração do item que fica dentro da área do rabisco (traços: pelos pontos; outros: cantos e centro da caixa) */
+function coverIn(e, hull) {
+  if (e.type === 'stroke' && e.pts) { const n = e.pts.length / 3, st = Math.max(1, Math.floor(n / 60)); let a = 0, t = 0; for (let i = 0; i < n; i += st) { t++; if (pointInPoly(e.pts[i * 3], e.pts[i * 3 + 1], hull)) a++; } return t ? a / t : 0; }
+  const b = elBBox(e); return [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h], [b.x + b.w / 2, b.y + b.h / 2]].filter(([x, y]) => pointInPoly(x, y, hull)).length / 5;
+}
+function scribbleTargets(elements, flat, z = 1, strength = 2) {
   const P = []; for (let i = 0; i < flat.length; i += 3) P.push([flat[i], flat[i + 1]]);
   const hull = convexHull(P); if (hull.length < 3) return [];
   let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity; for (const [x, y] of hull) { x1 = Math.min(x1, x); x2 = Math.max(x2, x); y1 = Math.min(y1, y); y2 = Math.max(y2, y); }
@@ -431,6 +443,7 @@ function scribbleTargets(elements, flat, z = 1) {
     if (e.type === 'image' || e.type === 'table' || e.lock) continue; // imagens, tabelas e bloqueados ficam
     /* coisa pequena (ponto, acento, letra) com a caixa toda dentro da área do rabisco: apaga */
     if (b.x >= sb.x && b.y >= sb.y && b.x + b.w <= sb.x + sb.w && b.y + b.h <= sb.y + sb.h && (b.w + b.h) < (sb.w + sb.h) * 1.2) { out.push(e); continue; }
+    if (strength < 2) { if (coverIn(e, hull) >= 0.35) out.push(e); continue; } // rabisco leve: só o que ficou bem coberto
     let hits = 0; for (let i = 0; i < P.length && hits < 3; i += step) if (hitElement(e, P[i][0], P[i][1], tol)) hits++;
     /* encostar pela borda não basta: o item precisa ter algum ponto DENTRO da área do rabisco (riscar parte de uma palavra apaga; raspar no vizinho não) */
     if (hits >= 3 && !someInside(e, hull)) hits = 0;
