@@ -94,7 +94,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 - Barra da seleção: cor, espessura (com ±0,1 e as espessuras do grupo), copiar/recortar/duplicar, frente, bloquear, recortar imagem, OCR, endireitar, ✨ melhorar escrita, excluir.
 
 ### Ferramentas próprias (plugins)
-- `js/plugins.js`: plugins em JS (`EXAMPLE_PLUGINS`, código em template string; atualizam quando `ver` sobe e o usuário não editou). Carimbo de data (`ex-data`, ver 3): texto + linha opcional (`cfg.line/lineDash/lineW/lineColor/lineLen`). API: `addText/addStroke/addShape(… {dash})/addElements(lista)` (vários itens num passo do desfazer), `store.get/set` (S.pluginData). Na barra, as ferramentas de plugin ficam junto com as outras (sem divisória); ações de plugin continuam no fim.
+- `js/plugins.js`: plugins em JS (`EXAMPLE_PLUGINS`, código em template string; atualizam quando `ver` sobe e o usuário não editou). Carimbo de data (`ex-data`, ver 4): texto + linha opcional ACIMA da data, sobre a linha da grade de cima (`api.gridLineAbove(y)`, usa `Editor.ruledFor`), largura da página inteira ou do texto (`cfg.line/lineDash/lineW/lineColor/lineLen`). API: `addText/addStroke/addShape(… {dash})/addElements(lista)` (vários itens num passo do desfazer), `store.get/set` (S.pluginData). Na barra, as ferramentas de plugin ficam junto com as outras (sem divisória); ações de plugin continuam no fim.
 
 ### Páginas e desfazer
 - Adicionar/excluir/duplicar/mover/inserir PDF passam por `Editor.recPages(fn)` → mudança `{k:'pages', a, b}` no histórico (desfazer restaura as próprias páginas).
@@ -157,6 +157,7 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 - v0.24.0 — cronômetro integrado às notificações do sistema (`sysSync`, `armEnd`, `sysAlarm`, `askNotify`; `notificationclick` no `sw.js`; `S.timerNotify`).
 - v0.24.1 — barras piscando na pinça: econômica volta a `tileCap` 90/60 e `previewCap()` 10; camada afastada e miniaturas durante o gesto só na alta; `updateHud` ~8×/s no gesto.
 - v0.24.2 — trava de rolagem/centralização em 70%.
+- v0.24.9 — linha do carimbo acima da data, na linha da grade de cima, largura inteira (`api.gridLineAbove`).
 - v0.24.8 — carimbo de data com linha (tracejado/espessura/cor/comprimento), `api.addElements`, plugins junto das ferramentas na barra.
 - v0.24.7 — compartilhar via janela "PDF pronto" (`sharePdfReady`), `S.writeHideSec`, `App.keepPlace/restorePlace`. Teste: simule `navigator.share` exigindo `navigator.userActivation.isActive`.
 - v0.24.6 — `selHit`: objetos pequenos movem ao tocar dentro (alças só por fora, raio 20).
