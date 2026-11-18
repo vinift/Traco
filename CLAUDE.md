@@ -11,6 +11,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 1. `git fetch origin main && git log --oneline -5 origin/main` — veja a versão atual (também em `js/app.js` → `version`). Trabalhe a partir da `main` mais recente.
 2. Se o ambiente exigir um branch de trabalho da sessão (ex.: `claude/...`), commite nele **e** publique na `main` (`git push origin HEAD:main`) — ver autorização abaixo. Se a `main` andou na frente, faça `git fetch` + merge antes de publicar (nunca force-push).
 3. Não crie pull requests (o Vinicius publica direto na `main`).
+   Se o GitHub recusar o push, a conta da sessão precisa ter o GitHub conectado com acesso ao repositório `vinift/Traco` (o Vinicius conecta em claude.ai → Configurações → Conectores / app do Claude no GitHub).
 4. Leia a seção 9 (Histórico) para saber o que já foi feito e por quê — várias decisões foram ida-e-volta (zoom, memória, trava de rolagem) e não devem ser desfeitas sem perguntar.
 
 ## 2. Como trabalhar com o Vinicius
@@ -49,7 +50,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 - `js/store.js` — IndexedDB `traco-notas` v2 (stores `notes`, `blobs`, `meta`, `pages`). Notas "split": metadados em `notes`, elementos de cada página em `pages` com chave `noteId/pageId`. `Store._sigs` (WeakMap) guarda a assinatura por página para só regravar páginas alteradas (página removida e depois restaurada pelo desfazer é regravada sozinha). Pontos dos traços em `Float32Array` (`toPts32` / `ptsJSON`). `Store.heads` = índice leve das notas. `DEFAULT_SETTINGS` e `Store.saveSettings()` (com **debounce de 300 ms**). `DB.get/put('meta', valor, chave)` para dados avulsos.
 - `js/render.js` — `drawTemplate` (grade/linhas/pontos; espessura mínima de 1 px do aparelho e esmaecimento abaixo disso; na tela infinita a grade continua em coordenadas negativas), `drawElement` (todo desenho de elemento passa por aqui: tela, miniaturas, PNG e PDF), `drawPageContent` (desenha em ordem: fundo → modelo → elementos), `ImgCache`, `crispLine`.
 - `js/tiles.js` — compositor DOM: `.world` (translate3d) → `.w-frames` (scale z, molduras + miniaturas `.pgprev`) → `.w-lvl` (um por nível de zoom) com tiles canvas de 512 px (`.wt`). Ver seção 5 (zoom e memória).
-- `js/editor.js` — ferramentas, entrada (`onDown/onMove/onRaw/onUp`), gestos (`startGesture/moveGesture/endGesture`), câmera (`clampCam`, `LOCK_Z`), desenho (`startDraw/addDrawPoint/drawLiveStroke/endDraw`), seleção (`Editor.sel = {pageId, ids:Set}`, `selHandles/selHit/drawSelection`), histórico (`recAdd/recRemove/recReplace/recTemplate/recPages` + `opCommit()`; `undo/redo`), páginas (`addPage/deletePage/movePage`).
+- `js/editor.js` — ferramentas, entrada (`onDown/onMove/onRaw/onUp`), gestos (`startGesture/moveGesture/endGesture`), câmera (`clampCam`, `lockZ()`), desenho (`startDraw/addDrawPoint/drawLiveStroke/endDraw`), seleção (`Editor.sel = {pageId, ids:Set}`, `selHandles/selHit/drawSelection`), histórico (`recAdd/recRemove/recReplace/recTemplate/recPages` + `opCommit()`; `undo/redo`), páginas (`addPage/deletePage/movePage`).
 - `js/crop.js` — "extras" do editor: recorte de imagem direto na página (`cropSel/applyCrop/cancelCrop`), **toque duplo da caneta** (`initPenTriple`/`penTripleFire`, `PEN_DOUBLE_ACTIONS`, `penDoubleAction()`), **segurar o dedo com o laço → colar da biblioteca** (`lassoHoldPaste`).
 - `js/beautify.js` — "melhorar escrita": `smoothArc` (automático no fim do traço) e `beautifySelection()` (botão ✨ no laço).
 - `js/timer.js` — `StudyTimer` (cronômetro/temporizador/Pomodoro, histórico de estudo, notificações do sistema).
@@ -130,6 +131,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 - **Notificações:** o Chromium sem tela recusa notificações mesmo com permissão; simule `Notification.permission` e `ServiceWorkerRegistration.prototype.showNotification/getNotifications` via `addInitScript`.
 - Medidas úteis já usadas: ponto do mundo sob os dedos durante a pinça (`Editor.toWorld`), memória de desenho (soma de `tile.cv.width*height*4` + miniaturas), nitidez de faixas da tela (variância de bordas com PIL), comparação de pixels entre pintura incremental e redesenho completo.
 - Arquivos `.notewise` de exemplo **não** estão no repositório — peça ao usuário se precisar.
+- Ao mudar `Editor.cam.z` num teste, recentralize `cam.x` (senão o ponto pode cair fora da folha e a caneta não escreve). `openSettings()` só termina ao fechar a janela: chame sem `await`.
 
 ## 8. Formato do Notewise (descoberto por engenharia reversa)
 
@@ -157,14 +159,14 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 - v0.24.0 — cronômetro integrado às notificações do sistema (`sysSync`, `armEnd`, `sysAlarm`, `askNotify`; `notificationclick` no `sw.js`; `S.timerNotify`).
 - v0.24.1 — barras piscando na pinça: econômica volta a `tileCap` 90/60 e `previewCap()` 10; camada afastada e miniaturas durante o gesto só na alta; `updateHud` ~8×/s no gesto.
 - v0.24.2 — trava de rolagem/centralização em 70%.
-- v0.24.10 — colchete arredondado no segurar para forma (`recognizeBracket`).
-- v0.24.9 — linha do carimbo acima da data, na linha da grade de cima, largura inteira (`api.gridLineAbove`).
-- v0.24.8 — carimbo de data com linha (tracejado/espessura/cor/comprimento), `api.addElements`, plugins junto das ferramentas na barra.
-- v0.24.7 — compartilhar via janela "PDF pronto" (`sharePdfReady`), `S.writeHideSec`, `App.keepPlace/restorePlace`. Teste: simule `navigator.share` exigindo `navigator.userActivation.isActive`.
-- v0.24.6 — `selHit`: objetos pequenos movem ao tocar dentro (alças só por fora, raio 20).
-- v0.24.5 — rabisco leve em qualquer direção (`lightPasses`, PCA), protege o "B"; desfazer já restaurava o apagado (op normal no histórico).
-- v0.24.4 — rabisco "leve" (ver seção 5 → Caneta e escrita). Teste: ao mudar `Editor.cam.z` no teste, recentralize `cam.x` — senão o ponto pode cair fora da folha e a caneta não escreve (parece bug, não é).
 - v0.24.3 — rabiscar para apagar coisas pequenas (`rawPts`, medidas em px de tela, `someInside`, margem 1,5 px); trava de rolagem configurável (`Editor.lockZ()`/`S.lockZoom`); respiro entre controles das seções de configuração. Teste: `openSettings()` só resolve ao fechar — chame sem `await`.
+- v0.24.4 — rabisco "leve" (ver seção 5 → Caneta e escrita). Teste: ao mudar `Editor.cam.z` no teste, recentralize `cam.x` — senão o ponto pode cair fora da folha e a caneta não escreve (parece bug, não é).
+- v0.24.5 — rabisco leve em qualquer direção (`lightPasses`, PCA), protege o "B"; desfazer já restaurava o apagado (op normal no histórico).
+- v0.24.6 — `selHit`: objetos pequenos movem ao tocar dentro (alças só por fora, raio 20).
+- v0.24.7 — compartilhar via janela "PDF pronto" (`sharePdfReady`), `S.writeHideSec`, `App.keepPlace/restorePlace`. Teste: simule `navigator.share` exigindo `navigator.userActivation.isActive`.
+- v0.24.8 — carimbo de data com linha (tracejado/espessura/cor/comprimento), `api.addElements`, plugins junto das ferramentas na barra.
+- v0.24.9 — linha do carimbo acima da data, na linha da grade de cima, largura inteira (`api.gridLineAbove`).
+- v0.24.10 — colchete arredondado no segurar para forma (`recognizeBracket`).
 
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9).
