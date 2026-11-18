@@ -356,12 +356,46 @@ function rdp(points, eps) {
   if (dmax > eps) { const l = rdp(points.slice(0, idx + 1), eps), r = rdp(points.slice(idx), eps); return l.slice(0, -1).concat(r); }
   return [a, b];
 }
+/* v0.24.10: colchete de anotação — linha reta (vertical ou horizontal) com uma ou as duas pontas curvando para o MESMO lado
+   (como "[", "└", "⌐"). Vira uma versão limpa: reta + curvas redondas (quarto de círculo) + rabinho do tamanho que você fez. */
+function recognizeBracket(P, x1, y1, x2, y2) {
+  const w = x2 - x1, h = y2 - y1, vert = h >= w * 2.2, horz = w >= h * 2.2; if (!vert && !horz) return null;
+  const Q = vert ? P : P.map(([x, y]) => [y, x]); // trabalha sempre como se fosse vertical
+  const L = vert ? h : w, top = vert ? y1 : x1, bot = vert ? y2 : x2; if (L < 20) return null;
+  const mid = Q.filter(([, y]) => y > top + L * 0.2 && y < bot - L * 0.2); if (mid.length < 3) return null;
+  const xs = mid.map((p) => p[0]).sort((m, n) => m - n), sx = xs[xs.length >> 1];
+  if (mid.some(([x]) => Math.abs(x - sx) > Math.max(3, L * 0.05))) return null; // o meio precisa ser reto
+  const a = Q[0], b = Q[Q.length - 1], minHook = Math.max(3, L * 0.02);
+  const hook = (e) => { const off = e[0] - sx; return Math.abs(off) >= minHook && (Math.abs(e[1] - top) < L * 0.12 || Math.abs(e[1] - bot) < L * 0.12) ? off : 0; };
+  const ha = hook(a), hb = hook(b); if (!ha && !hb) return null;
+  if (ha && hb && Math.sign(ha) !== Math.sign(hb)) return null; // ganchos para o mesmo lado ( [ ou ] )
+  const aTop = a[1] <= b[1], hT = aTop ? ha : hb, hB = aTop ? hb : ha, out = [];
+  /* raio da curva = quanto o gancho desce/sobe até encontrar a reta (do jeito que você desenhou) */
+  const seq = aTop ? Q : Q.slice().reverse();
+  /* ponto onde o gancho está na metade do caminho até a reta (sobra d para o lado, já desceu ym): o círculo tangente à reta e ao rabinho
+     que passa por ele tem raio r = d + ym + √(2·d·ym) */
+  const curveR = (fromTop, hk) => { const arr = fromTop ? seq : seq.slice().reverse(), e = arr[0], H = Math.abs(hk);
+    for (const p of arr) { const d = Math.abs(p[0] - sx); if (d <= H * 0.5) { const ym = Math.abs(p[1] - e[1]); return clamp(d + ym + Math.sqrt(2 * d * ym), 2, H); } } return H; };
+  const rT = hT ? Math.min(curveR(true, hT), L * 0.18) : 0, rB = hB ? Math.min(curveR(false, hB), L * 0.18) : 0;
+  const push = (x, y) => { const q = vert ? [x, y] : [y, x]; out.push(r2(q[0]), r2(q[1])); };
+  if (hT) { const sg = Math.sign(hT), r = rT, cx = sx + sg * r, cy = top + r;
+    if (Math.abs(hT) > r + 0.5) push(sx + hT, top);
+    for (let k = 0; k <= 8; k++) { const t = (k / 8) * Math.PI / 2; push(cx - sg * r * Math.sin(t), cy - r * Math.cos(t)); }
+  } else push(sx, top);
+  if (hB) { const sg = Math.sign(hB), r = rB, cx = sx + sg * r, cy = bot - r;
+    for (let k = 0; k <= 8; k++) { const t = (k / 8) * Math.PI / 2; push(cx - sg * r * Math.cos(t), cy + r * Math.sin(t)); }
+    if (Math.abs(hB) > r + 0.5) push(sx + hB, bot);
+  } else push(sx, bot);
+  if (!aTop) { const rev = []; for (let i = out.length - 2; i >= 0; i -= 2) rev.push(out[i], out[i + 1]); return { kind: 'poly', pts: rev, closed: false }; }
+  return { kind: 'poly', pts: out, closed: false };
+}
 function recognizeShape(flat) {
   const P = []; for (let i = 0; i < flat.length; i += 3) P.push([flat[i], flat[i + 1]]);
   if (P.length < 4) return null;
   let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity, len = 0;
   P.forEach((p, i) => { x1 = Math.min(x1, p[0]); x2 = Math.max(x2, p[0]); y1 = Math.min(y1, p[1]); y2 = Math.max(y2, p[1]); if (i) len += Math.hypot(p[0] - P[i - 1][0], p[1] - P[i - 1][1]); });
   const diag = Math.hypot(x2 - x1, y2 - y1); if (diag < 12) return null;
+  { const br = recognizeBracket(P, x1, y1, x2, y2); if (br) return br; } // v0.24.10: colchete arredondado (antes da linha reta: ganchos pequenos numa linha longa viravam linha)
   const a = P[0], b = P[P.length - 1], chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
   if (chord / len > 0.9) {
     let dev = 0; for (const p of P) dev = Math.max(dev, distSeg(p[0], p[1], a[0], a[1], b[0], b[1]));

@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.24.10
+
+- **Colchete arredondado no "segurar para forma":** faça uma linha reta (vertical ou horizontal) com as pontas curvando para o mesmo lado — como "[", "└" ou só uma ponta — e segure a caneta parada no fim. O traço vira uma versão limpa: reta, com curvas redondas do tamanho que você desenhou e o rabinho no comprimento que você fez.
+
 ## Novidades da v0.24.9
 
 - **Linha do carimbo de data acima da data:** ela fica exatamente sobre a linha da pauta/grade logo acima do texto e ocupa a largura inteira da página ("Linha inteira"; ou "Do tamanho do texto"). Em página sem pauta/grade, fica um pouco acima do texto.
