@@ -674,7 +674,7 @@ const Editor = {
     // reconhecimento de forma ao segurar
     if (((a.tool === 'pen' && Store.settings.shapeHold) || (a.tool === 'highlighter' && Store.settings.hlHold !== false)) && !a.snap && !a.shape) {
       if (Math.hypot(p.x - a.hold.x, p.y - a.hold.y) > 5) { a.hold = { x: p.x, y: p.y }; clearTimeout(a.holdT); a.holdT = setTimeout(() => this.tryRecognize(), 600); }
-    } else if (a.shape) this.updateHeldShape(l);
+    } else if (a.shape) { this.updateHeldShape(l); this.connectHeld(); }
   },
   tryRecognize() {
     const a = this.action; if (!a || a.kind !== 'draw' || a.pts.length < 9 /* 3 pontos */) return;
@@ -686,13 +686,31 @@ const Editor = {
     if (r.kind === 'line') [r.x2, r.y2] = snapAngle(r.x1, r.y1, r.x2, r.y2);
     a.shape = { id: uid(), type: 'shape', color: a.color, width: Math.max(1, a.width * 0.9), fill: null, dash: a.dash, ...r };
     a.shapeAnchor = r.kind === 'line' ? null : { x1: r.x1, y1: r.y1 };
+    if (a.shape.bk) { /* v0.31: colchete parecido com o último e ponto de partida para seguir a caneta sem entortar */
+      a.shape = applyBracketStyle(a.shape, Store.settings.bracketStyle);
+      const P = a.shape.pts, n = P.length / 2, k = n - 1, horiz = Math.abs(P[k * 2 + 1] - P[k * 2 - 1]) < 0.01;
+      const l = a.raw || { x: a.pts[a.pts.length - 3], y: a.pts[a.pts.length - 2] }; /* posição real da caneta (a.pts é estabilizado e fica atrás) */
+      a.bkBase = { horiz, px: l.x, py: l.y, len: Math.abs(P[k * 2] - P[k * 2 - 2]), y: P[k * 2 + 1], side: Math.sign(P[k * 2] - P[k * 2 - 2]) || 1 };
+    }
+    this.connectHeld();
     if (navigator.vibrate) navigator.vibrate(12);
     if (this.inkOn) this.inkHide(); // virou forma: a tinta rápida sai, a forma aparece na camada de prévia
     this.drawLiveStroke();
   },
+  /* v0.31: conectar a forma do "segurar" às formas da página (connectShape em geom.js; desliga em S.shapeConnect) */
+  connectHeld() {
+    const a = this.action; if (!a || !a.shape || a.tool === 'highlighter' || Store.settings.shapeConnect === false) return;
+    const page = this.note.pages[a.pi]; if (page) a.shape = connectShape(a.shape, page.elements, this.cam.z);
+  },
   hlLine(a) { const sh = a.shape; return { id: sh.id, type: 'stroke', tool: 'highlighter', color: a.color, width: a.width, opacity: a.opacity, cap: 'round', pts: [r2(sh.x1), r2(sh.y1), 0.5, r2(sh.x2), r2(sh.y2), 0.5] }; },
   updateHeldShape(l) {
     const a = this.action, s = a.shape;
+    if (s.kind === 'path' && s.bk && a.bkBase) { /* v0.31: colchete — a ponta segue a caneta SEM sair do eixo (ponta horizontal / reta vertical) */
+      const B = a.bkBase, P = s.pts.slice(), k = P.length / 2 - 1, prev = [P[k * 2 - 2], P[k * 2 - 1]];
+      if (B.horiz) { const len = Math.max(4 / this.cam.z, B.len + (l.x - B.px) * B.side); P[k * 2] = r2(prev[0] + B.side * len); P[k * 2 + 1] = prev[1]; }
+      else { P[k * 2] = prev[0]; P[k * 2 + 1] = r2(B.y + (l.y - B.py)); }
+      a.shape = { ...s, pts: P }; return;
+    }
     if (s.kind === 'path') { const P = s.pts.slice(); P[P.length - 2] = r2(l.x); P[P.length - 1] = r2(l.y); a.shape = { ...s, pts: P }; return; } /* v0.25.1: a ponta final acompanha a caneta (onde a linha termina) */
     if (s.kind === 'poly') { /* v0.25: forma reconhecida continua mudando enquanto segura a caneta */
       if (s.br) { /* colchete: a ponta onde a caneta está (fim do traço) acompanha a caneta — comprimento e o rabinho */
@@ -740,6 +758,7 @@ const Editor = {
     this._liveClear = true; this._liveT = performance.now(); this.requestRender(); // a prévia sai no próximo desenho completo (sem piscar)
     if (this.inkOn) { this._inkHide = true; this.requestRender(); } // some depois que os blocos já mostram o traço (sem piscar)
     const page = this.note.pages[a.pi];
+    if (a.shape && a.shape.bk) { const st = bracketStyleOf(a.shape); if (st) { Store.settings.bracketStyle = st; Store.saveSettings(); } const { bk, ...rest } = a.shape; a.shape = rest; } /* v0.31: lembra o estilo do colchete; a marca bk não fica salva */
     if (a.shape && !(a.straight && Math.hypot(a.shape.x2 - a.shape.x1, a.shape.y2 - a.shape.y1) < 2)) { this.recAdd(page, a.tool === 'highlighter' ? this.hlLine(a) : a.shape); this.opCommit(); return; }
     if (a.raw && !a.snap) { const n = a.pts.length; if (Math.hypot(a.pts[n - 3] - a.raw.x, a.pts[n - 2] - a.raw.y) > 0.5) a.pts.push(a.raw.x, a.raw.y, a.pts[n - 1]); }
     if (!a.pts.length) return;

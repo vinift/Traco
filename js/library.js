@@ -365,6 +365,7 @@ async function openSettings(focus) {
       chk('Rabiscar para apagar (zigue-zague com a caneta por cima do que quer apagar)', 'scribbleErase'),
       UI.slider('Sensibilidade à pressão', 0, 1, 0.05, S.pressureSens ?? 0.6, (v) => { S.pressureSens = v; S.pressure = v > 0; Store.saveSettings(); }, (v) => (v === 0 ? 'sem' : Math.round(v * 100) + '%')),
       chk('Reconhecer formas ao segurar a caneta parada no fim do traço', 'shapeHold'),
+      chk('Conectar as formas do segurar às outras (pontas e colchetes na mesma vertical)', 'shapeConnect'),
       (() => { /* v0.23: mão que escreve → onde valem os toques de 2/3 dedos (desfazer/refazer) */
         const sel = el('select', { onchange: () => { S.hand = sel.value; Store.saveSettings(); } }, el('option', { value: 'right' }, 'Destro (vale só na metade esquerda)'), el('option', { value: 'left' }, 'Canhoto (vale só na metade direita)'), el('option', { value: 'none' }, 'Tela toda'));
         sel.value = S.hand || 'right';

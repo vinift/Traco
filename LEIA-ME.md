@@ -153,6 +153,15 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.31.0
+
+- **Colchete ("└") mais confiável:** quando a curva do canto é grande, o reconhecimento separava em dois cantos (4 vértices) e aí não alinhava. Agora junta num canto só (3 vértices), com a reta exatamente vertical e a ponta exatamente horizontal. Um ganchinho na hora de pousar a caneta também é ignorado.
+- **A ponta não entorta mais enquanto você segura:** depois de reconhecido, segurar a caneta ainda ajusta o comprimento da ponta, mas ela continua reta.
+- **Colchetes parecidos:** a curva do canto e o comprimento da ponta seguem o último colchete que você fez (quando estão perto dele). Se você fizer um bem diferente de propósito, ele fica como desenhado e vira o novo padrão.
+- **Formas que se conectam** (Configurações e painel da caneta → "Conectar formas", ligado):
+  - o colchete vai para a **mesma reta vertical** de um colchete/linha vertical vizinho (até ~2 cm de tela de distância para o lado), e a ponta de cima gruda no canto do colchete de cima quando começa perto dele;
+  - linhas e linhas com cantos: cada ponta gruda na ponta/vértice/canto de outra forma que esteja perto (ou em cima da linha mais perto).
+
 ## Novidades da v0.30.4
 
 - **Tela de páginas (grade de miniaturas):** agora dá para rolar começando o arrasto em cima de uma página (antes só funcionava nos espaços vazios). Tocar abre a página; **segurar parado** e arrastar continua mudando a ordem — e isso foi corrigido também: soltar a página no lugar novo às vezes não era registrado.

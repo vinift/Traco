@@ -381,6 +381,7 @@ const UI = {
     if (t === 'highlighter') p.append(...this.sliderRows('Opacidade', st.opacity ?? 0.4, 0.1, 0.9, 0.05, (v) => Math.round(v * 100) + '%', (v) => { st.opacity = v; this.save(); upd(); }, false));
     if (t === 'pen') {
       p.append(this.switchRow('Pressione e segure para desenhar forma', 'Desenhe e segure a caneta parada no fim', S.shapeHold, (v) => { S.shapeHold = v; this.save(); }));
+      p.append(this.switchRow('Conectar formas', 'A forma gruda nas pontas das outras e o colchete fica na mesma reta vertical do vizinho', S.shapeConnect !== false, (v) => { S.shapeConnect = v; this.save(); }));
       p.append(this.switchRow('Sempre fazer linhas retas', 'Cada traço vira uma linha reta do início ao fim', S.straightAlways, (v) => { S.straightAlways = v; this.save(); }));
       p.append(this.switchRow('Alinhar linhas a cada 15°', 'Linhas retas grudam em 0°, 15°, 30°, 45°… (horizontal, vertical e diagonais)', S.angleSnap !== false, (v) => { S.angleSnap = v; this.save(); }));
       p.append(this.switchRow('Rabiscar para apagar', 'Rabisque em vai-e-volta por cima do que quer apagar', S.scribbleErase, (v) => { S.scribbleErase = v; this.save(); }));

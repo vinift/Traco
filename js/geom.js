@@ -463,7 +463,7 @@ function snapBracketPath(e) {
   const si = n === 4 ? 1 : len(0) >= len(1) ? 0 : 1, sL = len(si), [sdx, sdy] = seg(si);
   if (Math.abs(sdx) > Math.abs(sdy) * Math.tan(25 * Math.PI / 180)) return e; // a reta precisa estar perto da vertical
   const tails = []; for (let i = 0; i < n - 1; i++) if (i !== si) tails.push(i);
-  for (const i of tails) { const [dx, dy] = seg(i), c = Math.abs((dx * sdx + dy * sdy) / (len(i) * sL || 1)); if (len(i) > sL * 0.75 || c > Math.cos(50 * Math.PI / 180)) return e; } // pontas curtas e quase perpendiculares à reta
+  for (const i of tails) { const [dx, dy] = seg(i), c = Math.abs((dx * sdx + dy * sdy) / (len(i) * sL || 1)); if (len(i) > sL * (n === 3 ? 1 : 0.75) || c > Math.cos(50 * Math.PI / 180)) return e; } // pontas curtas e quase perpendiculares à reta
   const side = (i) => (i === 0 ? Math.sign(V[0][0] - V[1][0]) : Math.sign(V[n - 1][0] - V[n - 2][0]));
   if (tails.length === 2 && side(tails[0]) !== side(tails[1])) return e; // "Z"/"S": não é colchete
   const sx = (V[si][0] + V[si + 1][0]) / 2, W = V.map((v) => v.slice());
@@ -473,7 +473,43 @@ function snapBracketPath(e) {
     else W[n - 1] = [sx + side(i) * len(i), W[n - 2][1]];
   }
   const pts = []; for (const v of W) pts.push(r2(v[0]), r2(v[1]));
-  return { ...e, pts };
+  return { ...e, pts, bk: 1 };
+}
+/* v0.31: colchete com a curva grande saía com DOIS cantos (4 vértices) e aí não alinhava. bracketFit junta cantos vizinhos que
+   juntos viram ~90° (lado do meio curto) num canto só, no cruzamento das retas de fora, com o raio medido no traço; tira um
+   ganchinho curto na ponta (caneta pousando). Só vale se o resultado for um colchete (snapBracketPath alinha) — senão fica como estava. */
+function mergeBracketCorners(e, P, z) {
+  let V = []; for (let i = 0; i < e.pts.length; i += 2) V.push([e.pts[i], e.pts[i + 1]]);
+  const L = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const cross = (a, b, c, d) => { const r = [b[0] - a[0], b[1] - a[1]], q = [d[0] - c[0], d[1] - c[1]], den = r[0] * q[1] - r[1] * q[0]; if (Math.abs(den) < 1e-6) return null; const t = ((c[0] - a[0]) * q[1] - (c[1] - a[1]) * q[0]) / den; return [a[0] + r[0] * t, a[1] + r[1] * t]; };
+  let changed = false;
+  for (let guard = 0; guard < 4 && V.length > 3; guard++) {
+    const segs = V.slice(1).map((v, i) => L(V[i], v)), big = Math.max(...segs);
+    /* ganchinho na ponta: lado da ponta bem curto */
+    if (segs[0] < Math.max(7 / z, big * 0.1)) { V.shift(); changed = true; continue; }
+    if (segs[segs.length - 1] < Math.max(7 / z, big * 0.1)) { V.pop(); changed = true; continue; }
+    let done = false;
+    for (let i = 1; i < V.length - 2 && !done; i++) { /* cantos i e i+1, lado do meio i→i+1 */
+      const mid = segs[i], a = segs[i - 1], b = segs[i + 1]; if (mid > Math.min(a, b) || mid > 0.45 * big) continue;
+      const u = [V[i][0] - V[i - 1][0], V[i][1] - V[i - 1][1]], w = [V[i + 2][0] - V[i + 1][0], V[i + 2][1] - V[i + 1][1]];
+      const turn = Math.acos(clamp((u[0] * w[0] + u[1] * w[1]) / ((Math.hypot(...u) * Math.hypot(...w)) || 1), -1, 1)) * 180 / Math.PI;
+      if (turn < 55 || turn > 125) continue;
+      const q = cross(V[i - 1], V[i], V[i + 1], V[i + 2]); if (!q || L(q, V[i]) > mid * 2 + 4 / z) continue;
+      V.splice(i, 2, q); changed = true; done = true;
+    }
+    if (!done) break;
+  }
+  if (!changed || V.length < 3 || V.length > 4) return null;
+  const pts = []; for (const v of V) pts.push(r2(v[0]), r2(v[1]));
+  const out = { kind: 'path', pts, rr: V.map(() => 0) };
+  for (let s = 1; s < V.length - 1; s++) { const c = pathCorner(out, s); if (!c) continue; let dmin = Infinity; for (const p of P) dmin = Math.min(dmin, Math.hypot(p[0] - c.bx, p[1] - c.by)); const r = dmin / (1 / Math.sin(c.th / 2) - 1); out.rr[s] = r * z < 1.5 ? 0 : r2(r); }
+  return out;
+}
+function bracketFit(P, diag, z) {
+  const pth = fitPath(P, diag, z); if (!pth) return null;
+  const br = snapBracketPath(pth); if (br !== pth) return br;
+  const m = mergeBracketCorners(pth, P, z), br2 = m && snapBracketPath(m); if (br2 && br2 !== m) return br2;
+  return pth;
 }
 function fitPath(P, diag, z) {
   const fitLine = (a, b) => { /* reta pelos pontos do meio do lado (sem as curvas das pontas) */
@@ -535,10 +571,10 @@ function recognizeShape(flat, z = 1) {
   const a = P[0], b = P[P.length - 1], chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
   if (chord / len > 0.9) {
     let dev = 0; for (const p of P) dev = Math.max(dev, distSeg(p[0], p[1], a[0], a[1], b[0], b[1]));
-    if (dev >= 5 / z && diag * z >= 18) { const pth = fitPath(P, diag, z), br = snapBracketPath(pth); if (br && br !== pth) return br; } /* v0.28.1: reta comprida com um ganchinho numa ponta ("└") é colchete, não linha */
+    if (dev >= 5 / z && diag * z >= 18) { const br = bracketFit(P, diag, z); if (br && br.bk) return br; } /* v0.28.1: reta comprida com um ganchinho numa ponta ("└") é colchete, não linha */
     if (dev < Math.max(chord * 0.1, 2 / z)) return { kind: 'line', x1: a[0], y1: a[1], x2: b[0], y2: b[1] }; /* linha curta: tremido de até 2 px de tela */
   }
-  if (chord > diag * 0.3) return diag * z >= 18 ? fitArc(P, diag, z) || snapBracketPath(fitPath(P, diag, z)) : null; /* v0.25.1: aberto → linha com cantos/curva (colchete, arco, "L"…); v0.28.1: colchete alinhado na vertical */
+  if (chord > diag * 0.3) { if (diag * z < 18) return null; const br = bracketFit(P, diag, z); return br && br.bk ? br : fitArc(P, diag, z) || br; } /* v0.25.1: aberto → linha com cantos/curva (colchete, arco, "L"…); v0.28.1: colchete alinhado na vertical */
   const simp = rdp(P, diag * 0.06);
   const corners = simp.length - 1; // primeiro == ~último
   const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2, rx = (x2 - x1) / 2, ry = (y2 - y1) / 2;
@@ -726,4 +762,77 @@ function tableGrid(e) {
   const sw = cw.reduce((a, b) => a + b, 0), sh = rh.reduce((a, b) => a + b, 0);
   const xs = [e.x], ys = [e.y]; let acc = 0; for (const c of cw) { acc += c; xs.push(e.x + (e.w * acc) / sw); } acc = 0; for (const r of rh) { acc += r; ys.push(e.y + (e.h * acc) / sh); }
   return { xs, ys };
+}
+
+/* ===== v0.31: formas do "segurar" se conectam às que já estão na página =====
+   • colchete (bk): se há uma reta vertical perto (outro colchete, linha vertical) até ~22 px de tela para o lado e não muito
+     longe em altura, a reta do colchete vai para o MESMO x; depois, a ponta da reta gruda num ponto que esteja a até ~14 px
+     (ex.: no canto de baixo do colchete de cima) — só muda a altura, a reta continua vertical.
+   • linha, linha com cantos, polígono aberto: cada ponta gruda no ponto (ponta/vértice/canto) mais perto até ~14 px de tela;
+     sem ponto, gruda em cima da linha mais perto até ~10 px.
+   Devolve uma forma nova (ou a mesma se nada mudou). */
+function shapeSnapTargets(els, skipId) {
+  const pts = [], segs = [];
+  for (const o of els) {
+    if (o.type !== 'shape' || o.id === skipId) continue;
+    if (o.kind === 'line' || o.kind === 'arrow') { pts.push([o.x1, o.y1], [o.x2, o.y2]); segs.push([o.x1, o.y1, o.x2, o.y2]); }
+    else if ((o.kind === 'path' || o.kind === 'poly') && o.pts) { const n = o.pts.length / 2; for (let i = 0; i < n; i++) { pts.push([o.pts[i * 2], o.pts[i * 2 + 1]]); if (i) segs.push([o.pts[i * 2 - 2], o.pts[i * 2 - 1], o.pts[i * 2], o.pts[i * 2 + 1]]); } if (o.closed && n > 2) segs.push([o.pts[n * 2 - 2], o.pts[n * 2 - 1], o.pts[0], o.pts[1]]); }
+    else if (o.kind === 'rect' || o.kind === 'diamond') { const c = o.kind === 'rect' ? [[o.x1, o.y1], [o.x2, o.y1], [o.x2, o.y2], [o.x1, o.y2]] : [[(o.x1 + o.x2) / 2, o.y1], [o.x2, (o.y1 + o.y2) / 2], [(o.x1 + o.x2) / 2, o.y2], [o.x1, (o.y1 + o.y2) / 2]]; pts.push(...c); for (let i = 0; i < 4; i++) segs.push([...c[i], ...c[(i + 1) % 4]]); }
+  }
+  return { pts, segs };
+}
+function connectShape(sh, els, z) {
+  if (!sh || sh.type !== 'shape') return sh;
+  const T = shapeSnapTargets(els, sh.id); if (!T.pts.length && !T.segs.length) return sh;
+  const tolP = 14 / z, tolS = 10 / z;
+  const nearPt = (x, y, filt) => { let best = null, bd = tolP; for (const p of T.pts) { if (filt && !filt(p)) continue; const d = Math.hypot(p[0] - x, p[1] - y); if (d < bd) { bd = d; best = p; } } return best; };
+  const nearSeg = (x, y) => { let best = null, bd = tolS; for (const s of T.segs) { const dx = s[2] - s[0], dy = s[3] - s[1], l2 = dx * dx + dy * dy; if (!l2) continue; const t = clamp(((x - s[0]) * dx + (y - s[1]) * dy) / l2, 0, 1), q = [s[0] + dx * t, s[1] + dy * t], d = Math.hypot(q[0] - x, q[1] - y); if (d < bd) { bd = d; best = q; } } return best; };
+  const snapEnd = (x, y) => nearPt(x, y) || nearSeg(x, y);
+  if (sh.kind === 'line' || sh.kind === 'arrow') {
+    const a = snapEnd(sh.x1, sh.y1), b = snapEnd(sh.x2, sh.y2); if (!a && !b) return sh;
+    return { ...sh, ...(a ? { x1: r2(a[0]), y1: r2(a[1]) } : {}), ...(b ? { x2: r2(b[0]), y2: r2(b[1]) } : {}) };
+  }
+  if (!(sh.kind === 'path' || (sh.kind === 'poly' && !sh.closed)) || !sh.pts) return sh;
+  const P = sh.pts.slice(), n = P.length / 2; let changed = false;
+  if (sh.bk) {
+    /* reta do colchete: o lado vertical mais comprido */
+    let si = -1, sl = 0; for (let i = 0; i < n - 1; i++) if (Math.abs(P[i * 2] - P[i * 2 + 2]) < 0.01) { const l = Math.abs(P[i * 2 + 3] - P[i * 2 + 1]); if (l > sl) { sl = l; si = i; } }
+    if (si < 0) return sh;
+    const sx = P[si * 2], ya = Math.min(P[si * 2 + 1], P[si * 2 + 3]), yb = Math.max(P[si * 2 + 1], P[si * 2 + 3]);
+    let best = null, bd = 22 / z;
+    for (const s of T.segs) {
+      if (Math.abs(s[0] - s[2]) > 0.6 || Math.abs(s[3] - s[1]) < 8 / z) continue; /* só retas verticais */
+      const dx = Math.abs(s[0] - sx), gap = Math.max(0, Math.max(ya, Math.min(s[1], s[3])) - Math.min(yb, Math.max(s[1], s[3])));
+      if (dx < bd && gap <= Math.max(sl * 2, 220 / z)) { bd = dx; best = s[0]; }
+    }
+    if (best !== null && best !== sx) { const dx = best - sx; for (let i = 0; i < n; i++) P[i * 2] = r2(P[i * 2] + dx); changed = true; }
+    const X = P[si * 2];
+    for (const k of [0, n - 1]) {
+      const nb = k === 0 ? 1 : n - 2, onSpine = Math.abs(P[k * 2] - P[nb * 2]) < 0.01;
+      if (onSpine) { const q = nearPt(P[k * 2], P[k * 2 + 1], (p) => Math.abs(p[0] - P[k * 2]) < 1.5 / z) || nearPt(P[k * 2], P[k * 2 + 1]); if (q) { const dx = q[0] - P[k * 2]; if (dx) for (let i = 0; i < n; i++) P[i * 2] = r2(P[i * 2] + dx); P[k * 2 + 1] = r2(q[1]); changed = true; } } /* ponto fora do eixo: o colchete inteiro anda de lado (continua vertical) */
+      else { const q = nearPt(P[k * 2], P[k * 2 + 1], (p) => Math.abs(p[1] - P[k * 2 + 1]) < 6 / z); if (q) { P[k * 2] = r2(q[0]); changed = true; } }
+    }
+  } else {
+    for (const k of [0, n - 1]) { const q = snapEnd(P[k * 2], P[k * 2 + 1]); if (q) { P[k * 2] = r2(q[0]); P[k * 2 + 1] = r2(q[1]); changed = true; } }
+  }
+  return changed ? { ...sh, pts: P } : sh;
+}
+
+/* v0.31: colchetes parecidos — o arredondamento e o comprimento da ponta seguem o último colchete feito quando estão perto
+   dele (raio 0,5–2×, ponta 0,6–1,6×); muito diferente = de propósito, fica como desenhado e vira o novo padrão. */
+function bracketParts(sh) {
+  const P = sh.pts, n = P.length / 2, tails = [], radii = [];
+  for (const k of [0, n - 1]) { const nb = k === 0 ? 1 : n - 2; if (Math.abs(P[k * 2 + 1] - P[nb * 2 + 1]) < 0.01 && Math.abs(P[k * 2] - P[nb * 2]) > 0.01) tails.push({ k, nb, len: Math.abs(P[k * 2] - P[nb * 2]), side: Math.sign(P[k * 2] - P[nb * 2]) }); }
+  for (let i = 1; i < n - 1; i++) if (sh.rr && sh.rr[i] > 0) radii.push(i);
+  return { tails, radii };
+}
+function applyBracketStyle(sh, st) {
+  if (!sh || !sh.bk || !st) return sh; const P = sh.pts.slice(), rr = (sh.rr || []).slice(), { tails, radii } = bracketParts(sh);
+  if (st.t > 0) for (const t of tails) if (t.len >= st.t * 0.6 && t.len <= st.t * 1.6) P[t.k * 2] = r2(P[t.nb * 2] + t.side * st.t);
+  if (st.r > 0) for (const i of radii) if (rr[i] >= st.r * 0.5 && rr[i] <= st.r * 2) rr[i] = st.r;
+  return { ...sh, pts: P, rr };
+}
+function bracketStyleOf(sh) {
+  const { tails, radii } = bracketParts(sh); if (!tails.length) return null;
+  return { t: r2(tails.reduce((s, t) => s + t.len, 0) / tails.length), r: radii.length ? r2(radii.reduce((s, i) => s + sh.rr[i], 0) / radii.length) : 0 };
 }
