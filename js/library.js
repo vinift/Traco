@@ -28,10 +28,28 @@ const Library = {
     $('#library').classList.toggle('side-closed', !!S.sideClosed);
     $$('.side-item[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === this.view && !q && (this.view !== 'home' || !this.folder)));
     // pastas na barra lateral
+    /* v0.33: árvore de pastas — a seta abre/fecha as subpastas (lembra em S.sideOpen; o caminho da pasta aberta já vem aberto) */
     const sf = $('#sideFolders'); sf.innerHTML = '';
-    for (const f of this.sortItems(this.children(null), (x) => x.name, (x) => this.folderStats(x).latest)) {
-      const on = this.folder && (this.folder === f.id || Store.folderChain(this.folder).some((x) => x.id === f.id));
-      sf.append(el('button', { class: 'side-item' + (on ? ' on' : ''), onclick: () => this.openFolder(f.id) }, el('span', { class: 'fdot', style: { background: f.color || FOLDER_COLORS[0] } }), f.name));
+    const chain = this.folder ? Store.folderChain(this.folder).map((x) => x.id).filter((x) => x !== this.folder) : [];
+    if (chain.some((x) => !(S.sideOpen || []).includes(x))) { S.sideOpen = [...new Set([...(S.sideOpen || []), ...chain])]; Store.saveSettings(); } /* abriu uma subpasta: as de cima ficam abertas */
+    const openSet = new Set(S.sideOpen || []);
+    const walk = (pid, depth) => {
+      for (const f of this.sortItems(this.children(pid), (x) => x.name, (x) => this.folderStats(x).latest)) {
+        const kids = this.children(f.id), open = openSet.has(f.id);
+        const arrow = kids.length ? el('span', { class: 'side-arrow' + (open ? ' open' : ''), title: open ? 'Fechar' : 'Mostrar subpastas', onclick: (e) => { e.stopPropagation(); const o = new Set(S.sideOpen || []); if (open) o.delete(f.id); else o.add(f.id); S.sideOpen = [...o]; Store.saveSettings(); this.render(); } }, iconEl('chevRight')) : el('span', { class: 'side-arrow none' });
+        sf.append(el('button', { class: 'side-item side-fold' + (this.folder === f.id ? ' on' : ''), style: { paddingLeft: 8 + depth * 18 + 'px' }, onclick: () => this.openFolder(f.id) }, arrow, el('span', { class: 'fdot', style: { background: f.color || FOLDER_COLORS[0] } }), el('span', { class: 'side-fname' }, f.name)));
+        if (open && kids.length) walk(f.id, depth + 1);
+      }
+    };
+    walk(null, 0);
+    /* v0.33: notas recentes (as 4 últimas abertas) embaixo das pastas */
+    const sr = $('#sideRecent');
+    if (sr) {
+      sr.innerHTML = ''; const rec = (S.recent || []).filter((id) => Store.heads[id]).slice(0, 4);
+      if (rec.length) {
+        sr.append(el('div', { class: 'side-sec' }, 'Notas recentes'));
+        for (const id of rec) { const h = Store.heads[id]; sr.append(el('button', { class: 'side-item side-note', title: h.title, onclick: () => App.openNote(id) }, h.thumb ? el('img', { class: 'side-thumb', src: h.thumb, alt: '' }) : el('span', { class: 'side-thumb' }), el('span', { class: 'side-fname' }, h.title || 'Sem título'))); }
+      }
     }
     // caminho
     const crumbs = $('#crumbs'); crumbs.innerHTML = '';

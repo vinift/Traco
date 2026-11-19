@@ -963,3 +963,13 @@ input:not(:focus),textarea:not(:focus){-webkit-user-select:none;user-select:none
 .ol-crop{height:26px;max-width:230px;object-fit:contain;object-position:left center;display:block;border-radius:4px}
 .ol-topic.lv0 .ol-t{font-weight:600}
 .ol-topic.lv2 .ol-t{color:var(--muted)}
+/* v0.33: árvore de pastas com seta e notas recentes na barra lateral da biblioteca */
+.side-fold{gap:8px}
+.side-arrow{width:24px;height:24px;flex:none;display:grid;place-items:center;border-radius:8px;color:var(--muted);transition:transform .18s ease,background-color .15s ease}
+.side-arrow svg.ic{width:16px!important;height:16px!important}
+.side-arrow.open{transform:rotate(90deg)}
+.side-arrow:active{background:rgba(127,127,127,.18)}
+.side-arrow.none{visibility:hidden}
+.side-fname{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-note{font-size:14px;padding:7px 12px;gap:12px}
+.side-thumb{width:26px;height:34px;flex:none;border-radius:5px;background:var(--tile);object-fit:cover;box-shadow:0 1px 3px rgba(0,0,0,.15)}

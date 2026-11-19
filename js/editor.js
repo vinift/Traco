@@ -163,6 +163,13 @@ const Editor = {
   barsOver(st) { let x = 0; for (const id of ['rail', 'subrail']) { const n = document.getElementById(id); if (!n || !n.offsetWidth || getComputedStyle(n).display === 'none') continue; const r = n.getBoundingClientRect(); if (r.right > st.left && r.left < st.left + 40 + (r.width || 0) * 2) x = Math.max(x, r.right - st.left); } return x; },
   resetMargins() { this._mg = null; this._mgMax = 0; },
   /* a folha (na largura atual) cabe entre as margens? então a rolagem lateral trava */
+  /* v0.33: tela infinita → volta ao ponto de partida (origem no canto de cima, como ao criar a nota), animando e mantendo o zoom */
+  goHome() {
+    if (!this.note || this.note.mode !== 'infinite') return; this.stopInertia && this.stopInertia();
+    const z = this.cam.z, from = { x: this.cam.x, y: this.cam.y }, to = { x: -40 / z, y: -40 / z }, t0 = performance.now(), D = 320;
+    const step = (now) => { const u = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - u, 3); this.cam.x = from.x + (to.x - from.x) * e; this.cam.y = from.y + (to.y - from.y) * e; this.requestRender(); if (u < 1) requestAnimationFrame(step); else { this.updateHud(); this.viewDebounced && this.viewDebounced(); } };
+    requestAnimationFrame(step);
+  },
   hScrollable() { if (!this.note || this.note.mode === 'infinite') return true; const m = this.barMargins(); return this.maxW * this.cam.z > this.W - m.mL - m.mR + 0.5; },
   clampCam() {
     const [a, b] = this.zoomLimits(); const c = this.cam; c.z = clamp(c.z, a, b);

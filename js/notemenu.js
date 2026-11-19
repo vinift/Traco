@@ -144,6 +144,7 @@ const NoteMenu = {
         big('bookmark', pg.bookmark ? 'Desmarcar' : 'Marcar página', () => Editor.toggleBookmark(), pg.bookmark)),
       el('div', { class: 'nm-list' },
         item('folder', 'Mover para', async () => { const d = await Library.folderPicker('Mover nota', new Set(), note.folderId); if (d === undefined) return; note.folderId = d; Editor.markChanged(); toast('Nota movida', 1200); }, folder || 'Início'),
+        note.mode === 'infinite' ? item('home', 'Voltar ao centro', () => Editor.goHome(), 'volta ao ponto onde a tela começa') : null,
         note.mode !== 'infinite' ? item('pages', 'Vá para página', async () => { const v = await askText('Ir para a página (1–' + note.pages.length + ')', String(Editor.currentPageIndex() + 1)); const k = parseInt(v, 10); if (k >= 1 && k <= note.pages.length) Editor.goToPage(k - 1); }, 'página ' + (Editor.currentPageIndex() + 1) + ' de ' + note.pages.length) : null,
         item('list', 'Sumário', () => Outline.open(anchor), 'marcadores e índice do PDF'),
         item('grid', 'Alterar modelo', () => templateModal()),
