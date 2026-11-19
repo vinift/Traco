@@ -102,15 +102,20 @@ function drawElement(ctx, e) {
       ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.beginPath(); ctx.moveTo(e.x + e.w, e.y + h - f); ctx.lineTo(e.x + e.w - f, e.y + h - f); ctx.lineTo(e.x + e.w - f, e.y + h); ctx.closePath(); ctx.fill();
       ctx.fillStyle = e.color; tx += STICKY_PAD; ty += STICKY_PAD;
     } else if (e.bg) { ctx.fillStyle = e.bg; ctx.fillRect(e.x - 4, e.y - 2, L.w + 8, L.h + 4); }
+    if (e.frame && !e.sticky) { const f = e.frame, pd = f.pad ?? 8, w = e.auto ? L.w : e.w; strokeFrame(ctx, f, e.x - pd, e.y - pd, w + 2 * pd, L.h + 2 * pd, false); } /* v0.27: moldura da caixa de texto */
     drawRichText(ctx, e, L, tx, ty);
   } else if (e.type === 'image') {
     const bmp = ImgCache.get(e.blobId);
+    const fr = e.frame, rad = fr ? Math.min(fr.r || 0, e.w / 2, e.h / 2) : 0;
+    if (rad > 0) { ctx.save(); ctx.beginPath(); ctx.roundRect(e.x, e.y, e.w, e.h, rad); ctx.clip(); } /* v0.27: cantos arredondados */
     if (bmp) {
       const c = e.crop; // recorte: parte visível da imagem original (frações 0–1)
       if (c) { const W = bmp.width, H = bmp.height, sw = Math.max(1e-3, c.w) * W, sh = Math.max(1e-3, c.h) * H; ctx.drawImage(bmp, c.x * W, c.y * H, sw, sh, e.x, e.y, e.w, e.h); }
       else ctx.drawImage(bmp, e.x, e.y, e.w, e.h);
     }
     else { ctx.fillStyle = 'rgba(120,130,150,.15)'; ctx.fillRect(e.x, e.y, e.w, e.h); }
+    if (rad > 0) ctx.restore();
+    if (fr && fr.w > 0) strokeFrame(ctx, fr, e.x, e.y, e.w, e.h, true); /* moldura por dentro da imagem */
   } else if (e.type === 'table') {
     const g = tableGrid(e), bw = e.bw || 1, bc = e.bc || '#7c3aed', M = e.merges || [];
     const span = (r, c) => M.find((m) => r >= m.r && r < m.r + m.rs && c >= m.c && c < m.c + m.cs);
@@ -165,6 +170,12 @@ function drawPageContent(ctx, note, page, vis, z, opts = {}) {
 }
 
 /* Renderiza uma página isolada num canvas (miniaturas, exportação) */
+/* v0.27: moldura {color, w (espessura), r (raio dos cantos), pad (espaço interno do texto)}; inside = borda por dentro da caixa (imagem) */
+function strokeFrame(ctx, f, x, y, w, h, inside) {
+  const lw = Math.max(0, +f.w || 0); if (!lw) return; const k = inside ? lw / 2 : 0;
+  ctx.save(); ctx.strokeStyle = f.color || '#334155'; ctx.lineWidth = lw; ctx.setLineDash(f.dash === 'dash' ? [lw * 3, lw * 2] : f.dash === 'dot' ? [0.1, lw * 2] : []); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.roundRect(x + k, y + k, w - 2 * k, h - 2 * k, Math.max(0, Math.min((f.r || 0) - k, (w - 2 * k) / 2, (h - 2 * k) / 2))); ctx.stroke(); ctx.restore();
+}
 async function renderPageCanvas(note, page, scale, { maxW, area, annot = false } = {}) {
   let region = { x: 0, y: 0, w: page.w, h: page.h };
   if (area) region = area; // recorte (print do laço)

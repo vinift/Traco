@@ -553,6 +553,7 @@ const UI = {
     const cb = B('palette', 'Mudar cor', () => colorPop(cb, (Editor.selElements()[0] || {}).color || '#000000', (c) => Editor.recolorSel(c), PALETTE, { alpha: true }));
     if (Editor.selElements().some((e) => (e.type === 'stroke' || e.type === 'shape') && !e.lock)) { const wb = B('line', 'Espessura do traço', () => this.selWidthPop(wb)); }
     { const one = Editor.selElements(); if (one.length === 1 && one[0].type === 'shape') { const vb = B('nodes', 'Editar pontos: vértices, arestas e curvas (a espessura não muda)', () => Editor.toggleVEdit()); if (Editor.vEdit) vb.classList.add('vedit-on'); } }
+    if (Editor.selElements().some((e) => (e.type === 'text' && !e.sticky) || e.type === 'image')) { const fb = B('frame', 'Moldura (borda e cantos arredondados)', () => this.framePop(fb)); }
     B('copy', 'Copiar', () => Editor.copySel());
     B('cut', 'Recortar', () => Editor.cutSel());
     B('plus', 'Duplicar', () => Editor.duplicateSel());
@@ -573,6 +574,27 @@ const UI = {
   },
 
   /* laço: mudar a espessura dos traços e formas selecionados */
+  /* v0.27: moldura das caixas de texto e imagens selecionadas */
+  framePop(anchor) {
+    const els = Editor.selElements().filter((e) => ((e.type === 'text' && !e.sticky) || e.type === 'image') && !e.lock); if (!els.length) return;
+    const S = Store.settings, hasText = els.some((e) => e.type === 'text');
+    const cur = () => (Editor.selElements().find((e) => e.frame) || {}).frame || null;
+    const base = () => cur() || { color: '#334155', w: 1.5, r: 8, pad: 8, ...(S.frameLast || {}) };
+    const set = (patch) => { const f = patch === null ? null : { ...base(), ...patch }; if (f) S.frameLast = { ...f }; Store.saveSettings(); Editor.frameSel(() => (f ? { ...f } : null)); render(); };
+    const box = el('div', { class: 'sw-pop fr-pop' });
+    const render = () => {
+      const f = cur(); box.innerHTML = '';
+      box.append(el('div', { class: 'sw-head' }, el('span', {}, `Moldura de ${els.length} ${els.length === 1 ? 'item' : 'itens'}`)),
+        UI.seg([['off', 'Sem moldura'], ['on', 'Com moldura']], f ? 'on' : 'off', (v) => set(v === 'on' ? {} : null)));
+      if (!f) return;
+      const sw = el('div', { class: 'fr-colors' }, ...PALETTE.map((c) => el('button', { class: 'fr-c' + (f.color === c ? ' on' : ''), style: { background: c }, title: c, onclick: () => set({ color: c }) })));
+      const rng = (label, k, mn, mx, st, fmt) => { const v = el('b', {}, fmt(f[k] ?? 0)), r = el('input', { type: 'range', min: mn, max: mx, step: st, value: f[k] ?? 0 }); r.addEventListener('input', () => (v.textContent = fmt(+r.value))); r.addEventListener('change', () => set({ [k]: +r.value })); return el('div', { class: 'fr-row' }, el('div', { class: 'sw-head' }, el('span', {}, label), v), r); };
+      box.append(sw, UI.seg([['solid', 'Contínua'], ['dash', 'Tracejada'], ['dot', 'Pontilhada']], f.dash || 'solid', (v) => set({ dash: v })),
+        rng('Espessura', 'w', 0.5, 8, 0.5, (x) => String(x).replace('.', ',')), rng('Cantos arredondados', 'r', 0, 40, 1, (x) => (x ? x : 'retos')));
+      if (hasText) box.append(rng('Espaço entre o texto e a moldura', 'pad', 0, 30, 1, (x) => x));
+    };
+    render(); openPop(anchor, box);
+  },
   selWidthPop(anchor) {
     const els = Editor.selElements().filter((e) => (e.type === 'stroke' || e.type === 'shape') && !e.lock); if (!els.length) return;
     const onlyHl = els.every((e) => e.tool === 'highlighter'), [mn, mx, step] = WIDTH_RANGE[onlyHl ? 'highlighter' : 'pen'];

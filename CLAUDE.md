@@ -74,6 +74,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 - **`clampCam` (editor.js), horizontal — v0.26 estilo Notewise:** margens `barMargins()` = `{mL: borda direita do rail/subrail sobre esta tela + 8 (maior valor visto, para não pular ao trocar de ferramenta; `barsOver(rect)`), mR: 12}`, medidas de novo só em `resize`, `applyBarSize` (`resetMargins`) e ResizeObserver das barras. Folha mais larga que `W − mL − mR` → rola de lado até a borda encostar na margem (sem folga). Mais estreita → `hScrollable()` falso: rolagem só vertical (arrasto e inércia) e `left = max(mL, (W − pw)/2)` (encosta nas barras, depois centraliza aos poucos). Vale também na pinça. `fitWidth` encaixa entre as margens. **Substituiu** a trava por % (`lockZ`/`S.lockZoom`, `_xHold`, folga 0,35·vw + 60/z da v0.20–v0.25), que o usuário achou ruim. O lado passivo da tela dividida (`svPane.clamp`) usa as mesmas regras.
 - Tela dividida e memória (v0.26): `tileCap()` cai para ~55% e `previewCap()` para 6 quando o editor ocupa só parte da tela; lado passivo `SV_BASE_W` 1100. Divisória em prévia (transform) e aplica ao soltar. `Editor.resize` só muda o tamanho das telas se mudou (mudar apaga a tela). `placeScroll` não roda a cada rolagem.
 - **Trava vertical do arrasto (moveGesture):** trava se o dedo sai quase reto (|dx| ≤ 0,2·|dy|) e solta com 14 px para o lado.
+- **Fim da nota:** `camMaxBase` deixa max(220 px, 30% da tela) abaixo da última página (v0.27; antes 90 px) antes de começar o puxar (o lado passivo também).
 - **Puxar para adicionar página:** `PULL_MAX/PULL_ADD` 260/190 (~340 px de puxada) e só conta se o gesto começou já parado no fim (`g.atEnd`).
 - **Blocos (tiles.js):** cada nível de zoom tem seus blocos; durante o gesto (`st.zooming`) não se renderiza nível novo, usa-se a reserva `_fbLvl` (sempre o último nível **completo**, `_curDone`) esticada. Miniatura da página (`pc.preview`, até 960 px) é o fundo de última instância; a velha fica na tela até a nova ficar pronta. Itens acrescentados no fim da página são pintados direto nos blocos e na miniatura (`paintOnTile`/`paintOnPreview`) em vez de redesenhar. `keepVisible` protege da remoção o que está na tela.
 - **Qualidade ao tirar o zoom (`S.zoomQuality`, Configurações → Zoom):** "econômica" (padrão) = `tileCap()` 90 blocos (60 em aparelhos < 8 GB) e `previewCap()` 10 — **a "alta" (200 blocos, 18 miniaturas, camada afastada `_ovLvl` via `prefetchOverview`, miniaturas criadas durante o gesto) ficou pesada no Pad 7 e fazia as barras piscarem na pinça**. Sintoma de memória de desenho cheia no Android = barras piscando/sumindo.
@@ -97,7 +98,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 ### Dedo e gestos
 - 2 dedos = desfazer, 3 = refazer (toque rápido). `S.hand` ('right' padrão): destro só aceita esses toques na **metade esquerda** da tela (a palma apoia na direita).
 - Proteção de palma (`S.palmGuard`): toques ignorados até 500 ms depois da caneta.
-- Rolagem rápida (`#vscroll`, v0.25): destro → à esquerda, logo depois do rail/subrail e na borda do lado ativo (`placeScroll`); ignora toque com contato > 34 px e toques até 1,5 s depois da caneta; tocar no trilho não pula (só arrastar o marcador).
+- Rolagem rápida (`#vscroll`): v0.27 de volta à DIREITA (à esquerda, v0.25–v0.26, ficou estranho), na borda do lado ativo na tela dividida (`placeScroll`); ignora toque com contato > 34 px e toques até 1,5 s depois da caneta; tocar no trilho não pula (só arrastar o marcador).
 - Laço + segurar o dedo parado 550 ms → painel "colar" da biblioteca (`lassoHoldPaste`, cola no ponto com `pasteAt`).
 
 ### Seleção
@@ -105,6 +106,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 - Mover pouco (v0.26): só é toque se o máximo deslocamento < 3,5 px (`a.maxD`); movimento < 14 px não gruda (`near0` em `moveSel`).
 - Laço: forma é selecionada se algum ponto está dentro OU se o traço do laço cruza a linha dela (`elInLasso`).
 - Com a caneta, mover/redimensionar/girar é sempre livre (`action.penFree`, mesmo efeito do `noSnap` do 2º dedo).
+- Moldura (v0.27): `e.frame = {color, w, r, pad, dash}` em texto (não post-it) e imagem; `strokeFrame` em render.js (imagem: borda por dentro e `roundRect` recorta a imagem nos cantos; texto: em volta com `pad`, e `elBBox` do texto inclui a moldura). Botão na barra da seleção → `UI.framePop` → `Editor.frameSel(fn)`; última usada em `S.frameLast`.
 - Barra da seleção: botão "editar pontos" (só 1 forma; `js/shapeedit.js`), cor, espessura (com ±0,1 e as espessuras do grupo), copiar/recortar/duplicar, frente, bloquear, recortar imagem, OCR, endireitar, ✨ melhorar escrita, excluir.
 
 ### Ferramentas próprias (plugins)
@@ -119,7 +121,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 
 ### Topo da nota
 - `.ch-title`: título + relógio (`#noteClock`, toque abre o cronômetro) + bateria (`#noteBat`, Battery API) + tempo de estudo (`#noteTimer`, roxo cheio / verde na pausa / laranja pausado). Escrevendo ou em tela cheia, o topo some mas o tempo de estudo fica. Ao parar de escrever, as barras voltam depois de `S.writeHideSec` s (padrão 2,5; `Focus.writingEnd`; desliga com `S.hideWhileWriting`).
-- Barra de status do Android: margens de área segura congeladas (`--sat/--sar/--sab/--sal` no CSS em vez de `env(safe-area-inset-*)`); `theme-color` acompanha a tela. A cor/transparência real da barra depende do TWA. v0.26.3: `Immersive` (navigation.js) pede a Fullscreen API do Chrome em todo pointerup/keyup se não estiver em tela cheia (fora de display-mode browser; `S.keepFull`, padrão ligado) — no modo imersivo a barra só aparece por cima e some (o TWA às vezes saía da tela cheia, ex. painel de volume, e a página descia). O voltar do Android com tela cheia só SAI da tela cheia (sem popstate): `fullscreenchange` sem `leaving`, com app visível e sem popstate em 400 ms → `Nav.onBack()` (após 250 ms, cancelado se vier popstate).
+- Barra de status do Android: margens de área segura congeladas (`--sat/--sar/--sab/--sal` no CSS em vez de `env(safe-area-inset-*)`); `theme-color` acompanha a tela. A cor/transparência real da barra depende do TWA. (v0.26.3 tentou manter a Fullscreen API para a barra sobrepor — `Immersive` — e **não funcionou no tablet**; removido na v0.27.0. Não insistir sem um caminho novo: a barra preta que empurra a tela vem do TWA saindo do modo imersivo.)
 - Segurar o dedo não abre menu/seleção do Chrome em nada, exceto em campo de texto que já estava em uso antes do toque.
 
 ### Cronômetro de estudo (`js/timer.js`)
@@ -129,7 +131,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 
 ## 6. Configurações (`Store.settings`, chaves usadas)
 
-`penDouble` (ação do toque duplo), `split` (tela dividida, ver seção 5), `tools.lasso.mode` ('shot' nunca fica salvo: volta a 'free' depois do print, ao trocar de ferramenta e ao abrir nota), `penTriple` (legado: false → toque duplo desligado), `hand` (right/left/none), `keepFull` (tela cheia imersiva p/ a barra do sistema ficar por cima), `vertexSnap` (grudar ângulos ao editar pontos), (`lockZoom` saiu na v0.26), `writeHideSec`/`hideWhileWriting` (barras ao escrever), `palmGuard`, `fingerDraws`, `scribbleErase`, `shapeHold`, `pressure`/`pressureSens`, `stabPen` (por tipo de caneta)/`stabHl`/`stabilizer` (legado), `autoBeautify` (0–10), `lowLatency`, `zoomQuality` (eco/high), `zoomMin`/`zoomMax`, `timerNotify`, `penMap` (botões físicos da caneta → ação), `presetGroups` (grupos de cores/espessuras), `widthPresets`/`colorPresets`, `tools` (estado de cada ferramenta), `barScale`/`barSize`, `theme`, `snap*` (guias), `hlSnapPdf`/`hlStraight`/`hlHold`, `straightAlways`, `ocr`, `drive`, `plugins`.
+`penDouble` (ação do toque duplo), `split` (tela dividida, ver seção 5), `tools.lasso.mode` ('shot' nunca fica salvo: volta a 'free' depois do print, ao trocar de ferramenta e ao abrir nota), `penTriple` (legado: false → toque duplo desligado), `hand` (right/left/none), `vertexSnap` (grudar ângulos ao editar pontos), `frameLast` (última moldura), (`lockZoom` saiu na v0.26), `writeHideSec`/`hideWhileWriting` (barras ao escrever), `palmGuard`, `fingerDraws`, `scribbleErase`, `shapeHold`, `pressure`/`pressureSens`, `stabPen` (por tipo de caneta)/`stabHl`/`stabilizer` (legado), `autoBeautify` (0–10), `lowLatency`, `zoomQuality` (eco/high), `zoomMin`/`zoomMax`, `timerNotify`, `penMap` (botões físicos da caneta → ação), `presetGroups` (grupos de cores/espessuras), `widthPresets`/`colorPresets`, `tools` (estado de cada ferramenta), `barScale`/`barSize`, `theme`, `snap*` (guias), `hlSnapPdf`/`hlStraight`/`hlHold`, `straightAlways`, `ocr`, `drive`, `plugins`.
 
 ## 7. Testes (scripts Playwright avulsos — nada disso vai para o repositório)
 
@@ -191,8 +193,10 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v0.26.3 — `Immersive` (Fullscreen API mantida para a barra do sistema sobrepor em vez de empurrar; saída inesperada = voltar; `S.keepFull`). Teste: simular display-mode ≠ browser com `matchMedia` no `addInitScript`; `document.exitFullscreen()` simula o voltar.
 
+- v0.27.0 — moldura em texto/imagem (`frame`, `strokeFrame`, `framePop`, `frameSel`), rolagem rápida de volta à direita, margem maior no fim da nota (`camMaxBase`), removido o `Immersive` da v0.26.3 (não funcionou no tablet).
+
 ### Ideias ainda não feitas
-- Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9).
+- Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - Ignorar a palma também na rolagem (toques com área de contato grande), não só nos toques de 2/3 dedos.
 - "Melhorar escrita" na página inteira de uma vez.
 - Alarme do cronômetro com o app fechado exigiria app nativo/push (fora do alcance do PWA).

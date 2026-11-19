@@ -176,7 +176,7 @@ const Editor = {
   },
   /* fim da rolagem: o fim da última página fica um pouco acima da borda de baixo da tela (daí em diante é "puxar para adicionar") */
   camMinY() { return -60 / this.cam.z; }, // topo: só um pouquinho acima da 1ª página
-  camMaxBase() { const z = this.cam.z, vh = this.H / z; return Math.max(this.camMinY(), this.totalH - vh + 90 / z); },
+  camMaxBase() { const z = this.cam.z, vh = this.H / z; return Math.max(this.camMinY(), this.totalH - vh + Math.max(220, this.H * 0.3) / z); }, /* v0.27: margem maior embaixo da última página (antes 90 px) antes de começar o "puxar para nova página" */
   camMaxY() { return this.camMaxBase() + (this.pull || 0) * 0.6 / this.cam.z; }, // ao puxar, a folha sobe um pouco (efeito elástico)
   /* ---------- puxar para adicionar página (como no Notewise) ---------- */
   PULL_MAX: 260, PULL_ADD: 190, /* v0.23.6: mais exigente (~340 px de puxada, antes ~150) */
@@ -910,6 +910,12 @@ const Editor = {
     const page = this.pageById(this.sel.pageId);
     for (const e of this.selElements()) if (!e.lock && ['stroke', 'shape', 'text'].includes(e.type)) this.recReplace(page, e, { ...e, color });
     this.opCommit();
+  },
+  /* v0.27: moldura de caixas de texto e imagens — fn(moldura atual ou null) → nova moldura (null = sem); cada mudança entra no desfazer */
+  frameSel(fn) {
+    const page = this.pageById(this.sel.pageId);
+    for (const e of this.selElements()) if (!e.lock && ((e.type === 'text' && !e.sticky) || e.type === 'image')) { const f = fn(e.frame || null), n = { ...e }; if (f) n.frame = f; else delete n.frame; this.recReplace(page, e, n); }
+    this.opCommit(); this.requestRender();
   },
   widthSel(fn) { // fn(largura atual) → nova largura; cada mudança entra no desfazer
     const page = this.pageById(this.sel.pageId);

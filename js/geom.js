@@ -210,7 +210,7 @@ function elBBox(e) {
     else { const g = shapeGeom(e); x1 = g.x1; y1 = g.y1; x2 = g.x2; y2 = g.y2; }
     const m = e.width / 2 + (e.kind === 'arrow' ? e.width * 4 : 0);
     b = { x: x1 - m, y: y1 - m, w: x2 - x1 + 2 * m, h: y2 - y1 + 2 * m };
-  } else if (e.type === 'text') { const L = layoutText(e); b = { x: e.x, y: e.y, w: e.auto ? L.w : e.w, h: L.h }; }
+  } else if (e.type === 'text') { const L = layoutText(e); b = { x: e.x, y: e.y, w: e.auto ? L.w : e.w, h: L.h }; if (e.frame && !e.sticky) { const m = (e.frame.pad ?? 8) + (e.frame.w || 0) / 2 + 1; b = { x: b.x - m, y: b.y - m, w: b.w + 2 * m, h: b.h + 2 * m }; } }
   else if (e.type === 'image') b = { x: e.x, y: e.y, w: e.w, h: e.h };
   else if (e.type === 'table') { const m = (e.bw || 1) / 2; b = { x: e.x - m, y: e.y - m, w: e.w + 2 * m, h: e.h + 2 * m }; }
   else if (e.bbox) b = e.bbox; else b = { x: e.x || 0, y: e.y || 0, w: e.w || 10, h: e.h || 10 };

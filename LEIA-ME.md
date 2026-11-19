@@ -153,6 +153,20 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.27.0
+
+- **Moldura em caixas de texto e imagens:** selecione um texto ou uma imagem (ou vários) com o laço e toque no novo botão de moldura na barra da seleção. Dá para escolher:
+  - a cor;
+  - o estilo (contínua, tracejada ou pontilhada);
+  - a espessura;
+  - os cantos arredondados (na imagem, os cantos da própria imagem também ficam arredondados);
+  - no texto, o espaço entre o texto e a moldura.
+
+  "Sem moldura" tira a moldura. A última moldura usada vira o padrão da próxima.
+- **Rolagem rápida de volta à direita:** ela continua ignorando a palma e toques logo depois da caneta.
+- **Mais espaço embaixo da última página:** dá para rolar mais (cerca de um terço da tela) antes de começar o "puxar para adicionar página", e escrever no fim da folha fica mais confortável.
+- **Saiu a "barra do sistema por cima do app" da v0.26.3:** voltou ao comportamento anterior.
+
 ## Novidades da v0.26.3
 
 - **A barra do sistema não empurra mais a tela:**

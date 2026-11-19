@@ -126,6 +126,7 @@ const ICONS = {
   home: '<path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   sparkle: '<path d="M12 3.5l1.6 4.4 4.4 1.6-4.4 1.6L12 15.5l-1.6-4.4L6 9.5l4.4-1.6z"/><path d="M18.5 15l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/><path d="M5.5 15.5l.5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3-1.3-.5 1.3-.5z"/>',
+  frame: '<rect x="3" y="3" width="18" height="18" rx="4"/><rect x="7.5" y="7.5" width="9" height="9" rx="1.5"/>',
   nodes: '<path d="M5 18L9 6l10 4-4 9z"/><rect x="3" y="16" width="4" height="4" rx="1" fill="currentColor"/><rect x="7" y="4" width="4" height="4" rx="1" fill="currentColor"/><rect x="17" y="8" width="4" height="4" rx="1" fill="currentColor"/><rect x="13" y="17" width="4" height="4" rx="1" fill="currentColor"/>',
   lockSide: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/><rect x="14.5" y="11.5" width="5" height="4" rx="1"/><path d="M15.5 11.5v-1.2a1.5 1.5 0 0 1 3 0v1.2"/>',
   swapSides: '<path d="M7 7h12l-3-3M17 17H5l3 3"/>',

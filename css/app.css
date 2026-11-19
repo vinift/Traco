@@ -836,3 +836,8 @@ input:not(:focus),textarea:not(:focus){-webkit-user-select:none;user-select:none
 .sv-div.drag{background:var(--chacc);will-change:transform}
 /* v0.26.2: avisos no canto inferior direito (longe da barra de baixo e do meio da folha) */
 .toast{left:auto;right:max(16px,calc(var(--sar,0px) + 12px));bottom:max(20px,calc(var(--sab,0px) + 14px));transform:none;max-width:min(300px,26vw,calc(100vw - 32px));text-align:left;line-height:1.35}
+/* v0.27: moldura de texto/imagem */
+.fr-colors{display:flex;flex-wrap:wrap;gap:6px}
+.fr-c{width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,0,0,.18);cursor:pointer;padding:0}
+.fr-c.on{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent)}
+.fr-row{display:flex;flex-direction:column;gap:4px}

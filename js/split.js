@@ -43,7 +43,7 @@ function svPane(note) {
       const vw = this.W / c.z, vh = this.H / c.z, L = this.L, R = this.R;
       const m = this.mg || { mL: 12, mR: 12 }, pw = (R - L) * c.z; /* v0.25.1: mesmas margens do editor (barras por cima deste lado + 12 px) */
       if (pw > this.W - m.mL - m.mR) c.x = clamp(c.x, L - m.mL / c.z, R + m.mR / c.z - vw); else c.x = L - Math.max(m.mL, (this.W - pw) / 2) / c.z;
-      c.y = clamp(c.y, this.top - 16 / c.z - (loose ? vh * 0.3 : 0), Math.max(this.top - 16 / c.z, this.bot - vh + 90 / c.z));
+      c.y = clamp(c.y, this.top - 16 / c.z - (loose ? vh * 0.3 : 0), Math.max(this.top - 16 / c.z, this.bot - vh + Math.max(220, this.H * 0.3) / c.z));
     },
     apply() {
       const c = this.cam, d = devicePixelRatio || 1;
