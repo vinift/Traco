@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.30.4
+
+- **Tela de páginas (grade de miniaturas):** agora dá para rolar começando o arrasto em cima de uma página (antes só funcionava nos espaços vazios). Tocar abre a página; **segurar parado** e arrastar continua mudando a ordem — e isso foi corrigido também: soltar a página no lugar novo às vezes não era registrado.
+- A faixa de miniaturas da tela de exportar voltou à rolagem normal da v0.30.0 (as mudanças das v0.30.1–v0.30.3 nela foram desfeitas, porque o problema era na tela de páginas). Continuam o carregamento aos poucos das miniaturas e a correção da janela que saía da tela.
+
 ## Novidades da v0.30.3
 
 - **Miniaturas da exportação (de novo):** o arrasto agora é reconhecido pela posição do dedo/caneta dentro da faixa, não pelo elemento tocado — então começar em cima de uma página rola a faixa, com dedo ou caneta. O toque sem arrastar acha a página pela posição (inclui o número embaixo).

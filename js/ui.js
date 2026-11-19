@@ -353,7 +353,7 @@ const PageManager = {
       if (!drag) { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 10) { clearTimeout(t); t = null; } return; }
       card.style.visibility = 'hidden'; const over = document.elementFromPoint(e.clientX, e.clientY); card.style.visibility = '';
       const target = over && over.closest('.pm-card'); if (!target || target === card) return;
-      const r = target.getBoundingClientRect(); if (e.clientX < r.left + r.width / 2) target.before(card); else target.after(card);
+      const r = target.getBoundingClientRect(); if (e.clientX < r.left + r.width / 2) target.before(card); else target.after(card); try { card.setPointerCapture(e.pointerId); } catch (_) {} /* mover o nó no DOM solta a captura: sem isso o soltar não chegava */
     });
     const end = (e) => {
       if (e.pointerId !== id) return; clearTimeout(t); id = null;
@@ -366,6 +366,9 @@ const PageManager = {
       t = null;
     };
     card.addEventListener('pointerup', end); card.addEventListener('pointercancel', (e) => { clearTimeout(t); id = null; drag = false; card.classList.remove('drag'); });
+    /* v0.30.4: a folha agora rola começando em cima das páginas (touch-action pan-y no .pm-card); depois de segurar 380 ms o arrasto
+       reordena e o touchmove barra a rolagem nativa */
+    card.addEventListener('touchmove', (e) => { if (drag && e.cancelable) e.preventDefault(); }, { passive: false });
   },
   pageMenu(anchor, i) {
     const n = Editor.note, p = n.pages[i];

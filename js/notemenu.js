@@ -48,54 +48,18 @@ const ExportPanel = {
     const pages = el('div', { class: 'xp-pages' }, strip, el('div', { class: 'xp-box' }, range, el('label', { class: 'xp-row' }, el('span', {}, 'Selecionar tudo'), el('span', { class: 'xp-switch' }, allSw, el('i')))));
     const thumbs = [];
     const paintSel = () => { thumbs.forEach((t, i) => t.classList.toggle('on', sel.has(i))); allSw.checked = sel.size === n; if (document.activeElement !== range) range.value = sel.size === n ? '' : rangeText(sel, n); go.textContent = label(); };
-    /* v0.30.1: miniaturas carregadas aos poucos (só as perto da tela, uma por vez) e rolagem própria da faixa:
-       arrastar em qualquer direção (dedo ou caneta) rola de lado, com inércia; toque sem arrastar marca/desmarca */
+    /* v0.30.1: miniaturas carregadas aos poucos (só as perto da tela, uma por vez). A faixa rola de forma nativa
+       (a rolagem própria da v0.30.1–v0.30.3 foi desfeita na v0.30.4: o problema relatado era na tela de páginas). */
     const toggle = (i) => { sel.has(i) ? sel.delete(i) : sel.add(i); paintSel(); };
     const queue = [], pending = new Set(); let busyT = false;
     const pump = async () => { if (busyT) return; busyT = true; while (queue.length && box.isConnected !== false) { const i = queue.shift(); try { thumbs[i]._img.src = await pageThumb(note, note.pages[i]); } catch (_) {} } busyT = false; };
     const io = 'IntersectionObserver' in window ? new IntersectionObserver((es) => { for (const en of es) if (en.isIntersecting) { const i = +en.target.dataset.i; if (!pending.has(i)) { pending.add(i); queue.push(i); io.unobserve(en.target); } } queue.sort((a, b) => a - b); pump(); }, { root: strip, rootMargin: '0px 700px' }) : null;
     note.pages.forEach((p, i) => {
-      const img = el('img', { alt: '', draggable: 'false' }), t = el('div', { class: 'xp-th' + (i === cur ? ' cur' : ''), 'data-i': i, style: { width: Math.round((150 * (p.w || 1000)) / (p.h || 1414)) + 'px' } }, img, el('span', { class: 'xp-ck' }, '✓'));
+      const img = el('img', { alt: '', draggable: 'false' }), t = el('button', { class: 'xp-th' + (i === cur ? ' cur' : ''), 'data-i': i, onclick: () => toggle(i), style: { width: Math.round((150 * (p.w || 1000)) / (p.h || 1414)) + 'px' } }, img, el('span', { class: 'xp-ck' }, '✓'));
       t._img = img; thumbs.push(t); strip.append(el('div', { class: 'xp-thw' }, t, el('small', {}, String(i + 1))));
       if (io) io.observe(t); else if (i < 40) { queue.push(i); }
     });
     if (!io) pump();
-    let drag = null, vel = 0, raf = 0;
-    const stopIn = () => { cancelAnimationFrame(raf); raf = 0; };
-    /* v0.30.2: dedo por eventos de TOQUE (o Android cancelava o arrasto por ponteiro começado em cima de uma página);
-       caneta/mouse por eventos de ponteiro. Mesma lógica: arrastar em qualquer direção rola de lado; toque sem arrastar marca. */
-    const dStart = (id, x, y) => { stopIn(); drag = { id, x, y, sx: strip.scrollLeft, moved: 0, lt: performance.now() }; vel = 0; };
-    const dMove = (x, y) => {
-      const dx = x - drag.x, dy = y - drag.y, d = Math.abs(dx) >= Math.abs(dy) ? dx : dy; drag.moved = Math.max(drag.moved, Math.hypot(dx, dy));
-      if (drag.moved < 8) return;
-      const now = performance.now(), pos = drag.sx - d; vel = 0.8 * ((pos - strip.scrollLeft) / Math.max(1, now - drag.lt)) + 0.2 * vel; drag.lt = now; strip.scrollLeft = pos;
-    };
-    let lastEnd = 0;
-    const dEnd = (x, y, tap) => {
-      const dd = drag; drag = null; if (!dd) return; lastEnd = performance.now();
-      if (dd.moved < 8) { if (tap) { const i = thumbAt(x, y); if (i >= 0) toggle(i); } return; }
-      if (performance.now() - dd.lt > 80) vel = 0;
-      let last = performance.now(); const step = (now) => { const dt = now - last; last = now; vel *= Math.pow(0.995, dt); if (Math.abs(vel) < 0.02) return (raf = 0); strip.scrollLeft += vel * dt; raf = requestAnimationFrame(step); };
-      if (Math.abs(vel) > 0.05) raf = requestAnimationFrame(step);
-    };
-    /* v0.30.3: ouvintes na janela (captura) e teste pela POSIÇÃO dentro da faixa — no tablet o toque começado em cima de uma
-       miniatura não chegava à faixa (dedo e caneta); assim não depende de qual elemento recebe o toque. A página do toque também
-       é achada pela posição (thumbAt). Os ouvintes saem quando a janela fecha. */
-    const inStrip = (x, y) => { if (!strip.isConnected) return false; const r = strip.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; };
-    const thumbAt = (x, y) => thumbs.findIndex((t) => { const r = t.getBoundingClientRect(); return x >= r.left - 4 && x <= r.right + 4 && y >= r.top - 4 && y <= r.bottom + 22; });
-    const find = (list, id) => { for (const t of list) if (t.identifier === id) return t; return null; };
-    const L = [];
-    const on = (ty, fn, opt) => { addEventListener(ty, fn, opt); L.push([ty, fn, opt]); };
-    const off = () => { for (const [ty, fn, opt] of L) removeEventListener(ty, fn, opt); L.length = 0; stopIn(); };
-    const alive = () => strip.isConnected;
-    on('touchstart', (e) => { if (!alive() || drag || e.defaultPrevented) return; const t = e.changedTouches[0]; if (!inStrip(t.clientX, t.clientY)) return; dStart('t' + t.identifier, t.clientX, t.clientY); }, { capture: true, passive: true });
-    on('touchmove', (e) => { if (!drag || drag.id[0] !== 't') return; const t = find(e.touches, +drag.id.slice(1)); if (!t) return; if (e.cancelable) e.preventDefault(); dMove(t.clientX, t.clientY); }, { capture: true, passive: false });
-    for (const ty of ['touchend', 'touchcancel']) on(ty, (e) => { if (!drag || drag.id[0] !== 't') return; const t = find(e.changedTouches, +drag.id.slice(1)); if (!t) return; if (ty === 'touchend' && e.cancelable) e.preventDefault(); dEnd(t.clientX, t.clientY, ty === 'touchend'); }, { capture: true, passive: false });
-    on('pointerdown', (e) => { if (e.pointerType === 'touch' || !alive() || drag || !inStrip(e.clientX, e.clientY)) return; dStart(e.pointerId, e.clientX, e.clientY); }, true);
-    on('pointermove', (e) => { if (drag && e.pointerId === drag.id) { dMove(e.clientX, e.clientY); if (drag.moved >= 8 && e.cancelable) e.preventDefault(); } }, true);
-    for (const ty of ['pointerup', 'pointercancel']) on(ty, (e) => { if (drag && e.pointerId === drag.id) dEnd(e.clientX, e.clientY, ty === 'pointerup'); }, true);
-    /* o clique sintético do fim do toque não deve fazer nada na faixa (a marcação já foi feita em dEnd) */
-    on('click', (e) => { if (strip.isConnected && inStrip(e.clientX, e.clientY) && performance.now() - lastEnd < 600) { e.stopPropagation(); e.preventDefault(); } }, true);
     strip.addEventListener('wheel', (e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { strip.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
     range.addEventListener('input', () => { const s = parsePageRange(range.value, n); if (s.size) { sel = s; paintSel(); } });
     allSw.addEventListener('change', () => { sel = allSw.checked ? new Set(note.pages.map((_, i) => i)) : new Set([cur]); paintSel(); });
@@ -134,7 +98,6 @@ const ExportPanel = {
       { label: 'Salvar', action: () => (sel.size ? 'save' : (toast('Escolha ao menos uma página', 1500), false)) },
       { label: 'Compartilhar', cls: 'primary', action: () => (sel.size ? 'share' : (toast('Escolha ao menos uma página', 1500), false)) },
     ] });
-    off();
     if (!act) return;
     S.exportFmt = fmt; S.pdfQuality = q; Store.saveSettings();
     const idx = [...sel].sort((a, b) => a - b), sub = idx.length === n ? note : { ...note, pages: idx.map((i) => note.pages[i]) };
