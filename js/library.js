@@ -340,7 +340,8 @@ async function openSettings(focus) {
       UI.check('Outros objetos: bordas e centros dos objetos próximos', S.snapObjects !== false, (v) => { S.snapObjects = v; Store.saveSettings(); }),
       UI.check('Ângulo: girar grudando a cada 15° (0°, 45°, 90°…)', S.snapAngle !== false, (v) => { S.snapAngle = v; Store.saveSettings(); }),
       UI.check('Proporção: ao redimensionar, grudar em 1:1 ou na proporção original', S.snapRatio !== false, (v) => { S.snapRatio = v; Store.saveSettings(); }),
-      UI.check('Linhas retas da caneta e do marca-texto grudam a cada 15°', S.angleSnap !== false, (v) => { S.angleSnap = v; Store.saveSettings(); }))));
+      UI.check('Linhas retas da caneta e do marca-texto grudam a cada 15°', S.angleSnap !== false, (v) => { S.angleSnap = v; Store.saveSettings(); }),
+      UI.check('Editar pontos das formas: o vértice gruda quando o lado fica a 0°, 45° ou 90° (um 2º dedo na tela solta)', S.vertexSnap !== false, (v) => { S.vertexSnap = v; Store.saveSettings(); }))));
   const zApply = () => { if (Editor.note) { Editor.clampCam(); Editor.requestRender(); } };
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Zoom'),
     el('p', {}, 'Até onde o movimento de pinça pode afastar e aproximar a folha. O menu de zoom (porcentagem no canto) segue estes limites.'),
@@ -350,7 +351,7 @@ async function openSettings(focus) {
       sel.value = S.zoomQuality === 'high' ? 'high' : 'eco';
       return el('div', { class: 'field' }, el('label', {}, 'Qualidade ao tirar o zoom'), sel);
     })(),
-    UI.slider('Trava de rolagem (folha centralizada, só vertical) até', 0, 150, 5, S.lockZoom == null ? 70 : +S.lockZoom, (v) => { S.lockZoom = v; Store.saveSettings(); if (typeof Editor !== 'undefined' && Editor.note) { Editor.clampCam(); Editor.requestRender(); } }, (v) => (v === 0 ? 'desligada' : v + '%')),
+    /* v0.25.1: a 'Trava de rolagem (%)' saiu — as margens das barras definem quando a rolagem lateral trava (clampCam) */
     UI.slider('Zoom máximo (aproximar)', 200, 2000, 100, +S.zoomMax || 800, (v) => { S.zoomMax = v; Store.saveSettings(); zApply(); }, (v) => v + '%'),
     el('p', { class: 'muted' }, 'No modo tela infinita o mínimo padrão é 10%.')));
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Escrita e caneta'),

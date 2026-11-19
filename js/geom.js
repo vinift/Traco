@@ -185,6 +185,7 @@ function buildShapePath(e) {
     case 'ellipse': p.ellipse((g.x1 + g.x2) / 2, (g.y1 + g.y2) / 2, g.w / 2, g.h / 2, 0, 0, Math.PI * 2); break;
     case 'triangle': p.moveTo((g.x1 + g.x2) / 2, g.y1); p.lineTo(g.x2, g.y2); p.lineTo(g.x1, g.y2); p.closePath(); break;
     case 'diamond': p.moveTo((g.x1 + g.x2) / 2, g.y1); p.lineTo(g.x2, (g.y1 + g.y2) / 2); p.lineTo((g.x1 + g.x2) / 2, g.y2); p.lineTo(g.x1, (g.y1 + g.y2) / 2); p.closePath(); break;
+    case 'path': { const q = pathSamples(e); p.moveTo(q[0][0], q[0][1]); for (let i = 1; i < q.length; i++) p.lineTo(q[i][0], q[i][1]); break; }
     case 'poly': { const q = e.pts; p.moveTo(q[0], q[1]); for (let i = 2; i < q.length; i += 2) p.lineTo(q[i], q[i + 1]); if (e.closed) p.closePath(); break; }
   }
   return p;
@@ -205,7 +206,7 @@ function elBBox(e) {
     b = { x: x1 - m, y: y1 - m, w: x2 - x1 + 2 * m, h: y2 - y1 + 2 * m };
   } else if (e.type === 'shape') {
     let x1, y1, x2, y2;
-    if (e.kind === 'poly') { x1 = y1 = Infinity; x2 = y2 = -Infinity; for (let i = 0; i < e.pts.length; i += 2) { x1 = Math.min(x1, e.pts[i]); x2 = Math.max(x2, e.pts[i]); y1 = Math.min(y1, e.pts[i + 1]); y2 = Math.max(y2, e.pts[i + 1]); } }
+    if (e.kind === 'poly' || e.kind === 'path') { x1 = y1 = Infinity; x2 = y2 = -Infinity; for (let i = 0; i < e.pts.length; i += 2) { x1 = Math.min(x1, e.pts[i]); x2 = Math.max(x2, e.pts[i]); y1 = Math.min(y1, e.pts[i + 1]); y2 = Math.max(y2, e.pts[i + 1]); } }
     else { const g = shapeGeom(e); x1 = g.x1; y1 = g.y1; x2 = g.x2; y2 = g.y2; }
     const m = e.width / 2 + (e.kind === 'arrow' ? e.width * 4 : 0);
     b = { x: x1 - m, y: y1 - m, w: x2 - x1 + 2 * m, h: y2 - y1 + 2 * m };
@@ -239,6 +240,7 @@ function shapeSamples(e) {
 }
 function shapeSamplesRaw(e) {
   const out = [];
+  if (e.kind === 'path') return pathSamples(e);
   if (e.kind === 'poly') { for (let i = 0; i < e.pts.length; i += 2) out.push([e.pts[i], e.pts[i + 1]]); if (e.closed) out.push([e.pts[0], e.pts[1]]); return out; }
   if (e.kind === 'line' || e.kind === 'arrow') { for (let t = 0; t <= 1; t += 0.05) out.push([e.x1 + (e.x2 - e.x1) * t, e.y1 + (e.y2 - e.y1) * t]); return out; }
   const g = shapeGeom(e), cx = (g.x1 + g.x2) / 2, cy = (g.y1 + g.y2) / 2;
@@ -302,7 +304,10 @@ function elInLasso(e, poly) {
     const sp = shapeSamples(e), dense = []; // contorno com pontos a cada ~4 unidades
     for (let i = 0; i < sp.length; i++) { dense.push(sp[i]); const nx = sp[i + 1]; if (nx) { const dx = nx[0] - sp[i][0], dy = nx[1] - sp[i][1], n = Math.min(40, Math.floor(Math.hypot(dx, dy) / 4)); for (let k = 1; k < n; k++) dense.push([sp[i][0] + (dx * k) / n, sp[i][1] + (dy * k) / n]); } }
     if (anyIn(dense)) return true;
-    if (!e.fill || ['line', 'arrow'].includes(e.kind) || (e.kind === 'poly' && !e.closed)) return false;
+    /* v0.25.1: o traço do laço que só passa por cima da forma (cruza a linha) também a seleciona */
+    const X = (a, b, c, d) => { const o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])); return o(a, b, c) !== o(a, b, d) && o(c, d, a) !== o(c, d, b); };
+    for (let i = 1; i < poly.length; i++) for (let j = 1; j < sp.length; j++) if (X(poly[i - 1], poly[i], sp[j - 1], sp[j])) return true;
+    if (!e.fill || ['line', 'arrow'].includes(e.kind) || (e.kind === 'poly' && !e.closed) || e.kind === 'path') return false;
   }
   // caixas (texto, post-it, imagem, tabela, forma preenchida): contorno ou interior tocado pelo laço
   const b = elBBox(e), pts = [];
@@ -322,7 +327,7 @@ function transformEl(e, f) { // f: {sx, sy, ox, oy, dx, dy}  x' = ox + (x-ox)*sx
       n.br = { ...b, sx: r2(C(b.sx)), top: r2(A(b.top)), bot: r2(A(b.bot)), hT: r2(b.hT * kc), hB: r2(b.hB * kc), rT: r2(b.rT * kr), rB: r2(b.rB * kr) };
       const g = bracketShape(n.br); n.pts = g.pts; n.br = g.br;
     }
-    else if (e.kind === 'poly') { n.pts = e.pts.map((v, i) => r2(i % 2 ? Y(v) : X(v))); delete n.br; }
+    else if (e.kind === 'poly' || e.kind === 'path') { n.pts = e.pts.map((v, i) => r2(i % 2 ? Y(v) : X(v))); delete n.br; if (e.rr && s !== 1) n.rr = e.rr.map((r) => r2(r * Math.sqrt(Math.abs(f.sx * f.sy)))); }
     else { n.x1 = X(e.x1); n.y1 = Y(e.y1); n.x2 = X(e.x2); n.y2 = Y(e.y2); }
     if (s !== 1) n.width = e.width * s;
   } else if (e.type === 'text') {
@@ -407,19 +412,109 @@ function bracketShape(br0) {
   if (br.rev) { const rev = []; for (let i = out.length - 2; i >= 0; i -= 2) rev.push(out[i], out[i + 1]); return { kind: 'poly', pts: rev, closed: false, br }; }
   return { kind: 'poly', pts: out, closed: false, br };
 }
-function recognizeShape(flat) {
+/* ===== v0.25.1: "linha com cantos" (shape kind 'path') =====
+   pts = vértices [x, y, …] (aberta); rr[i] = arredondamento do canto i (pontas e cantos vivos = 0). O desenho é feito com arcos tangentes
+   (como arcTo): colchete = 4 vértices com cantos pouco arredondados, arco "(" = 3 vértices bem arredondados. O raio é limitado pelo
+   comprimento dos lados (lado de ponta inteiro, lado entre dois cantos pela metade) para nunca virar laço. */
+function pathCorner(e, i) {
+  const P = e.pts, n = P.length / 2, bx = P[i * 2], by = P[i * 2 + 1];
+  let ux = P[i * 2 - 2] - bx, uy = P[i * 2 - 1] - by, vx = P[i * 2 + 2] - bx, vy = P[i * 2 + 3] - by; const L1 = Math.hypot(ux, uy), L2 = Math.hypot(vx, vy);
+  if (L1 < 1e-6 || L2 < 1e-6) return null; ux /= L1; uy /= L1; vx /= L2; vy /= L2;
+  const th = Math.acos(clamp(ux * vx + uy * vy, -1, 1)); if (th > Math.PI - 0.02 || th < 0.02) return null; /* reto (ou dobra de 180°): sem curva */
+  /* o lado pode ser usado inteiro se o vizinho é ponta ou canto vivo; se o vizinho também é arredondado, cada um usa metade */
+  const share = (j) => (j === 0 || j === n - 1 || !(e.rr && e.rr[j] > 0) ? 1 : 0.5);
+  const tn = Math.tan(th / 2), tmax = Math.min(L1 * share(i - 1), L2 * share(i + 1));
+  const r = Math.min(Math.max(0, (e.rr && e.rr[i]) || 0), tmax * tn); if (r < 0.05) return { r: 0, bx, by, ux, uy, vx, vy, th };
+  const t = r / tn, bl = Math.hypot(ux + vx, uy + vy) || 1, bxs = (ux + vx) / bl, bys = (uy + vy) / bl, dc = r / Math.sin(th / 2);
+  return { r, t, th, bx, by, ux, uy, vx, vy, bisx: bxs, bisy: bys, cx: bx + bxs * dc, cy: by + bys * dc, rmax: tmax * tn };
+}
+const _pathSmpCache = new WeakMap();
+function pathSamples(e) {
+  let out = _pathSmpCache.get(e); if (out) return out;
+  const P = e.pts, n = P.length / 2; out = [[P[0], P[1]]];
+  for (let i = 1; i < n - 1; i++) {
+    const c = pathCorner(e, i); if (!c || !c.r) { out.push([P[i * 2], P[i * 2 + 1]]); continue; }
+    const a1 = Math.atan2(c.by + c.uy * c.t - c.cy, c.bx + c.ux * c.t - c.cx), a2 = Math.atan2(c.by + c.vy * c.t - c.cy, c.bx + c.vx * c.t - c.cx);
+    let d = a2 - a1; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+    const k = Math.max(4, Math.min(24, Math.ceil(Math.abs(d) * Math.sqrt(c.r) * 1.6)));
+    for (let j = 0; j <= k; j++) { const a = a1 + (d * j) / k; out.push([c.cx + c.r * Math.cos(a), c.cy + c.r * Math.sin(a)]); }
+  }
+  out.push([P[n * 2 - 2], P[n * 2 - 1]]); _pathSmpCache.set(e, out); return out;
+}
+/* meio da curva do canto (onde fica o losango de curvatura) e o raio que corresponde a um ponto arrastado */
+function pathCurveHandle(e, i) {
+  const c = pathCorner(e, i); if (!c) return null; const k = 1 / Math.sin(c.th / 2) - 1, rr = c.r || 0;
+  const d = Math.max(rr * k, 6); return { x: c.bx + (c.bisx ?? (c.ux + c.vx) / (Math.hypot(c.ux + c.vx, c.uy + c.vy) || 1)) * d, y: c.by + (c.bisy ?? (c.uy + c.vy) / (Math.hypot(c.ux + c.vx, c.uy + c.vy) || 1)) * d, k, c };
+}
+function pathRadiusFrom(e, i, x, y) {
+  const h = pathCurveHandle(e, i); if (!h) return 0; const c = h.c, bl = Math.hypot(c.ux + c.vx, c.uy + c.vy) || 1;
+  const d = ((x - c.bx) * (c.ux + c.vx) + (y - c.by) * (c.uy + c.vy)) / bl; return Math.max(0, d / h.k);
+}
+/* traço aberto → linha com cantos: simplifica (RDP), acha os cantos "de verdade" cruzando retas ajustadas a cada lado e mede o
+   arredondamento pelo quanto o traço passa por dentro do canto. Só aceita se o resultado acompanha bem o traço (protege a escrita). */
+function fitPath(P, diag, z) {
+  const fitLine = (a, b) => { /* reta pelos pontos do meio do lado (sem as curvas das pontas) */
+    const n = b - a, i0 = a + Math.floor(n * 0.2), i1 = b - Math.floor(n * 0.2); if (i1 - i0 < 2) return null;
+    let mx = 0, my = 0, c = 0; for (let i = i0; i <= i1; i++) { mx += P[i][0]; my += P[i][1]; c++; } mx /= c; my /= c;
+    let sxx = 0, syy = 0, sxy = 0; for (let i = i0; i <= i1; i++) { const dx = P[i][0] - mx, dy = P[i][1] - my; sxx += dx * dx; syy += dy * dy; sxy += dx * dy; }
+    const ang = 0.5 * Math.atan2(2 * sxy, sxx - syy); return { x: mx, y: my, dx: Math.cos(ang), dy: Math.sin(ang) };
+  };
+  const cross = (L1, L2) => { const den = L1.dx * L2.dy - L1.dy * L2.dx; if (Math.abs(den) < 0.08) return null; const t = ((L2.x - L1.x) * L2.dy - (L2.y - L1.y) * L2.dx) / den; return [L1.x + L1.dx * t, L1.y + L1.dy * t]; };
+  const proj = (L, q) => { const t = (q[0] - L.x) * L.dx + (q[1] - L.y) * L.dy; return [L.x + L.dx * t, L.y + L.dy * t]; };
+  const tol = Math.max(2.5 / z, diag * 0.045);
+  for (const f of [0.06, 0.045, 0.032, 0.022]) {
+    const eps = Math.max(1.5 / z, diag * f), idx = rdpIdx(P, eps); if (idx.length < 3 || idx.length > 7) continue;
+    const lines = []; for (let s = 0; s < idx.length - 1; s++) lines.push(fitLine(idx[s], idx[s + 1]));
+    const V = idx.map((k) => P[k].slice());
+    for (let s = 1; s < idx.length - 1; s++) { const A = lines[s - 1], B = lines[s]; if (A && B && Math.abs(A.dx * B.dy - A.dy * B.dx) < 0.3) { idx.splice(s, 1); V.splice(s, 1); lines.splice(s - 1, 2, fitLine(idx[s - 1], idx[s])); s--; } } /* canto quase reto (< ~17°): some */
+    if (idx.length < 3) continue;
+    for (let s = 1; s < idx.length - 1; s++) { const A = lines[s - 1], B = lines[s]; const q = A && B && cross(A, B); if (q && Math.hypot(q[0] - V[s][0], q[1] - V[s][1]) < diag * 0.4) V[s] = q; }
+    if (lines[0]) V[0] = proj(lines[0], V[0]); const ln = lines[lines.length - 1]; if (ln) V[V.length - 1] = proj(ln, V[V.length - 1]);
+    const pts = []; for (const v of V) pts.push(r2(v[0]), r2(v[1]));
+    const e = { kind: 'path', pts, rr: V.map(() => 0) };
+    for (let s = 1; s < V.length - 1; s++) { /* raio: distância do canto até o traço = r·(1/sen(θ/2) − 1) */
+      const c = pathCorner(e, s); if (!c) continue; let dmin = Infinity; for (const p of P) dmin = Math.min(dmin, Math.hypot(p[0] - c.bx, p[1] - c.by));
+      const r = dmin / (1 / Math.sin(c.th / 2) - 1); e.rr[s] = r * z < 1.5 ? 0 : r2(r);
+    }
+    const S = pathSamples(e); let err = 0;
+    for (let i = 0; i < P.length; i += 2) { let d = Infinity; for (let j = 1; j < S.length; j++) d = Math.min(d, distSeg(P[i][0], P[i][1], S[j - 1][0], S[j - 1][1], S[j][0], S[j][1])); err = Math.max(err, d); }
+    if (err <= tol) return { kind: 'path', pts, rr: e.rr };
+  }
+  return null;
+}
+/* curva que é um pedaço de círculo → arco exato: pontas + cantos nas tangentes (cada pedaço até ~100°) com raio = do círculo */
+function fitArc(P, diag, z) {
+  const n = P.length; if (n < 6) return null; let len = 0; const cum = [0]; for (let i = 1; i < n; i++) { len += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); cum.push(len); }
+  const A = P[0], C = P[n - 1], B = P[cum.findIndex((c) => c >= len / 2)];
+  const d = 2 * (A[0] * (B[1] - C[1]) + B[0] * (C[1] - A[1]) + C[0] * (A[1] - B[1])); if (Math.abs(d) < 1e-6) return null;
+  const a2 = A[0] ** 2 + A[1] ** 2, b2 = B[0] ** 2 + B[1] ** 2, c2 = C[0] ** 2 + C[1] ** 2;
+  const cx = (a2 * (B[1] - C[1]) + b2 * (C[1] - A[1]) + c2 * (A[1] - B[1])) / d, cy = (a2 * (C[0] - B[0]) + b2 * (A[0] - C[0]) + c2 * (B[0] - A[0])) / d, R = Math.hypot(A[0] - cx, A[1] - cy);
+  if (R > diag * 4) return null; /* quase reta */
+  const tol = Math.max(2.2 / z, diag * 0.035); for (const p of P) if (Math.abs(Math.hypot(p[0] - cx, p[1] - cy) - R) > tol) return null;
+  const ang = (p) => Math.atan2(p[1] - cy, p[0] - cx), dir = Math.sign((B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0])) || 1;
+  let sw = 0; for (let i = 1; i < n; i++) { let da = ang(P[i]) - ang(P[i - 1]); while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI; sw += da; }
+  if (Math.abs(sw) < 0.45 || Math.abs(sw) > 5.6) return null;
+  const k = Math.ceil(Math.abs(sw) / 1.75), a0 = ang(A), h = sw / (2 * k), pts = [], rr = [];
+  for (let j = 0; j <= k; j++) { const b = a0 + (sw * j) / k; pts.push(r2(cx + R * Math.cos(b)), r2(cy + R * Math.sin(b))); rr.push(0); if (j < k) { const m = b + h, q = R / Math.cos(h); pts.push(r2(cx + q * Math.cos(m)), r2(cy + q * Math.sin(m))); rr.push(r2(R)); } }
+  return { kind: 'path', pts, rr };
+}
+function rdpIdx(P, eps) { /* RDP devolvendo os índices */
+  const keep = new Uint8Array(P.length); keep[0] = keep[P.length - 1] = 1; const st = [[0, P.length - 1]];
+  while (st.length) { const [a, b] = st.pop(); let dm = 0, im = -1; for (let i = a + 1; i < b; i++) { const d = distSeg(P[i][0], P[i][1], P[a][0], P[a][1], P[b][0], P[b][1]); if (d > dm) { dm = d; im = i; } } if (dm > eps && im > 0) { keep[im] = 1; st.push([a, im], [im, b]); } }
+  const out = []; for (let i = 0; i < P.length; i++) if (keep[i]) out.push(i); return out;
+}
+function recognizeShape(flat, z = 1) {
   const P = []; for (let i = 0; i < flat.length; i += 3) P.push([flat[i], flat[i + 1]]);
-  if (P.length < 4) return null;
+  if (P.length < 3) return null;
   let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity, len = 0;
   P.forEach((p, i) => { x1 = Math.min(x1, p[0]); x2 = Math.max(x2, p[0]); y1 = Math.min(y1, p[1]); y2 = Math.max(y2, p[1]); if (i) len += Math.hypot(p[0] - P[i - 1][0], p[1] - P[i - 1][1]); });
-  const diag = Math.hypot(x2 - x1, y2 - y1); if (diag < 12) return null;
-  { const br = recognizeBracket(P, x1, y1, x2, y2); if (br) return br; } // v0.24.10: colchete arredondado (antes da linha reta: ganchos pequenos numa linha longa viravam linha)
+  const diag = Math.hypot(x2 - x1, y2 - y1); if (diag * z < 10) return null; /* v0.25.1: mínimo de ~10 px de TELA (antes 12 da folha): linhas curtinhas também viram reta */
   const a = P[0], b = P[P.length - 1], chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
   if (chord / len > 0.9) {
     let dev = 0; for (const p of P) dev = Math.max(dev, distSeg(p[0], p[1], a[0], a[1], b[0], b[1]));
-    if (dev / chord < 0.1) return { kind: 'line', x1: a[0], y1: a[1], x2: b[0], y2: b[1] };
+    if (dev < Math.max(chord * 0.1, 2 / z)) return { kind: 'line', x1: a[0], y1: a[1], x2: b[0], y2: b[1] }; /* linha curta: tremido de até 2 px de tela */
   }
-  if (chord > diag * 0.3) return null; // não fechado
+  if (chord > diag * 0.3) return diag * z >= 18 ? fitArc(P, diag, z) || fitPath(P, diag, z) : null; /* v0.25.1: aberto → linha com cantos/curva (colchete, arco, "L"…) */
   const simp = rdp(P, diag * 0.06);
   const corners = simp.length - 1; // primeiro == ~último
   const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2, rx = (x2 - x1) / 2, ry = (y2 - y1) / 2;
@@ -526,7 +621,7 @@ function scribbleTargets(elements, flat, z = 1, strength = 2) {
 
 /* ===== Rotação ===== */
 function rotPt(x, y, cx, cy, a) { const c = Math.cos(a), s = Math.sin(a), dx = x - cx, dy = y - cy; return [cx + dx * c - dy * s, cy + dx * s + dy * c]; }
-function hasRot(e) { return e.type === 'image' || e.type === 'text' || e.type === 'table' || (e.type === 'shape' && e.kind !== 'line' && e.kind !== 'arrow' && e.kind !== 'poly'); }
+function hasRot(e) { return e.type === 'image' || e.type === 'text' || e.type === 'table' || (e.type === 'shape' && e.kind !== 'line' && e.kind !== 'arrow' && e.kind !== 'poly' && e.kind !== 'path'); }
 function rawBox(e) {
   if (e.type === 'text') { const L = layoutText(e); return { x: e.x, y: e.y, w: e.auto ? L.w : e.w, h: L.h }; }
   if (e.type === 'image' || e.type === 'table') return { x: e.x, y: e.y, w: e.w, h: e.h };
@@ -536,7 +631,7 @@ function rawCenter(e) { const b = rawBox(e); return { x: b.x + b.w / 2, y: b.y +
 function rotateEl(e, ang, cx, cy) {
   const R = (x, y) => rotPt(x, y, cx, cy, ang), n = { ...e };
   if (e.type === 'stroke') { const p = e.pts.slice(); for (let i = 0; i < p.length; i += 3) { const q = R(p[i], p[i + 1]); p[i] = r2(q[0]); p[i + 1] = r2(q[1]); } n.pts = p; return n; }
-  if (e.type === 'shape' && e.kind === 'poly') { delete n.br; const p = e.pts.slice(); for (let i = 0; i < p.length; i += 2) { const q = R(p[i], p[i + 1]); p[i] = r2(q[0]); p[i + 1] = r2(q[1]); } n.pts = p; return n; }
+  if (e.type === 'shape' && (e.kind === 'poly' || e.kind === 'path')) { delete n.br; const p = e.pts.slice(); for (let i = 0; i < p.length; i += 2) { const q = R(p[i], p[i + 1]); p[i] = r2(q[0]); p[i + 1] = r2(q[1]); } n.pts = p; return n; }
   if (e.type === 'shape' && (e.kind === 'line' || e.kind === 'arrow')) { const a = R(e.x1, e.y1), b = R(e.x2, e.y2); n.x1 = a[0]; n.y1 = a[1]; n.x2 = b[0]; n.y2 = b[1]; return n; }
   if (hasRot(e)) {
     const c = rawCenter(e), q = R(c.x, c.y), dx = q[0] - c.x, dy = q[1] - c.y;

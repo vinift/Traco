@@ -14,8 +14,8 @@ Object.assign(Editor, {
   /* v0.24.1: "Econômica" (padrão) volta à memória de antes da v0.23.1 — as barras piscavam no zoom com dois dedos (memória de desenho cheia no Android).
      Os extras (mais blocos, mais miniaturas, camada afastada e miniaturas montadas durante o gesto) ficam só na "Alta" */
   hiQ() { return Store.settings.zoomQuality === 'high'; },
-  tileCap() { const big = (navigator.deviceMemory || 4) >= 8; return this.hiQ() ? (big ? 200 : 110) : (big ? 90 : 60); },
-  previewCap() { return this.hiQ() && (navigator.deviceMemory || 4) >= 8 ? 18 : 10; },
+  tileCap() { const big = (navigator.deviceMemory || 4) >= 8, n = this.hiQ() ? (big ? 200 : 110) : (big ? 90 : 60); /* v0.25.1: tela dividida = editor menor e o outro lado também usa memória */ const k = innerWidth ? clamp(this.W / innerWidth, 0.5, 1) : 1; return Math.round(n * (k < 0.95 ? Math.max(0.55, k) : 1)); },
+  previewCap() { const n = this.hiQ() && (navigator.deviceMemory || 4) >= 8 ? 18 : 10; return innerWidth && this.W < innerWidth * 0.95 ? Math.min(n, 6) : n; },
   pfMargin: 0.35, tileBudgetMs: 10,
   freeCanvas(c) { if (c) { if (c.parentNode) c.remove(); c.width = 0; c.height = 0; } }, // devolve a memória na hora (sem esperar a coleta de lixo)
   resetTiles() {

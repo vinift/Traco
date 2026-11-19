@@ -27,7 +27,7 @@ Object.assign(Editor, {
     for (const id of ['rail', 'subrail']) { const n = document.getElementById(id); if (n && n.offsetParent && n.offsetWidth) { const r = n.getBoundingClientRect(); if (r.right > st.left && r.left < st.right) x = Math.max(x, r.right - ed.left); } }
     vs.style.left = Math.round(x + 2) + 'px';
   },
-  flashScroll() { this.placeScroll(); const vs = $('#vscroll'); vs.classList.add('show'); this._vsShown = true; clearTimeout(this._vsT); this._vsT = setTimeout(() => { vs.classList.remove('show'); this._vsShown = false; }, 1400); },
+  flashScroll() { if (!this._vsPlaced) { this._vsPlaced = true; this.placeScroll(); } /* v0.25.1: não mede a cada rolagem (forçava layout e a barrinha piscava) */ const vs = $('#vscroll'); vs.classList.add('show'); this._vsShown = true; clearTimeout(this._vsT); this._vsT = setTimeout(() => { vs.classList.remove('show'); this._vsShown = false; }, 1400); },
   initScroll() {
     const vs = $('#vscroll'); if (!vs || vs._ok) return; vs._ok = true;
     const t = vs.firstChild; let drag = null;

@@ -43,6 +43,7 @@ const Editor = {
     s.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
     s.addEventListener('contextmenu', (e) => e.preventDefault());
     new ResizeObserver(() => { if (this.note) { this.resize(); } }).observe(s);
+    setTimeout(() => { const ro = new ResizeObserver(() => { this._mg = null; }); for (const id of ['rail', 'subrail']) { const n = document.getElementById(id); if (n) ro.observe(n); } }, 0); /* barras mudaram: margens medidas de novo */
     ImgCache.onReady = () => { this.imgEpoch = (this.imgEpoch || 0) + 1; this.requestRender(); };
     PdfCache.onReady = () => this.requestRender();
     window.addEventListener('keydown', (e) => this.onKey(e));
@@ -62,14 +63,15 @@ const Editor = {
     if (!pre && fixNotewiseHeights(note)) { await Store.putNote(note); Store.setThumb(note.id, await makeThumb(note)); } // corrige notas importadas antes (grade meia linha fora)
     this.resetTiles(); this._prevZ = undefined; this.lastInput = Date.now(); // nota recém-aberta conta como "em uso" (o backup pesado espera)
     { const L = Store.settings.tools.lasso; if (L && L.mode === 'shot') L.mode = 'free'; }
-    if (this.crop) this.cancelCrop(); this._xHold = null; this.note = note; this.undoStack = (pre && pre.undo) || []; this.redoStack = (pre && pre.redo) || []; this.sel = null; this.selTf = null; this.action = null; this.editingId = null;
+    if (this.crop) this.cancelCrop(); this.note = note; this._mg = null; this.undoStack = (pre && pre.undo) || []; this.redoStack = (pre && pre.redo) || []; this.sel = null; this.selTf = null; this.action = null; this.editingId = null;
     this.readOnly = false; $('#editor').classList.remove('reading'); { const rb = $('#btnRead'); if (rb) rb.classList.remove('soft-on'); }
     $('#noteTitle').value = note.title;
     this.desk = getComputedStyle(document.documentElement).getPropertyValue('--desk').trim() || '#d9dde3';
     this.computeLayout(); this.resize(true); Store.compactLater(note);
     if (pre && pre.cam) { this.cam = { x: pre.cam.x, y: pre.cam.y, z: pre.cam.z }; this.clampCam(); }
-    else { const views = (await DB.get('meta', 'views')) || {}; const v = views[note.id] || note.view; /* continua de onde parou */ if (v) { this.cam = { ...v }; this.clampCam(); } else this.fitWidth(); }
+    else { const views = (await DB.get('meta', 'views')) || {}; const v = views[note.id] || note.view; /* continua de onde parou */ if (v) { this.cam = { ...v }; this.clampCam(); } else { this.fitWidth(); this._fitAfter = true; } }
     if (!(pre && pre.fast)) { applyBarSize(); UI.buildToolbar(); UI.renderOptions(); }
+    this._mg = null; if (this._fitAfter) { this._fitAfter = false; this.fitWidth(); } else this.clampCam(); /* margens medidas com as barras já montadas */
     this.updateUndoBtns(); Instruments.sync(); Focus.restore(); setTimeout(() => this.placeScroll(), 80);
     this.requestRender();
     return true;
@@ -135,35 +137,41 @@ const Editor = {
   resize(silent) {
     const r = this.stage.getBoundingClientRect(); this.dpr = Math.min(3, devicePixelRatio || 1);
     this.W = r.width; this.H = r.height; this.rect = r;
-    for (const c of [this.cMain, this.cLive]) { c.width = Math.round(r.width * this.dpr); c.height = Math.round(r.height * this.dpr); }
+    for (const c of [this.cMain, this.cLive]) { const w = Math.round(r.width * this.dpr), h = Math.round(r.height * this.dpr); if (c.width !== w) c.width = w; if (c.height !== h) c.height = h; } /* v0.25.1: mudar o tamanho (mesmo para o igual) apaga a tela: só quando muda */
+    this._mg = null; if (this.placeScroll) this.placeScroll(); /* margens e rolagem rápida medidas de novo só quando a tela muda */
     if (!silent) { this.clampCam(); this.requestRender(); Instruments.redraw(); }
   },
   fitWidth() {
     if (this.note.mode === 'infinite') { this.cam = { x: -40, y: -40, z: 1 }; return this.requestRender(); }
-    const z = clamp((this.W - 32) / this.maxW, 0.2, 3); this.cam.z = z;
-    this.cam.x = -this.W / (2 * z); this.cam.y = -16 / z; this.clampCam(); this.requestRender();
+    const m = this.barMargins(), z = clamp((this.W - m.mL - m.mR) / this.maxW, 0.2, 3); this.cam.z = z; /* v0.25.1: largura = área entre as barras e a margem */
+    this.cam.x = -this.maxW / 2 - m.mL / z; this.cam.y = -16 / z; this.clampCam(); this.requestRender();
   },
   zoomLimits() { // ajustável em Configurações → Zoom (em %)
     const S = Store.settings, inf = this.note && this.note.mode === 'infinite';
     const a = clamp((+S.zoomMin || (inf ? 10 : 20)) / 100, 0.05, 1), b = clamp((+S.zoomMax || 800) / 100, 1.5, 20);
     return [a, b];
   },
+  /* v0.25.1 (estilo Notewise): margens laterais da tela = barras de ferramentas + cores à esquerda (se estiverem por cima desta tela) e
+     ~12 px à direita. Medidas uma vez (ResizeObserver) e guardando o maior valor visto: trocar de ferramenta não faz a folha pular */
+  barMargins() {
+    if (this._mg && this._mgW === this.W) return this._mg;
+    const x = this.barsOver(this.stage.getBoundingClientRect());
+    const mL = Math.max(12, Math.round(Math.max(x + 8, this._mgMax || 0))); this._mgMax = Math.max(this._mgMax || 0, x + 8);
+    this._mg = { mL, mR: 12 }; this._mgW = this.W; return this._mg;
+  },
+  /* quanto as barras da esquerda (ferramentas + cores) entram por cima de uma tela (px a partir da borda esquerda dela) */
+  barsOver(st) { let x = 0; for (const id of ['rail', 'subrail']) { const n = document.getElementById(id); if (!n || !n.offsetWidth || getComputedStyle(n).display === 'none') continue; const r = n.getBoundingClientRect(); if (r.right > st.left && r.left < st.left + 40 + (r.width || 0) * 2) x = Math.max(x, r.right - st.left); } return x; },
+  resetMargins() { this._mg = null; this._mgMax = 0; },
+  /* a folha (na largura atual) cabe entre as margens? então a rolagem lateral trava */
+  hScrollable() { if (!this.note || this.note.mode === 'infinite') return true; const m = this.barMargins(); return this.maxW * this.cam.z > this.W - m.mL - m.mR + 0.5; },
   clampCam() {
     const [a, b] = this.zoomLimits(); const c = this.cam; c.z = clamp(c.z, a, b);
     if (this.note.mode === 'infinite') return;
-    const vw = this.W / c.z, L = -this.maxW / 2, R = this.maxW / 2;
-    /* v0.23.7: até 60% de zoom a folha fica centralizada (e a rolagem é só vertical). Acima disso, a borda da folha pode entrar até 35% da tela + 60 px
-       (como na v0.20), mas essa folga é fixa em relação à tela — antes encolhia ao tirar o zoom e empurrava a tela no meio do gesto */
-    if (c.z <= this.lockZ()) { c.x = (L + R) / 2 - vw / 2; this._xHold = null; }
-    else {
-      const p = vw * 0.35 + 60 / c.z, loN = L - p, hiN = R + p - vw; let lo = loN, hi = hiN;
-      /* na pinça o limite fica folgado (a folha só precisa cobrir metade da tela): o ponto entre os dedos não desliza */
-      if (this._pinching) { const vm = Math.min(R - L, vw * 0.5); lo = Math.min(lo, L + vm - vw); hi = Math.max(hi, R - vm); }
-      /* depois da pinça a tela fica onde você deixou: dá para trazer a folha para dentro, não para levar mais para fora */
-      if (this._xHold != null) { lo = Math.min(lo, this._xHold); hi = Math.max(hi, this._xHold); }
-      c.x = lo <= hi ? clamp(c.x, lo, hi) : (L + R) / 2 - vw / 2;
-      this._xHold = c.x >= loN - 1e-6 && c.x <= hiN + 1e-6 ? null : c.x;
-    }
+    const vw = this.W / c.z, L = -this.maxW / 2, R = this.maxW / 2, m = this.barMargins(), pw = this.maxW * c.z;
+    /* v0.25.1: folha mais larga que a área entre as margens → rola para os lados até a borda encostar na margem (sem folga).
+       Mais estreita → rolagem lateral travada: a folha encosta nas barras e, tirando mais zoom, vai para o meio da tela aos poucos */
+    if (pw > this.W - m.mL - m.mR) c.x = clamp(c.x, L - m.mL / c.z, R + m.mR / c.z - vw);
+    else { const left = Math.max(m.mL, (this.W - pw) / 2); c.x = L - left / c.z; }
     c.y = clamp(c.y, this.camMinY(), this.camMaxY());
   },
   /* fim da rolagem: o fim da última página fica um pouco acima da borda de baixo da tela (daí em diante é "puxar para adicionar") */
@@ -171,8 +179,6 @@ const Editor = {
   camMaxBase() { const z = this.cam.z, vh = this.H / z; return Math.max(this.camMinY(), this.totalH - vh + 90 / z); },
   camMaxY() { return this.camMaxBase() + (this.pull || 0) * 0.6 / this.cam.z; }, // ao puxar, a folha sobe um pouco (efeito elástico)
   /* ---------- puxar para adicionar página (como no Notewise) ---------- */
-  /* v0.24.3: até este zoom a folha fica centralizada e a rolagem é só vertical — ajustável em Configurações → Zoom (S.lockZoom, em %; 0 = desligada; padrão 70) */
-  lockZ() { const v = Store.settings.lockZoom; return (v == null ? 70 : +v) / 100; },
   PULL_MAX: 260, PULL_ADD: 190, /* v0.23.6: mais exigente (~340 px de puxada, antes ~150) */
   setPull(px) {
     px = this.note && this.note.mode !== 'infinite' && !this.readOnly ? Math.max(0, px) : 0;
@@ -430,10 +436,10 @@ const Editor = {
     if (e.pointerType === 'pen' && (!(e.buttons & 1) || this.penClickHeld(e))) { rec.ignored = true; return; } // sem encostar (só botão) ou botão com atalho de clique: não desenha
     if (this.crop && this.cropDown(e, p, rec)) return; // recorte na página: alças e moldura
     if (e.pointerType === 'touch') {
-      const tr = this.action && ['move', 'scale', 'rotate'].includes(this.action.kind) && this.action.pid !== e.pointerId;
+      const tr = this.action && ['move', 'scale', 'rotate', 'vnode'].includes(this.action.kind) && this.action.pid !== e.pointerId;
       if (tr) { // segundo dedo enquanto move/redimensiona: sem ajustes automáticos (palma grande é ignorada)
         rec.ignored = true;
-        if (!(e.width > 48 || e.height > 48)) { rec.noSnap = true; this.action.noSnap = (this.action.noSnap || 0) + 1; const ap = this.pointers.get(this.action.pid); if (ap) this.moveSel({ x: ap.x, y: ap.y }); }
+        if (!(e.width > 48 || e.height > 48)) { rec.noSnap = true; this.action.noSnap = (this.action.noSnap || 0) + 1; const ap = this.pointers.get(this.action.pid); if (ap) this.moveAction([], { clientX: ap.x + this.rect.left, clientY: ap.y + this.rect.top }); }
         return;
       }
       if (Store.settings.palmGuard && (this.penDown || performance.now() - this.lastPenSeen < 500)) { rec.ignored = true; return; }
@@ -477,7 +483,7 @@ const Editor = {
     const rec = this.pointers.get(e.pointerId); this.pointers.delete(e.pointerId);
     if (e.pointerType === 'pen') { this.penDown = false; this.lastPenSeen = performance.now(); Focus.writingEnd(); }
     if (!rec) return;
-    if (rec.noSnap && this.action && this.action.noSnap) { this.action.noSnap--; const ap = this.pointers.get(this.action.pid); if (ap) this.moveSel({ x: ap.x, y: ap.y }); }
+    if (rec.noSnap && this.action && this.action.noSnap) { this.action.noSnap--; const ap = this.pointers.get(this.action.pid); if (ap) this.moveAction([], { clientX: ap.x + this.rect.left, clientY: ap.y + this.rect.top }); }
     if (this.action && this.action.pid === e.pointerId) { if (cancel) this.cancelAction(); else this.endAction(e); return; }
     if (this.gesture) {
       if (!this.touchIds().length) this.endGesture(); else this.rebaseGesture();
@@ -541,7 +547,7 @@ const Editor = {
       /* v0.23.2: trava vertical bem mais leve — só quando o dedo sai quase reto (até ~11°) e solta com 14 px para o lado (antes ~22° e 32 px: o horizontal parecia preso) */
       if (!g.lock && Math.hypot(dx, dy) > 10) { g.lock = Math.abs(dx) <= Math.abs(dy) * 0.2 ? 'v' : 'free'; g.xoff = 0; }
       if (g.lock === 'v' && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 0.18) { g.lock = 'free'; g.xoff = dx; } // foi para o lado de propósito
-      const ex = g.lock === 'free' && g.cam.z > this.lockZ() ? dx - (g.xoff || 0) : 0; /* até lockZ() de zoom, só rolagem vertical */
+      const ex = g.lock === 'free' && this.hScrollable() ? dx - (g.xoff || 0) : 0; /* v0.25.1: folha cabe entre as margens → só rolagem vertical */
       this.cam = { z: g.cam.z, x: g.cam.x - ex / g.cam.z, y: g.cam.y - dy / g.cam.z };
     }
     if (P.length === 1) { const now = performance.now(); (g.vs = g.vs || []).push([now, this.cam.x, this.cam.y]); while (g.vs.length > 2 && now - g.vs[0][0] > 90) g.vs.shift(); } else g.vs = null;
@@ -552,7 +558,7 @@ const Editor = {
   endGesture() {
     const g = this.gesture; this.gesture = null; if (!g) return; clearTimeout(g.holdT); if (g.held) return;
     if (this.pull) this.releasePull();
-    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v' || this.cam.z <= this.lockZ());
+    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v' || !this.hScrollable());
     const dt = performance.now() - g.t0;
     /* v0.23: destro → toques de 2/3 dedos só valem na metade esquerda (a palma apoia na direita); canhoto → o contrário */
     const hand = Store.settings.hand || 'right', half = this.W / 2, sideOk = hand === 'none' || (hand === 'right' ? g.maxX < half : g.minX > half);
@@ -589,7 +595,7 @@ const Editor = {
     if (a.kind === 'crop') return this.cropMove(p);
     if (a.kind === 'cropout') return;
     if (a.kind === 'lasso') { if (a.mode === 'free') a.pts.push([p.x, p.y]); else a.pts = [a.pts[0], [p.x, p.y]]; this.drawLasso(); return; }
-    if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate') return this.moveSel(p);
+    if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate') { if (a.start) a.maxD = Math.max(a.maxD || 0, Math.hypot(p.x - a.start.x, p.y - a.start.y)); return this.moveSel(p); }
     if (a.kind === 'vnode') return this.moveVNode(p);
     if (a.kind === 'tableact') return this.moveTableAct(p);
     if (a.kind === 'shape') return this.moveShape(w);
@@ -605,7 +611,7 @@ const Editor = {
     if (a.kind === 'draw') return this.endDraw(a);
     if (a.kind === 'erase') { this.clearLive(); this.opCommit(); return; }
     if (a.kind === 'lasso') return this.endLasso(a);
-    if (a.kind === 'move') { const p = this.pt(e), tap = Math.hypot(p.x - a.start.x, p.y - a.start.y) < 8; if (tap) { this.selTf = null; this.guides = null; this.ratioLabel = null; this.requestRender(); return this.tapOnSel(a, p); } }
+    if (a.kind === 'move') { const p = this.pt(e), tap = Math.max(a.maxD || 0, Math.hypot(p.x - a.start.x, p.y - a.start.y)) < 3.5; /* v0.25.1: só é toque se quase não mexeu (antes < 8 px: arrastar um pouquinho voltava ao lugar) */ if (tap) { this.selTf = null; this.guides = null; this.ratioLabel = null; this.requestRender(); return this.tapOnSel(a, p); } }
     if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate' || a.kind === 'vnode') return this.endMoveSel();
     if (a.kind === 'shape') return this.endShape(a);
     if (a.kind === 'table') return this.endTable(a);
@@ -669,8 +675,8 @@ const Editor = {
     } else if (a.shape) this.updateHeldShape(l);
   },
   tryRecognize() {
-    const a = this.action; if (!a || a.kind !== 'draw' || a.pts.length < 12) return;
-    let r = recognizeShape(a.pts);
+    const a = this.action; if (!a || a.kind !== 'draw' || a.pts.length < 9 /* 3 pontos */) return;
+    let r = recognizeShape(a.pts, this.cam.z);
     if (a.tool === 'highlighter') { // marca-texto: segurar só endireita a linha
       const n = a.pts.length; r = { kind: 'line', x1: a.pts[0], y1: a.pts[1], x2: a.pts[n - 3], y2: a.pts[n - 2] };
     }
@@ -685,6 +691,7 @@ const Editor = {
   hlLine(a) { const sh = a.shape; return { id: sh.id, type: 'stroke', tool: 'highlighter', color: a.color, width: a.width, opacity: a.opacity, cap: 'round', pts: [r2(sh.x1), r2(sh.y1), 0.5, r2(sh.x2), r2(sh.y2), 0.5] }; },
   updateHeldShape(l) {
     const a = this.action, s = a.shape;
+    if (s.kind === 'path') { const P = s.pts.slice(); P[P.length - 2] = r2(l.x); P[P.length - 1] = r2(l.y); a.shape = { ...s, pts: P }; return; } /* v0.25.1: a ponta final acompanha a caneta (onde a linha termina) */
     if (s.kind === 'poly') { /* v0.25: forma reconhecida continua mudando enquanto segura a caneta */
       if (s.br) { /* colchete: a ponta onde a caneta está (fim do traço) acompanha a caneta — comprimento e o rabinho */
         const b = { ...s.br }, ax = b.v ? l.y : l.x, cr = b.v ? l.x : l.y, end = b.rev ? 'T' : 'B';

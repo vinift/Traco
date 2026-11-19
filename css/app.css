@@ -832,3 +832,5 @@ input:not(:focus),textarea:not(:focus){-webkit-user-select:none;user-select:none
 .sv-mid .cbtn{width:36px;height:36px}
 #editor.sv-lockR .sv-mid .cbtn:nth-child(2){background:var(--chacc);color:#fff;border-radius:50%}
 #editor.immersive .sv-head,#editor.immersive .sv-mid,#editor.writing .sv-head,#editor.writing .sv-mid{opacity:0;pointer-events:none}
+/* v0.25.1: divisória em prévia ao arrastar */
+.sv-div.drag{background:var(--chacc);will-change:transform}

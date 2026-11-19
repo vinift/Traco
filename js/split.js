@@ -7,7 +7,7 @@
    sem redesenhar a cada quadro) + um recorte nítido da parte visível quando o zoom passa da resolução da página.
    Ao trocar, a imagem que estava na tela fica por baixo até a nova ficar pronta (sem tela branca nem piscar).
    Botão de cadeado: o lado direito não vira ativo (nem pela caneta nem pela palma) e ignora toques perto da caneta. */
-const SV_BASE_W = 1400; /* resolução máxima da página inteira no lado passivo (px de largura) */
+const SV_BASE_W = 1100; /* resolução máxima da página inteira no lado passivo (px de largura) */
 const svQ = (k) => Math.pow(2, Math.round(Math.log2(Math.max(k, 0.05)) * 2) / 2); /* degraus de √2: não redesenha por pouca diferença */
 
 function svPane(note) {
@@ -36,13 +36,13 @@ function svPane(note) {
       this.top = this.hs.length ? this.hs[0].o.y : 0; this.bot = this.hs.length ? Math.max(...this.hs.map((h) => h.o.y + h.o.h)) : 1000;
       this.L = Math.min(...this.hs.map((h) => h.o.x)); this.R = Math.max(...this.hs.map((h) => h.o.x + h.o.w));
     },
-    resize() { if (this.dead) return; const r = this.el.getBoundingClientRect(); if (!r.width) return; this.W = r.width; this.H = r.height; this.rect = r; this.clamp(); this.apply(); this.schedule(); },
-    fit() { if (!this.W) this.resize(); const z = clamp((this.W - 32) / Math.max(1, this.R - this.L), 0.15, 3); this.cam = { z, x: 0, y: this.top - 16 / z }; this.clamp(); this.apply(); this.schedule(); },
+    resize() { if (this.dead) return; const r = this.el.getBoundingClientRect(); if (!r.width) return; this.W = r.width; this.H = r.height; this.rect = r; const bx = Editor.barsOver(r); this.mg = { mL: Math.max(12, Math.round(bx ? bx + 8 : 12)), mR: 12 }; this.clamp(); this.apply(); this.schedule(); },
+    fit() { if (!this.W) this.resize(); const m = this.mg || { mL: 12, mR: 12 }, z = clamp((this.W - m.mL - m.mR) / Math.max(1, this.R - this.L), 0.15, 3); this.cam = { z, x: 0, y: this.top - 16 / z }; this.clamp(); this.apply(); this.schedule(); },
     clamp(loose) {
       const c = this.cam; if (!this.W) return; c.z = clamp(c.z, 0.15, 8);
       const vw = this.W / c.z, vh = this.H / c.z, L = this.L, R = this.R;
-      if (!loose && (c.z <= Editor.lockZ() || (R - L) <= vw)) c.x = (L + R) / 2 - vw / 2;
-      else { const p = vw * 0.35 + 60 / c.z; c.x = clamp(c.x, Math.min(L - p, (L + R) / 2 - vw / 2), Math.max(R + p - vw, (L + R) / 2 - vw / 2)); }
+      const m = this.mg || { mL: 12, mR: 12 }, pw = (R - L) * c.z; /* v0.25.1: mesmas margens do editor (barras por cima deste lado + 12 px) */
+      if (pw > this.W - m.mL - m.mR) c.x = clamp(c.x, L - m.mL / c.z, R + m.mR / c.z - vw); else c.x = L - Math.max(m.mL, (this.W - pw) / 2) / c.z;
       c.y = clamp(c.y, this.top - 16 / c.z - (loose ? vh * 0.3 : 0), Math.max(this.top - 16 / c.z, this.bot - vh + 90 / c.z));
     },
     apply() {
@@ -69,7 +69,7 @@ function svPane(note) {
         const kd = svQ(z * d); if (kd <= h.k * 1.25) { if (h.det) this.freeDet(h); continue; }
         const ix = Math.max(vis.x, h.o.x), iy = Math.max(vis.y, h.o.y), ex = Math.min(vis.x + vis.w, h.o.x + h.o.w), ey = Math.min(vis.y + vis.h, h.o.y + h.o.h);
         const D = h.det, covers = D && D.k === kd && !h.stale && D.a.x <= ix && D.a.y <= iy && D.a.x + D.a.w >= ex && D.a.y + D.a.h >= ey;
-        if (!covers) { const mx = (ex - ix) * 0.1, my = (ey - iy) * 0.1; let a = { x: Math.max(h.o.x, ix - mx), y: Math.max(h.o.y, iy - my) }; a.w = Math.min(h.o.x + h.o.w, ex + mx) - a.x; a.h = Math.min(h.o.y + h.o.h, ey + my) - a.y; a.w = Math.min(a.w, 4096 / kd); a.h = Math.min(a.h, 4096 / kd); job = { h, k: kd, a }; break; }
+        if (!covers) { const mx = (ex - ix) * 0.06, my = (ey - iy) * 0.06; let a = { x: Math.max(h.o.x, ix - mx), y: Math.max(h.o.y, iy - my) }; a.w = Math.min(h.o.x + h.o.w, ex + mx) - a.x; a.h = Math.min(h.o.y + h.o.h, ey + my) - a.y; a.w = Math.min(a.w, 4096 / kd); a.h = Math.min(a.h, 4096 / kd); job = { h, k: kd, a }; break; }
       }
       if (!job) { this.checkAdopted(); return; }
       this._rendering = true;
@@ -210,7 +210,7 @@ const SplitView = {
     if (this.pv) this.pv.destroy();
     this.act = st.act === 'R' && !st.lockR ? 'R' : 'L';
     this.S.split = { id, w: st.w || 0.5, act: this.act, lockR: !!st.lockR, cam: same ? st.cam : null };
-    const fitted = !this.shown && Editor.note && Editor.note.mode !== 'infinite' && Editor.W && Math.abs(Editor.cam.z - (Editor.W - 32) / Editor.maxW) < 0.03; /* estava ajustada à largura: continua ajustada na metade */
+    const fitted = !this.shown && Editor.note && Editor.note.mode !== 'infinite' && Editor.W && (() => { const m = Editor.barMargins(); return Math.abs(Editor.cam.z - (Editor.W - m.mL - m.mR) / Editor.maxW) < 0.03; })(); /* estava ajustada à largura: continua ajustada na metade */
     this.ensureChrome(); this.pv = svPane(n); this.mount(this.pv.el);
     this.shown = !this.ed().classList.contains('hidden'); this.applyLayout(); if (fitted) Editor.fitWidth();
     this.pv.resize(); if (same) { this.pv.cam = { ...st.cam }; this.pv.clamp(); this.pv.apply(); this.pv.schedule(); } else this.pv.fit();
@@ -281,14 +281,17 @@ const SplitView = {
       const q = (c) => h.querySelector(c); if (q('.sv-tname').textContent !== t) q('.sv-tname').textContent = t; if (q('.sv-pgn').textContent !== pg) q('.sv-pgn').textContent = pg; if (q('.sv-zm').textContent !== zz) q('.sv-zm').textContent = zz; h.classList.toggle('act', s === this.act); };
     if (Editor.note) set(this.act, { ...Editor.note, title: $('#noteTitle').value.trim() || Editor.note.title }, Editor.currentPageIndex(), Editor.cam.z);
     set(P, this.pv.note, this.pv.pageIndex(), this.pv.cam.z);
-    clearTimeout(this._sT); this._sT = setTimeout(() => this.saveState(), 800);
+    clearTimeout(this._sT); this._sT = setTimeout(() => this.saveState(), 2500);
   },
   wireDivider(dv) {
     dv.addEventListener('pointerdown', (e) => {
       e.preventDefault(); e.stopPropagation(); dv.setPointerCapture(e.pointerId); dv.classList.add('drag');
-      const W = this.ed().clientWidth;
-      const move = (ev) => { const w = clamp((W - ev.clientX) / W, 0.25, 0.75); this.S.split = { ...(this.S.split || {}), w }; this.applyLayout(); };
-      const up = () => { dv.removeEventListener('pointermove', move); dv.removeEventListener('pointerup', up); dv.removeEventListener('pointercancel', up); dv.classList.remove('drag'); this.saveState(); if (this.pv) this.pv.resize(); };
+      /* v0.25.1: enquanto arrasta só a divisória anda (prévia); os lados mudam de tamanho uma vez, ao soltar — redimensionar a cada
+         movimento refazia as telas de desenho e as barras piscavam */
+      const W = this.ed().clientWidth, x0 = this.sides().X; let w = (this.S.split && this.S.split.w) || 0.5;
+      const move = (ev) => { w = clamp((W - ev.clientX) / W, 0.25, 0.75); dv.style.transform = `translateX(${Math.round(W * (1 - w)) - x0}px)`; };
+      const up = () => { dv.removeEventListener('pointermove', move); dv.removeEventListener('pointerup', up); dv.removeEventListener('pointercancel', up); dv.classList.remove('drag'); dv.style.transform = '';
+        this.S.split = { ...(this.S.split || {}), w }; this.applyLayout(); this.saveState(); if (this.pv) this.pv.resize(); };
       dv.addEventListener('pointermove', move); dv.addEventListener('pointerup', up); dv.addEventListener('pointercancel', up);
     });
     dv.addEventListener('dblclick', () => { this.S.split = { ...(this.S.split || {}), w: 0.5 }; this.applyLayout(); this.saveState(); });

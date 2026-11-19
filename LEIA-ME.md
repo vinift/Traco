@@ -153,6 +153,28 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.26.0
+
+- **Zoom e rolagem no estilo Notewise:**
+  - A folha usa o espaço entre as barras da esquerda (ferramentas + cores) e uma margem pequena à direita. "Ajustar à largura" encaixa a folha exatamente nesse espaço.
+  - Com zoom grande, a rolagem para os lados para quando a borda da folha encosta nas barras ou na margem (não sobra faixa vazia).
+  - Tirando o zoom, a folha fica encostada nas barras e, quando já cabe com folga, vai para o meio da tela aos poucos. A partir daí a rolagem lateral trava (o dedo só rola para cima e para baixo).
+  - A opção "Trava de rolagem (%)" saiu das Configurações, porque as margens decidem isso sozinhas. Trocar de ferramenta não faz a folha pular.
+- **Linhas curvas no "segurar a caneta":** colchetes, "L", arcos e outras linhas abertas viram uma linha limpa com cantos, e cada canto tem o seu arredondamento. Um pedaço de círculo vira um arco perfeito. Enquanto você segura, a ponta final acompanha a caneta (escolha onde a linha termina).
+- **Editar pontos:**
+  - O vértice arrastado se move sozinho e em qualquer direção (ex.: a pontinha do colchete mais para cima ou para baixo).
+  - Os quadradinhos no meio dos lados movem o lado inteiro.
+  - Cada losango muda só a curvatura daquele canto.
+  - O vértice gruda quando o lado fica a 0°, 45° ou 90°. Um segundo dedo na tela solta, e dá para desligar em Configurações → Ajustes automáticos.
+- **Laço pega a forma em qualquer ponto:** basta o traço do laço passar por cima da linha da forma.
+- **Mover só um pouquinho:** arrastar uma seleção por poucos pixels não volta mais ao lugar ao soltar. Antes, menos de 8 px contava como toque e a grade puxava de volta.
+- **Linhas curtinhas no segurar:** linhas pequenas (a partir de ~10 px na tela) também viram retas.
+- **Tela dividida sem piscar:**
+  - Ao arrastar a divisória, só ela se move. Os lados mudam de tamanho uma vez, ao soltar.
+  - O editor usa menos memória de desenho quando a tela está dividida.
+  - As telas não são mais refeitas sem necessidade.
+  - A barrinha de rolagem não é medida a cada rolagem.
+
 ## Novidades da v0.25.0
 
 - **Tela dividida de verdade (duas notas lado a lado):**

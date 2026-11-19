@@ -4,7 +4,6 @@
    e curvas (losangos, no colchete: mudam o raio da curva). Retângulo/losango/triângulo viram polígono ao mexer num ponto;
    elipse tem 4 pontos que mudam a largura/altura; linha e seta têm as 2 pontas. Sem mudar a espessura. */
 const VEDIT_COLOR = '#f97316';
-const BR_K = 1 - Math.SQRT1_2; /* meio do quarto de círculo: (1 − cos 45°)·r de cada eixo a partir do canto */
 
 /* cantos de retângulo/losango/triângulo (com o giro aplicado), na ordem do contorno */
 function shapeCorners(e) {
@@ -20,34 +19,51 @@ function shapeToPoly(e) {
   const n = { ...e, kind: 'poly', closed: true, pts: [] }; for (const [x, y] of shapeCorners(e)) n.pts.push(r2(x), r2(y));
   delete n.x1; delete n.y1; delete n.x2; delete n.y2; delete n.rot; return n;
 }
+/* colchete antigo (v0.25.0, poly com br) → linha com cantos editável */
+function brToPath(e) {
+  const b = bracketFix(e.br), P = (cr, ax) => (b.v ? [cr, ax] : [ax, cr]), V = [], R = [];
+  if (b.hT) { V.push(P(b.sx + b.hT, b.top), P(b.sx, b.top)); R.push(0, b.rT); } else { V.push(P(b.sx, b.top)); R.push(0); }
+  if (b.hB) { V.push(P(b.sx, b.bot), P(b.sx + b.hB, b.bot)); R.push(b.rB, 0); } else { V.push(P(b.sx, b.bot)); R.push(0); }
+  if (b.rev) { V.reverse(); R.reverse(); }
+  const n = { ...e, kind: 'path', pts: V.flat().map(r2), rr: R.map(r2) }; delete n.br; delete n.closed; return n;
+}
+const asPath = (e) => (e.kind === 'poly' && e.br ? brToPath(e) : e);
+function shapeVerts(e) { const P = []; for (let i = 0; i < e.pts.length; i += 2) P.push([e.pts[i], e.pts[i + 1]]); return P; }
 /* pontos editáveis de uma forma, em coordenadas da página. t: 'v' vértice, 'e' aresta, 'c' curva */
-function shapeNodes(e) {
-  const N = [];
+function shapeNodes(e0) {
+  const N = [], e = asPath(e0);
   if (e.kind === 'line' || e.kind === 'arrow') { N.push({ t: 'v', k: 'p1', x: e.x1, y: e.y1 }, { t: 'v', k: 'p2', x: e.x2, y: e.y2 }); return N; }
   if (e.kind === 'ellipse') {
     const g = shapeGeom(e), cx = (g.x1 + g.x2) / 2, cy = (g.y1 + g.y2) / 2, a = e.rot || 0, c = Math.cos(a), s = Math.sin(a), rx = g.w / 2, ry = g.h / 2;
     for (const [k, ux, uy] of [['rx', 1, 0], ['rx', -1, 0], ['ry', 0, 1], ['ry', 0, -1]]) { const lx = ux * rx, ly = uy * ry; N.push({ t: 'e', k, x: cx + lx * c - ly * s, y: cy + lx * s + ly * c }); }
     return N;
   }
-  if (e.kind === 'poly' && e.br) {
-    const b = bracketFix(e.br), P = (cr, ax) => (b.v ? { x: cr, y: ax } : { x: ax, y: cr });
-    N.push({ t: 'v', k: 'T', ...P(b.sx + b.hT, b.top) }, { t: 'v', k: 'B', ...P(b.sx + b.hB, b.bot) }, { t: 'e', k: 'S', ...P(b.sx, (b.top + b.bot) / 2) });
-    if (b.hT) N.push({ t: 'c', k: 'cT', ...P(b.sx + Math.sign(b.hT) * b.rT * BR_K, b.top + b.rT * BR_K) });
-    if (b.hB) N.push({ t: 'c', k: 'cB', ...P(b.sx + Math.sign(b.hB) * b.rB * BR_K, b.bot - b.rB * BR_K) });
-    return N;
-  }
-  let P;
-  if (e.kind === 'poly') { P = []; for (let i = 0; i < e.pts.length; i += 2) P.push([e.pts[i], e.pts[i + 1]]); }
-  else P = shapeCorners(e);
+  const P = e.kind === 'poly' || e.kind === 'path' ? shapeVerts(e) : shapeCorners(e);
   if (P.length > 30) return N; /* polígono com pontos demais (curva antiga): só mover */
   P.forEach(([x, y], i) => N.push({ t: 'v', k: 'v' + i, i, x, y }));
-  const closed = e.kind !== 'poly' || e.closed, m = closed ? P.length : P.length - 1;
+  const closed = e.kind === 'path' ? false : e.kind !== 'poly' || e.closed, m = closed ? P.length : P.length - 1;
   for (let i = 0; i < m; i++) { const a = P[i], c = P[(i + 1) % P.length]; N.push({ t: 'e', k: 'e' + i, i, x: (a[0] + c[0]) / 2, y: (a[1] + c[1]) / 2 }); }
+  if (e.kind === 'path') for (let i = 1; i < P.length - 1; i++) { const h = pathCurveHandle(e, i); if (h) N.push({ t: 'c', k: 'c' + i, i, x: h.x, y: h.y }); }
   return N;
 }
+/* v0.25.1: vértice gruda quando o lado até o vizinho fica a 0/45/90° (Configurações → "Grudar ângulos ao editar pontos") */
+function snapVertex(P, i, p, closed, z) {
+  const nb = []; if (i > 0) nb.push(P[i - 1]); else if (closed) nb.push(P[P.length - 1]); if (i < P.length - 1) nb.push(P[i + 1]); else if (closed) nb.push(P[0]);
+  const tol = 9 / z, C = nb.map((q) => { const a = Math.round(Math.atan2(p.y - q[1], p.x - q[0]) / (Math.PI / 4)) * (Math.PI / 4), d = Math.hypot(p.x - q[0], p.y - q[1]); return { q, a, x: q[0] + Math.cos(a) * d, y: q[1] + Math.sin(a) * d }; });
+  if (C.length === 2) { /* os dois lados alinhados ao mesmo tempo (ex.: canto reto de colchete) */
+    const [A, B] = C, den = Math.cos(A.a) * Math.sin(B.a) - Math.sin(A.a) * Math.cos(B.a);
+    if (Math.abs(den) > 0.1) { const t = ((B.q[0] - A.q[0]) * Math.sin(B.a) - (B.q[1] - A.q[1]) * Math.cos(B.a)) / den, x = A.q[0] + Math.cos(A.a) * t, y = A.q[1] + Math.sin(A.a) * t; if (Math.hypot(x - p.x, y - p.y) < tol) return { x, y }; }
+  }
+  let best = null, bd = tol; for (const c of C) { const d = Math.hypot(c.x - p.x, c.y - p.y); if (d < bd) { bd = d; best = c; } }
+  return best ? { x: best.x, y: best.y } : p;
+}
 /* nova forma com o ponto `nd` arrastado até `l` (coordenadas da página); `s` = onde o arrasto começou */
-function moveShapeNode(e, nd, l, s, z) {
-  if (e.kind === 'line' || e.kind === 'arrow') { const n = { ...e }; if (nd.k === 'p1') { n.x1 = r2(l.x); n.y1 = r2(l.y); } else { n.x2 = r2(l.x); n.y2 = r2(l.y); } return n; }
+function moveShapeNode(e0, nd, l, s, z, snap) {
+  const e = asPath(e0);
+  if (e.kind === 'line' || e.kind === 'arrow') {
+    const n = { ...e }, o = nd.k === 'p1' ? [e.x2, e.y2] : [e.x1, e.y1], q = snap ? snapVertex([o, [0, 0]], 1, l, false, z) : l;
+    if (nd.k === 'p1') { n.x1 = r2(q.x); n.y1 = r2(q.y); } else { n.x2 = r2(q.x); n.y2 = r2(q.y); } return n;
+  }
   if (e.kind === 'ellipse') {
     const g = shapeGeom(e), cx = (g.x1 + g.x2) / 2, cy = (g.y1 + g.y2) / 2, a = e.rot || 0, dx = l.x - cx, dy = l.y - cy;
     const lx = dx * Math.cos(a) + dy * Math.sin(a), ly = -dx * Math.sin(a) + dy * Math.cos(a), n = { ...e };
@@ -55,19 +71,12 @@ function moveShapeNode(e, nd, l, s, z) {
     else { const r = Math.max(2, Math.abs(ly)); n.y1 = r2(cy - r); n.y2 = r2(cy + r); n.x1 = g.x1; n.x2 = g.x2; }
     return n;
   }
-  if (e.kind === 'poly' && e.br) {
-    const b = bracketFix(e.br), ax = b.v ? l.y : l.x, cr = b.v ? l.x : l.y, min = 6 / z;
-    const hook = (old) => { const h = cr - b.sx; return Math.abs(h) < min ? (old ? Math.sign(old) * Math.min(Math.abs(old), min) : 0) : h; };
-    if (nd.k === 'T') { b.top = Math.min(ax, b.bot - 8); const h = hook(b.hT); if (!b.hT && h) b.rT = 0; b.hT = h; }
-    else if (nd.k === 'B') { b.bot = Math.max(ax, b.top + 8); const h = hook(b.hB); if (!b.hB && h) b.rB = 0; b.hB = h; }
-    else if (nd.k === 'S') { const d = cr - (b.v ? s.x : s.y); b.sx = (e.br.sx) + d; }
-    else if (nd.k === 'cT') { const t = ((cr - b.sx) * Math.sign(b.hT) + (ax - b.top)) / 2; b.rT = Math.max(1, t / BR_K); }
-    else if (nd.k === 'cB') { const t = ((cr - b.sx) * Math.sign(b.hB) + (b.bot - ax)) / 2; b.rB = Math.max(1, t / BR_K); }
-    for (const k of ['sx', 'top', 'bot', 'hT', 'hB', 'rT', 'rB']) b[k] = r2(b[k]);
-    return { ...e, ...bracketShape(b) };
+  if (e.kind === 'path' && nd.t === 'c') { /* curvatura só deste canto */
+    const c = pathCorner(e, nd.i); if (!c) return e; let r = Math.min(pathRadiusFrom(e, nd.i, l.x, l.y), c.rmax ?? Infinity); if (r * z < 1.5) r = 0;
+    const rr = (e.rr || []).slice(); while (rr.length < e.pts.length / 2) rr.push(0); rr[nd.i] = r2(r); return { ...e, rr };
   }
-  const p = e.kind === 'poly' ? e : shapeToPoly(e), n = { ...p, pts: p.pts.slice() }, L = n.pts.length / 2;
-  if (nd.t === 'v') { n.pts[nd.i * 2] = r2(l.x); n.pts[nd.i * 2 + 1] = r2(l.y); }
+  const p = e.kind === 'poly' || e.kind === 'path' ? e : shapeToPoly(e), n = { ...p, pts: Array.from(p.pts) }, L = n.pts.length / 2;
+  if (nd.t === 'v') { const q = snap ? snapVertex(shapeVerts(p), nd.i, l, p.kind !== 'path' && !!p.closed, z) : l; n.pts[nd.i * 2] = r2(q.x); n.pts[nd.i * 2 + 1] = r2(q.y); }
   else { const dx = l.x - s.x, dy = l.y - s.y, j = (nd.i + 1) % L; for (const q of [nd.i, j]) { n.pts[q * 2] = r2(p.pts[q * 2] + dx); n.pts[q * 2 + 1] = r2(p.pts[q * 2 + 1] + dy); } }
   return n;
 }
@@ -91,15 +100,15 @@ Object.assign(Editor, {
   moveVNode(p) {
     const a = this.action; if (!a.el0) this.startVNode(a);
     const w = this.toWorld(p.x, p.y), l = this.local(this.pageIdx(a.pg), w.x, w.y);
-    const n = moveShapeNode(a.el0, a.node, l, a.l0, this.cam.z);
+    const n = moveShapeNode(a.el0, a.node, l, a.l0, this.cam.z, Store.settings.vertexSnap !== false && !a.noSnap);
     this.selTf = { ox: 0, oy: 0, sx: 1, sy: 1, dx: 0, dy: 0, free: true, node: n }; this.requestRender();
   },
   drawVEdit(box) {
     const ctx = this.ctx, t = this.selTf, e = (t && t.node) || this.vEditEl(); if (!e) return;
     ctx.save(); ctx.strokeStyle = VEDIT_COLOR; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
     const N = this.vNodesScreen(e);
-    if (e.kind === 'poly' && !e.br || e.kind === 'rect' || e.kind === 'diamond' || e.kind === 'triangle') { /* contorno fino ligando os vértices */
-      const V = N.filter((n) => n.t === 'v'); if (V.length > 1) { ctx.beginPath(); V.forEach((n, i) => (i ? ctx.lineTo(n.sx, n.sy) : ctx.moveTo(n.sx, n.sy))); if (e.kind !== 'poly' || e.closed) ctx.closePath(); ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1; ctx.lineWidth = 1.5; }
+    if (e.kind === 'poly' && !e.br || e.kind === 'path' || e.kind === 'rect' || e.kind === 'diamond' || e.kind === 'triangle') { /* contorno fino ligando os vértices */
+      const V = N.filter((n) => n.t === 'v'); if (V.length > 1) { ctx.beginPath(); V.forEach((n, i) => (i ? ctx.lineTo(n.sx, n.sy) : ctx.moveTo(n.sx, n.sy))); if ((e.kind !== 'poly' && e.kind !== 'path') || e.closed) ctx.closePath(); ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1; ctx.lineWidth = 1.5; }
     }
     for (const n of N) {
       ctx.beginPath();
