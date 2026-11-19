@@ -153,6 +153,23 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.28.0
+
+- **Busca dentro do PDF:** a lupa da nota agora também procura no texto do PDF importado.
+  - Toque num resultado para ir direto ao trecho, que fica marcado em amarelo até você encostar a caneta na página.
+  - Na primeira busca de cada PDF, o app lê o texto das páginas (aparece "lendo X de Y páginas"). Depois fica guardado e as próximas buscas são instantâneas.
+  - Acentos e maiúsculas não importam ("funcao" acha "função").
+  - PDFs escaneados (só imagem, sem texto) não têm o que achar.
+- **Palma ignorada em todo o app:** toque com área grande (palma) não rola, não dá zoom, não aperta botões, não conta para o desfazer/refazer com 2/3 dedos e não mexe no lado da tela dividida nem nas listas.
+  - Com a caneta encostada, qualquer outro toque é ignorado.
+  - Se um toque vira palma no meio (o contato cresce), a folha para onde estava.
+  - Em Configurações → Escrita e caneta dá para ajustar a partir de que tamanho um toque conta como palma. O app mostra o tamanho do seu último toque para ajudar a calibrar.
+- **Cores do grupo e cor personalizada em todo lugar:**
+  - Todos os seletores de cor mostram primeiro as cores do grupo atual: seleção, texto, post-it, formas, tabela, pasta, modelo de página e moldura.
+  - Todos têm a opção de cor personalizada (espectro, roda, código e conta-gotas).
+  - A cor do modelo de página agora usa o seletor do app.
+- **Zoom mais leve:** a qualidade "econômica" guarda menos imagem pronta (blocos e miniaturas) para não faltar memória de desenho no tablet, o que fazia partes das barras sumirem ao mexer no zoom.
+
 ## Novidades da v0.27.0
 
 - **Moldura em caixas de texto e imagens:** selecione um texto ou uma imagem (ou vários) com o laço e toque no novo botão de moldura na barra da seleção. Dá para escolher:

@@ -3,13 +3,13 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.27.0',
+  version: '0.28.0',
   async init() {
     hydrateIcons();
     await Store.init();
     Store.purgeOldTrash().catch((e) => console.warn('lixeira', e)); // apaga de vez o que está na lixeira há mais de 30 dias
     this.applyTheme();
-    StableVH.init(); SafeArea.init(); SystemBar.init(); Editor.init(); Editor.initScroll(); Nav.init(); ZoomGuard.init(); NoteClock.start(); StudyTimer.init().catch((e) => console.warn('cronômetro', e));
+    StableVH.init(); SafeArea.init(); SystemBar.init(); Editor.init(); Editor.initScroll(); Nav.init(); Palm.init(); ZoomGuard.init(); NoteClock.start(); StudyTimer.init().catch((e) => console.warn('cronômetro', e));
     Plugins.init();
     setTimeout(() => Fonts.prewarm(), 4000); // baixa as fontes para funcionarem sem internet
     this.wire();

@@ -77,6 +77,8 @@ function colorPop(anchor, current, onPick, palette = PALETTE, opts = {}) {
   function build() {
     body.innerHTML = ''; draw = () => {};
     if (tab === 'pal') {
+      { const gc = typeof UI !== 'undefined' && UI.groupColors ? UI.groupColors() : []; /* v0.28: cores do grupo atual primeiro */
+        if (gc.length) { const r = el('div', { class: 'cpk-sw' }); for (const c of gc) r.append(el('button', { class: 'cdot' + (c === (current || '').toLowerCase() ? ' sel' : ''), style: { background: c }, title: c, onclick: () => pick(c) })); body.append(el('div', { class: 'cpk-pal' }, el('span', { class: 'lbl-sm' }, 'Grupo atual')), r); } }
       const g = el('div', { class: 'cpk-sw' }); for (const c of palette) g.append(el('button', { class: 'cdot' + (c.toLowerCase() === (current || '').toLowerCase() ? ' sel' : ''), style: { background: c }, title: c, onclick: () => pick(c) }));
       body.append(g);
       for (const [name, cols] of READY_PALETTES) {

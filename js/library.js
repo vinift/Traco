@@ -356,7 +356,10 @@ async function openSettings(focus) {
     el('p', { class: 'muted' }, 'No modo tela infinita o mínimo padrão é 10%.')));
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Escrita e caneta'),
     el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
-      chk('Ignorar a palma da mão (toques são ignorados enquanto a caneta está perto da tela)', 'palmGuard'),
+      chk('Ignorar a palma da mão em todo o app (toques grandes e toques enquanto a caneta escreve não fazem nada)', 'palmGuard'),
+      (() => { /* v0.28: calibrar o tamanho da palma */ const info = el('small', { class: 'muted' }, ''); const upd = () => { info.textContent = Palm.last ? `Seu último toque: ${Palm.last} px` : 'Toque na tela para ver o tamanho do seu toque'; };
+        upd(); const iv = setInterval(() => { if (!info.isConnected) return clearInterval(iv); upd(); }, 500);
+        return el('div', {}, UI.slider('Toque considerado palma a partir de', 20, 90, 2, +S.palmSize || 40, (v) => { S.palmSize = v; Store.saveSettings(); }, (v) => v + ' px'), info); })(),
       chk('Escrever com o dedo (o mesmo que o botão de mão no editor)', 'fingerDraws'),
       chk('Rabiscar para apagar (zigue-zague com a caneta por cima do que quer apagar)', 'scribbleErase'),
       UI.slider('Sensibilidade à pressão', 0, 1, 0.05, S.pressureSens ?? 0.6, (v) => { S.pressureSens = v; S.pressure = v > 0; Store.saveSettings(); }, (v) => (v === 0 ? 'sem' : Math.round(v * 100) + '%')),

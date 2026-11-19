@@ -188,6 +188,41 @@ const ZoomGuard = {
 /* ===== Altura estável =====
    Puxar a barra de horário/bateria do Android encolhe a tela por um instante e o app inteiro se redimensionava
    (barras pulando, página redesenhando). Agora encolhidas pequenas e passageiras são ignoradas; teclado e giro da tela continuam valendo. */
+/* ===== v0.28: palma ignorada em TODO o app =====
+   Toque com área de contato grande (≥ S.palmSize px, padrão 40) é palma: é barrado já na captura (antes do editor, das barras,
+   do lado passivo da tela dividida e da biblioteca) — não rola, não dá zoom, não aperta botão, não conta para 2/3 dedos. Se um
+   toque vira palma no meio (o contato cresce), o gesto é cancelado. Com a caneta encostada, qualquer toque é tratado como palma.
+   A janela de 500 ms depois da caneta (S.palmGuard) continua valendo na folha. Configurações → Escrita e caneta mostra o tamanho do
+   último toque para calibrar. */
+const Palm = {
+  ids: new Set(), lastUp: 0, last: 0,
+  on() { return Store.settings.palmGuard !== false; },
+  size() { return +Store.settings.palmSize || 40; },
+  big(w, h) { return w >= this.size() || h >= this.size(); },
+  penDown() { return typeof Editor !== 'undefined' && Editor.penDown; },
+  init() {
+    const stop = (e) => { e.stopImmediatePropagation(); if (e.cancelable) e.preventDefault(); };
+    addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch') return; this.last = Math.round(Math.max(e.width || 0, e.height || 0));
+      if (this.on() && (this.big(e.width, e.height) || this.penDown())) { this.ids.add(e.pointerId); stop(e); }
+    }, true);
+    addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'touch') return; if (this.ids.has(e.pointerId)) return stop(e);
+      if (this.on() && this.big(e.width, e.height)) { this.ids.add(e.pointerId); this.cancel(e); stop(e); }
+    }, true);
+    for (const t of ['pointerup', 'pointercancel']) addEventListener(t, (e) => { if (!this.ids.has(e.pointerId)) return; this.ids.delete(e.pointerId); this.lastUp = performance.now(); stop(e); }, true);
+    /* o clique que o navegador gera no fim do toque da palma, e a rolagem nativa (listas da biblioteca, janelas) */
+    addEventListener('click', (e) => { if (this.ids.size || performance.now() - this.lastUp < 500) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+    addEventListener('touchstart', (e) => { if (!this.on()) return; for (const t of e.changedTouches) if (this.big((t.radiusX || 0) * 2, (t.radiusY || 0) * 2) || this.penDown()) { if (e.cancelable) e.preventDefault(); return; } }, { capture: true, passive: false });
+    addEventListener('touchmove', (e) => { if (!this.on()) return; for (const t of e.touches) if (this.big((t.radiusX || 0) * 2, (t.radiusY || 0) * 2)) { if (e.cancelable) e.preventDefault(); return; } }, { capture: true, passive: false });
+  },
+  /* virou palma no meio do gesto: o editor e o lado passivo largam esse toque */
+  cancel(e) {
+    const fake = { pointerId: e.pointerId, pointerType: 'touch', clientX: e.clientX, clientY: e.clientY, width: e.width, height: e.height, buttons: 0, target: typeof Editor !== 'undefined' ? Editor.stage : document.body, preventDefault() {}, stopPropagation() {}, getCoalescedEvents: () => [] };
+    try { if (typeof Editor !== 'undefined' && Editor.pointers && Editor.pointers.has(e.pointerId)) { Editor.onUp(fake, true); Editor.stopInertia(); } } catch (err) { logError(err, 'palma'); } /* sem inércia: a folha para onde estava */
+    try { const pv = typeof SplitView !== 'undefined' && SplitView.pv; if (pv && pv.pts.has(e.pointerId)) { pv.pts.delete(e.pointerId); if (pv.pts.size) pv.gStart(); else pv.g = null; } } catch (_) {}
+  },
+};
 const StableVH = {
   h: 0, w: 0,
   init() { this.apply(innerHeight); addEventListener('resize', () => this.onResize()); },

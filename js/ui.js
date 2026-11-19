@@ -203,7 +203,8 @@ function templateEditor(tplIn, size = { w: 794, h: 1123 }, { onNotewise } = {}) 
     r.addEventListener('input', () => set(r.value)); n.addEventListener('change', () => set(n.value));
     return el('div', { class: 'field' }, el('label', {}, `${label} (${unit})`), el('div', { class: 'grp', style: { display: 'flex', gap: '8px', alignItems: 'center' } }, r, n));
   };
-  const color = (label, key) => { const i = el('input', { type: 'color', value: tpl[key], style: { width: '100%', height: '40px', border: '0', background: 'transparent' } }); i.addEventListener('input', () => { tpl[key] = i.value; redraw(); }); return el('div', { class: 'field' }, el('label', {}, label), i); };
+  /* v0.28: cor do modelo pelo seletor do app (grupo atual, paleta e cor personalizada) em vez do seletor do sistema */
+  const color = (label, key) => { const b = el('button', { type: 'button', class: 'tpl-color', style: { background: tpl[key] }, title: label }); b.addEventListener('click', () => colorPop(b, tpl[key], (c) => { tpl[key] = c; b.style.background = c; redraw(); })); return el('div', { class: 'field' }, el('label', {}, label), b); };
   function buildFields() {
     fields.innerHTML = '';
     if (tpl.type === 'custom') { // modelo importado: posições fixas; dá para mudar papel e intensidade
@@ -398,7 +399,7 @@ async function pagesPanel() { PageManager.open(); }
 const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 function snippet(text, q) { const t = text.replace(/\s+/g, ' '), i = norm(t).indexOf(norm(q)); const a = Math.max(0, i - 30); return (a ? '…' : '') + t.slice(a, i + q.length + 50) + (i + q.length + 50 < t.length ? '…' : ''); }
 function noteSearchPop(anchor) {
-  const n = Editor.note; const inp = el('input', { class: 'tp-input', placeholder: 'Buscar nesta nota (textos e escrita à mão)', style: { marginBottom: '8px' } });
+  const n = Editor.note; const inp = el('input', { class: 'tp-input', placeholder: 'Buscar nesta nota (textos, escrita à mão e PDF)', style: { marginBottom: '8px' } });
   const list = el('div', { style: { maxHeight: '50vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' } });
   const pg = (i) => (n.mode === 'infinite' ? 'Nota' : `Pág. ${i + 1}`);
   // posição aproximada da palavra dentro da linha escrita (proporcional às letras)
@@ -421,9 +422,19 @@ function noteSearchPop(anchor) {
     if (!k) list.append(el('p', { style: { color: 'var(--chmuted)', margin: '6px 2px' } }, OCR.enabled() ? 'Nada encontrado. A escrita à mão é lida em segundo plano alguns segundos depois de você parar de escrever (precisa de internet).' : 'Nada encontrado (a leitura da escrita à mão está desligada nas configurações).'));
     else list.prepend(el('p', { style: { color: 'var(--chmuted)', margin: '0 2px 4px', fontSize: '12.5px' } }, `${k} resultado(s) — toque para ir até lá`));
   };
-  inp.addEventListener('input', run);
-  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const b = list.querySelector('.pm-res'); if (b) b.click(); } });
-  const pop = openPop(anchor, el('div', { style: { width: 'min(380px, 86vw)' } }, inp, list));
+  /* v0.28: busca dentro do PDF da nota (lê o texto do PDF na 1ª vez e guarda) */
+  const pdfBox = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '4px' } }), hasPdf = n.pages.some((p) => p.pdf); let tok = null, pdfT = null;
+  const runPdf = () => {
+    if (tok) tok.stop = true; pdfBox.innerHTML = ''; const q = inp.value.trim(); if (!hasPdf || q.length < 2) return;
+    const t = tok = { stop: false }, head = el('p', { style: { color: 'var(--chmuted)', margin: '6px 2px 2px', fontSize: '12.5px' } }, 'No PDF: procurando…'); pdfBox.append(head); let found = 0;
+    PdfFind.search(n, q, (i, hits) => {
+      if (t.stop) return; const all = hits.map((h) => h.rect);
+      for (const h of hits) { if (found++ >= 200) return; pdfBox.append(el('button', { class: 'pm-res', onclick: () => { closePop(); Editor.flashRects(i, [h.rect, ...all.filter((r) => r !== h.rect)], true, 'keep'); } }, el('b', {}, `Pág. ${i + 1} 📄`), ' ', snippet(h.line, q))); }
+    }, (d, tot) => { if (!t.stop) head.textContent = d < tot ? `No PDF: lendo ${d} de ${tot} páginas… (só demora na 1ª busca)` : `No PDF: ${found} resultado(s)`; }, t).catch((e) => { logError(e, 'busca no PDF'); head.textContent = 'Não consegui ler o texto do PDF.'; });
+  };
+  inp.addEventListener('input', run); inp.addEventListener('input', () => { clearTimeout(pdfT); pdfT = setTimeout(runPdf, 300); });
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const b = list.querySelector('.pm-res') || pdfBox.querySelector('.pm-res'); if (b) b.click(); } });
+  const pop = openPop(anchor, el('div', { style: { width: 'min(380px, 86vw)', maxHeight: '70vh', overflowY: 'auto' } }, inp, list, pdfBox), { onClose: () => { if (tok) tok.stop = true; } });
   pop.style.background = 'var(--ch)'; pop.style.color = 'var(--chfg)'; setTimeout(() => inp.focus(), 50);
 }
 

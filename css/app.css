@@ -841,3 +841,6 @@ input:not(:focus),textarea:not(:focus){-webkit-user-select:none;user-select:none
 .fr-c{width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,0,0,.18);cursor:pointer;padding:0}
 .fr-c.on{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent)}
 .fr-row{display:flex;flex-direction:column;gap:4px}
+/* v0.28: cor personalizada na moldura e cor do modelo pelo seletor do app */
+.fr-c.fr-more{background:conic-gradient(#ef4444,#f59e0b,#eab308,#22c55e,#06b6d4,#3b82f6,#a855f7,#ef4444)}
+.tpl-color{width:100%;height:40px;border-radius:10px;border:1px solid var(--line);cursor:pointer}

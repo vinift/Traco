@@ -423,7 +423,7 @@ const Editor = {
     this.lastInput = Date.now();
     if (!this.note) return;
     this.rect = this.stage.getBoundingClientRect();
-    this.stopInertia();
+    this.stopInertia(); if (this.flash && this.flash.hold === 'keep' && e.pointerType !== 'touch' && performance.now() - this.flash.t0 > 600) { this.flash = null; this.requestRender(); } /* tocou na página: a marca do PDF sai */
     if (this._eyedrop && !(e.target.closest && e.target.closest('#selBar,#textBar,#hbar'))) { e.preventDefault(); this.takeEyedrop(this.pt(e)); return; } // conta-gotas
     if (this.textEl && this.textEl.contains(e.target)) return;
     if (e.target.closest && e.target.closest('#textBar,#hbar')) return;
@@ -1024,7 +1024,7 @@ const Editor = {
   },
   drawFlash(ctx) {
     const f = this.flash; if (!f) return;
-    const age = performance.now() - f.t0, life = f.hold ? 8000 : 4500; if (age > life) { this.flash = null; return; }
+    const age = performance.now() - f.t0, life = f.hold === 'keep' ? Infinity : f.hold ? 8000 : 4500; if (age > life) { this.flash = null; return; } /* v0.28: 'keep' = resultado do PDF fica marcado até tocar na página */
     const a = age < life - 1200 ? 1 : (life - age) / 1200, pulse = age < 900 ? 0.5 + 0.5 * Math.abs(Math.sin(age / 150)) : 1;
     ctx.save();
     for (const [pi, r] of f.items) {
@@ -1032,7 +1032,7 @@ const Editor = {
       ctx.globalAlpha = a; ctx.fillStyle = `rgba(255,213,0,${0.32 * pulse})`; ctx.strokeStyle = 'rgba(245,158,11,.95)'; ctx.lineWidth = 2 / this.cam.z;
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(r.x, r.y, r.w, r.h, 4 / this.cam.z + 2) : ctx.rect(r.x, r.y, r.w, r.h); ctx.fill(); ctx.stroke();
     }
-    ctx.restore(); this.requestRender();
+    ctx.restore(); if (life !== Infinity || age < 1200) this.requestRender();
   },
   focusElement(pi, id) {
     const page = this.note.pages[pi]; if (!page) return; const e = page.elements.find((x) => x.id === id);

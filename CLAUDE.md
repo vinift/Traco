@@ -77,7 +77,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 - **Fim da nota:** `camMaxBase` deixa max(220 px, 30% da tela) abaixo da última página (v0.27; antes 90 px) antes de começar o puxar (o lado passivo também).
 - **Puxar para adicionar página:** `PULL_MAX/PULL_ADD` 260/190 (~340 px de puxada) e só conta se o gesto começou já parado no fim (`g.atEnd`).
 - **Blocos (tiles.js):** cada nível de zoom tem seus blocos; durante o gesto (`st.zooming`) não se renderiza nível novo, usa-se a reserva `_fbLvl` (sempre o último nível **completo**, `_curDone`) esticada. Miniatura da página (`pc.preview`, até 960 px) é o fundo de última instância; a velha fica na tela até a nova ficar pronta. Itens acrescentados no fim da página são pintados direto nos blocos e na miniatura (`paintOnTile`/`paintOnPreview`) em vez de redesenhar. `keepVisible` protege da remoção o que está na tela.
-- **Qualidade ao tirar o zoom (`S.zoomQuality`, Configurações → Zoom):** "econômica" (padrão) = `tileCap()` 90 blocos (60 em aparelhos < 8 GB) e `previewCap()` 10 — **a "alta" (200 blocos, 18 miniaturas, camada afastada `_ovLvl` via `prefetchOverview`, miniaturas criadas durante o gesto) ficou pesada no Pad 7 e fazia as barras piscarem na pinça**. Sintoma de memória de desenho cheia no Android = barras piscando/sumindo.
+- **Qualidade ao tirar o zoom (`S.zoomQuality`, Configurações → Zoom):** "econômica" (padrão) = `tileCap()` 64 blocos (48 em aparelhos < 8 GB) e `previewCap()` 6 (v0.28; antes 90/60 e 10 — as barras sumiam em parte na pinça no Pad 7; medido: pico 165 → 150 MB, parado depois do zoom 159 → 131 MB, igual à v0.24.10 antes da redução) — **a "alta" (200 blocos, 18 miniaturas, camada afastada `_ovLvl` via `prefetchOverview`, miniaturas criadas durante o gesto) ficou pesada no Pad 7 e fazia as barras piscarem na pinça**. Sintoma de memória de desenho cheia no Android = barras piscando/sumindo.
 - `updateHud` (texto do zoom na barra) é limitado a ~8×/s durante o gesto.
 
 ### Caneta e escrita
@@ -97,15 +97,17 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 
 ### Dedo e gestos
 - 2 dedos = desfazer, 3 = refazer (toque rápido). `S.hand` ('right' padrão): destro só aceita esses toques na **metade esquerda** da tela (a palma apoia na direita).
-- Proteção de palma (`S.palmGuard`): toques ignorados até 500 ms depois da caneta.
+- Proteção de palma (`S.palmGuard`): toques ignorados na folha até 500 ms depois da caneta. v0.28: `Palm` (navigation.js) barra na CAPTURA do `window` todo toque com contato ≥ `S.palmSize` (padrão 40 px; `pointerdown` width/height e `touchstart`/`touchmove` radius×2) e todo toque com a caneta encostada — não chega ao editor, barras, biblioteca, lado passivo; o `click` seguinte (500 ms) e a rolagem nativa também são cancelados. Toque que cresce no meio → `Palm.cancel` (Editor.onUp cancelado + `stopInertia`; `svPane.pts`). Configurações mostram `Palm.last` (tamanho do último toque) para calibrar.
 - Rolagem rápida (`#vscroll`): v0.27 de volta à DIREITA (à esquerda, v0.25–v0.26, ficou estranho), na borda do lado ativo na tela dividida (`placeScroll`); ignora toque com contato > 34 px e toques até 1,5 s depois da caneta; tocar no trilho não pula (só arrastar o marcador).
 - Laço + segurar o dedo parado 550 ms → painel "colar" da biblioteca (`lassoHoldPaste`, cola no ponto com `pasteAt`).
 
 ### Seleção
 - Alças: 4 cantos (proporcional, ancorado no canto oposto) + 4 lados (estica um eixo); texto só tem laterais; itens girados só cantos. Alça de girar em cima. Seleção pequena (caixa < 70 px na tela): tocar dentro sempre move; alças só por fora, raio 20 px (`selHit`).
 - Mover pouco (v0.26): só é toque se o máximo deslocamento < 3,5 px (`a.maxD`); movimento < 14 px não gruda (`near0` em `moveSel`).
+- Busca na nota (v0.28, `noteSearchPop` em ui.js): também no texto do PDF via `PdfFind` (workspace.js): `readPage(ref)` lê `getTextContent`, agrupa em linhas `[texto, y, h, [[início, x, w, tamanho]…]]` e guarda em meta `'pdftxt:<blobId>'` (salva a cada 40 páginas); `findIn` compara por caractere sem acento (`normCh`) e calcula o retângulo pela proporção dentro de cada pedaço. Resultado → `Editor.flashRects(i, rects, true, 'keep')` (marca fica até a caneta tocar a página; `drawFlash` para de pedir quadros depois do pulso). Busca cancelável (`token.stop`) e com progresso.
 - Laço: forma é selecionada se algum ponto está dentro OU se o traço do laço cruza a linha dela (`elInLasso`).
 - Com a caneta, mover/redimensionar/girar é sempre livre (`action.penFree`, mesmo efeito do `noSnap` do 2º dedo).
+- Cores (v0.28): `UI.groupColors()` (caneta + marca-texto do grupo atual) aparecem primeiro em `colorPop` (aba Paleta), em `colorSection` (menos nas próprias ferramentas caneta/marca-texto) e na moldura (`framePop`, com botão de cor personalizada `.fr-more`); cor do modelo de página usa `colorPop` (`.tpl-color`) em vez de `input type=color`.
 - Moldura (v0.27): `e.frame = {color, w, r, pad, dash}` em texto (não post-it) e imagem; `strokeFrame` em render.js (imagem: borda por dentro e `roundRect` recorta a imagem nos cantos; texto: em volta com `pad`, e `elBBox` do texto inclui a moldura). Botão na barra da seleção → `UI.framePop` → `Editor.frameSel(fn)`; última usada em `S.frameLast`.
 - Barra da seleção: botão "editar pontos" (só 1 forma; `js/shapeedit.js`), cor, espessura (com ±0,1 e as espessuras do grupo), copiar/recortar/duplicar, frente, bloquear, recortar imagem, OCR, endireitar, ✨ melhorar escrita, excluir.
 
@@ -131,7 +133,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 
 ## 6. Configurações (`Store.settings`, chaves usadas)
 
-`penDouble` (ação do toque duplo), `split` (tela dividida, ver seção 5), `tools.lasso.mode` ('shot' nunca fica salvo: volta a 'free' depois do print, ao trocar de ferramenta e ao abrir nota), `penTriple` (legado: false → toque duplo desligado), `hand` (right/left/none), `vertexSnap` (grudar ângulos ao editar pontos), `frameLast` (última moldura), (`lockZoom` saiu na v0.26), `writeHideSec`/`hideWhileWriting` (barras ao escrever), `palmGuard`, `fingerDraws`, `scribbleErase`, `shapeHold`, `pressure`/`pressureSens`, `stabPen` (por tipo de caneta)/`stabHl`/`stabilizer` (legado), `autoBeautify` (0–10), `lowLatency`, `zoomQuality` (eco/high), `zoomMin`/`zoomMax`, `timerNotify`, `penMap` (botões físicos da caneta → ação), `presetGroups` (grupos de cores/espessuras), `widthPresets`/`colorPresets`, `tools` (estado de cada ferramenta), `barScale`/`barSize`, `theme`, `snap*` (guias), `hlSnapPdf`/`hlStraight`/`hlHold`, `straightAlways`, `ocr`, `drive`, `plugins`.
+`penDouble` (ação do toque duplo), `split` (tela dividida, ver seção 5), `tools.lasso.mode` ('shot' nunca fica salvo: volta a 'free' depois do print, ao trocar de ferramenta e ao abrir nota), `penTriple` (legado: false → toque duplo desligado), `hand` (right/left/none), `vertexSnap` (grudar ângulos ao editar pontos), `frameLast` (última moldura), `palmSize` (px a partir do qual um toque é palma), (`lockZoom` saiu na v0.26), `writeHideSec`/`hideWhileWriting` (barras ao escrever), `palmGuard`, `fingerDraws`, `scribbleErase`, `shapeHold`, `pressure`/`pressureSens`, `stabPen` (por tipo de caneta)/`stabHl`/`stabilizer` (legado), `autoBeautify` (0–10), `lowLatency`, `zoomQuality` (eco/high), `zoomMin`/`zoomMax`, `timerNotify`, `penMap` (botões físicos da caneta → ação), `presetGroups` (grupos de cores/espessuras), `widthPresets`/`colorPresets`, `tools` (estado de cada ferramenta), `barScale`/`barSize`, `theme`, `snap*` (guias), `hlSnapPdf`/`hlStraight`/`hlHold`, `straightAlways`, `ocr`, `drive`, `plugins`.
 
 ## 7. Testes (scripts Playwright avulsos — nada disso vai para o repositório)
 
@@ -195,8 +197,9 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v0.27.0 — moldura em texto/imagem (`frame`, `strokeFrame`, `framePop`, `frameSel`), rolagem rápida de volta à direita, margem maior no fim da nota (`camMaxBase`), removido o `Immersive` da v0.26.3 (não funcionou no tablet).
 
+- v0.28.0 — busca no texto do PDF (`PdfFind`, marca 'keep'), palma em todo o app (`Palm`, `S.palmSize`), cores do grupo + personalizada em todos os seletores (`UI.groupColors`), econômica mais leve (`tileCap` 64/48, `previewCap` 6). Teste PDF: `addScriptTag('/vendor/pdf-lib.min.js')`, gerar com `PDFLib`, `importPdfFile(file)` → páginas; teste palma: toque CDP com `radiusX` 30 (= 60 px).
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
-- Ignorar a palma também na rolagem (toques com área de contato grande), não só nos toques de 2/3 dedos.
 - "Melhorar escrita" na página inteira de uma vez.
 - Alarme do cronômetro com o app fechado exigiria app nativo/push (fora do alcance do PWA).

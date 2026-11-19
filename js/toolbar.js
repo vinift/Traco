@@ -128,6 +128,8 @@ const UI = {
   /* ---------- grupos de predefinições ---------- */
   group() { return Store.activeGroup(Editor.note); },
   colorList(t) { const g = this.group(); const k = t === 'highlighter' ? 'highlighter' : 'pen'; g.colors = g.colors || {}; return g.colors[k] || (g.colors[k] = []); },
+  /* v0.28: cores do grupo atual (caneta + marca-texto), para aparecerem em todos os seletores de cor */
+  groupColors() { try { return [...new Set([...this.colorList('pen'), ...this.colorList('highlighter')].map((c) => c.toLowerCase()))]; } catch (_) { return []; } },
   widthList(t) { const g = this.group(); g.widths = g.widths || {}; return g.widths[t] || (g.widths[t] = (Store.settings.widthPresets[t] || []).slice()); },
   /* grupos em árvore: um grupo pode ter subgrupos (ex.: Direito › Constitucional) */
   groupTree() {
@@ -498,11 +500,13 @@ const UI = {
       const add = el('button', { class: 'cbtn', title: 'Salvar a cor atual nas predefinições', style: { width: '34px', height: '34px' }, onclick: () => { const list = this.colorList(tool); const c = Store.settings.tools[tool].color; if (!list.some((x) => x.toLowerCase() === c.toLowerCase())) { list.push(c); this.save(); this.renderOptions(); toast('Cor salva nas predefinições', 1200); } } });
       add.innerHTML = icon('plus'); head.append(add);
     }
+    const gc = this.groupColors().filter((c) => !palette.some((x) => x.toLowerCase() === c));
+    if (gc.length && tool !== 'pen' && tool !== 'highlighter') { const gr = el('div', { class: 'tp-colors' }); for (const c of gc) gr.append(el('button', { class: 'cdot' + (c === (cur || '').toLowerCase() ? ' sel' : ''), style: { background: c }, title: 'Cor do grupo atual', onclick: () => on(c) })); box.append(el('div', { class: 'lbl-sm', style: { margin: '2px 0 4px', opacity: '.7' } }, 'Grupo atual'), gr); }
     const row = el('div', { class: 'tp-colors' });
     for (const c of palette) row.append(el('button', { class: 'cdot' + (c.toLowerCase() === (cur || '').toLowerCase() ? ' sel' : ''), style: { background: c }, onclick: () => on(c) }));
     const wheel = el('button', { class: 'cdot wheel', title: 'Mais cores: espectro, roda, conta-gotas e opacidade', onclick: () => colorPop(wheel, cur, on, palette, { alpha: !!tool && tool !== 'highlighter' && tool !== 'sticky', tool }) });
     row.append(wheel);
-    box.append(head, row); return box;
+    box.prepend(head); box.append(row); return box;
   },
   drawPreview(cv, t) {
     const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1; if (!r.width) return;
@@ -587,7 +591,10 @@ const UI = {
       box.append(el('div', { class: 'sw-head' }, el('span', {}, `Moldura de ${els.length} ${els.length === 1 ? 'item' : 'itens'}`)),
         UI.seg([['off', 'Sem moldura'], ['on', 'Com moldura']], f ? 'on' : 'off', (v) => set(v === 'on' ? {} : null)));
       if (!f) return;
-      const sw = el('div', { class: 'fr-colors' }, ...PALETTE.map((c) => el('button', { class: 'fr-c' + (f.color === c ? ' on' : ''), style: { background: c }, title: c, onclick: () => set({ color: c }) })));
+      const cols = [...new Set([...this.groupColors(), ...PALETTE.map((c) => c.toLowerCase())])], fc = (f.color || '').toLowerCase();
+      const custom = el('button', { class: 'fr-c fr-more', title: 'Cor personalizada (espectro, roda, código, conta-gotas)', onclick: () => colorPop(custom, f.color, (c) => set({ color: c }), PALETTE) });
+      const sw = el('div', { class: 'fr-colors' }, ...cols.map((c) => el('button', { class: 'fr-c' + (fc === c ? ' on' : ''), style: { background: c }, title: c, onclick: () => set({ color: c }) })), custom);
+      if (fc && !cols.includes(fc)) sw.insertBefore(el('button', { class: 'fr-c on', style: { background: f.color }, title: f.color }), custom);
       const rng = (label, k, mn, mx, st, fmt) => { const v = el('b', {}, fmt(f[k] ?? 0)), r = el('input', { type: 'range', min: mn, max: mx, step: st, value: f[k] ?? 0 }); r.addEventListener('input', () => (v.textContent = fmt(+r.value))); r.addEventListener('change', () => set({ [k]: +r.value })); return el('div', { class: 'fr-row' }, el('div', { class: 'sw-head' }, el('span', {}, label), v), r); };
       box.append(sw, UI.seg([['solid', 'Contínua'], ['dash', 'Tracejada'], ['dot', 'Pontilhada']], f.dash || 'solid', (v) => set({ dash: v })),
         rng('Espessura', 'w', 0.5, 8, 0.5, (x) => String(x).replace('.', ',')), rng('Cantos arredondados', 'r', 0, 40, 1, (x) => (x ? x : 'retos')));

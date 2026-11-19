@@ -160,6 +160,54 @@ const PdfText = {
   },
 };
 
+/* ---------- v0.28: busca dentro do PDF importado ----------
+   Na 1ª busca, o texto de cada página do PDF é lido (pdf.js getTextContent) e guardado em linhas com a posição de cada pedaço
+   (meta 'pdftxt:<blobId>'), então as próximas buscas são instantâneas. Resultado = faixa amarela sobre o trecho na página. */
+const normCh = (c) => c.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().charAt(0) || ' ';
+const PdfFind = {
+  idx: new Map(), /* blobId → { pages: {index: [[texto, y, h, [[início, x, w, tamanho], …]], …]}, dirty } */
+  async index(blobId) {
+    let I = this.idx.get(blobId); if (I) return I;
+    I = (await DB.get('meta', 'pdftxt:' + blobId)) || { v: 1, pages: {} }; I.dirty = 0; this.idx.set(blobId, I); return I;
+  },
+  async save(blobId) { const I = this.idx.get(blobId); if (!I || !I.dirty) return; I.dirty = 0; const { dirty, ...data } = I; try { await DB.put('meta', data, 'pdftxt:' + blobId); } catch (e) { logError(e, 'índice do PDF'); } },
+  async readPage(ref) {
+    const I = await this.index(ref.blobId); if (I.pages[ref.index]) return I.pages[ref.index];
+    const doc = await PdfCache.doc(ref.blobId), pg = await doc.getPage(ref.index + 1), vp = pg.getViewport({ scale: 96 / 72 }), tc = await pg.getTextContent(), lib = await PdfCache.loadLib();
+    const items = [];
+    for (const it of tc.items) { if (!it.str || !it.str.trim()) continue; const t = lib.Util.transform(vp.transform, it.transform), h = Math.hypot(t[2], t[3]); if (Math.abs(t[1]) > 0.01 * h) continue; items.push({ s: it.str, x: t[4], y: t[5] - h * 0.86, w: it.width * vp.scale, h: h * 1.12 }); }
+    items.sort((a, b) => a.y - b.y || a.x - b.x); const lines = [];
+    for (const it of items) { const L = lines.find((l) => Math.abs(l.cy - (it.y + it.h / 2)) < Math.min(l.h, it.h) * 0.5); if (L) { L.its.push(it); L.h = Math.max(L.h, it.h); L.y = Math.min(L.y, it.y); } else lines.push({ cy: it.y + it.h / 2, y: it.y, h: it.h, its: [it] }); }
+    const out = lines.map((L) => { L.its.sort((a, b) => a.x - b.x); let t = '', segs = [], end = -Infinity; for (const it of L.its) { if (t && it.x - end > L.h * 0.2 && !t.endsWith(' ')) t += ' '; segs.push([t.length, Math.round(it.x * 10) / 10, Math.round(it.w * 10) / 10, it.s.length]); t += it.s; end = it.x + it.w; } return [t, Math.round(L.y * 10) / 10, Math.round(L.h * 10) / 10, segs]; });
+    I.pages[ref.index] = out; I.dirty++; if (I.dirty >= 40) this.save(ref.blobId); return out;
+  },
+  /* ocorrências de q numa página lida: [{rect, line}] */
+  findIn(lines, q) {
+    const nq = [...q].map(normCh).join(''), out = []; if (!nq.trim()) return out;
+    for (const [t, y, h, segs] of lines) {
+      const nt = [...t].map(normCh).join(''); let k = nt.indexOf(nq);
+      while (k >= 0 && out.length < 30) {
+        const at = (i) => { let sg = segs[0]; for (const s of segs) if (s[0] <= i) sg = s; const f = Math.min(1, Math.max(0, (i - sg[0]) / Math.max(1, sg[3]))); return sg[1] + sg[2] * f; };
+        const x1 = at(k), x2 = at(k + nq.length); out.push({ rect: { x: x1 - 2, y: y - 1, w: Math.max(6, x2 - x1 + 4), h: h + 2 }, line: t, at: k }); k = nt.indexOf(nq, k + 1);
+      }
+    }
+    return out;
+  },
+  /* percorre as páginas com PDF da nota; onHit(páginaDaNota, ocorrências) e onProgress(feitas, total) a cada página */
+  async search(note, q, onHit, onProgress, token) {
+    const todo = note.pages.map((p, i) => [p, i]).filter(([p]) => p.pdf); let done = 0, blobs = new Set();
+    for (const [p, i] of todo) {
+      if (token.stop) break; blobs.add(p.pdf.blobId);
+      let lines; try { lines = await this.readPage(p.pdf); } catch (e) { lines = []; }
+      const hits = this.findIn(lines, q); if (hits.length && !token.stop) onHit(i, hits);
+      done++; if (onProgress && (done % 10 === 0 || done === todo.length)) onProgress(done, todo.length);
+      if (done % 20 === 0) await new Promise((r) => setTimeout(r, 0)); /* deixa a tela respirar */
+    }
+    for (const b of blobs) this.save(b);
+    return todo.length;
+  },
+};
+
 /* ---------- Tela cheia (sem barras) e barras que somem enquanto você escreve ---------- */
 const Focus = {
   on: false,
