@@ -319,13 +319,14 @@ const Editor = {
     } else if (this.vEditEl()) { this.drawVEdit(box); } else {
     ctx.save(); ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
     for (const [h, x, y] of this.selHandles(box)) { /* v0.22: alças em todos os cantos e lados */
-      ctx.fillStyle = '#fff'; ctx.beginPath(); if (h.length === 2) ctx.arc(x, y, 8, 0, Math.PI * 2); else ctx.roundRect(x - 6, y - 6, 12, 12, 3); ctx.fill(); ctx.stroke();
-      if (h === 'se') { ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill(); }
+      /* v0.26.1: alças menores (a área de toque continua a mesma) */
+      ctx.fillStyle = '#fff'; ctx.beginPath(); if (h.length === 2) ctx.arc(x, y, 5.5, 0, Math.PI * 2); else ctx.roundRect(x - 4, y - 4, 8, 8, 2); ctx.fill(); ctx.stroke();
+      if (h === 'se') { ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.arc(x, y, 2.2, 0, Math.PI * 2); ctx.fill(); }
     }
     const rx = box.x + box.w / 2, ry = box.y - 34; // alça de rotação
-    ctx.beginPath(); ctx.moveTo(rx, box.y); ctx.lineTo(rx, ry + 11); ctx.stroke();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(rx, ry, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.arc(rx, ry, 5, -Math.PI * 0.9, Math.PI * 0.4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(rx, box.y); ctx.lineTo(rx, ry + 8); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(rx, ry, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(rx, ry, 3.5, -Math.PI * 0.9, Math.PI * 0.4); ctx.stroke();
     if (this.ratioLabel) { ctx.fillStyle = '#ec4899'; ctx.font = '600 12px system-ui'; ctx.textAlign = 'right'; ctx.fillText(this.ratioLabel, box.x + box.w - 14, box.y + box.h + 22); }
     if (this.selTf && this.selTf.rot != null) { ctx.fillStyle = '#7c3aed'; ctx.font = '600 13px system-ui'; ctx.textAlign = 'center'; ctx.fillText(Math.round(this.selTf.rot * 180 / Math.PI) + '°', rx, ry - 18); }
     ctx.restore();
@@ -596,7 +597,7 @@ const Editor = {
     if (a.kind === 'cropout') return;
     if (a.kind === 'lasso') { if (a.mode === 'free') a.pts.push([p.x, p.y]); else a.pts = [a.pts[0], [p.x, p.y]]; this.drawLasso(); return; }
     if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate') { if (a.start) a.maxD = Math.max(a.maxD || 0, Math.hypot(p.x - a.start.x, p.y - a.start.y)); return this.moveSel(p); }
-    if (a.kind === 'vnode') return this.moveVNode(p);
+    if (a.kind === 'vnode') { if (a.start) a.maxD = Math.max(a.maxD || 0, Math.hypot(p.x - a.start.x, p.y - a.start.y)); if ((a.maxD || 0) < 2.5) return; return this.moveVNode(p); }
     if (a.kind === 'tableact') return this.moveTableAct(p);
     if (a.kind === 'shape') return this.moveShape(w);
     if (a.kind === 'table') return this.moveTable(w);
@@ -611,7 +612,8 @@ const Editor = {
     if (a.kind === 'draw') return this.endDraw(a);
     if (a.kind === 'erase') { this.clearLive(); this.opCommit(); return; }
     if (a.kind === 'lasso') return this.endLasso(a);
-    if (a.kind === 'move') { const p = this.pt(e), tap = Math.max(a.maxD || 0, Math.hypot(p.x - a.start.x, p.y - a.start.y)) < 3.5; /* v0.25.1: só é toque se quase não mexeu (antes < 8 px: arrastar um pouquinho voltava ao lugar) */ if (tap) { this.selTf = null; this.guides = null; this.ratioLabel = null; this.requestRender(); return this.tapOnSel(a, p); } }
+    if (a.kind === 'move') { const p = this.pt(e), tap = Math.max(a.maxD || 0, Math.hypot(p.x - a.start.x, p.y - a.start.y)) < 3.5; /* v0.25.1: só é toque se quase não mexeu (antes < 8 px: arrastar um pouquinho voltava ao lugar) */ if (tap) { this.selTf = null; this.guides = null; this.ratioLabel = null; this.requestRender(); if (this.vEditEl()) return this.vTap(p, null); return this.tapOnSel(a, p); } }
+    if (a.kind === 'vnode' && (a.maxD || 0) < 2.5) { this.selTf = null; this.requestRender(); return this.vTap(this.pt(e), a.node || this._vn); } /* toque num ponto (sem arrastar) */
     if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate' || a.kind === 'vnode') return this.endMoveSel();
     if (a.kind === 'shape') return this.endShape(a);
     if (a.kind === 'table') return this.endTable(a);

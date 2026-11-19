@@ -184,6 +184,7 @@ Object.assign(Editor, {
     let down = null, taps = [];
     this.stage.addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'pen' || !(e.buttons & 1) || penDoubleAction() === 'none' || !this.note || this.crop || skip(e)) { down = null; return; }
+      if (this.vEditEl && this.vEditEl()) { down = null; taps = []; return; } /* v0.26.1: editando pontos, o toque duplo é para criar/remover vértice */
       const now = performance.now(), last = taps[taps.length - 1];
       if (!last || now - last.up > GAP_MS || Math.hypot(e.clientX - taps[0].x, e.clientY - taps[0].y) > NEAR) {
         taps = [];

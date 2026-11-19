@@ -81,7 +81,43 @@ function moveShapeNode(e0, nd, l, s, z, snap) {
   return n;
 }
 
+/* v0.26.1: toque duplo no lado cria um vértice ali; toque duplo num vértice o remove */
+function insertVertex(e0, i, x, y) {
+  let e = asPath(e0);
+  if (e.kind === 'line') e = { ...e, kind: 'path', pts: [e.x1, e.y1, e.x2, e.y2], rr: [0, 0] };
+  else if (e.kind === 'rect' || e.kind === 'diamond' || e.kind === 'triangle') e = shapeToPoly(e);
+  if (e.kind !== 'poly' && e.kind !== 'path') return null;
+  if (e.kind === 'path') { delete e.x1; delete e.y1; delete e.x2; delete e.y2; }
+  const pts = Array.from(e.pts); pts.splice((i + 1) * 2, 0, r2(x), r2(y)); const n = { ...e, pts };
+  if (e.kind === 'path') { const rr = (e.rr || []).slice(); while (rr.length < e.pts.length / 2) rr.push(0); rr.splice(i + 1, 0, 0); n.rr = rr; }
+  return n;
+}
+function removeVertex(e0, i) {
+  const e = asPath(e0); if (e.kind !== 'poly' && e.kind !== 'path') return null;
+  const n = e.pts.length / 2, min = e.kind === 'poly' && e.closed ? 4 : 3; if (n < min) return null;
+  const pts = Array.from(e.pts); pts.splice(i * 2, 2); const out = { ...e, pts };
+  if (e.kind === 'path') { const rr = (e.rr || []).slice(); rr.splice(i, 1); rr[0] = 0; rr[rr.length - 1] = 0; out.rr = rr; }
+  return out;
+}
 Object.assign(Editor, {
+  vTap(p, node) {
+    const now = performance.now(), L = this._vLast; this._vLast = { x: p.x, y: p.y, t: now };
+    if (!L || now - L.t > 400 || Math.hypot(p.x - L.x, p.y - L.y) > 16) return; this._vLast = null;
+    const e = this.vEditEl(); if (!e) return; const pg = this.pageById(this.sel.pageId), o = this.layout[this.pageIdx(pg)];
+    const w = this.toWorld(p.x, p.y), l = { x: w.x - o.x, y: w.y - o.y }; let n = null;
+    if (node && node.t === 'v') { n = removeVertex(e, node.i); if (!n) return toast('A forma precisa desses vértices', 1200); }
+    else if (node && node.t === 'e') n = insertVertex(e, node.i, node.x, node.y);
+    else if (!node || node.t !== 'c') { /* toque duplo em cima da linha: vértice novo no ponto mais perto do lado tocado */
+      const v = e.kind === 'line' ? [[e.x1, e.y1], [e.x2, e.y2]] : e.kind === 'poly' || e.kind === 'path' ? shapeVerts(asPath(e)) : e.kind === 'ellipse' ? null : shapeCorners(e); if (!v) return;
+      const closed = e.kind !== 'line' && e.kind !== 'path' && !(e.kind === 'poly' && !e.closed) && !(e.kind === 'poly' && e.br);
+      let best = null, bd = 14 / this.cam.z;
+      for (let i = 0; i < v.length - (closed ? 0 : 1); i++) { const a = v[i], b = v[(i + 1) % v.length], dx = b[0] - a[0], dy = b[1] - a[1], t = clamp(((l.x - a[0]) * dx + (l.y - a[1]) * dy) / (dx * dx + dy * dy || 1), 0.05, 0.95), q = [a[0] + dx * t, a[1] + dy * t], d = Math.hypot(q[0] - l.x, q[1] - l.y); if (d < bd) { bd = d; best = { i, q }; } }
+      if (best) n = insertVertex(e, best.i, best.q[0], best.q[1]);
+    }
+    if (!n) return;
+    n.id = e.id; this.recReplace(pg, e, n); this.opCommit(); if (navigator.vibrate) navigator.vibrate(10); this.requestRender();
+  },
+
   vEdit: false,
   /* a forma em edição de pontos (ou null: a seleção mudou e o modo sai sozinho) */
   vEditEl() {
@@ -105,16 +141,17 @@ Object.assign(Editor, {
   },
   drawVEdit(box) {
     const ctx = this.ctx, t = this.selTf, e = (t && t.node) || this.vEditEl(); if (!e) return;
-    ctx.save(); ctx.strokeStyle = VEDIT_COLOR; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
+    ctx.save(); ctx.strokeStyle = VEDIT_COLOR; ctx.lineWidth = 1.2; ctx.setLineDash([6, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
     const N = this.vNodesScreen(e);
     if (e.kind === 'poly' && !e.br || e.kind === 'path' || e.kind === 'rect' || e.kind === 'diamond' || e.kind === 'triangle') { /* contorno fino ligando os vértices */
       const V = N.filter((n) => n.t === 'v'); if (V.length > 1) { ctx.beginPath(); V.forEach((n, i) => (i ? ctx.lineTo(n.sx, n.sy) : ctx.moveTo(n.sx, n.sy))); if ((e.kind !== 'poly' && e.kind !== 'path') || e.closed) ctx.closePath(); ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1; ctx.lineWidth = 1.5; }
     }
     for (const n of N) {
       ctx.beginPath();
-      if (n.t === 'v') { ctx.arc(n.sx, n.sy, 8, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(n.sx, n.sy, 3.5, 0, Math.PI * 2); ctx.fillStyle = VEDIT_COLOR; ctx.fill(); }
-      else if (n.t === 'e') { ctx.roundRect(n.sx - 6, n.sy - 6, 12, 12, 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke(); }
-      else { ctx.moveTo(n.sx, n.sy - 8); ctx.lineTo(n.sx + 8, n.sy); ctx.lineTo(n.sx, n.sy + 8); ctx.lineTo(n.sx - 8, n.sy); ctx.closePath(); ctx.fillStyle = VEDIT_COLOR; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.stroke(); ctx.strokeStyle = VEDIT_COLOR; }
+      /* v0.26.1: pontos menores (cobrem menos a forma); a área de toque continua de ~24 px */
+      if (n.t === 'v') { ctx.arc(n.sx, n.sy, 5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(n.sx, n.sy, 2, 0, Math.PI * 2); ctx.fillStyle = VEDIT_COLOR; ctx.fill(); }
+      else if (n.t === 'e') { ctx.roundRect(n.sx - 4, n.sy - 4, 8, 8, 1.5); ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke(); }
+      else { ctx.moveTo(n.sx, n.sy - 5.5); ctx.lineTo(n.sx + 5.5, n.sy); ctx.lineTo(n.sx, n.sy + 5.5); ctx.lineTo(n.sx - 5.5, n.sy); ctx.closePath(); ctx.fillStyle = VEDIT_COLOR; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.stroke(); ctx.strokeStyle = VEDIT_COLOR; }
     }
     ctx.restore();
   },

@@ -153,6 +153,15 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.26.1
+
+- **Criar e remover vértices no "editar pontos":**
+  - Toque duplo no quadradinho de um lado, ou em qualquer lugar em cima da linha, cria um vértice ali.
+  - Toque duplo num vértice o remove.
+  - Funciona em linhas com cantos, polígonos, retas (que viram linha com cantos), retângulos, losangos e triângulos. Dá para desfazer.
+  - Enquanto você edita pontos, o toque duplo da caneta não troca de ferramenta.
+- **Pontos e alças menores:** os círculos, quadradinhos e losangos do "editar pontos" e as alças de redimensionar e girar ficaram menores, cobrindo menos o desenho. A área de toque continua do mesmo tamanho, então continua fácil pegar.
+
 ## Novidades da v0.26.0
 
 - **Zoom e rolagem no estilo Notewise:**

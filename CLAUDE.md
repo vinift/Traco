@@ -185,6 +185,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v0.26.0 — zoom estilo Notewise (`barMargins`/`hScrollable`/`clampCam`; sai `lockZ`), linha com cantos `path` (`fitArc`/`fitPath`/`pathSamples`, edição por vértice/aresta/curvatura, `snapVertex`/`S.vertexSnap`), laço cruzando seleciona forma, mover pouco não volta (`maxD`, `near0`), retas curtas no segurar, tela dividida sem piscar (divisória em prévia, menos memória, resize só quando muda).
 
+- v0.26.1 — toque duplo no editar pontos (`vTap` em shapeedit.js: no lado/linha → `insertVertex`, no vértice → `removeVertex`; toque = `a.maxD` < 2,5 px; o toque duplo global da caneta é ignorado em `initPenTriple` quando `vEditEl()`); pontos (r 5, quadrado 8, losango 5,5) e alças de redimensionar (r 5,5/quadrado 8) e girar (r 8) menores, com a mesma área de toque.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9).
 - Ignorar a palma também na rolagem (toques com área de contato grande), não só nos toques de 2/3 dedos.
