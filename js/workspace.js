@@ -220,9 +220,20 @@ const Focus = {
     // horário/bateria voltar ao sair e bagunçava o layout. Só usa esse recurso quando aberto numa aba comum do Chrome.
     const inTab = window.matchMedia && matchMedia('(display-mode: browser)').matches;
     if (inTab) try { if (v && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {}); else if (!v && document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (_) {}
-    if (v) toast('Tela cheia — para sair, toque no botão discreto no canto superior direito', 2600);
+    if (v) toast('Tela cheia — toque duas vezes numa área vazia (ou no botão do canto) para sair', 2600);
+  },
+  /* v0.29: escrevendo (barras escondidas), um toque de DEDO no topo — onde ficam as barras — traz tudo de volta na hora */
+  initTopTap() {
+    if (this._topTap) return; this._topTap = true;
+    this.ed().addEventListener('pointerdown', (e) => {
+      const ed = this.ed(); if (e.pointerType !== 'touch' || !ed.classList.contains('writing')) return;
+      const bar = document.querySelector('#editor .ch-topright') || document.querySelector('#editor .ch-topleft'), lim = bar ? bar.getBoundingClientRect().bottom + 14 : 90;
+      if (e.clientY > lim) return;
+      clearTimeout(this._wT); ed.classList.remove('writing'); e.preventDefault(); e.stopPropagation();
+    }, true);
   },
   restore() {
+    this.initTopTap();
     if (!$('#btnFullExit')) { const b = el('button', { id: 'btnFullExit', class: 'full-exit', title: 'Sair da tela cheia', onclick: () => this.toggle(false) }); b.innerHTML = icon('unfull'); this.ed().append(b); }
     if (Store.settings.immersive) { this.on = true; this.ed().classList.add('immersive'); } this.setIcon();
   },

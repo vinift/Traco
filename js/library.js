@@ -21,6 +21,7 @@ const Library = {
     return list.sort((a, b) => (by === 'name' ? getName(a).localeCompare(getName(b), 'pt-BR', { numeric: true, sensitivity: 'base' }) : getDate(b) - getDate(a)) * (by === 'name' ? dir : dir));
   },
   render() {
+    try { localStorage.setItem('traco-lib-place', JSON.stringify({ folder: this.folder, view: this.view, t: Date.now() })); } catch (_) {} /* v0.29: lembra a pasta/visão sempre (o app volta para ela ao reabrir) */
     const S = this.S, q = this.query.trim();
     $('#hello').textContent = S.userName ? `Olá, ${S.userName}` : 'Olá!';
     const ver = $('#libVersion'); if (ver) ver.textContent = 'Versão ' + App.version;

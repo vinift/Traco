@@ -38,5 +38,34 @@
     "education",
     "productivity"
   ],
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "file_handlers": [
+    {
+      "action": "./?abrir=arquivo",
+      "accept": {
+        "application/pdf": [
+          ".pdf"
+        ]
+      },
+      "launch_type": "single-client"
+    }
+  ],
+  "share_target": {
+    "action": "./compartilhar",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "files": [
+        {
+          "name": "file",
+          "accept": [
+            "application/pdf",
+            ".pdf"
+          ]
+        }
+      ]
+    }
+  }
 }

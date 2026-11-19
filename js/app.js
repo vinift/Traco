@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.28.1',
+  version: '0.29.0',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -17,7 +17,7 @@ const App = {
     const back = await Drive.handleRedirect();
     await Drive.loadTok(); // login de até 1 h atrás continua valendo
     Drive.refreshStatus();
-    this.restorePlace(); Library.show();
+    this.restorePlace(); Library.show(); PdfOpen.init();
     if (back && Store.heads[back]) this.openNote(back);
     else this.reopenLast();
     SplitView.restore();
@@ -44,7 +44,7 @@ const App = {
   /* v0.24.7: lembra a pasta/visão da biblioteca antes de recarregar (atualização) e volta para ela depois */
   keepPlace() { try { sessionStorage.setItem('traco-lib-place', JSON.stringify({ folder: Library.folder, view: Library.view })); } catch (_) {} },
   restorePlace() {
-    let p = null; try { p = JSON.parse(sessionStorage.getItem('traco-lib-place') || 'null'); sessionStorage.removeItem('traco-lib-place'); } catch (_) {}
+    let p = null; try { p = JSON.parse(sessionStorage.getItem('traco-lib-place') || localStorage.getItem('traco-lib-place') || 'null'); sessionStorage.removeItem('traco-lib-place'); } catch (_) {} /* v0.29: também depois que o Android fecha o app */
     if (!p) return; Library.view = p.view || 'home';
     Library.folder = p.folder && Store.folderChain(p.folder).length ? p.folder : null;
   },

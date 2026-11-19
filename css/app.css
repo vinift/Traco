@@ -844,3 +844,23 @@ input:not(:focus),textarea:not(:focus){-webkit-user-select:none;user-select:none
 /* v0.28: cor personalizada na moldura e cor do modelo pelo seletor do app */
 .fr-c.fr-more{background:conic-gradient(#ef4444,#f59e0b,#eab308,#22c55e,#06b6d4,#3b82f6,#a855f7,#ef4444)}
 .tpl-color{width:100%;height:40px;border-radius:10px;border:1px solid var(--line);cursor:pointer}
+
+/* ===== v0.29: qualidade do PDF e abrir PDF ===== */
+.pq-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.pq-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer}
+.pq-item small{color:var(--muted);font-size:12.5px}
+.pq-item.on{border-color:var(--accent);background:var(--accent-soft)}
+.po{display:flex;flex-direction:column;gap:8px;min-width:min(520px,80vw)}
+.po-file{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--panel2)}
+.po-file span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.po-file small{color:var(--muted)}
+.po-tabs{display:flex;gap:4px;background:var(--panel2);border-radius:12px;padding:3px}
+.po-tab{flex:1;border:0;background:transparent;border-radius:10px;padding:8px;cursor:pointer;color:var(--text)}
+.po-tab.on{background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.12);font-weight:600;color:var(--accent)}
+.po-name{padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-size:15px}
+.po-list{display:flex;flex-direction:column;gap:2px;max-height:min(42vh,340px);overflow-y:auto;border:1px solid var(--line);border-radius:12px;padding:4px}
+.po-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border:0;border-radius:9px;background:transparent;color:var(--text);cursor:pointer;text-align:left}
+.po-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.po-row small{color:var(--muted);font-size:12px}
+.po-row.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.po-row svg.ic{width:18px;height:18px}

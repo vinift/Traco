@@ -463,9 +463,9 @@ Object.assign(Editor, {
     if (!page) { this.sel = null; return this.requestRender(); }
     const ck = this.checkAt(page, l); if (ck) return this.toggleCheck(page, ck.e, ck.ci);
     const now = performance.now();
-    if (!hit) { // toque duplo numa área vazia: zoom rápido
+    if (!hit) { // toque duplo numa área vazia: v0.29 liga/desliga a tela cheia (antes era zoom rápido)
       const e0 = this._emptyTap; this._emptyTap = { t: now, x: p.x, y: p.y };
-      if (e0 && now - e0.t < 380 && Math.hypot(p.x - e0.x, p.y - e0.y) < 40) { this._emptyTap = null; return this.doubleTapZoom(p); }
+      if (e0 && now - e0.t < 380 && Math.hypot(p.x - e0.x, p.y - e0.y) < 40) { this._emptyTap = null; return Focus.toggle(); }
     }
     // texto: 1º toque seleciona; tocar de novo no texto já selecionado abre a edição (sem pressa)
     if (hit && hit.type === 'text' && !hit.lock && ((this.sel && this.sel.ids.size === 1 && this.sel.ids.has(hit.id)) || (this._lastTap && this._lastTap.id === hit.id && now - this._lastTap.t < 450))) { this._lastTap = null; this.sel = null; return this.openTextEditor(page, hit, false); }

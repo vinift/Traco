@@ -153,6 +153,17 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.29.0
+
+- **Qualidade do PDF ao exportar/compartilhar:** ao exportar ou compartilhar aparece a escolha **Leve** (150 dpi, para WhatsApp), **Normal** (300 dpi), **Alta** (400 dpi, quase sem perda) ou **Máxima** (450 dpi, imagem sem perda, para impressão; mais lenta). Fica marcada a última que você usou. As páginas de PDFs importados continuam idênticas ao original; a qualidade vale para a sua escrita e para as páginas de caderno.
+- **O Traço como app para abrir PDFs:** abrir um PDF com o Traço ("Abrir com") ou compartilhar um PDF para o Traço leva à página **Abrir PDF**, onde você escolhe:
+  - **Nota nova:** nome e pasta (dá para criar uma pasta ali mesmo);
+  - **Inserir em nota existente:** com busca; as páginas entram no fim, e dá para desfazer.
+  - **Importante:** para o Android mostrar o Traço em "Abrir com"/"Compartilhar", é preciso gerar o APK de novo no PWABuilder (essas opções vêm do manifesto na hora de gerar), usando a mesma chave de assinatura de antes.
+- **O app lembra onde você estava:** além de reabrir a nota em que você estava, agora volta para a mesma pasta/visão da biblioteca quando o Android fecha o app em segundo plano (não só depois de atualizar).
+- **Tela cheia ao escrever:** um toque com o dedo no topo (onde ficam as barras) traz as barras de volta na hora.
+- **Toque duplo com o dedo numa área vazia liga/desliga a tela cheia** (antes dava zoom).
+
 ## Novidades da v0.28.1
 
 - **Colchete sempre alinhado:** ao segurar a caneta no fim de um colchete do seu jeito ("[", "]", "└", "┌": reta comprida com uma ou as duas pontas curtas dobrando para o mesmo lado), a reta fica exatamente **vertical** e as pontas exatamente **horizontais**, mesmo que você tenha desenhado um pouco torto (até ~25°). O comprimento e o arredondamento das curvas continuam como você desenhou. As outras formas não são alinhadas (continuam no ângulo em que foram feitas). Um colchete com um ganchinho só numa ponta também não vira mais linha reta.

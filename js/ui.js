@@ -448,8 +448,9 @@ function exportMenu(anchor) {
 }
 async function exportPdfFlow(note, share = false) {
   try {
+    const q = await pdfQualityAsk(share); if (!q) return; /* v0.29: qualidade escolhida a cada exportação */
     if (Editor.note && Editor.note.id === note.id) await Editor.saveNow();
-    const blob = await exportNotePdf(note, (i, t) => toast(`Gerando PDF… ${i}/${t}`, 4000));
+    const blob = await exportNotePdf(note, (i, t) => toast(`Gerando PDF… ${i}/${t}`, 4000), q.opts);
     const name = safeName(note.title) + '.pdf';
     if (share) return sharePdfReady(blob, name, note.title);
     downloadBlob(blob, name); toast('PDF gerado');

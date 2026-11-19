@@ -122,15 +122,15 @@ function loadPdfLib() {
   return (_pdfLibP = _pdfLibP || new Promise((res, rej) => { const s = document.createElement('script'); s.src = new URL('vendor/pdf-lib.min.js', document.baseURI).href; s.onload = () => (window.PDFLib ? res(window.PDFLib) : rej(new Error('pdf-lib'))); s.onerror = () => { _pdfLibP = null; rej(new Error('não consegui carregar o gerador de PDF')); }; document.head.append(s); }));
 }
 const canvasBytes = (cv, type, q) => new Promise((r) => cv.toBlob(async (b) => r(new Uint8Array(await b.arrayBuffer())), type, q));
-async function exportNotePdf(note, onProgress, { shouldStop, dpi = PDF_DPI } = {}) {
+async function exportNotePdf(note, onProgress, { shouldStop, dpi = PDF_DPI, jpegQ = 0.93, png = false, maxPx = 6000 } = {}) {
   let L = null; if (note.mode !== 'infinite') try { L = await loadPdfLib(); } catch (e) { console.warn(e); }
-  if (!L) return exportNotePdfRaster(note, onProgress);
+  if (!L) return exportNotePdfRaster(note, onProgress, { dpi, jpegQ, maxPx });
   const out = await L.PDFDocument.create(); out.setTitle(note.title || 'Nota'); out.setCreator('Traço Notas');
   const srcs = new Map(), k = dpi / 96; // pixels por unidade da página (a página é medida a 96 dpi)
   for (let i = 0; i < note.pages.length; i++) {
     onProgress && onProgress(i + 1, note.pages.length);
     if (shouldStop && shouldStop()) throw Object.assign(new Error('PDF adiado'), { deferred: true }); // você voltou a escrever: para e tenta depois
-    const page = note.pages[i], wPt = page.w * 0.75, hPt = page.h * 0.75, sc = Math.min(k, 6000 / Math.max(page.w, page.h));
+    const page = note.pages[i], wPt = page.w * 0.75, hPt = page.h * 0.75, sc = Math.min(k, maxPx / Math.max(page.w, page.h)); /* v0.29: qualidade escolhida na exportação (dpi, jpeg/png, limite) */
     let done = false;
     if (page.pdf) {
       try {
@@ -170,19 +170,19 @@ async function exportNotePdf(note, onProgress, { shouldStop, dpi = PDF_DPI } = {
     }
     if (!done) { // caderno (ou PDF que não deu para copiar): imagem nítida da página inteira
       const cv = await renderPageCanvas(note, page, sc);
-      const jpg = await canvasBytes(cv, 'image/jpeg', 0.93); cv.width = cv.height = 0; // libera a memória da imagem na hora
-      const pg = out.addPage([wPt, hPt]), img = await out.embedJpg(jpg); pg.drawImage(img, { x: 0, y: 0, width: wPt, height: hPt }); if (img.embed) await img.embed();
+      const bytes = await canvasBytes(cv, png ? 'image/png' : 'image/jpeg', jpegQ); cv.width = cv.height = 0; // libera a memória da imagem na hora
+      const pg = out.addPage([wPt, hPt]), img = png ? await out.embedPng(bytes) : await out.embedJpg(bytes); pg.drawImage(img, { x: 0, y: 0, width: wPt, height: hPt }); if (img.embed) await img.embed();
     }
     await new Promise((r) => setTimeout(r, 30)); // deixa a tela respirar
   }
   srcs.clear();
   return new Blob([await out.save()], { type: 'application/pdf' });
 }
-async function exportNotePdfRaster(note, onProgress) {
+async function exportNotePdfRaster(note, onProgress, { dpi = PDF_DPI, maxPx = 5000 } = {}) {
   const list = [];
   for (let i = 0; i < note.pages.length; i++) {
     onProgress && onProgress(i + 1, note.pages.length);
-    const page = note.pages[i]; const scale = Math.min(PDF_DPI / 96, 5000 / Math.max(page.w, page.h));
+    const page = note.pages[i]; const scale = Math.min(dpi / 96, maxPx / Math.max(page.w, page.h));
     const cv = await renderPageCanvas(note, page, scale);
     list.push({ canvas: cv, wPx: cv.width / scale, hPx: cv.height / scale });
   }
