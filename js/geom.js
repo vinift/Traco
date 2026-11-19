@@ -452,6 +452,29 @@ function pathRadiusFrom(e, i, x, y) {
 }
 /* traço aberto → linha com cantos: simplifica (RDP), acha os cantos "de verdade" cruzando retas ajustadas a cada lado e mede o
    arredondamento pelo quanto o traço passa por dentro do canto. Só aceita se o resultado acompanha bem o traço (protege a escrita). */
+/* v0.28.1: colchete de anotação ("[", "]", "└", "┌") reconhecido como linha com cantos → segue um padrão: a reta comprida fica
+   exatamente VERTICAL e as pontas exatamente HORIZONTAIS (comprimentos e arredondamento como desenhados). Só para esse formato:
+   reta mais longa perto da vertical (até ~25°), pontas curtas perto da horizontal e viradas para o mesmo lado. O resto fica como desenhado. */
+function snapBracketPath(e) {
+  if (!e || e.kind !== 'path') return e;
+  const n = e.pts.length / 2; if (n !== 3 && n !== 4) return e;
+  const V = []; for (let i = 0; i < n; i++) V.push([e.pts[i * 2], e.pts[i * 2 + 1]]);
+  const seg = (i) => [V[i + 1][0] - V[i][0], V[i + 1][1] - V[i][1]], len = (i) => Math.hypot(...seg(i));
+  const si = n === 4 ? 1 : len(0) >= len(1) ? 0 : 1, sL = len(si), [sdx, sdy] = seg(si);
+  if (Math.abs(sdx) > Math.abs(sdy) * Math.tan(25 * Math.PI / 180)) return e; // a reta precisa estar perto da vertical
+  const tails = []; for (let i = 0; i < n - 1; i++) if (i !== si) tails.push(i);
+  for (const i of tails) { const [dx, dy] = seg(i), c = Math.abs((dx * sdx + dy * sdy) / (len(i) * sL || 1)); if (len(i) > sL * 0.75 || c > Math.cos(50 * Math.PI / 180)) return e; } // pontas curtas e quase perpendiculares à reta
+  const side = (i) => (i === 0 ? Math.sign(V[0][0] - V[1][0]) : Math.sign(V[n - 1][0] - V[n - 2][0]));
+  if (tails.length === 2 && side(tails[0]) !== side(tails[1])) return e; // "Z"/"S": não é colchete
+  const sx = (V[si][0] + V[si + 1][0]) / 2, W = V.map((v) => v.slice());
+  W[si][0] = sx; W[si + 1][0] = sx;
+  for (const i of tails) {
+    if (i === 0) W[0] = [sx + side(0) * len(0), W[1][1]];
+    else W[n - 1] = [sx + side(i) * len(i), W[n - 2][1]];
+  }
+  const pts = []; for (const v of W) pts.push(r2(v[0]), r2(v[1]));
+  return { ...e, pts };
+}
 function fitPath(P, diag, z) {
   const fitLine = (a, b) => { /* reta pelos pontos do meio do lado (sem as curvas das pontas) */
     const n = b - a, i0 = a + Math.floor(n * 0.2), i1 = b - Math.floor(n * 0.2); if (i1 - i0 < 2) return null;
@@ -512,9 +535,10 @@ function recognizeShape(flat, z = 1) {
   const a = P[0], b = P[P.length - 1], chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
   if (chord / len > 0.9) {
     let dev = 0; for (const p of P) dev = Math.max(dev, distSeg(p[0], p[1], a[0], a[1], b[0], b[1]));
+    if (dev >= 5 / z && diag * z >= 18) { const pth = fitPath(P, diag, z), br = snapBracketPath(pth); if (br && br !== pth) return br; } /* v0.28.1: reta comprida com um ganchinho numa ponta ("└") é colchete, não linha */
     if (dev < Math.max(chord * 0.1, 2 / z)) return { kind: 'line', x1: a[0], y1: a[1], x2: b[0], y2: b[1] }; /* linha curta: tremido de até 2 px de tela */
   }
-  if (chord > diag * 0.3) return diag * z >= 18 ? fitArc(P, diag, z) || fitPath(P, diag, z) : null; /* v0.25.1: aberto → linha com cantos/curva (colchete, arco, "L"…) */
+  if (chord > diag * 0.3) return diag * z >= 18 ? fitArc(P, diag, z) || snapBracketPath(fitPath(P, diag, z)) : null; /* v0.25.1: aberto → linha com cantos/curva (colchete, arco, "L"…); v0.28.1: colchete alinhado na vertical */
   const simp = rdp(P, diag * 0.06);
   const corners = simp.length - 1; // primeiro == ~último
   const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2, rx = (x2 - x1) / 2, ry = (y2 - y1) / 2;

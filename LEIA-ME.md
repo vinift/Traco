@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.28.1
+
+- **Colchete sempre alinhado:** ao segurar a caneta no fim de um colchete do seu jeito ("[", "]", "└", "┌": reta comprida com uma ou as duas pontas curtas dobrando para o mesmo lado), a reta fica exatamente **vertical** e as pontas exatamente **horizontais**, mesmo que você tenha desenhado um pouco torto (até ~25°). O comprimento e o arredondamento das curvas continuam como você desenhou. As outras formas não são alinhadas (continuam no ângulo em que foram feitas). Um colchete com um ganchinho só numa ponta também não vira mais linha reta.
+
 ## Novidades da v0.28.0
 
 - **Busca dentro do PDF:** a lupa da nota agora também procura no texto do PDF importado.
