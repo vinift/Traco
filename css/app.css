@@ -960,3 +960,6 @@ input:not(:focus),textarea:not(:focus){-webkit-user-select:none;user-select:none
 .ed-loupe i{display:block;width:62px;height:62px;border-radius:50%;border:4px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25),0 6px 18px rgba(0,0,0,.3)}
 .ed-loupe b{font:600 12px system-ui;color:#fff;background:rgba(20,20,28,.82);padding:3px 8px;border-radius:10px;font-variant-numeric:tabular-nums}
 .ed-loupe.none i{background:repeating-conic-gradient(#ccc 0 25%,#fff 0 50%) 0 0/12px 12px!important}
+.ol-crop{height:26px;max-width:230px;object-fit:contain;object-position:left center;display:block;border-radius:4px}
+.ol-topic.lv0 .ol-t{font-weight:600}
+.ol-topic.lv2 .ol-t{color:var(--muted)}

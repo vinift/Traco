@@ -153,6 +153,15 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.32.0
+
+- **Sumário automático ("Tópicos"):** no Sumário (menu ⋯ → Sumário) aparece a seção **Tópicos (automático)**, montada a partir da sua escrita e sempre atualizada:
+  - **título** = linha com letras claramente maiores (≥ 1,4× a escrita comum) **ou** caneta claramente mais grossa que a espessura que você mais usa na nota;
+  - a **cor** só ajuda: uma linha curta em outra cor e um pouco maior também conta, mas cor sozinha não (grifos e anotações coloridas ficam de fora);
+  - **níveis** (título / subtítulo / sub-subtítulo): cada espessura de caneta é um estilo; o tamanho da letra só separa níveis quando a diferença é grande;
+  - cuidados contra erro: desenhos, sinais soltos e uma página inteira escrita maior não viram título; se a nota não tem um padrão claro, nada é marcado;
+  - o nome mostra o texto lido (quando a leitura da escrita já passou pela página) ou um recorte do título como você escreveu; tocar leva até ele e destaca.
+
 ## Novidades da v0.31.2
 
 - **Reordenar cores e espessuras:** às vezes o item arrastado ficava cinza e, ao tocar em outro, voltava para o lugar antigo (o soltar se perdia). Corrigido — inclusive soltando fora da barra.

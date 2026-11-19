@@ -96,14 +96,16 @@ const Outline = {
       if (curP && !curP.bookmark) list.append(el('button', { class: 'btn ol-add', onclick: async () => { const t = await askText('Marcar a página ' + (cp + 1), `Página ${cp + 1}`, 'Nome do marcador (ex.: Art. 5º)'); if (t === undefined) return; curP.bookmark = true; curP.bmName = t || ''; Editor.markChanged(); Editor.updateHud(); Outline.open(anchor); } }, '🔖 Marcar a página atual (' + (cp + 1) + ')'));
     };
     let pdfBox = null;
-    const appendPdf = () => { if (pdfBox) list.append(pdfBox); };
-    renderMarks();
+    /* v0.32: tópicos automáticos (autotoc.js); tocar vai até o ponto e destaca o título */
+    const topicBox = typeof AutoToc !== 'undefined' ? AutoToc.section(n, (it) => { closePop(); Editor.flashRects(it.pi, [it.rect], true); }) : null;
+    const appendPdf = () => { if (topicBox) list.append(topicBox); if (pdfBox) list.append(pdfBox); };
+    renderMarks(); if (topicBox) list.append(topicBox);
     box.append(el('div', { class: 'qs-head' }, el('h3', {}, 'Sumário')), list);
     openPop(anchor, box);
     // índice (outline) dos PDFs desta nota
     const blobs = [...new Set(n.pages.filter((p) => p.pdf).map((p) => p.pdf.blobId))];
     if (!blobs.length) return;
-    pdfBox = el('div', {}, el('div', { class: 'qs-sec' }, 'Índice do PDF'), el('p', { class: 'qs-empty' }, 'Lendo o índice…')); appendPdf();
+    pdfBox = el('div', {}, el('div', { class: 'qs-sec' }, 'Índice do PDF'), el('p', { class: 'qs-empty' }, 'Lendo o índice…')); list.append(pdfBox);
     try {
       const rows = [];
       for (const b of blobs) {
