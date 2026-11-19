@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.33.1
+
+- **Nomes de pastas e notas na tela inicial** não passam mais por cima dos três pontinhos: usam até 2 linhas e depois cortam com "…". (Era um efeito colateral do menu ⋯ novo da v0.30.)
+
 ## Novidades da v0.33.0
 
 - **Notas recentes na tela inicial:** na barra da esquerda, embaixo das pastas, aparecem as 4 últimas notas abertas (com miniatura); tocar abre a nota.

@@ -136,7 +136,7 @@ const NoteMenu = {
     const himg = el('img', { src: h.thumb || '', alt: '' }); if (!h.thumb && note.pages[0]) pageThumb(note, note.pages[0]).then((u) => (himg.src = u)).catch(() => {});
     const big = (ic, nm, fn, on) => { const b = el('button', { class: 'nm-big' + (on ? ' on' : ''), onclick: () => { close(); fn(); } }); b.append(iconEl(ic), el('span', {}, nm)); return b; };
     const item = (ic, nm, fn, sub, cls = '') => { const b = el('button', { class: 'nm-item ' + cls, onclick: () => { close(); fn(); } }); b.append(iconEl(ic), el('span', {}, nm, sub ? el('small', {}, sub) : null)); return b; };
-    const box = el('div', { class: 'nm' },
+    const box = el('div', { class: 'nmenu' },
       el('div', { class: 'nm-head' }, himg, el('div', {}, el('b', {}, note.title || 'Nota'), el('small', {}, (note.mode === 'infinite' ? 'tela infinita' : note.pages.length + (note.pages.length === 1 ? ' página' : ' páginas')) + (folder ? ' · ' + folder : '')))),
       el('div', { class: 'nm-bigs' },
         big('external', 'Exportar', () => ExportPanel.open(Editor.note)),
