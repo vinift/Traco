@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.32.1
+
+- **Leitura da escrita (OCR) mais precisa:**
+  - a escrita é ampliada antes de ir para o reconhecedor (antes ia muito pequena e arredondada, e o formato das letras se perdia);
+  - os traços vão na ordem em que você escreveu (pingo do i, corte do t e acentos no lugar certo), não mais da esquerda para a direita;
+  - cada linha vai com o fim da linha anterior como contexto, o que ajuda a acertar palavras.
+  - As páginas já lidas são relidas aos poucos com o método novo (precisa de internet).
+
 ## Novidades da v0.32.0
 
 - **Sumário automático ("Tópicos"):** no Sumário (menu ⋯ → Sumário) aparece a seção **Tópicos (automático)**, montada a partir da sua escrita e sempre atualizada:

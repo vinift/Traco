@@ -59,14 +59,22 @@ const OCR = {
     return lines.sort((a, b) => a.y1 - b.y1);
   },
   /* Reconhece uma linha (pode ter várias palavras) */
-  async recognizeLine(L) {
-    const ox = L.x1, oy = L.y1; let t = 0; const ink = [];
-    for (const { e } of L.items) {
-      const xs = [], ys = [], ts = [], p = e.pts, step = Math.max(1, Math.floor(p.length / 3 / 120)); // no máx. ~120 pontos por traço
-      for (let i = 0; i < p.length; i += 3 * step) { xs.push(Math.round(p[i] - ox)); ys.push(Math.round(p[i + 1] - oy)); ts.push(t); t += 12; }
-      t += 150; if (xs.length) ink.push([xs, ys, ts]);
+  async recognizeLine(L, order, pre = '') {
+    /* v0.32.1: (1) escala — a escrita é pequena na folha (letra ~17 unidades) e as coordenadas iam arredondadas: a forma das
+       letras se perdia; agora a linha é ampliada para ~150 de altura antes de arredondar. (2) ordem — os traços iam da esquerda
+       para a direita; agora vão na ORDEM EM QUE FORAM ESCRITOS (pingo do i, corte do t e acentos no fim da palavra, como o
+       reconhecedor espera). (3) tempo proporcional ao caminho da caneta. (4) contexto — o fim da linha anterior vai em pre_context. */
+    const k = clamp(150 / Math.max(1, L.h), 1, 10), ox = L.x1, oy = L.y1; let t = 0; const ink = [];
+    const items = order ? L.items.slice().sort((a, b) => (order.get(a.e) ?? 0) - (order.get(b.e) ?? 0)) : L.items;
+    for (const { e } of items) {
+      const xs = [], ys = [], ts = [], p = e.pts, step = Math.max(1, Math.floor(p.length / 3 / 160)); // no máx. ~160 pontos por traço
+      let px = null, py = null;
+      for (let i = 0; i < p.length; i += 3 * step) { const x = (p[i] - ox) * k, y = (p[i + 1] - oy) * k; if (px !== null) t += Math.max(4, Math.round(Math.hypot(x - px, y - py) * 0.6)); xs.push(Math.round(x)); ys.push(Math.round(y)); ts.push(t); px = x; py = y; }
+      t += 180; if (xs.length) ink.push([xs, ys, ts]);
     }
-    const body = JSON.stringify({ options: 'enable_pre_space', requests: [{ writing_guide: { writing_area_width: Math.round(L.x2 - L.x1) + 10, writing_area_height: Math.round(L.h) + 10 }, ink, language: this.lang, max_num_results: 1, max_completions: 0 }] });
+    const req = { writing_guide: { writing_area_width: Math.round((L.x2 - L.x1) * k) + 10, writing_area_height: Math.round(L.h * k) + 10 }, ink, language: this.lang, max_num_results: 1, max_completions: 0 };
+    if (pre) req.pre_context = pre.slice(-40);
+    const body = JSON.stringify({ options: 'enable_pre_space', requests: [req] });
     let lastErr;
     for (const url of this.URLS) {
       try {
@@ -83,10 +91,11 @@ const OCR = {
   /* texto + posição de cada linha (a busca usa para destacar onde a palavra está escrita) */
   async recognizeLines(strokes) {
     const groups = this.groupLines(strokes), lines = [];
-    for (const L of groups) { const t = await this.recognizeLine(L); if (t.trim()) lines.push({ t, x: Math.round(L.x1), y: Math.round(L.y1), w: Math.round(L.x2 - L.x1), h: Math.round(L.h) }); }
+    const order = new Map(); strokes.forEach((e, i) => order.set(e, i)); let pre = '';
+    for (const L of groups) { const t = await this.recognizeLine(L, order, pre); if (t.trim()) pre = t; if (t.trim()) lines.push({ t, x: Math.round(L.x1), y: Math.round(L.y1), w: Math.round(L.x2 - L.x1), h: Math.round(L.h) }); }
     return { text: lines.map((l) => l.t).join('\n'), lines };
   },
-  OCR_V: 2, // v2 guarda as linhas com posição; páginas lidas antes são relidas aos poucos
+  OCR_V: 3, // v2 guarda as linhas com posição; v3 (v0.32.1) lê com mais precisão — páginas lidas antes são relidas aos poucos
 
   /* ---- Índice para a busca: lê as páginas em segundo plano ---- */
   queue: [], busy: false,
