@@ -153,6 +153,15 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.30.0
+
+- **Nova tela de exportar (estilo Notewise):** abas **Nota inteira** / **Páginas específicas**. Em páginas específicas aparecem as miniaturas com ✓ (toque para marcar/desmarcar), o campo de intervalo ("2-5, 8") e "Selecionar tudo". Exportar como **PDF** (com a qualidade Leve/Normal/Alta/Máxima ali mesmo) ou **Imagens** (uma PNG por página). Botões **Salvar** e **Compartilhar**. Também abre pelo menu da nota na biblioteca.
+- **PDFs gerados recentemente:** os últimos PDFs gerados (até 8) ficam guardados e aparecem no fim da tela de exportar, com botões para compartilhar ou salvar de novo sem gerar outra vez — mesmo depois de fechar e abrir o app.
+- **Menu "⋯" no canto de cima à direita:** cabeçalho com a nota, atalhos **Exportar**, **Renomear**, **Marcar página**, e a lista: Mover para, Vá para página, Sumário, Alterar modelo, Zoom, Definições, Detalhes e Excluir nota.
+- **Menos botões no topo:** marcador, sumário, modelo de página e zoom foram para o "⋯". Ficaram voltar, troca rápida, tela dividida, páginas, adicionar página, buscar, compartilhar/exportar, sincronização, modo leitura, tela cheia e o número da página.
+- **Visual mais suave:** barras e pílulas sem borda dura, sombras leves, botões arredondados que "afundam" no toque, janelas e menus abrem com animação curta, abas em formato de pílula.
+- Correção: uma nota excluída podia voltar para a biblioteca se a leitura da escrita (OCR) terminasse logo depois.
+
 ## Novidades da v0.29.0
 
 - **Qualidade do PDF ao exportar/compartilhar:** ao exportar ou compartilhar aparece a escolha **Leve** (150 dpi, para WhatsApp), **Normal** (300 dpi), **Alta** (400 dpi, quase sem perda) ou **Máxima** (450 dpi, imagem sem perda, para impressão; mais lenta). Fica marcada a última que você usou. As páginas de PDFs importados continuam idênticas ao original; a qualidade vale para a sua escrita e para as páginas de caderno.

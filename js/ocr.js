@@ -113,7 +113,7 @@ const OCR = {
         try { r = await this.recognizeLines(page.elements); } catch (e) { console.warn('OCR', e); this.lastError = e.message; this.queue = []; break; }
         note = await this.live(q.noteId); page = note && note.pages.find((p) => p.id === q.pageId); if (!page || this.pageSig(page) !== sig) continue;
         page.ocr = { sig, text: r.text, lines: r.lines, v: this.OCR_V, at: Date.now() };
-        if (Editor.note === note) Editor.saveDebounced(); else await Store.putNote(note);
+        if (Editor.note === note) Editor.saveDebounced(); else if (Store.heads[note.id]) await Store.putNote(note); /* v0.30: nota que foi para a Lixeira não volta */
         await sleep(400);
       }
     } finally { this.busy = false; }

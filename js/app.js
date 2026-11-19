@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.29.0',
+  version: '0.30.0',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -87,7 +87,8 @@ const App = {
   },
   wire() {
     on(['btnNewNote2'], async () => { const n = await newNoteDialog(Library.folder); if (n) this.openNote(n.id); });
-    on(['btnSettings', 'btnEdSettings'], () => openSettings());
+    on(['btnSettings'], () => openSettings());
+    on(['btnEdSettings'], (e) => NoteMenu.open(e.currentTarget));
     on(['btnUpdate'], (e) => this.checkUpdate(e.currentTarget));
     $('#libSearch').addEventListener('input', (e) => { Library.query = e.target.value; Library.render(); });
     on(['libSync'], (e) => Drive.pillMenu(e.currentTarget, null));
@@ -108,10 +109,9 @@ const App = {
     on(['btnBack'], () => this.closeNote());
     on(['btnPages'], () => pagesPanel());
     on(['btnAddPage'], () => { if (Editor.note.mode === 'infinite') return toast('Notas em tela infinita não têm páginas'); Editor.addPage(Editor.currentPageIndex()); toast('Página adicionada', 1200); });
-    on(['btnExport'], (e) => exportMenu(e.currentTarget));
+    on(['btnExport'], () => ExportPanel.open(Editor.note));
     on(['btnSearch'], (e) => noteSearchPop(e.currentTarget));
-    on(['btnTemplate'], () => templateModal());
-    on(['btnBookmark'], () => Editor.toggleBookmark());
+        on(['btnBookmark'], () => Editor.toggleBookmark());
     on(['btnOutline'], (e) => Outline.open(e.currentTarget));
     on(['btnFull'], () => Focus.toggle());
     on(['btnQuick'], (e) => QuickSwitch.open(e.currentTarget));
