@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.32.2
+
+- **Leitura da escrita com sugestões:** o reconhecedor agora devolve até 5 leituras de cada linha e o Traço escolhe a que tem palavras que existem — em **português**, em **inglês** (conceitos técnicos) ou que **já aparecem nas suas notas** (textos digitados, leituras anteriores e texto dos PDFs; assim termos como "titularidade" ou "jurisprudência" contam). A regra é branda: a 1ª leitura do Google só é trocada quando tem palavras claramente inexistentes; siglas (TCP/IP, CF), números e artigos (5º) não atrapalham.
+- As outras leituras ficam guardadas e **também valem na busca** — se a escolhida errou uma palavra, a busca ainda acha pela alternativa.
+- Listas de palavras: FrequencyWords (Hermit Dave, CC BY-SA 4.0), ver `vendor/palavras-LEIAME.txt`.
+
 ## Novidades da v0.32.1
 
 - **Leitura da escrita (OCR) mais precisa:**

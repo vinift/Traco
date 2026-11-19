@@ -1,0 +1,5 @@
+palavras-pt.txt (40 mil palavras do português do Brasil) e palavras-en.txt (25 mil palavras do inglês, sem as que já estão na
+lista em português), em ordem de frequência — usadas pelo Traço só para escolher a melhor sugestão da leitura da escrita (OCR).
+
+Fonte: FrequencyWords, de Hermit Dave (https://github.com/hermitdave/FrequencyWords), listas 2018 pt_br_50k e en_50k,
+derivadas das legendas do OpenSubtitles. Conteúdo sob licença CC BY-SA 4.0. Filtradas para conter só palavras (letras/hífen).

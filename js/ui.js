@@ -416,10 +416,11 @@ function noteSearchPop(anchor) {
       list.append(el('button', { class: 'pm-res', onclick: () => { closePop(); Editor.flashRects(i, [rect], true); } }, el('b', {}, pg(i)), ' ', snippet(e.text, q)));
     }));
     n.pages.forEach((p, i) => {
-      if (!p.ocr || !p.ocr.text || !norm(p.ocr.text).includes(norm(q)) || k > 80) return;
-      const lines = (p.ocr.lines || []).filter((L) => norm(L.t).includes(norm(q)));
+      const altTxt = (p.ocr && p.ocr.lines || []).map((L) => (L.a || []).join('\n')).join('\n'); /* v0.32.2: as outras leituras também valem */
+      if (!p.ocr || !p.ocr.text || !(norm(p.ocr.text).includes(norm(q)) || norm(altTxt).includes(norm(q))) || k > 80) return;
+      const lines = (p.ocr.lines || []).filter((L) => norm(L.t).includes(norm(q)) || (L.a || []).some((x) => norm(x).includes(norm(q))));
       if (!lines.length) { k++; list.append(el('button', { class: 'pm-res', onclick: () => { closePop(); Editor.goToPage(i); } }, el('b', {}, pg(i) + ' ✍'), ' ', snippet(p.ocr.text, q))); return; } // lida antes da v0.11: sem posição
-      for (const L of lines) { if (k++ > 80) break; const rs = lineRects(L, q); rs.forEach((r) => all.push([i, r])); list.append(el('button', { class: 'pm-res', onclick: () => { closePop(); Editor.flashRects(i, rs, true); } }, el('b', {}, pg(i) + ' ✍'), ' ', snippet(L.t, q))); }
+      for (const L of lines) { if (k++ > 80) break; const mt = norm(L.t).includes(norm(q)) ? L.t : (L.a || []).find((x) => norm(x).includes(norm(q))) || L.t; const rs = lineRects({ ...L, t: mt }, q); rs.forEach((r) => all.push([i, r])); list.append(el('button', { class: 'pm-res', onclick: () => { closePop(); Editor.flashRects(i, rs, true); } }, el('b', {}, pg(i) + ' ✍'), ' ', snippet(mt, q))); }
     });
     if (all.length) Editor.flashRects(all, null, false, true); // destaca todos na tela enquanto você digita (sem pular)
     if (!k) list.append(el('p', { style: { color: 'var(--chmuted)', margin: '6px 2px' } }, OCR.enabled() ? 'Nada encontrado. A escrita à mão é lida em segundo plano alguns segundos depois de você parar de escrever (precisa de internet).' : 'Nada encontrado (a leitura da escrita à mão está desligada nas configurações).'));

@@ -59,7 +59,7 @@ const OCR = {
     return lines.sort((a, b) => a.y1 - b.y1);
   },
   /* Reconhece uma linha (pode ter várias palavras) */
-  async recognizeLine(L, order, pre = '') {
+  async recognizeLine(L, order, pre = '', all = false) {
     /* v0.32.1: (1) escala — a escrita é pequena na folha (letra ~17 unidades) e as coordenadas iam arredondadas: a forma das
        letras se perdia; agora a linha é ampliada para ~150 de altura antes de arredondar. (2) ordem — os traços iam da esquerda
        para a direita; agora vão na ORDEM EM QUE FORAM ESCRITOS (pingo do i, corte do t e acentos no fim da palavra, como o
@@ -72,7 +72,7 @@ const OCR = {
       for (let i = 0; i < p.length; i += 3 * step) { const x = (p[i] - ox) * k, y = (p[i + 1] - oy) * k; if (px !== null) t += Math.max(4, Math.round(Math.hypot(x - px, y - py) * 0.6)); xs.push(Math.round(x)); ys.push(Math.round(y)); ts.push(t); px = x; py = y; }
       t += 180; if (xs.length) ink.push([xs, ys, ts]);
     }
-    const req = { writing_guide: { writing_area_width: Math.round((L.x2 - L.x1) * k) + 10, writing_area_height: Math.round(L.h * k) + 10 }, ink, language: this.lang, max_num_results: 1, max_completions: 0 };
+    const req = { writing_guide: { writing_area_width: Math.round((L.x2 - L.x1) * k) + 10, writing_area_height: Math.round(L.h * k) + 10 }, ink, language: this.lang, max_num_results: 5, max_completions: 0 };
     if (pre) req.pre_context = pre.slice(-40);
     const body = JSON.stringify({ options: 'enable_pre_space', requests: [req] });
     let lastErr;
@@ -82,7 +82,7 @@ const OCR = {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const j = await r.json();
         if (j[0] !== 'SUCCESS') throw new Error(String(j[0]));
-        return ((j[1] && j[1][0] && j[1][0][1]) || [])[0] || '';
+        const c = (j[1] && j[1][0] && j[1][0][1]) || []; return all ? c : c[0] || '';
       } catch (e) { lastErr = e; }
     }
     throw lastErr || new Error('Falha no reconhecimento');
@@ -91,12 +91,48 @@ const OCR = {
   /* texto + posição de cada linha (a busca usa para destacar onde a palavra está escrita) */
   async recognizeLines(strokes) {
     const groups = this.groupLines(strokes), lines = [];
-    const order = new Map(); strokes.forEach((e, i) => order.set(e, i)); let pre = '';
-    for (const L of groups) { const t = await this.recognizeLine(L, order, pre); if (t.trim()) pre = t; if (t.trim()) lines.push({ t, x: Math.round(L.x1), y: Math.round(L.y1), w: Math.round(L.x2 - L.x1), h: Math.round(L.h) }); }
+    const order = new Map(); strokes.forEach((e, i) => order.set(e, i)); let pre = ''; await this.loadDict();
+    for (const L of groups) { const cands = await this.recognizeLine(L, order, pre, true), pick = this.pickCandidate(cands), t = pick.t; if (t.trim()) pre = t; if (t.trim()) lines.push({ ...(pick.alts.length ? { a: pick.alts } : {}), t, x: Math.round(L.x1), y: Math.round(L.y1), w: Math.round(L.x2 - L.x1), h: Math.round(L.h) }); }
     return { text: lines.map((l) => l.t).join('\n'), lines };
   },
-  OCR_V: 3, // v2 guarda as linhas com posição; v3 (v0.32.1) lê com mais precisão — páginas lidas antes são relidas aos poucos
+  OCR_V: 4, // v4 (v0.32.2): escolhe entre sugestões e guarda alternativas; v2 guarda as linhas com posição; v3 (v0.32.1) lê com mais precisão — páginas lidas antes são relidas aos poucos
 
+  /* ---- v0.32.2: sugestões — o reconhecedor devolve até 5 leituras; fica a que tem palavras que existem.
+     Conhecidas: dicionário de português (vendor/palavras-pt.txt, 40 mil) e de inglês (vendor/palavras-en.txt, 25 mil: há
+     conceitos em inglês) e o vocabulário das suas notas (textos digitados, leituras anteriores e texto dos PDFs) — termos técnicos.
+     Regra BRANDA: a ordem do Google pesa (−0,45 por posição) e palavra desconhecida só tira 0,9; então uma alternativa só ganha
+     quando a 1ª tem palavras claramente inexistentes e a outra não. As outras leituras ficam em line.a e também valem na busca. */
+  dict: null, _dictP: null, vocab: new Set(), _vocabAt: 0,
+  normW(w) { return w.toLowerCase().normalize('NFC'); },
+  loadDict() {
+    if (this.dict) return this.dict;
+    if (!this._dictP) this._dictP = Promise.all(['vendor/palavras-pt.txt', 'vendor/palavras-en.txt'].map((u) => fetch(u).then((r) => (r.ok ? r.text() : '')).catch(() => '')))
+      .then(([pt, en]) => { const d = new Set(); for (const w of pt.split('\n')) if (w) d.add(w); for (const w of en.split('\n')) if (w) d.add(w); this.dict = d; return d; });
+    this.refreshVocab(); return this._dictP;
+  },
+  addVocab(text) { for (const w of String(text || '').match(/[\p{L}][\p{L}'-]*/gu) || []) if (w.length > 2) this.vocab.add(this.normW(w)); },
+  refreshVocab() {
+    if (Date.now() - this._vocabAt < 60000) return; this._vocabAt = Date.now();
+    try { for (const h of Object.values(Store.heads || {})) { this.addVocab(h.title); for (const t of h.texts || []) this.addVocab(t[2]); } } catch (_) {}
+  },
+  async addPdfVocab(note) { /* texto dos PDFs da nota (se a busca já leu) */
+    try { for (const b of new Set(note.pages.filter((p) => p.pdf).map((p) => p.pdf.blobId))) { const I = await DB.get('meta', 'pdftxt:' + b); if (I && I.pages) for (const ls of Object.values(I.pages)) for (const l of ls || []) this.addVocab(l[0]); } } catch (_) {}
+  },
+  wordScore(w) {
+    const n = this.normW(w); if (/^[\d.,:;%º°ª/()+\-]+$/.test(n)) return 0.3; /* números, datas, artigos (5º, 3/4) */
+    if (this.vocab.has(n) || (this.dict && this.dict.has(n))) return 1;
+    if (n.length <= 2) return -0.4; /* sigla curta / letra solta: pouco peso */
+    if (/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9][A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9/.\-]{1,11}$/.test(w)) return 0; /* sigla (TCP, IP, CF, TCP/IP, IPv4) */
+    return -0.9;
+  },
+  pickCandidate(cands) {
+    cands = (cands || []).filter((c) => typeof c === 'string');
+    if (!cands.length) return { t: '', alts: [] };
+    let best = 0, bs = -Infinity;
+    cands.forEach((c, i) => { const ws = c.match(/[\p{L}\d][\p{L}\d'ºª./-]*/gu) || []; let sc = 0; for (const w of ws) sc += this.wordScore(w); sc = ws.length ? sc / Math.sqrt(ws.length) : -1; sc -= 0.45 * i; if (sc > bs + 1e-9) { bs = sc; best = i; } });
+    const t = cands[best], alts = [...new Set(cands.filter((c, i) => i !== best && c.trim() && c !== t))].slice(0, 3);
+    return { t, alts };
+  },
   /* ---- Índice para a busca: lê as páginas em segundo plano ---- */
   queue: [], busy: false,
   pageSig(p) { const s = p.elements.filter((e) => e.type === 'stroke' && e.tool === 'pen'); return s.length + ':' + s.map((e) => e.id).join(',').length + ':' + (s.length ? s[s.length - 1].id : ''); },
@@ -118,7 +154,7 @@ const OCR = {
         if (Editor.note && Editor.note.id === q.noteId && Editor.action) { this.queue.push(q); await sleep(1500); continue; }
         let note = await this.live(q.noteId), page = note && note.pages.find((p) => p.id === q.pageId); if (!page) continue;
         const sig = this.pageSig(page); if (page.ocr && page.ocr.sig === sig && page.ocr.v === this.OCR_V) continue;
-        let r;
+        let r; await this.addPdfVocab(note);
         try { r = await this.recognizeLines(page.elements); } catch (e) { console.warn('OCR', e); this.lastError = e.message; this.queue = []; break; }
         note = await this.live(q.noteId); page = note && note.pages.find((p) => p.id === q.pageId); if (!page || this.pageSig(page) !== sig) continue;
         page.ocr = { sig, text: r.text, lines: r.lines, v: this.OCR_V, at: Date.now() };
