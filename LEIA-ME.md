@@ -153,6 +153,18 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.34.0
+
+- **Relatório de estudo** (tela inicial → "Estudo", ou no painel do cronômetro → "Ver relatório completo"):
+  - períodos de **7 dias, 30 dias e 12 semanas**; total, média por dia, **dias na meta** e **sequência** de dias seguidos batendo a meta;
+  - gráfico de barras por dia (ou por semana) com a **linha da meta**; tocar numa barra mostra o tempo;
+  - **meta diária** ajustável (padrão 60 min);
+  - tempo **por matéria** (pasta de cima da nota, com a cor da pasta) e as **notas mais estudadas** (tocar abre a nota).
+- **Otimização (sem perder qualidade):**
+  - a tela inicial desenha ~40% mais rápido com muitas pastas e notas (as contagens/datas das pastas são calculadas uma vez só);
+  - ao fechar uma nota, o editor devolve ~50 MB de memória de desenho (antes ficava ocupada até abrir outra nota) — ajuda o tablet a não ficar sem memória gráfica.
+- **Visual mais aconchegante:** controles deslizantes e caixas na cor do app (antes azul do navegador), escolhas em pílula, campos arredondados, título da nota com fundo de vidro fosco (legível no tema escuro), nome do grupo de cores inteiro ("Geral"), toques com resposta suave.
+
 ## Novidades da v0.33.1
 
 - **Nomes de pastas e notas na tela inicial** não passam mais por cima dos três pontinhos: usam até 2 linhas e depois cortam com "…". (Era um efeito colateral do menu ⋯ novo da v0.30.)

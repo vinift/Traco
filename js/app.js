@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.33.1',
+  version: '0.34.0',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -88,6 +88,7 @@ const App = {
   wire() {
     on(['btnNewNote2'], async () => { const n = await newNoteDialog(Library.folder); if (n) this.openNote(n.id); });
     on(['btnSettings'], () => openSettings());
+    on(['btnStudyReport'], () => StudyReport.open());
     on(['btnEdSettings'], (e) => NoteMenu.open(e.currentTarget));
     on(['btnUpdate'], (e) => this.checkUpdate(e.currentTarget));
     $('#libSearch').addEventListener('input', (e) => { Library.query = e.target.value; Library.render(); });

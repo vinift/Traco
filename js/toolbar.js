@@ -211,7 +211,7 @@ const UI = {
     const sep = () => sr.append(el('div', { class: 'sep' }));
     const tune = () => { const b = el('button', { class: 'cbtn' + (this.panelOpen ? ' soft-on' : ''), title: 'Ajustes da ferramenta', onclick: () => this.togglePanel() }); b.innerHTML = icon('tune'); sr.append(b); };
     const groupBtn = (into = sr) => {
-      const g = this.group(); const b = el('button', { class: 'cbtn', title: 'Grupo de predefinições: ' + g.name, style: { fontSize: '10.5px', fontWeight: 700, background: 'var(--ch2)', width: 'calc(var(--cb) + 2px)', height: '28px', borderRadius: '10px' } }, g.name.slice(0, 4));
+      const g = this.group(); const b = el('button', { class: 'cbtn', title: 'Grupo de predefinições: ' + g.name, style: { fontSize: '10.5px', fontWeight: 700, background: 'var(--ch2)', width: 'calc(var(--cb) + 2px)', height: '28px', borderRadius: '10px', overflow: 'hidden', whiteSpace: 'nowrap' } }, g.name.length <= 5 ? g.name : g.name.slice(0, 4) + '…'); /* v0.34: "Geral" aparece inteiro */
       b.onclick = () => this.groupMenu(b); into.append(b);
     };
     const penBtn = () => { const k = st.type || 'ball', b = el('button', { class: 'cbtn pen-type-btn', title: 'Tipo de caneta: ' + PEN_TYPES.find((x) => x[0] === k)[1] }, penSample(k, 26, 22, { nib: st.nib })); b.onclick = () => this.penTypePop(b); hb.append(b); };

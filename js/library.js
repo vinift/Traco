@@ -10,11 +10,19 @@ const Library = {
   get S() { return Store.settings; },
   children(fid) { return Store.folders.filter((f) => (f.parentId || null) === (fid || null)); },
   descendants(fid) { const out = [], walk = (id) => { for (const c of this.children(id)) { out.push(c); walk(c.id); } }; walk(fid); return out; },
+  /* v0.34: estatísticas de TODAS as pastas numa passada só (antes cada pasta varria todas as notas, e a ordenação por data
+     chamava isso a cada comparação: ~45% do tempo de desenhar a biblioteca). Vale até o fim da tarefa atual (microtask). */
   folderStats(f) {
-    const ids = new Set([f.id, ...this.descendants(f.id).map((x) => x.id)]);
-    let latest = f.created || 0; for (const h of Object.values(Store.heads)) if (ids.has(h.folderId)) latest = Math.max(latest, h.updated);
-    const n = this.children(f.id).length + Object.values(Store.heads).filter((h) => h.folderId === f.id).length;
-    return { n, latest };
+    if (!this._fst) {
+      const own = new Map(), sub = new Map(), latest = new Map(), byId = new Map(Store.folders.map((x) => [x.id, x]));
+      for (const x of Store.folders) { if (x.parentId) sub.set(x.parentId, (sub.get(x.parentId) || 0) + 1); latest.set(x.id, x.created || 0); }
+      for (const h of Object.values(Store.heads)) {
+        if (!h.folderId) continue; own.set(h.folderId, (own.get(h.folderId) || 0) + 1);
+        let c = byId.get(h.folderId), g = 0; while (c && g++ < 50) { if ((latest.get(c.id) || 0) < h.updated) latest.set(c.id, h.updated); c = byId.get(c.parentId); } /* a nota conta para a pasta e as de cima */
+      }
+      this._fst = { own, sub, latest }; queueMicrotask(() => { this._fst = null; });
+    }
+    const S = this._fst; return { n: (S.sub.get(f.id) || 0) + (S.own.get(f.id) || 0), latest: S.latest.get(f.id) ?? (f.created || 0) };
   },
   sortItems(list, getName, getDate) {
     const { by, dir } = this.S.libSort || { by: 'name', dir: 1 };

@@ -86,6 +86,7 @@ const Editor = {
     if (this.crop) this.cancelCrop();
     this.note = null; this.sel = null; this.selTf = null; this.action = null; this.gesture = null; this.stopInertia();
     this.resetTiles(); PdfCache.clear(); ImgCache.clear(); PathLRU.clear(); // libera a memória dos blocos, do PDF e das imagens
+    for (const c of [this.cMain, this.cLive, this.cInk]) if (c) { c.width = 1; c.height = 1; } this._inkKey = null; /* v0.34: as 3 telas do editor (~50 MB no Pad 7) não ficam ocupando memória com a nota fechada; open() → resize() refaz */
     if (note) OCR.scheduleNote(note);
   },
   /* v0.25 (tela dividida): solta a nota sem o trabalho pesado do close() — salva em segundo plano e devolve a "folha" com os

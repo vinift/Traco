@@ -187,7 +187,8 @@ const StudyTimer = {
     const top = Object.entries(per).sort((a, b) => b[1] - a[1]).slice(0, 5);
     const WD = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
     const curTitle = (id) => (id === s.segNote && s.segTitle) || L.titles[id] || (typeof Store !== 'undefined' && Store.heads[id] && Store.heads[id].title) || 'Nota apagada';
-    return el('div', { class: 'tm-stats' },
+    const rep = el('button', { class: 'btn sr-open', onclick: () => { closePop(); StudyReport.open(); } }, 'Ver relatório completo'); /* v0.34 */
+    return el('div', { class: 'tm-stats' }, rep,
       el('div', { class: 'tm-tot' }, el('span', {}, 'Hoje ', el('b', {}, this.fmtDur(vals[6]))), el('span', {}, '7 dias ', el('b', {}, this.fmtDur(week)))),
       el('div', { class: 'tm-bars' }, ...days.map((x, i) => el('div', { class: 'tm-bar' + (i === 6 ? ' today' : ''), title: `${x.d.toLocaleDateString('pt-BR')}: ${this.fmtDur(vals[i])}` }, el('i', { style: { height: Math.round((vals[i] / max) * 100) + '%' } }), el('small', {}, WD[x.d.getDay()])))),
       top.length ? el('div', { class: 'tm-notes' }, el('div', { class: 'tm-h' }, 'Notas nos últimos 7 dias'), ...top.map(([id, v]) => el('div', { class: 'tm-row' }, el('span', {}, id === '_' ? 'Fora das notas' : curTitle(id)), el('b', {}, this.fmtDur(v))))) : el('p', { class: 'tm-hint' }, 'O tempo estudado aparece aqui, por dia e por nota.'));
@@ -250,3 +251,78 @@ Object.assign(StudyTimer, {
   },
 });
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.type === 'traco-timer') StudyTimer.onSysAction(e.data.action); });
+
+/* ===== v0.34 — Relatório de estudo =====
+   Lê o histórico do cronômetro (meta 'studyLog': ms por dia e por nota). Períodos: 7 dias, 30 dias (barras por dia) e
+   12 semanas (barras por semana). Meta diária em minutos (S.studyGoal, padrão 60): linha tracejada no gráfico, "dias na meta"
+   e sequência (dias seguidos batendo a meta, contando hoje só se já bateu). Por matéria = pasta de cima da nota (cor da pasta);
+   "Fora das notas" = tempo com o cronômetro rodando fora de uma nota. Tocar numa barra mostra o valor. */
+const StudyReport = {
+  period: '7',
+  goalMs() { return Math.max(5, +Store.settings.studyGoal || 60) * 60000; },
+  dayMap() { /* dia → { nota: ms }, incluindo o trecho em andamento */
+    const T = StudyTimer, L = T.log || { days: {} }, s = T.st || {}, out = {};
+    for (const k in L.days) out[k] = { ...L.days[k] };
+    const pend = T.counts && T.counts() && s.segStart && !s.segAway ? Date.now() - s.segStart : 0;
+    if (pend > 0) { const k = T.dayKey(Date.now()), n = s.segNote || '_'; const d = out[k] || (out[k] = {}); d[n] = (d[n] || 0) + pend; }
+    return out;
+  },
+  sum(d) { let v = 0; for (const x in d || {}) v += d[x]; return v; },
+  subjectOf(id) {
+    if (id === '_') return { key: '_', name: 'Fora das notas', color: 'var(--muted)' };
+    const h = Store.heads[id]; if (!h) return { key: '?', name: 'Notas apagadas', color: 'var(--line)' };
+    const top = h.folderId ? Store.folderChain(h.folderId)[0] : null;
+    return top ? { key: top.id, name: top.name, color: top.color || FOLDER_COLORS[0] } : { key: '~', name: 'Sem pasta', color: 'var(--muted)' };
+  },
+  open() {
+    const box = el('div', { class: 'sr' });
+    const render = () => {
+      const T = StudyTimer, map = this.dayMap(), goal = this.goalMs(), today = new Date(); today.setHours(12, 0, 0, 0);
+      const dayK = (back) => { const d = new Date(today); d.setDate(d.getDate() - back); return [T.dayKey(d.getTime()), d]; };
+      const nDays = this.period === '7' ? 7 : this.period === '30' ? 30 : 84;
+      const keys = []; for (let i = nDays - 1; i >= 0; i--) keys.push(dayK(i));
+      /* barras: por dia (7/30) ou por semana (12 semanas, começando na segunda) */
+      let bars;
+      if (this.period !== '84') bars = keys.map(([k, d]) => ({ v: this.sum(map[k]), lab: this.period === '7' ? ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][d.getDay()] : d.getDate() % 5 === 0 || d.getDate() === 1 ? String(d.getDate()) : '', tip: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }), goal }));
+      else { bars = []; for (let w = 0; w < 12; w++) { const part = keys.slice(w * 7, w * 7 + 7); const v = part.reduce((a, [k]) => a + this.sum(map[k]), 0), d0 = part[0][1], d1 = part[part.length - 1][1]; bars.push({ v, lab: w % 2 === 0 ? d0.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '', tip: d0.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + '–' + d1.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), goal: goal * 7 }); } }
+      const vals = keys.map(([k]) => this.sum(map[k])), total = vals.reduce((a, b) => a + b, 0), studied = vals.filter((v) => v > 0).length;
+      const hit = vals.filter((v) => v >= goal).length;
+      let streak = 0; { let i = 0; if (this.sum(map[dayK(0)[0]]) < goal) i = 1; for (; i < 400; i++) { if (this.sum(map[dayK(i)[0]]) >= goal) streak++; else break; } }
+      const best = keys.reduce((b, [k, d], i) => (vals[i] > b.v ? { v: vals[i], d } : b), { v: 0, d: null });
+      /* tiles */
+      const tile = (lab, val, sub) => el('div', { class: 'sr-tile' }, el('small', {}, lab), el('b', {}, val), sub ? el('span', {}, sub) : null);
+      const tiles = el('div', { class: 'sr-tiles' },
+        tile('Total', T.fmtDur(total), studied ? `em ${studied} ${studied === 1 ? 'dia' : 'dias'}` : 'nada ainda'),
+        tile('Média por dia', T.fmtDur(total / nDays), studied ? `${T.fmtDur(total / studied)} nos dias estudados` : ''),
+        tile('Dias na meta', `${hit} de ${nDays}`, `meta ${T.fmtDur(goal)}/dia`),
+        tile('Sequência', `${streak} ${streak === 1 ? 'dia' : 'dias'}`, best.d ? `melhor dia: ${T.fmtDur(best.v)}` : ''));
+      /* gráfico (uma série: altura = tempo; linha tracejada = meta) */
+      const max = Math.max(...bars.map((b) => b.v), bars[0].goal * 1.1, 1), tipEl = el('div', { class: 'sr-tip' }, 'Toque numa barra para ver o tempo');
+      const gl = el('div', { class: 'sr-goal', style: { bottom: (bars[0].goal / max) * 100 + '%' } }, el('span', {}, 'meta'));
+      const plot = el('div', { class: 'sr-plot' + (bars.length > 14 ? ' dense' : '') }, gl, ...bars.map((b) => {
+        const c = el('button', { class: 'sr-col', title: `${b.tip}: ${T.fmtDur(b.v)}`, onclick: () => { [...plot.querySelectorAll('.sr-col.on')].forEach((x) => x.classList.remove('on')); c.classList.add('on'); tipEl.textContent = `${b.tip}: ${T.fmtDur(b.v)}${b.v >= b.goal ? ' ✓ meta' : ''}`; } },
+          el('i', { class: b.v >= b.goal ? 'hit' : '', style: { height: b.v ? Math.max(2, (b.v / max) * 100) + '%' : '0' } }), el('small', {}, b.lab));
+        return c;
+      }));
+      /* por matéria e por nota */
+      const subj = new Map(), notes = new Map();
+      for (const [k] of keys) for (const [id, v] of Object.entries(map[k] || {})) { const s = this.subjectOf(id), cur = subj.get(s.key) || { ...s, v: 0 }; cur.v += v; subj.set(s.key, cur); notes.set(id, (notes.get(id) || 0) + v); }
+      const sl = [...subj.values()].sort((a, b) => b.v - a.v), smax = Math.max(1, ...sl.map((x) => x.v));
+      const subjBox = el('div', { class: 'sr-list' }, ...sl.map((x) => el('div', { class: 'sr-row' }, el('span', { class: 'sr-name' }, el('i', { class: 'sr-dot', style: { background: x.color } }), x.name), el('span', { class: 'sr-track' }, el('i', { style: { width: (x.v / smax) * 100 + '%' } })), el('b', {}, T.fmtDur(x.v)), el('small', {}, Math.round((x.v / Math.max(1, total)) * 100) + '%'))));
+      const title = (id) => (id === '_' ? 'Fora das notas' : (Store.heads[id] && Store.heads[id].title) || (T.log.titles || {})[id] || 'Nota apagada');
+      const nl = [...notes.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const noteBox = el('div', { class: 'sr-list' }, ...nl.map(([id, v]) => el('div', { class: 'sr-row note' + (Store.heads[id] ? ' link' : ''), onclick: () => { if (Store.heads[id]) { closeModalTop(); App.openNote(id); } } }, el('span', { class: 'sr-name' }, title(id)), el('b', {}, T.fmtDur(v)))));
+      /* meta */
+      const goalIn = el('input', { type: 'number', min: 5, max: 900, step: 15, value: Math.round(goal / 60000), class: 'sr-goalin', onchange: () => { Store.settings.studyGoal = clamp(Math.round(+goalIn.value || 60), 5, 900); Store.saveSettings(); render(); } });
+      const per = el('div', { class: 'xp-tabs sr-per' }, ...[['7', '7 dias'], ['30', '30 dias'], ['84', '12 semanas']].map(([k, n]) => el('button', { class: 'xp-tab' + (this.period === k ? ' on' : ''), onclick: () => { this.period = k; render(); } }, n)));
+      box.innerHTML = '';
+      box.append(per, tiles, el('div', { class: 'sr-sec' }, this.period === '84' ? 'Tempo por semana' : 'Tempo por dia'), plot, tipEl,
+        el('label', { class: 'sr-goalrow' }, 'Meta diária', goalIn, 'min'),
+        el('div', { class: 'sr-sec' }, 'Por matéria (pasta)'), sl.length ? subjBox : el('p', { class: 'tm-hint' }, 'Sem tempo registrado neste período. O tempo conta com o cronômetro rodando e o app aberto.'),
+        nl.length ? el('div', { class: 'sr-sec' }, 'Notas mais estudadas') : null, nl.length ? noteBox : null);
+    };
+    render();
+    const closeModalTop = () => { const b = box.closest('.modal-back'); if (b) b.remove(); };
+    openModal({ title: 'Relatório de estudo', body: box, wide: true, buttons: [{ label: 'Fechar', cls: 'primary', value: true }] });
+  },
+};
