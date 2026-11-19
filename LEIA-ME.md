@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.31.2
+
+- **Reordenar cores e espessuras:** às vezes o item arrastado ficava cinza e, ao tocar em outro, voltava para o lugar antigo (o soltar se perdia). Corrigido — inclusive soltando fora da barra.
+- **Conta-gotas com prévia:** encoste na página e aparece uma lupa com a cor embaixo do dedo/caneta; arraste até a cor certa e **solte para confirmar** (soltar fora da página cancela).
+
 ## Novidades da v0.31.1
 
 - **Espessura das formas do "segurar":** agora saem exatamente com a espessura selecionada na caneta (antes ficavam um pouco mais finas, 90% dela — ex.: 2,5 virava 2,25).

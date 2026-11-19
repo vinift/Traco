@@ -424,7 +424,7 @@ const Editor = {
     if (!this.note) return;
     this.rect = this.stage.getBoundingClientRect();
     this.stopInertia(); if (this.flash && this.flash.hold === 'keep' && e.pointerType !== 'touch' && performance.now() - this.flash.t0 > 600) { this.flash = null; this.requestRender(); } /* tocou na página: a marca do PDF sai */
-    if (this._eyedrop && !(e.target.closest && e.target.closest('#selBar,#textBar,#hbar'))) { e.preventDefault(); this.takeEyedrop(this.pt(e)); return; } // conta-gotas
+    if (this._eyedrop && !(e.target.closest && e.target.closest('#selBar,#textBar,#hbar'))) { e.preventDefault(); this.eyedropDown(e); return; } // conta-gotas (v0.32: prévia, solta para confirmar)
     if (this.textEl && this.textEl.contains(e.target)) return;
     if (e.target.closest && e.target.closest('#textBar,#hbar')) return;
     if (e.target.closest && e.target.closest('#selBar,#cropBar')) return; // botões da seleção não iniciam novo laço

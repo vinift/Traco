@@ -47,6 +47,8 @@ function makeSortable(container, selector, list, onDone, { tap, long }) {
   let st = null;
   container.addEventListener('pointerdown', (e) => {
     const it = e.target.closest(selector); if (!it || e.target.closest('.xbadge')) return;
+    if (st) end({ pointerId: st.id, type: 'pointercancel' }); /* um arrasto antigo que ficou preso: grava a ordem antes de começar outro */
+    _sortActive = container;
     st = { it, id: e.pointerId, x: e.clientX, y: e.clientY, drag: false, ready: false };
     st.readyT = setTimeout(() => { if (st && !st.moved) { st.ready = true; st.it.classList.add('lifted'); if (navigator.vibrate) navigator.vibrate(8); } }, 450);
     st.longT = setTimeout(() => { if (st && !st.drag && !st.moved) { st.longDone = true; st.it.classList.remove('lifted'); long && long(); } }, 1100);
@@ -64,7 +66,8 @@ function makeSortable(container, selector, list, onDone, { tap, long }) {
     const sibs = $$(selector, container).filter((x) => x !== st.it);
     const horiz = getComputedStyle(container).flexDirection.startsWith('row');
     let before = null; for (const sb of sibs) { const r = sb.getBoundingClientRect(); if (horiz ? e.clientX < r.left + r.width / 2 : e.clientY < r.top + r.height / 2) { before = sb; break; } }
-    if (before) container.insertBefore(st.it, before); else if (sibs.length) sibs[sibs.length - 1].after(st.it);
+    if (before) { if (st.it.nextSibling !== before) container.insertBefore(st.it, before); } else if (sibs.length && sibs[sibs.length - 1].nextSibling !== st.it) sibs[sibs.length - 1].after(st.it);
+    try { st.it.setPointerCapture(e.pointerId); } catch (_) {} /* v0.32: mover o item no DOM solta a captura — o soltar não chegava e o item ficava cinza, voltando ao lugar */
   });
   const end = (e) => {
     if (!st || e.pointerId !== st.id) return; clearTimeout(st.longT); clearTimeout(st.readyT);
@@ -73,7 +76,11 @@ function makeSortable(container, selector, list, onDone, { tap, long }) {
     else if (!s0.longDone && !s0.moved && e.type === 'pointerup') tap && tap(+s0.it.dataset.i);
   };
   container.addEventListener('pointerup', end); container.addEventListener('pointercancel', end);
+  container._sortEnd = (e) => { if (st && e.pointerId === st.id) end(e); };
 }
+/* rede de segurança (uma vez só): soltar fora da barra também termina (e grava) o arrasto da barra que está arrastando */
+let _sortActive = null;
+for (const t of ['pointerup', 'pointercancel']) addEventListener(t, (e) => { const c = _sortActive; if (c && c._sortEnd) c._sortEnd(e); }, true);
 
 const UI = {
   editMode: false, panelOpen: false,

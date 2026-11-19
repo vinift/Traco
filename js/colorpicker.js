@@ -130,24 +130,45 @@ function colorPop(anchor, current, onPick, palette = PALETTE, opts = {}) {
   return openPop(anchor, root);
 }
 
-/* conta-gotas: o próximo toque na página pega a cor daquele ponto */
+/* conta-gotas (v0.32): encostar na página mostra uma lupa com a cor embaixo do dedo/caneta; arrastar troca a cor na prévia;
+   SOLTAR confirma (soltar fora da página cancela). */
 Object.assign(Editor, {
-  startEyedrop(cb) { this._eyedrop = cb; this.stage.classList.add('eyedrop'); toast('Toque na página para pegar a cor', 2500); },
-  takeEyedrop(p) {
-    const cb = this._eyedrop; this._eyedrop = null; this.stage.classList.remove('eyedrop'); if (!cb) return;
+  startEyedrop(cb) { this._eyedrop = cb; this.stage.classList.add('eyedrop'); toast('Encoste na página, arraste até a cor e solte', 2600); },
+  readColorAt(p) {
     const d = this.dpr;
-    try { // v0.16: desenha só um quadradinho da página em volta do toque (a tela de cima agora é transparente) e fica com o pixel mais "forte"
-      const wp = this.toWorld(p.x, p.y), pi = this.pageIndexAt(wp.x, wp.y, true); if (pi < 0) throw new Error('fora da página');
-      const page = this.note.pages[pi], l = this.local(pi, wp.x, wp.y), s = this.cam.z * d, R = Math.round(3 * d), w = 2 * R + 1, h = w, x = R, y = R, x0 = 0, y0 = 0;
-      const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const cx = cv.getContext('2d', { willReadFrequently: true });
-      cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.setTransform(s, 0, 0, s, R - l.x * s, R - l.y * s);
+    try { /* desenha só um quadradinho da página em volta do ponto e fica com o pixel mais "forte" */
+      const wp = this.toWorld(p.x, p.y), pi = this.pageIndexAt(wp.x, wp.y, true); if (pi < 0) return null;
+      const page = this.note.pages[pi], l = this.local(pi, wp.x, wp.y), s = this.cam.z * d, R = Math.round(3 * d), w = 2 * R + 1, h = w;
+      const cv = this._edCv || (this._edCv = document.createElement('canvas')); cv.width = w; cv.height = h; const cx = cv.getContext('2d', { willReadFrequently: true });
+      cx.setTransform(1, 0, 0, 1, 0, 0); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.setTransform(s, 0, 0, s, R - l.x * s, R - l.y * s);
       drawPageContent(cx, this.note, page, { x: l.x - R / s, y: l.y - R / s, w: w / s, h: h / s }, this.cam.z, { dpr: d });
       const px = cx.getImageData(0, 0, w, h).data; let bright = 0;
       for (let i = 0; i < px.length; i += 4) bright = Math.max(bright, px[i] + px[i + 1] + px[i + 2]);
-      const ci = ((Math.min(y - y0, h - 1)) * w + Math.min(x - x0, w - 1)) * 4; let best = ci, bd = -1;
+      let best = (R * w + R) * 4, bd = -1;
       for (let i = 0; i < px.length; i += 4) { const dd = bright - (px[i] + px[i + 1] + px[i + 2]) + (Math.max(px[i], px[i + 1], px[i + 2]) - Math.min(px[i], px[i + 1], px[i + 2])); if (dd > bd) { bd = dd; best = i; } }
-      const c = rgbaToHex({ r: px[best], g: px[best + 1], b: px[best + 2] }); cb(c); toast('Cor ' + c.toUpperCase() + ' escolhida', 1500);
-    }
-    catch (e) { toast('Não consegui ler a cor deste ponto'); }
+      return rgbaToHex({ r: px[best], g: px[best + 1], b: px[best + 2] });
+    } catch (e) { return null; }
   },
+  /* chamado no onDown com o conta-gotas ligado */
+  eyedropDown(e) {
+    const id = e.pointerId; let col = null, raf = 0, last = null;
+    const lp = el('div', { class: 'ed-loupe' }, el('i'), el('b'));
+    document.body.append(lp);
+    const show = (cx, cy) => {
+      const p = { x: cx - this.rect.left, y: cy - this.rect.top }; col = this.readColorAt(p);
+      lp.style.left = cx + 'px'; lp.style.top = Math.max(60, cy - 90) + 'px'; lp.classList.toggle('none', !col);
+      lp.firstChild.style.background = col || 'transparent'; lp.lastChild.textContent = col ? col.toUpperCase() : 'fora da página';
+    };
+    const move = (ev) => { if (ev.pointerId !== id) return; ev.preventDefault(); last = ev; if (!raf) raf = requestAnimationFrame(() => { raf = 0; show(last.clientX, last.clientY); }); };
+    const up = (ev) => {
+      if (ev.pointerId !== id) return; removeEventListener('pointermove', move, true); removeEventListener('pointerup', up, true); removeEventListener('pointercancel', up, true);
+      cancelAnimationFrame(raf); if (ev.type === 'pointerup') show(ev.clientX, ev.clientY); lp.remove();
+      const cb = this._eyedrop; this._eyedrop = null; this.stage.classList.remove('eyedrop');
+      if (ev.type !== 'pointerup' || !col || !cb) return toast(col ? 'Conta-gotas cancelado' : 'Soltou fora da página: conta-gotas cancelado', 1600);
+      cb(col); toast('Cor ' + col.toUpperCase() + ' escolhida', 1500);
+    };
+    addEventListener('pointermove', move, true); addEventListener('pointerup', up, true); addEventListener('pointercancel', up, true);
+    show(e.clientX, e.clientY);
+  },
+  takeEyedrop(p) { const c = this.readColorAt(p), cb = this._eyedrop; this._eyedrop = null; this.stage.classList.remove('eyedrop'); if (c && cb) cb(c); },
 });
