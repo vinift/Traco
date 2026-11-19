@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.26.2
+
+- **Avisos no canto inferior direito:** as mensagens pretas ("Colado", "Arraste os pontos…" etc.) agora aparecem no canto de baixo à direita, em vez de no meio da tela sobre a barra de baixo. As mais longas quebram em duas linhas.
+
 ## Novidades da v0.26.1
 
 - **Criar e remover vértices no "editar pontos":**

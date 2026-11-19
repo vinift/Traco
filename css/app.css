@@ -834,3 +834,5 @@ input:not(:focus),textarea:not(:focus){-webkit-user-select:none;user-select:none
 #editor.immersive .sv-head,#editor.immersive .sv-mid,#editor.writing .sv-head,#editor.writing .sv-mid{opacity:0;pointer-events:none}
 /* v0.25.1: divisória em prévia ao arrastar */
 .sv-div.drag{background:var(--chacc);will-change:transform}
+/* v0.26.2: avisos no canto inferior direito (longe da barra de baixo e do meio da folha) */
+.toast{left:auto;right:max(16px,calc(var(--sar,0px) + 12px));bottom:max(20px,calc(var(--sab,0px) + 14px));transform:none;max-width:min(300px,26vw,calc(100vw - 32px));text-align:left;line-height:1.35}

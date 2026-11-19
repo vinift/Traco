@@ -187,6 +187,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v0.26.1 — toque duplo no editar pontos (`vTap` em shapeedit.js: no lado/linha → `insertVertex`, no vértice → `removeVertex`; toque = `a.maxD` < 2,5 px; o toque duplo global da caneta é ignorado em `initPenTriple` quando `vEditEl()`); pontos (r 5, quadrado 8, losango 5,5) e alças de redimensionar (r 5,5/quadrado 8) e girar (r 8) menores, com a mesma área de toque.
 
+- v0.26.2 — `toast` no canto inferior direito (`.toast` no fim do app.css: right/bottom com área segura, largura máx. min(300px, 26vw) para não encostar no `#hbar`).
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9).
 - Ignorar a palma também na rolagem (toques com área de contato grande), não só nos toques de 2/3 dedos.
