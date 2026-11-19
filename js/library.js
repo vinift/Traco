@@ -206,6 +206,7 @@ const Library = {
   noteMenu(anchor, h) {
     menu(anchor, [
       { label: 'Renomear', icon: 'pen', run: async () => { const t = await askText('Renomear nota', h.title); if (t) { const n = await Store.getNote(h.id); n.title = t; n.updated = Date.now(); await Store.putNote(n); this.render(); } } },
+      { label: 'Abrir ao lado da última nota', icon: 'sidebar', run: () => SplitView.openFromLibrary(h.id) },
       { label: QuickSwitch.isPinned(h.id) ? 'Desafixar de Alternar rapidamente' : 'Fixar em Alternar rapidamente', icon: 'layers', run: () => QuickSwitch.pin(h.id) },
       { label: 'Mover para…', icon: 'folder', run: () => this.moveDialog(h) },
       { label: 'Duplicar', icon: 'copy', run: async () => { const n = await Store.getNote(h.id); const c = clone(n); c.id = uid(); c.title = n.title + ' (cópia)'; c.created = c.updated = Date.now(); await Store.putNote(c); await Store.setThumb(c.id, h.thumb); this.render(); } },

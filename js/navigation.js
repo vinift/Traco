@@ -18,17 +18,31 @@ Object.assign(Editor, {
     this._lastScrollY = this.cam.y;
     if (vs.classList.contains('drag')) { const n = this.note.pages.length; t.firstChild.textContent = `${this.currentPageIndex() + 1} / ${n}`; }
   },
-  flashScroll() { const vs = $('#vscroll'); vs.classList.add('show'); this._vsShown = true; clearTimeout(this._vsT); this._vsT = setTimeout(() => { vs.classList.remove('show'); this._vsShown = false; }, 1400); },
+  /* v0.25: destro → barra de rolagem rápida do lado ESQUERDO (logo depois das barras de ferramentas e cores), longe da palma */
+  placeScroll() {
+    const vs = $('#vscroll'); if (!vs) return; const left = (Store.settings.hand || 'right') === 'right';
+    vs.classList.toggle('vs-left', left); if (!left) { vs.style.left = ''; const ed = $('#editor').getBoundingClientRect(), st = this.stage.getBoundingClientRect(); vs.style.right = Math.max(2, Math.round(ed.right - st.right + 2)) + 'px'; return; }
+    vs.style.right = '';
+    const ed = $('#editor').getBoundingClientRect(), st = this.stage.getBoundingClientRect(); let x = st.left - ed.left; /* tela dividida: na borda do lado ativo */
+    for (const id of ['rail', 'subrail']) { const n = document.getElementById(id); if (n && n.offsetParent && n.offsetWidth) { const r = n.getBoundingClientRect(); if (r.right > st.left && r.left < st.right) x = Math.max(x, r.right - ed.left); } }
+    vs.style.left = Math.round(x + 2) + 'px';
+  },
+  flashScroll() { this.placeScroll(); const vs = $('#vscroll'); vs.classList.add('show'); this._vsShown = true; clearTimeout(this._vsT); this._vsT = setTimeout(() => { vs.classList.remove('show'); this._vsShown = false; }, 1400); },
   initScroll() {
     const vs = $('#vscroll'); if (!vs || vs._ok) return; vs._ok = true;
     const t = vs.firstChild; let drag = null;
     const toFrac = (clientY, grab) => { const R = vs.getBoundingClientRect(), th = t.offsetHeight; return clamp((clientY - R.top - grab) / Math.max(1, R.height - th), 0, 1); };
     const go = (f) => { const r = this.scrollRange(); this.cam.y = r.a + f * r.span; this.clampCam(); this.requestRender(); };
     vs.addEventListener('pointerdown', (e) => {
-      e.preventDefault(); e.stopPropagation(); this.stopInertia(); vs.setPointerCapture(e.pointerId);
-      const tr = t.getBoundingClientRect(), onThumb = e.clientY >= tr.top && e.clientY <= tr.bottom;
-      drag = { id: e.pointerId, grab: onThumb ? e.clientY - tr.top : t.offsetHeight / 2 };
-      vs.classList.add('drag', 'show'); if (!onThumb) go(toFrac(e.clientY, drag.grab)); // tocar no trilho pula para o ponto
+      e.preventDefault(); e.stopPropagation();
+      /* v0.25: palma não mexe na rolagem rápida — toque com área grande, ou com a caneta perto/escrevendo (até 1,5 s depois), é ignorado;
+         e tocar no trilho não pula mais: só arrastar o marcador */
+      const tr = t.getBoundingClientRect(), onThumb = e.clientY >= tr.top - 6 && e.clientY <= tr.bottom + 6;
+      if (e.pointerType === 'touch' && (e.width > 34 || e.height > 34 || this.penDown || performance.now() - this.lastPenSeen < 1500)) return;
+      if (!onThumb) return;
+      this.stopInertia(); vs.setPointerCapture(e.pointerId);
+      drag = { id: e.pointerId, grab: e.clientY - tr.top };
+      vs.classList.add('drag', 'show');
     });
     vs.addEventListener('pointermove', (e) => { if (!drag || e.pointerId !== drag.id) return; e.preventDefault(); go(toFrac(e.clientY, drag.grab)); });
     const end = (e) => { if (!drag || e.pointerId !== drag.id) return; drag = null; vs.classList.remove('drag'); this.flashScroll(); };

@@ -133,7 +133,7 @@ Object.assign(Editor, {
     return { o, s };
   },
   snap1(vals, targets, grid, tol) { // melhor ajuste de um eixo: vals = posições do objeto (borda, centro…)
-    if (this.action && this.action.noSnap) return null; // segundo dedo na tela: movimento livre
+    if (this.action && (this.action.noSnap || this.action.penFree)) return null; // segundo dedo na tela: movimento livre
     let best = null;
     for (const v of vals) {
       for (const [t] of targets) { const d = t - v; if (Math.abs(d) < tol && (!best || Math.abs(d) < Math.abs(best.d))) best = { d, at: t }; }
@@ -163,7 +163,7 @@ Object.assign(Editor, {
       let sy = this.snap1([b.y + dy, b.y + b.h / 2 + dy, b.y + b.h + dy], a.ty, a.grid && this.gridLines(a.grid, a.page, 1), tol);
       if (sx) dx += sx.d; if (sy) dy += sy.d;
       const t1 = a.el1;
-      if (t1 && t1.type === 'text' && !a.noSnap) { // texto: base da 1ª linha gruda na pauta; com "alinhar às linhas" sempre fica sobre elas
+      if (t1 && t1.type === 'text' && !a.noSnap && !a.penFree) { // texto: base da 1ª linha gruda na pauta; com "alinhar às linhas" sempre fica sobre elas
         const g = this.ruledFor(a.page), L = layoutText(t1), pad = t1.sticky ? STICKY_PAD : 0;
         if (g && t1.ruled) { const k = Math.round((b.y + dy - g.o) / g.s); dy = g.o + k * g.s - b.y; }
         else if (g && this.snapOn('snapPage')) { const base = b.y + pad + L.lines[0].base + dy, k = Math.round((base - g.o) / g.s), d = g.o + k * g.s - base; if (Math.abs(d) < tol) { dy += d; sy = { d, at: g.o + k * g.s }; } }
@@ -173,7 +173,7 @@ Object.assign(Editor, {
     } else if (a.kind === 'rotate') {
       const c = { x: a.box.x + a.box.w / 2, y: a.box.y + a.box.h / 2 };
       let ang = Math.atan2(p.y - c.y, p.x - c.x) - Math.atan2(a.start.y - c.y, a.start.x - c.x);
-      if (this.snapOn('snapAngle') && !a.noSnap) { const sn = Math.round(ang / (Math.PI / 12)) * (Math.PI / 12); if (Math.abs(ang - sn) < 0.06) ang = sn; } // gruda a cada 15°
+      if (this.snapOn('snapAngle') && !a.noSnap && !a.penFree) { const sn = Math.round(ang / (Math.PI / 12)) * (Math.PI / 12); if (Math.abs(ang - sn) < 0.06) ang = sn; } // gruda a cada 15°
       this.selTf = { ox: b.x, oy: b.y, sx: 1, sy: 1, dx: 0, dy: 0, rot: ang, cx: b.x + b.w / 2, cy: b.y + b.h / 2 };
     } else if (a.free && (a.el.type === 'text' || a.el.type === 'table')) { // texto e tabela: largura e altura livres (o texto reflui, não muda a letra)
       const hh = a.hh || 'se', dX = hh.includes('e') ? 1 : hh.includes('w') ? -1 : 0, dY = hh.includes('s') ? 1 : hh.includes('n') ? -1 : 0;
@@ -182,7 +182,7 @@ Object.assign(Editor, {
       const sx = dX && this.snap1([ex], a.tx, a.grid && this.gridLines(a.grid, a.page, 0), tol), sy = dY && this.snap1([ey], a.ty, a.grid && this.gridLines(a.grid, a.page, 1), tol);
       if (sx) w += dX * sx.d; if (sy) h += dY * sy.d;
       let label = null;
-      if (dX && dY && this.snapOn('snapRatio') && !a.noSnap) {
+      if (dX && dY && this.snapOn('snapRatio') && !a.noSnap && !a.penFree) {
         for (const [r, lab] of [[1, '1:1'], [a.ratio, 'proporção original']]) { if (Math.abs(w / h - r) / r < 0.06) { h = w / r; label = lab; break; } }
       }
       this.setGuides(a, sx, label ? null : sy); this.ratioLabel = a.noSnap ? 'livre' : label;
@@ -205,7 +205,7 @@ Object.assign(Editor, {
     if (this.tPreview) return this.commitTablePreview();
     const t = this.selTf; this.selTf = null; if (!t) return this.requestRender();
     const page = this.pageById(this.sel.pageId), att = (a && a.attached) || new Set();
-    const apply = (e) => (t.rot != null ? rotateEl(e, t.rot, t.cx, t.cy) : transformEl(e, t));
+    const apply = (e) => (t.node ? { ...t.node, id: e.id } : t.rot != null ? rotateEl(e, t.rot, t.cx, t.cy) : transformEl(e, t));
     for (const e of this.selElements()) this.recReplace(page, e, apply(e));
     if (!t.free) for (const e of page.elements.filter((x) => att.has(x.id))) this.recReplace(page, e, apply(e)); // escrita dentro da tabela vai junto
     this.opCommit();

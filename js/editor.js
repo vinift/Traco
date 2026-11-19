@@ -56,19 +56,21 @@ const Editor = {
   },
 
   /* ---------- Abrir / salvar ---------- */
-  async open(id) {
-    const note = await Store.getNote(id); if (!note) { toast('Nota não encontrada'); return false; }
-    if (fixNotewiseHeights(note)) { await Store.putNote(note); Store.setThumb(note.id, await makeThumb(note)); } // corrige notas importadas antes (grade meia linha fora)
+  /* pre (v0.25, tela dividida): { note, cam, undo, redo, fast } — troca de lado ativo sem recarregar a nota nem perder o desfazer */
+  async open(id, pre) {
+    const note = (pre && pre.note) || await Store.getNote(id); if (!note) { toast('Nota não encontrada'); return false; }
+    if (!pre && fixNotewiseHeights(note)) { await Store.putNote(note); Store.setThumb(note.id, await makeThumb(note)); } // corrige notas importadas antes (grade meia linha fora)
     this.resetTiles(); this._prevZ = undefined; this.lastInput = Date.now(); // nota recém-aberta conta como "em uso" (o backup pesado espera)
-    if (this.crop) this.cancelCrop(); this._xHold = null; this.note = note; this.undoStack = []; this.redoStack = []; this.sel = null; this.selTf = null; this.action = null; this.editingId = null;
+    { const L = Store.settings.tools.lasso; if (L && L.mode === 'shot') L.mode = 'free'; }
+    if (this.crop) this.cancelCrop(); this._xHold = null; this.note = note; this.undoStack = (pre && pre.undo) || []; this.redoStack = (pre && pre.redo) || []; this.sel = null; this.selTf = null; this.action = null; this.editingId = null;
     this.readOnly = false; $('#editor').classList.remove('reading'); { const rb = $('#btnRead'); if (rb) rb.classList.remove('soft-on'); }
     $('#noteTitle').value = note.title;
     this.desk = getComputedStyle(document.documentElement).getPropertyValue('--desk').trim() || '#d9dde3';
     this.computeLayout(); this.resize(true); Store.compactLater(note);
-    const views = (await DB.get('meta', 'views')) || {}; const v = views[note.id] || note.view; // continua de onde parou
-    if (v) { this.cam = { ...v }; this.clampCam(); } else this.fitWidth();
-    applyBarSize();
-    UI.buildToolbar(); UI.renderOptions(); this.updateUndoBtns(); Instruments.sync(); Focus.restore();
+    if (pre && pre.cam) { this.cam = { x: pre.cam.x, y: pre.cam.y, z: pre.cam.z }; this.clampCam(); }
+    else { const views = (await DB.get('meta', 'views')) || {}; const v = views[note.id] || note.view; /* continua de onde parou */ if (v) { this.cam = { ...v }; this.clampCam(); } else this.fitWidth(); }
+    if (!(pre && pre.fast)) { applyBarSize(); UI.buildToolbar(); UI.renderOptions(); }
+    this.updateUndoBtns(); Instruments.sync(); Focus.restore(); setTimeout(() => this.placeScroll(), 80);
     this.requestRender();
     return true;
   },
@@ -84,6 +86,26 @@ const Editor = {
     this.resetTiles(); PdfCache.clear(); ImgCache.clear(); PathLRU.clear(); // libera a memória dos blocos, do PDF e das imagens
     if (note) OCR.scheduleNote(note);
   },
+  /* v0.25 (tela dividida): solta a nota sem o trabalho pesado do close() — salva em segundo plano e devolve a "folha" com os
+     blocos que estão na tela (o lado passivo mostra essa imagem até as páginas dele ficarem prontas) */
+  detach() {
+    try { this.commitText(); } catch (e) { logError(e, 'trocar lado: texto'); }
+    this.ocrDebounced.cancel(); this.viewDebounced.cancel(); this.thumbDebounced.cancel && this.thumbDebounced.cancel();
+    if (this.crop) this.cancelCrop();
+    const note = this.note; if (!note) return null;
+    const cam = { ...this.cam }, page = this.currentPageIndex();
+    this.saveNow().catch((e) => logError(e, 'trocar lado: salvar')); /* lê nota e título agora, grava depois */
+    DB.get('meta', 'views').then((v) => { v = v || {}; v[note.id] = { ...cam, page, at: Date.now() }; return DB.put('meta', v, 'views'); }).catch(() => {});
+    this.sel = null; this.selTf = null; this.action = null; this.gesture = null; this.stopInertia(); this.pointers.clear(); this.vEdit = false; this.tsel = null; this.tPreview = null; this.guides = null;
+    if (this.inkOn) this.inkHide(); this.clearLive();
+    const w = this.world; this.world = null; this.wFrames = null; this.wLevels = new Map(); this._frDivs = new Map(); this._frSig = null;
+    this.tiles = new Map(); this.pcache = new Map(); this._curLvl = null; this._fbLvl = null; this._ovLvl = null; this._ovNext = null; this.imgEpoch = (this.imgEpoch || 0) + 1;
+    this.note = null;
+    setTimeout(() => { makeThumb(note).then((t) => t && Store.setThumb(note.id, t)).catch(() => {}); OCR.scheduleNote(note); }, 2500);
+    return w;
+  },
+  /* chama fn quando os blocos da tela ficarem prontos (ou depois de ms, o que vier antes) */
+  onDone(fn, ms = 1500) { this._onDone = fn; setTimeout(() => { if (this._onDone === fn) { this._onDone = null; fn(); } }, ms); },
   markChanged() {
     if (!this.note) return;
     this.note.updated = Date.now(); this.saveDebounced(); this.thumbDebounced(); this.ocrDebounced(); this.updateUndoBtns();
@@ -241,7 +263,7 @@ const Editor = {
       if (this.textEl && this.textCtx && this.textCtx.page === page && this.textCtx.el.sticky) { const te = this.textCtx.el, h = layoutText(te).h; drawElement(ctx, { ...te, text: '', spans: undefined, minH: Math.max(te.minH || te.w, h) }); } // post-it em edição
       if (selActive && this.sel.pageId === page.id) {
         const t = this.selTf;
-        if (t.free) { for (const e of page.elements) if (this.sel.ids.has(e.id)) drawElement(ctx, transformEl(e, t)); }
+        if (t.free) { for (const e of page.elements) if (this.sel.ids.has(e.id)) drawElement(ctx, t.node || transformEl(e, t)); }
         else {
           if (t.rot != null) { ctx.translate(t.cx, t.cy); ctx.rotate(t.rot); ctx.translate(-t.cx, -t.cy); }
           else { ctx.translate(t.ox + t.dx, t.oy + t.dy); ctx.scale(t.sx, t.sy); ctx.translate(-t.ox, -t.oy); }
@@ -265,13 +287,14 @@ const Editor = {
     if (!allDone && !st.zooming) this.requestRender(); // ainda há blocos a desenhar: continua no próximo quadro
     this._drawnCam = { ...this.cam }; this._drawnComplete = allDone && !st.zooming;
     if (st.rendered && !this.inkOn) this._inkKey = null; /* blocos novos: o fundo da tela rápida precisa ser refeito */
+    if (this._onDone && allDone && !st.zooming) { const f = this._onDone; this._onDone = null; setTimeout(f, 30); }
     this.evictTiles(); if (allDone && !st.zooming) { this.schedulePrefetch(); if (this.lowLat) this.inkPrepLater(); }
     if (this._lastCam !== `${this.cam.x}|${this.cam.y}|${this.cam.z}`) { this._lastCam = `${this.cam.x}|${this.cam.y}|${this.cam.z}`; this.viewDebounced(); }
   },
   selElements() { if (!this.sel) return []; const p = this.pageById(this.sel.pageId); return p ? p.elements.filter((e) => this.sel.ids.has(e.id)) : []; },
   selScreenBox() {
     const els = this.selElements(); if (!els.length) return null;
-    const b = bboxUnion(els), pi = this.pageIdx(this.pageById(this.sel.pageId)), o = this.layout[pi], t = this.selTf;
+    const t = this.selTf, b = t && t.node ? elBBox(t.node) : bboxUnion(els), pi = this.pageIdx(this.pageById(this.sel.pageId)), o = this.layout[pi];
     let x1 = b.x, y1 = b.y, x2 = b.x + b.w, y2 = b.y + b.h;
     if (t && t.rot == null) { const f = (x, y) => [t.ox + (x - t.ox) * t.sx + t.dx, t.oy + (y - t.oy) * t.sy + t.dy]; [x1, y1] = f(x1, y1); [x2, y2] = f(x2, y2); }
     const a = this.toScreen(x1 + o.x, y1 + o.y), c = this.toScreen(x2 + o.x, y2 + o.y);
@@ -287,7 +310,7 @@ const Editor = {
     if (this.selLocked()) { // seleção bloqueada: só a moldura e um cadeado
       ctx.save(); ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
       ctx.fillStyle = '#6b7280'; ctx.beginPath(); ctx.roundRect(box.x + box.w - 22, box.y - 26, 22, 20, 6); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6; ctx.strokeRect(box.x + box.w - 16, box.y - 18, 10, 7); ctx.beginPath(); ctx.arc(box.x + box.w - 11, box.y - 19, 3, Math.PI, 0); ctx.stroke(); ctx.restore();
-    } else {
+    } else if (this.vEditEl()) { this.drawVEdit(box); } else {
     ctx.save(); ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
     for (const [h, x, y] of this.selHandles(box)) { /* v0.22: alças em todos os cantos e lados */
       ctx.fillStyle = '#fff'; ctx.beginPath(); if (h.length === 2) ctx.arc(x, y, 8, 0, Math.PI * 2); else ctx.roundRect(x - 6, y - 6, 12, 12, 3); ctx.fill(); ctx.stroke();
@@ -320,6 +343,7 @@ const Editor = {
     if (this.note.mode === 'infinite') hp.classList.add('hidden');
     else { hp.classList.remove('hidden'); hp.textContent = `${ci + 1} / ${this.note.pages.length}`; }
     const bm = $('#btnBookmark'); if (bm) bm.classList.toggle('soft-on', !!(pg && pg.bookmark));
+    if (typeof SplitView !== 'undefined' && SplitView.shown) SplitView.hud();
   },
   clearLive() { const c = this.lctx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, this.cLive.width, this.cLive.height); },
 
@@ -566,6 +590,7 @@ const Editor = {
     if (a.kind === 'cropout') return;
     if (a.kind === 'lasso') { if (a.mode === 'free') a.pts.push([p.x, p.y]); else a.pts = [a.pts[0], [p.x, p.y]]; this.drawLasso(); return; }
     if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate') return this.moveSel(p);
+    if (a.kind === 'vnode') return this.moveVNode(p);
     if (a.kind === 'tableact') return this.moveTableAct(p);
     if (a.kind === 'shape') return this.moveShape(w);
     if (a.kind === 'table') return this.moveTable(w);
@@ -581,7 +606,7 @@ const Editor = {
     if (a.kind === 'erase') { this.clearLive(); this.opCommit(); return; }
     if (a.kind === 'lasso') return this.endLasso(a);
     if (a.kind === 'move') { const p = this.pt(e), tap = Math.hypot(p.x - a.start.x, p.y - a.start.y) < 8; if (tap) { this.selTf = null; this.guides = null; this.ratioLabel = null; this.requestRender(); return this.tapOnSel(a, p); } }
-    if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate') return this.endMoveSel();
+    if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate' || a.kind === 'vnode') return this.endMoveSel();
     if (a.kind === 'shape') return this.endShape(a);
     if (a.kind === 'table') return this.endTable(a);
     if (a.kind === 'text') { const p = this.pt(e); if (Math.hypot(p.x - a.sx, p.y - a.sy) < 12) this.textAt(a.w); return; }
@@ -592,7 +617,7 @@ const Editor = {
     clearTimeout(a.holdT); this.clearLive(); if (this.inkOn) this.inkHide();
     if (a.kind === 'crop' && this.crop) this.crop.c = a.fresh ? a.prev : a.c0;
     if (a.kind === 'erase' || a.kind === 'plugin') this.opCommit();
-    if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate' || a.kind === 'tableact') { this.selTf = null; this.tPreview = null; this.guides = null; }
+    if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate' || a.kind === 'vnode' || a.kind === 'tableact') { this.selTf = null; this.tPreview = null; this.guides = null; }
     this.requestRender();
   },
 
@@ -660,7 +685,20 @@ const Editor = {
   hlLine(a) { const sh = a.shape; return { id: sh.id, type: 'stroke', tool: 'highlighter', color: a.color, width: a.width, opacity: a.opacity, cap: 'round', pts: [r2(sh.x1), r2(sh.y1), 0.5, r2(sh.x2), r2(sh.y2), 0.5] }; },
   updateHeldShape(l) {
     const a = this.action, s = a.shape;
-    if (s.kind === 'poly') return;
+    if (s.kind === 'poly') { /* v0.25: forma reconhecida continua mudando enquanto segura a caneta */
+      if (s.br) { /* colchete: a ponta onde a caneta está (fim do traço) acompanha a caneta — comprimento e o rabinho */
+        const b = { ...s.br }, ax = b.v ? l.y : l.x, cr = b.v ? l.x : l.y, end = b.rev ? 'T' : 'B';
+        if (end === 'B') { b.bot = Math.max(b.top + 8, ax); if (b.hB) b.hB = Math.abs(cr - b.sx) < 2 ? Math.sign(b.hB) * 2 : cr - b.sx; }
+        else { b.top = Math.min(b.bot - 8, ax); if (b.hT) b.hT = Math.abs(cr - b.sx) < 2 ? Math.sign(b.hT) * 2 : cr - b.sx; }
+        if (b.hT && b.hB && Math.sign(b.hT) !== Math.sign(b.hB)) { if (end === 'B') b.hB = Math.sign(b.hT) * 2; else b.hT = Math.sign(b.hB) * 2; } /* não vira "S" */
+        a.shape = { ...s, ...bracketShape(b) }; return;
+      }
+      /* outras formas fechadas (triângulo, quadrilátero): crescem/encolhem a partir do centro, seguindo a distância da caneta */
+      const P = s.pts, n = P.length / 2; let cx = 0, cy = 0; for (let i = 0; i < P.length; i += 2) { cx += P[i]; cy += P[i + 1]; } cx /= n; cy /= n;
+      if (!a.polyBase) a.polyBase = { pts: P.slice(), cx, cy, d: Math.max(4, Math.hypot(l.x - cx, l.y - cy)) };
+      const B = a.polyBase, k = clamp(Math.hypot(l.x - B.cx, l.y - B.cy) / B.d, 0.2, 6);
+      a.shape = { ...s, pts: B.pts.map((v, i) => r2(i % 2 ? B.cy + (v - B.cy) * k : B.cx + (v - B.cx) * k)) }; return;
+    }
     let x2 = l.x, y2 = l.y; if (s.kind === 'line') [x2, y2] = snapAngle(s.x1, s.y1, x2, y2);
     else { const w = Math.abs(x2 - s.x1), h = Math.abs(y2 - s.y1); if (w && h && Math.abs(w - h) / Math.max(w, h) < 0.1 && (s.kind === 'rect' || s.kind === 'ellipse' || s.kind === 'diamond')) { const m = Math.max(w, h); x2 = s.x1 + Math.sign(x2 - s.x1) * m; y2 = s.y1 + Math.sign(y2 - s.y1) * m; } }
     a.shape = { ...s, x2, y2 };
@@ -751,9 +789,9 @@ const Editor = {
   startLasso(base, p, w) {
     const mode = (Store.settings.tools.lasso || {}).mode || 'free';
     const k = mode !== 'shot' && this.sel && this.selHit(p);
-    if (k) { this.action = { ...base, kind: k, hh: this._sh, start: p, box: this.selScreenBox() }; if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
+    if (k) { this.action = { ...base, kind: k, hh: this._sh, start: p, box: this.selScreenBox(), penFree: base.ptype === 'pen' }; /* v0.25: com a caneta, mover/redimensionar/girar é sempre livre (sem grudar), como com o 2º dedo */ if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
     this.tsel = null;
-    this.sel = null; this.requestRender();
+    this.sel = null; this.vEdit = false; this.requestRender();
     const pi = this.pageIndexAt(w.x, w.y, true);
     this.action = { ...base, kind: 'lasso', pi, pts: [[p.x, p.y]], mode };
   },
@@ -802,6 +840,7 @@ const Editor = {
     /* v0.24.6: objeto pequeno (ponto, acento…): tocar DENTRO da caixa sempre move; as alças só pegam do lado de fora dos cantos.
        Antes o raio de 26 px das alças cobria a caixa inteira e não dava para arrastar coisas pequenas */
     const small = Math.min(box.w, box.h), inBox = p.x >= box.x && p.x <= box.x + box.w && p.y >= box.y && p.y <= box.y + box.h;
+    if (this.vEditEl()) { const n = this.vHit(p); if (n) { this._vn = n; return 'vnode'; } return inBox ? 'move' : null; } /* v0.25: editar pontos da forma */
     if (!(small < 70 && inBox && !this.selTable())) { let best = null, bd = small < 70 ? 20 : 26; for (const [h, x, y] of this.selHandles(box)) { const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = h; } } if (best) { this._sh = best; return 'scale'; } }
     if (Math.hypot(p.x - (box.x + box.w / 2), p.y - (box.y - 34)) < 24) return 'rotate';
     const te = this.selTable();
@@ -817,7 +856,7 @@ const Editor = {
   },
   endLasso(a) {
     this.clearLive(); const page = this.note.pages[a.pi]; if (!page) return;
-    if (a.mode === 'shot') return this.captureArea(a.pi, this.lassoPoly(a));
+    if (a.mode === 'shot') { const L = Store.settings.tools.lasso; L.mode = 'free'; Store.saveSettings(); UI.renderOptions(); return this.captureArea(a.pi, this.lassoPoly(a)); } /* v0.25: depois do print o laço volta a ser o livre */
     const canSel = (e) => !e.lock || (Store.settings.tools.lasso || {}).locked;
     const toL = ([x, y]) => { const w = this.toWorld(x, y), l = this.local(a.pi, w.x, w.y); return [l.x, l.y]; };
     let len = 0; for (let i = 1; i < a.pts.length; i++) len += Math.hypot(a.pts[i][0] - a.pts[i - 1][0], a.pts[i][1] - a.pts[i - 1][1]);

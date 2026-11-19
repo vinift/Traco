@@ -153,6 +153,26 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.25.0
+
+- **Tela dividida de verdade (duas notas lado a lado):**
+  - As duas metades agora são editáveis. A que está em uso tem um contorno roxo e as ferramentas, cores, desfazer e barras agem nela. É só encostar a caneta na outra metade: ela vira a ativa na hora e o traço já começa ali. Um toque rápido só troca de lado, sem fazer um ponto. Cada nota guarda o seu próprio desfazer.
+  - As barras de ferramentas, cores e espessuras são as mesmas para os dois lados (ficam nas bordas da tela).
+  - Cada lado tem o seu topo: nome da nota (toque para trocar de nota), página e zoom (toque no zoom para ajustar à largura).
+  - Perto da divisória ficam os botões para **trocar as notas de lado**, **travar o lado direito** e fechar. Com o lado direito travado, a caneta e a palma não o ativam sem querer; o dedo ainda rola a nota.
+  - O lado que não está em uso rola com inércia e dá zoom com dois dedos como o editor, sem piscar: a imagem fica na tela até a nova ficar pronta, e com zoom grande a parte visível é redesenhada nítida.
+  - Arraste a divisória para mudar o tamanho (toque duplo nela volta para metade/metade).
+  - Na biblioteca, o menu ⋯ de uma nota tem **"Abrir ao lado da última nota"**.
+- **Editar pontos de uma forma:** selecione uma forma (linha, seta, retângulo, elipse, triângulo, losango, polígono ou colchete) e toque no novo botão de pontos na barra da seleção. A seleção fica laranja e aparecem os pontos. Os círculos são vértices, os quadradinhos arrastam a aresta inteira e os losangos mudam a curvatura do colchete. A espessura não muda. Redimensionar normalmente continua igual.
+- **Forma de "segurar a caneta" continua mudando enquanto você segura:** depois que o colchete aparece, mova a caneta para escolher onde ele termina (comprimento e rabinho). Triângulos e quadriláteros crescem ou encolhem seguindo a caneta. Linha, retângulo e elipse já faziam isso.
+- **Mover, redimensionar e girar com a caneta é sempre livre:** sem grudar nas guias, na grade ou nos ângulos, como já acontecia com dois dedos.
+- **Rolagem rápida longe da palma:**
+  - Para destros, a barrinha de rolagem rápida agora fica do lado esquerdo, logo depois das barras de ferramentas e cores. Para canhotos, continua à direita.
+  - Ela ignora a palma (toque com área grande) e toques com a caneta em uso ou até 1,5 s depois.
+  - Tocar no trilho não pula mais de página: só arrastar o marcador funciona.
+- **Print do laço não fica como padrão:** depois de tirar o print (ou ao trocar de ferramenta, ou ao abrir uma nota), o laço volta a ser o livre.
+- **Toque duplo da caneta mais exigente:** escrever ":" (dois pontinhos) não dispara mais o toque duplo. Agora ele precisa ser no mesmo ponto (até 8 px), com toques curtos e o segundo logo em seguida.
+
 ## Novidades da v0.24.10
 
 - **Colchete arredondado no "segurar para forma":** faça uma linha reta (vertical ou horizontal) com as pontas curvando para o mesmo lado — como "[", "└" ou só uma ponta — e segure a caneta parada no fim. O traço vira uma versão limpa: reta, com curvas redondas do tamanho que você desenhou e o rabinho no comprimento que você fez.

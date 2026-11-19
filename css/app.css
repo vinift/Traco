@@ -644,21 +644,6 @@ input,textarea,select,[contenteditable],[contenteditable] *,.text-edit,.text-edi
 .qs-acts .btn{padding:5px 10px;font-size:12.5px}
 .qs-empty{color:var(--chmuted);font-size:12.5px;margin:6px 8px}
 
-/* ===== v0.11 — Tela dividida ===== */
-#editor.split-on{right:var(--splitW,0px)}
-.split-pane{position:fixed;top:0;bottom:0;right:0;width:var(--splitW,45vw);background:var(--desk);display:flex;flex-direction:column;z-index:5;border-left:1px solid rgba(0,0,0,.12)}
-.spl-grip{position:absolute;left:-7px;top:0;bottom:0;width:14px;cursor:col-resize;touch-action:none;z-index:2}
-.spl-grip::after{content:'';position:absolute;left:5px;top:50%;width:4px;height:56px;margin-top:-28px;border-radius:2px;background:rgba(0,0,0,.25)}
-.spl-head{display:flex;align-items:center;gap:2px;margin:max(10px,var(--sat,0px)) 10px 6px;padding:3px 6px;border-radius:24px;background:var(--ch);color:var(--chfg);box-shadow:var(--shadow)}
-.spl-head .cbtn{width:38px;height:38px}
-.spl-title{flex:1;min-width:0;display:flex;align-items:center;gap:6px;border:0;background:transparent;color:inherit;font:inherit;font-size:14px;padding:0 10px;cursor:pointer;text-align:left}
-.spl-title span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.spl-scroll{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
-.spl-pages{margin:0 auto;padding:6px 12px 40px;display:flex;flex-direction:column;align-items:center;gap:12px;box-sizing:border-box}
-.spl-page{position:relative;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12);flex:none}
-.spl-cv{width:100%;height:100%;display:block}
-.spl-num{position:absolute;right:6px;bottom:4px;font-size:11px;color:rgba(0,0,0,.35)}
-
 /* ===== v0.11 — Sumário ===== */
 .ol-box{width:min(360px,86vw);max-height:70vh;overflow-y:auto}
 .ol-box .qs-head{padding-top:2px}
@@ -691,7 +676,6 @@ input,textarea,select,[contenteditable],[contenteditable] *,.text-edit,.text-edi
 .full-exit svg.ic{width:var(--ci,20px);height:var(--ci,20px)}
 .full-exit:hover,.full-exit:active{opacity:.9}
 #editor.immersive .full-exit{display:grid}
-#editor.split-on .ch-title{max-width:22vw}
 @media (max-width:900px){ .ch-title:not(.has-timer){display:none} .ch-title.has-timer .title-input,.ch-title.has-timer .note-clock,.ch-title.has-timer .note-bat{display:none} }
 .wchip.lifted,.cdot.lifted{transform:scale(1.15);box-shadow:0 4px 12px rgba(0,0,0,.25);transition:transform .12s}
 
@@ -799,3 +783,52 @@ input:not(:focus),textarea:not(:focus){-webkit-user-select:none;user-select:none
 /* v0.24.3: respiro entre os controles das seções de configuração (a seção Zoom estava apertada) */
 .set-sec > .grp, .set-sec > .field { margin: 10px 0; }
 .set-sec > .grp > label { flex: 1; min-width: 0; }
+
+/* ===== v0.25: rolagem rápida à esquerda para destros (longe da palma) ===== */
+.vscroll.vs-left{right:auto}
+.vscroll.vs-left .vs-thumb{right:auto;left:4px;justify-content:flex-start}
+.vscroll.vs-left .vs-thumb::after{margin-right:0;margin-left:3px}
+.vscroll.vs-left .vs-bubble{right:auto;left:28px}
+#editor .vscroll.vs-left{bottom:78px}
+/* v0.25: botão "editar pontos" ligado (seleção laranja) */
+#selBar .icon-btn.vedit-on{background:#f97316;color:#fff;border-radius:10px}
+
+/* ===== v0.25 — Tela dividida com lado ativo ===== */
+#editor.split-on #stage{left:var(--stL);width:var(--stW);right:auto}
+#editor.split-on .ch-title,#editor.split-on #hudPage,#editor.split-on #hudZoom{display:none}
+.sv-pane{position:absolute;top:0;bottom:0;left:var(--pvL);width:var(--pvW);overflow:hidden;background:var(--desk);touch-action:none;user-select:none;-webkit-user-select:none;z-index:1}
+.sv-pane.hidden,#editor:not(.split-on) .sv-pane:not(.sv-cover),#editor:not(.split-on) .sv-head,#editor:not(.split-on) .sv-mid,#editor:not(.split-on) .sv-div,#editor:not(.split-on) .sv-ring{display:none}
+.sv-pane.sv-cover{left:0;width:100%;z-index:1;pointer-events:none}
+#stage.sv-covering > canvas,#stage.sv-covering > #overlay{z-index:2}
+.sv-world{position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0;will-change:transform;pointer-events:none}
+.sv-pg{position:absolute;background:var(--pbg,#fff);box-shadow:0 1px 8px rgba(0,0,0,.16);overflow:hidden}
+.sv-pane.adopting .sv-pg:not(.ready){background:transparent;box-shadow:none}
+.sv-pg canvas{position:absolute;left:0;top:0;display:block}
+.sv-pg canvas.sv-cv{width:100%;height:100%}
+/* imagem do editor aproveitada enquanto o lado passivo desenha */
+.sv-adopted,.sv-adopted .w-frames,.sv-adopted .w-lvl{position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0;pointer-events:none}
+.sv-adopted .pgf{position:absolute;box-shadow:0 1px 8px rgba(0,0,0,.16);overflow:hidden}
+.sv-adopted .pgf .pgprev{position:absolute;left:0;top:0;width:100%;height:100%}
+.sv-adopted canvas.wt{position:absolute}
+.sv-div{position:absolute;top:0;bottom:0;left:calc(var(--divX) - 3px);width:6px;background:color-mix(in srgb,var(--chfg) 14%,var(--desk));z-index:7;touch-action:none;cursor:col-resize}
+.sv-div::before{content:'';position:absolute;left:-10px;right:-10px;top:0;bottom:0}
+.sv-div::after{content:'';position:absolute;left:1px;top:50%;width:4px;height:56px;margin-top:-28px;border-radius:2px;background:var(--chmuted);opacity:.6}
+.sv-div.drag::after{background:var(--chacc);opacity:1}
+.sv-ring{position:absolute;top:0;bottom:0;left:var(--stL);width:var(--stW);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--chacc) 55%,transparent);pointer-events:none;z-index:6}
+.sv-head{top:calc(max(10px,var(--sat,0px)) + var(--ptop,62px));display:flex;align-items:center;gap:2px;height:34px;padding:0 4px;border-radius:17px;background:var(--ch);box-shadow:0 1px 6px rgba(0,0,0,.1);transform:translateX(-50%)}
+.sv-head:not(.act) .sv-ttl{color:var(--chmuted);font-weight:500}
+#svHeadL{left:calc((var(--divX) - 3px) / 2);max-width:calc(var(--divX) - 170px)}
+#svHeadR{left:calc(var(--divX) + (100% - var(--divX)) / 2);max-width:calc(100% - var(--divX) - 60px)}
+.sv-head.act{box-shadow:0 0 0 2px color-mix(in srgb,var(--chacc) 50%,transparent),0 1px 6px rgba(0,0,0,.08)}
+.sv-ttl{display:flex;align-items:center;gap:5px;min-width:0;border:0;background:transparent;color:var(--chfg);font:inherit;font-size:13.5px;font-weight:600;padding:0 8px;cursor:pointer}
+.sv-ttl span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:24vw}
+.sv-ttl i{font-style:normal;opacity:.55;font-size:11px}
+.sv-chip{border:0;background:transparent;color:var(--chmuted);font:inherit;font-size:12.5px;font-variant-numeric:tabular-nums;padding:0 7px;height:28px;border-radius:14px;cursor:pointer;white-space:nowrap}
+.sv-chip:empty{display:none}
+.sv-lockb{display:none;color:var(--chmuted);padding:0 6px 0 2px}
+.sv-lockb svg.ic{width:15px;height:15px}
+#editor.sv-lockR #svHeadR .sv-lockb{display:inline-flex}
+.sv-mid{top:calc(max(10px,var(--sat,0px)) + var(--ptop,62px) + 44px);left:var(--divX);transform:translateX(-50%);display:flex;flex-direction:column;gap:2px;padding:3px;border-radius:22px;background:var(--ch);box-shadow:var(--shadow)}
+.sv-mid .cbtn{width:36px;height:36px}
+#editor.sv-lockR .sv-mid .cbtn:nth-child(2){background:var(--chacc);color:#fff;border-radius:50%}
+#editor.immersive .sv-head,#editor.immersive .sv-mid,#editor.writing .sv-head,#editor.writing .sv-mid{opacity:0;pointer-events:none}

@@ -178,7 +178,8 @@ Object.assign(Editor, {
 Object.assign(Editor, {
   initPenTriple() {
     /* v0.23: toque DUPLO (antes triplo), no mesmo lugar; a ação vem de Configurações → Botões da caneta (penDouble) */
-    const TAP_MS = 230, GAP_MS = 330, MOVE = 8, NEAR = 26;
+    /* v0.25: mais exigente — os dois pontos do ":" (pertinho e um logo depois do outro) disparavam o toque duplo. Agora: no MESMO ponto (≤ 8 px), toques curtos (< 200 ms) e o 2º logo em seguida (< 260 ms) */
+    const TAP_MS = 200, GAP_MS = 260, MOVE = 6, NEAR = 8;
     const skip = (e) => e.target.closest && e.target.closest('#selBar,#cropBar,#textBar,#hbar,.chrome');
     let down = null, taps = [];
     this.stage.addEventListener('pointerdown', (e) => {

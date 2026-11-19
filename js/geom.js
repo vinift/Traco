@@ -317,7 +317,12 @@ function transformEl(e, f) { // f: {sx, sy, ox, oy, dx, dy}  x' = ox + (x-ox)*sx
   const n = { ...e };
   if (e.type === 'stroke') { const p = new Array(e.pts.length); for (let i = 0; i < p.length; i += 3) { p[i] = r2(X(e.pts[i])); p[i + 1] = r2(Y(e.pts[i + 1])); p[i + 2] = e.pts[i + 2]; } n.pts = p; if (s !== 1) n.width = e.width * s; }
   else if (e.type === 'shape') {
-    if (e.kind === 'poly') { n.pts = e.pts.map((v, i) => r2(i % 2 ? Y(v) : X(v))); }
+    if (e.kind === 'poly' && e.br && f.sx > 0 && f.sy > 0) { /* v0.25: colchete continua ajustável depois de mover/redimensionar */
+      const b = e.br, A = b.v ? Y : X, C = b.v ? X : Y, kc = b.v ? f.sx : f.sy, kr = Math.min(f.sx, f.sy);
+      n.br = { ...b, sx: r2(C(b.sx)), top: r2(A(b.top)), bot: r2(A(b.bot)), hT: r2(b.hT * kc), hB: r2(b.hB * kc), rT: r2(b.rT * kr), rB: r2(b.rB * kr) };
+      const g = bracketShape(n.br); n.pts = g.pts; n.br = g.br;
+    }
+    else if (e.kind === 'poly') { n.pts = e.pts.map((v, i) => r2(i % 2 ? Y(v) : X(v))); delete n.br; }
     else { n.x1 = X(e.x1); n.y1 = Y(e.y1); n.x2 = X(e.x2); n.y2 = Y(e.y2); }
     if (s !== 1) n.width = e.width * s;
   } else if (e.type === 'text') {
@@ -377,6 +382,19 @@ function recognizeBracket(P, x1, y1, x2, y2) {
   const curveR = (fromTop, hk) => { const arr = fromTop ? seq : seq.slice().reverse(), e = arr[0], H = Math.abs(hk);
     for (const p of arr) { const d = Math.abs(p[0] - sx); if (d <= H * 0.5) { const ym = Math.abs(p[1] - e[1]); return clamp(d + ym + Math.sqrt(2 * d * ym), 2, H); } } return H; };
   const rT = hT ? Math.min(curveR(true, hT), L * 0.18) : 0, rB = hB ? Math.min(curveR(false, hB), L * 0.18) : 0;
+  return bracketShape({ v: vert, sx: r2(sx), top: r2(top), bot: r2(bot), hT: r2(hT), hB: r2(hB), rT: r2(rT), rB: r2(rB), rev: !aTop });
+}
+/* v0.25: o colchete guarda os parâmetros (br) para poder ser ajustado depois — segurando a caneta ou no modo "editar pontos".
+   br (como se fosse vertical; v = false troca x↔y): sx = posição da reta, top/bot = pontas no eixo, hT/hB = rabinhos (0 = sem gancho,
+   sinal = lado), rT/rB = raio das curvas, rev = pontos de baixo para cima (a ordem em que foi desenhado) */
+function bracketFix(br) {
+  const b = { ...br }; if (b.bot < b.top + 8) b.bot = b.top + 8; const L = b.bot - b.top;
+  b.rT = b.hT ? clamp(b.rT || Math.abs(b.hT) * 0.6, 1, Math.min(Math.abs(b.hT), L * 0.45)) : 0;
+  b.rB = b.hB ? clamp(b.rB || Math.abs(b.hB) * 0.6, 1, Math.min(Math.abs(b.hB), L * 0.45)) : 0;
+  return b;
+}
+function bracketShape(br0) {
+  const br = bracketFix(br0), { v: vert, sx, top, bot, hT, hB, rT, rB } = br, out = [];
   const push = (x, y) => { const q = vert ? [x, y] : [y, x]; out.push(r2(q[0]), r2(q[1])); };
   if (hT) { const sg = Math.sign(hT), r = rT, cx = sx + sg * r, cy = top + r;
     if (Math.abs(hT) > r + 0.5) push(sx + hT, top);
@@ -386,8 +404,8 @@ function recognizeBracket(P, x1, y1, x2, y2) {
     for (let k = 0; k <= 8; k++) { const t = (k / 8) * Math.PI / 2; push(cx - sg * r * Math.cos(t), cy + r * Math.sin(t)); }
     if (Math.abs(hB) > r + 0.5) push(sx + hB, bot);
   } else push(sx, bot);
-  if (!aTop) { const rev = []; for (let i = out.length - 2; i >= 0; i -= 2) rev.push(out[i], out[i + 1]); return { kind: 'poly', pts: rev, closed: false }; }
-  return { kind: 'poly', pts: out, closed: false };
+  if (br.rev) { const rev = []; for (let i = out.length - 2; i >= 0; i -= 2) rev.push(out[i], out[i + 1]); return { kind: 'poly', pts: rev, closed: false, br }; }
+  return { kind: 'poly', pts: out, closed: false, br };
 }
 function recognizeShape(flat) {
   const P = []; for (let i = 0; i < flat.length; i += 3) P.push([flat[i], flat[i + 1]]);
@@ -518,7 +536,7 @@ function rawCenter(e) { const b = rawBox(e); return { x: b.x + b.w / 2, y: b.y +
 function rotateEl(e, ang, cx, cy) {
   const R = (x, y) => rotPt(x, y, cx, cy, ang), n = { ...e };
   if (e.type === 'stroke') { const p = e.pts.slice(); for (let i = 0; i < p.length; i += 3) { const q = R(p[i], p[i + 1]); p[i] = r2(q[0]); p[i + 1] = r2(q[1]); } n.pts = p; return n; }
-  if (e.type === 'shape' && e.kind === 'poly') { const p = e.pts.slice(); for (let i = 0; i < p.length; i += 2) { const q = R(p[i], p[i + 1]); p[i] = r2(q[0]); p[i + 1] = r2(q[1]); } n.pts = p; return n; }
+  if (e.type === 'shape' && e.kind === 'poly') { delete n.br; const p = e.pts.slice(); for (let i = 0; i < p.length; i += 2) { const q = R(p[i], p[i + 1]); p[i] = r2(q[0]); p[i + 1] = r2(q[1]); } n.pts = p; return n; }
   if (e.type === 'shape' && (e.kind === 'line' || e.kind === 'arrow')) { const a = R(e.x1, e.y1), b = R(e.x2, e.y2); n.x1 = a[0]; n.y1 = a[1]; n.x2 = b[0]; n.y2 = b[1]; return n; }
   if (hasRot(e)) {
     const c = rawCenter(e), q = R(c.x, c.y), dx = q[0] - c.x, dy = q[1] - c.y;

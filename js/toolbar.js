@@ -85,6 +85,7 @@ const UI = {
     if (Editor.readOnly) Editor.setReadOnly(false);
     if (this.clipsOpen) this.closePanel();
     if (Editor.tool === t && !keepSel) { this.togglePanel(); return; }
+    { const L = Store.settings.tools.lasso; if (L && L.mode === 'shot' && t !== 'lasso') { L.mode = 'free'; this.save(); } } /* v0.25: o print nunca fica como padrão do laço */
     if (!keepSel && t !== 'lasso') Editor.sel = null;
     Editor.tool = t; this.editMode = false;
     this.buildToolbar(); this.renderOptions();
@@ -551,6 +552,7 @@ const UI = {
     }
     const cb = B('palette', 'Mudar cor', () => colorPop(cb, (Editor.selElements()[0] || {}).color || '#000000', (c) => Editor.recolorSel(c), PALETTE, { alpha: true }));
     if (Editor.selElements().some((e) => (e.type === 'stroke' || e.type === 'shape') && !e.lock)) { const wb = B('line', 'Espessura do traço', () => this.selWidthPop(wb)); }
+    { const one = Editor.selElements(); if (one.length === 1 && one[0].type === 'shape') { const vb = B('nodes', 'Editar pontos: vértices, arestas e curvas (a espessura não muda)', () => Editor.toggleVEdit()); if (Editor.vEdit) vb.classList.add('vedit-on'); } }
     B('copy', 'Copiar', () => Editor.copySel());
     B('cut', 'Recortar', () => Editor.cutSel());
     B('plus', 'Duplicar', () => Editor.duplicateSel());
