@@ -119,7 +119,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 
 ### Topo da nota
 - `.ch-title`: título + relógio (`#noteClock`, toque abre o cronômetro) + bateria (`#noteBat`, Battery API) + tempo de estudo (`#noteTimer`, roxo cheio / verde na pausa / laranja pausado). Escrevendo ou em tela cheia, o topo some mas o tempo de estudo fica. Ao parar de escrever, as barras voltam depois de `S.writeHideSec` s (padrão 2,5; `Focus.writingEnd`; desliga com `S.hideWhileWriting`).
-- Barra de status do Android: margens de área segura congeladas (`--sat/--sar/--sab/--sal` no CSS em vez de `env(safe-area-inset-*)`); `theme-color` acompanha a tela. A cor/transparência real da barra depende do TWA (no PWABuilder, modo de tela cheia "sticky"/imersivo, se disponível) — não dá para controlar só pelo site.
+- Barra de status do Android: margens de área segura congeladas (`--sat/--sar/--sab/--sal` no CSS em vez de `env(safe-area-inset-*)`); `theme-color` acompanha a tela. A cor/transparência real da barra depende do TWA. v0.26.3: `Immersive` (navigation.js) pede a Fullscreen API do Chrome em todo pointerup/keyup se não estiver em tela cheia (fora de display-mode browser; `S.keepFull`, padrão ligado) — no modo imersivo a barra só aparece por cima e some (o TWA às vezes saía da tela cheia, ex. painel de volume, e a página descia). O voltar do Android com tela cheia só SAI da tela cheia (sem popstate): `fullscreenchange` sem `leaving`, com app visível e sem popstate em 400 ms → `Nav.onBack()` (após 250 ms, cancelado se vier popstate).
 - Segurar o dedo não abre menu/seleção do Chrome em nada, exceto em campo de texto que já estava em uso antes do toque.
 
 ### Cronômetro de estudo (`js/timer.js`)
@@ -129,7 +129,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 
 ## 6. Configurações (`Store.settings`, chaves usadas)
 
-`penDouble` (ação do toque duplo), `split` (tela dividida, ver seção 5), `tools.lasso.mode` ('shot' nunca fica salvo: volta a 'free' depois do print, ao trocar de ferramenta e ao abrir nota), `penTriple` (legado: false → toque duplo desligado), `hand` (right/left/none), `vertexSnap` (grudar ângulos ao editar pontos), (`lockZoom` saiu na v0.26), `writeHideSec`/`hideWhileWriting` (barras ao escrever), `palmGuard`, `fingerDraws`, `scribbleErase`, `shapeHold`, `pressure`/`pressureSens`, `stabPen` (por tipo de caneta)/`stabHl`/`stabilizer` (legado), `autoBeautify` (0–10), `lowLatency`, `zoomQuality` (eco/high), `zoomMin`/`zoomMax`, `timerNotify`, `penMap` (botões físicos da caneta → ação), `presetGroups` (grupos de cores/espessuras), `widthPresets`/`colorPresets`, `tools` (estado de cada ferramenta), `barScale`/`barSize`, `theme`, `snap*` (guias), `hlSnapPdf`/`hlStraight`/`hlHold`, `straightAlways`, `ocr`, `drive`, `plugins`.
+`penDouble` (ação do toque duplo), `split` (tela dividida, ver seção 5), `tools.lasso.mode` ('shot' nunca fica salvo: volta a 'free' depois do print, ao trocar de ferramenta e ao abrir nota), `penTriple` (legado: false → toque duplo desligado), `hand` (right/left/none), `keepFull` (tela cheia imersiva p/ a barra do sistema ficar por cima), `vertexSnap` (grudar ângulos ao editar pontos), (`lockZoom` saiu na v0.26), `writeHideSec`/`hideWhileWriting` (barras ao escrever), `palmGuard`, `fingerDraws`, `scribbleErase`, `shapeHold`, `pressure`/`pressureSens`, `stabPen` (por tipo de caneta)/`stabHl`/`stabilizer` (legado), `autoBeautify` (0–10), `lowLatency`, `zoomQuality` (eco/high), `zoomMin`/`zoomMax`, `timerNotify`, `penMap` (botões físicos da caneta → ação), `presetGroups` (grupos de cores/espessuras), `widthPresets`/`colorPresets`, `tools` (estado de cada ferramenta), `barScale`/`barSize`, `theme`, `snap*` (guias), `hlSnapPdf`/`hlStraight`/`hlHold`, `straightAlways`, `ocr`, `drive`, `plugins`.
 
 ## 7. Testes (scripts Playwright avulsos — nada disso vai para o repositório)
 
@@ -188,6 +188,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 - v0.26.1 — toque duplo no editar pontos (`vTap` em shapeedit.js: no lado/linha → `insertVertex`, no vértice → `removeVertex`; toque = `a.maxD` < 2,5 px; o toque duplo global da caneta é ignorado em `initPenTriple` quando `vEditEl()`); pontos (r 5, quadrado 8, losango 5,5) e alças de redimensionar (r 5,5/quadrado 8) e girar (r 8) menores, com a mesma área de toque.
 
 - v0.26.2 — `toast` no canto inferior direito (`.toast` no fim do app.css: right/bottom com área segura, largura máx. min(300px, 26vw) para não encostar no `#hbar`).
+
+- v0.26.3 — `Immersive` (Fullscreen API mantida para a barra do sistema sobrepor em vez de empurrar; saída inesperada = voltar; `S.keepFull`). Teste: simular display-mode ≠ browser com `matchMedia` no `addInitScript`; `document.exitFullscreen()` simula o voltar.
 
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9).

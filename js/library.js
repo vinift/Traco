@@ -329,6 +329,7 @@ async function openSettings(focus) {
   const bar = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } }, UI.seg([['normal', 'Normal'], ['compact', 'Compacta'], ['mini', 'Bem compacta']], S.barSize || 'compact', (v) => { S.barSize = v; S.barScale = BAR_PRESETS[v]; Store.saveSettings(); applyBarSize(); const r = barSl.querySelector('input'); r.value = Math.round(S.barScale * 100); r.dispatchEvent(new Event('input')); }), barSl);
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Aparência e barras'),
     el('div', { class: 'field' }, el('label', {}, 'Tamanho das barras do editor (mais estreitas deixam mais espaço para escrever)'), bar),
+    UI.check('Barra do sistema por cima do app (o app fica em tela cheia e a tela não pula quando a barra aparece)', S.keepFull !== false, (v) => { S.keepFull = v; Store.saveSettings(); if (!v) Immersive.leave(); else Immersive.ensure(); }),
     UI.check('Esconder as barras do topo enquanto escrevo com a caneta', S.hideWhileWriting !== false, (v) => { S.hideWhileWriting = v; Store.saveSettings(); }),
     UI.slider('Barras voltam depois de parar de escrever', 1, 15, 0.5, +S.writeHideSec || 2.5, (v) => { S.writeHideSec = v; Store.saveSettings(); }, (v) => String(v).replace('.', ',') + ' s'),
     el('p', { class: 'muted' }, 'Tela cheia: botão ⛶ no topo do editor esconde as barras do topo (ferramentas, cores e espessuras continuam). Para sair, toque no botão discreto no canto superior direito.'),

@@ -191,6 +191,33 @@ const ZoomGuard = {
 /* ===== Altura estável =====
    Puxar a barra de horário/bateria do Android encolhe a tela por um instante e o app inteiro se redimensionava
    (barras pulando, página redesenhando). Agora encolhidas pequenas e passageiras são ignoradas; teclado e giro da tela continuam valendo. */
+/* ===== v0.26.3: barra do sistema sempre POR CIMA do app (sem empurrar a tela) =====
+   O app instalado (TWA) abre em tela cheia, mas o Android às vezes tira o app desse modo (painel de volume, voltar de outro app…): a barra
+   fica preta e a página inteira desce. Aqui o app entra no modo tela cheia "imersivo" do próprio Chrome (Fullscreen API), em que a barra do
+   sistema só aparece por cima e some sozinha, e volta para ele no toque seguinte se sair. Pedir tela cheia exige um toque (pointerup).
+   No Android, o botão voltar com tela cheia primeiro SAI da tela cheia (sem popstate): essa saída é tratada como um "voltar" normal
+   (Nav.onBack), a não ser que o popstate chegue logo em seguida ou o app tenha ido para segundo plano. Desliga em Configurações (S.keepFull). */
+const Immersive = {
+  ok() { return Store.settings.keepFull !== false && !!document.documentElement.requestFullscreen && window.matchMedia && !matchMedia('(display-mode: browser)').matches; },
+  init() {
+    if (!document.documentElement.requestFullscreen) return;
+    addEventListener('pointerup', () => this.ensure(), true); addEventListener('keyup', () => this.ensure(), true);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.hiddenAt = Date.now(); });
+    addEventListener('popstate', () => { this.lastPop = Date.now(); if (this.backT) { clearTimeout(this.backT); this.backT = null; } }, true);
+    document.addEventListener('fullscreenchange', () => {
+      if (document.fullscreenElement) { this.on = true; return; }
+      const was = this.on; this.on = false; if (!was || this.leaving || !this.ok()) { this.leaving = false; return; }
+      if (document.hidden || Date.now() - (this.hiddenAt || 0) < 1500 || Date.now() - (this.lastPop || 0) < 400) return;
+      /* saiu sem a gente pedir com o app na tela: foi o botão voltar */
+      this.backT = setTimeout(() => { this.backT = null; try { Nav.onBack(); } catch (e) { logError(e, 'voltar (tela cheia)'); } }, 250);
+    });
+  },
+  ensure() {
+    if (!this.ok() || document.fullscreenElement || this.pending) return;
+    this.pending = true; document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {}).finally(() => { this.pending = false; });
+  },
+  leave() { if (document.fullscreenElement) { this.leaving = true; document.exitFullscreen().catch(() => {}); } },
+};
 const StableVH = {
   h: 0, w: 0,
   init() { this.apply(innerHeight); addEventListener('resize', () => this.onResize()); },

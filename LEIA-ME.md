@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.26.3
+
+- **A barra do sistema não empurra mais a tela:**
+  - O app agora fica no modo tela cheia "imersivo" do Chrome. Quando a barra de horário/bateria aparece (painel de volume, deslizar do topo), ela fica por cima do app e some sozinha, sem a página descer.
+  - Se o Android tirar o app desse modo, o próximo toque na tela o coloca de volta.
+  - O botão voltar do Android continua funcionando normalmente.
+  - Dá para desligar em Configurações → Aparência e barras → "Barra do sistema por cima do app".
+
 ## Novidades da v0.26.2
 
 - **Avisos no canto inferior direito:** as mensagens pretas ("Colado", "Arraste os pontos…" etc.) agora aparecem no canto de baixo à direita, em vez de no meio da tela sobre a barra de baixo. As mais longas quebram em duas linhas.
