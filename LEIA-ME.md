@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.30.2
+
+- **Miniaturas da exportação:** tocar em cima de uma página e arrastar agora rola a faixa (antes só funcionava começando no espaço entre as páginas). Com o dedo, o arrasto usa os eventos de toque direto, que o Android não cancela; com a caneta também funciona. Um toque sem arrastar continua marcando/desmarcando a página.
+
 ## Novidades da v0.30.1
 
 - **Miniaturas da tela de exportar mais fáceis de rolar:** arraste em qualquer direção (dedo ou caneta) que a faixa rola de lado, com embalo; um toque sem arrastar marca/desmarca a página. As miniaturas carregam aos poucos (só as perto da tela), sem travar.

@@ -62,21 +62,28 @@ const ExportPanel = {
     if (!io) pump();
     let drag = null, vel = 0, raf = 0;
     const stopIn = () => { cancelAnimationFrame(raf); raf = 0; };
-    strip.addEventListener('pointerdown', (e) => { if (drag) return; stopIn(); drag = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: strip.scrollLeft, moved: 0, lt: performance.now(), lp: 0 }; vel = 0; try { strip.setPointerCapture(e.pointerId); } catch (_) {} });
-    strip.addEventListener('pointermove', (e) => {
-      if (!drag || e.pointerId !== drag.id) return;
-      const dx = e.clientX - drag.x, dy = e.clientY - drag.y, d = Math.abs(dx) >= Math.abs(dy) ? dx : dy; drag.moved = Math.max(drag.moved, Math.hypot(dx, dy));
-      if (drag.moved < 6) return;
+    /* v0.30.2: dedo por eventos de TOQUE (o Android cancelava o arrasto por ponteiro começado em cima de uma página);
+       caneta/mouse por eventos de ponteiro. Mesma lógica: arrastar em qualquer direção rola de lado; toque sem arrastar marca. */
+    const dStart = (id, x, y) => { stopIn(); drag = { id, x, y, sx: strip.scrollLeft, moved: 0, lt: performance.now() }; vel = 0; };
+    const dMove = (x, y) => {
+      const dx = x - drag.x, dy = y - drag.y, d = Math.abs(dx) >= Math.abs(dy) ? dx : dy; drag.moved = Math.max(drag.moved, Math.hypot(dx, dy));
+      if (drag.moved < 8) return;
       const now = performance.now(), pos = drag.sx - d; vel = 0.8 * ((pos - strip.scrollLeft) / Math.max(1, now - drag.lt)) + 0.2 * vel; drag.lt = now; strip.scrollLeft = pos;
-    });
-    const end = (e) => {
-      if (!drag || e.pointerId !== drag.id) return; const dd = drag; drag = null;
-      if (dd.moved < 6 && e.type === 'pointerup') { const t = document.elementFromPoint(e.clientX, e.clientY); const th = t && t.closest && t.closest('.xp-th'); if (th && strip.contains(th)) toggle(+th.dataset.i); return; }
+    };
+    const dEnd = (x, y, tap) => {
+      const dd = drag; drag = null; if (!dd) return;
+      if (dd.moved < 8) { if (tap) { const t = document.elementFromPoint(x, y); const th = t && t.closest && t.closest('.xp-th'); if (th && strip.contains(th)) toggle(+th.dataset.i); } return; }
       if (performance.now() - dd.lt > 80) vel = 0;
       let last = performance.now(); const step = (now) => { const dt = now - last; last = now; vel *= Math.pow(0.995, dt); if (Math.abs(vel) < 0.02) return (raf = 0); strip.scrollLeft += vel * dt; raf = requestAnimationFrame(step); };
       if (Math.abs(vel) > 0.05) raf = requestAnimationFrame(step);
     };
-    strip.addEventListener('pointerup', end); strip.addEventListener('pointercancel', end);
+    const find = (list, id) => { for (const t of list) if (t.identifier === id) return t; return null; };
+    strip.addEventListener('touchstart', (e) => { if (drag || e.defaultPrevented) return; const t = e.changedTouches[0]; dStart('t' + t.identifier, t.clientX, t.clientY); }, { passive: true });
+    strip.addEventListener('touchmove', (e) => { if (!drag || drag.id[0] !== 't') return; const t = find(e.touches, +drag.id.slice(1)); if (!t) return; if (e.cancelable) e.preventDefault(); dMove(t.clientX, t.clientY); }, { passive: false });
+    for (const ty of ['touchend', 'touchcancel']) strip.addEventListener(ty, (e) => { if (!drag || drag.id[0] !== 't') return; const t = find(e.changedTouches, +drag.id.slice(1)); if (!t) return; if (ty === 'touchend' && e.cancelable) e.preventDefault(); dEnd(t.clientX, t.clientY, ty === 'touchend'); }, { passive: false });
+    strip.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' || drag) return; dStart(e.pointerId, e.clientX, e.clientY); try { strip.setPointerCapture(e.pointerId); } catch (_) {} });
+    strip.addEventListener('pointermove', (e) => { if (drag && e.pointerId === drag.id) dMove(e.clientX, e.clientY); });
+    for (const ty of ['pointerup', 'pointercancel']) strip.addEventListener(ty, (e) => { if (drag && e.pointerId === drag.id) dEnd(e.clientX, e.clientY, ty === 'pointerup'); });
     strip.addEventListener('wheel', (e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { strip.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
     range.addEventListener('input', () => { const s = parsePageRange(range.value, n); if (s.size) { sel = s; paintSel(); } });
     allSw.addEventListener('change', () => { sel = allSw.checked ? new Set(note.pages.map((_, i) => i)) : new Set([cur]); paintSel(); });
