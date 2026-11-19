@@ -227,7 +227,7 @@ const SplitView = {
   prune() { const keep = new Set([Editor.note && Editor.note.id, this.pv && this.pv.note.id]); for (const k of [...this.mem.keys()]) if (!keep.has(k)) this.mem.delete(k); },
   async openFromLibrary(id) { /* biblioteca → "Abrir ao lado": a última nota usada fica à esquerda e esta à direita */
     const other = (this.S.recent || []).find((x) => x !== id && Store.heads[x]);
-    if (!other) { await App.openNote(id); return QuickSwitch.open($('#btnSplit'), 'split'); }
+    if (!other) { await App.openNote(id); return QuickSwitch.open($('#btnQuick'), 'split'); }
     await App.openNote(other); await this.open(id); this.visible(true);
   },
   /* ---------- trocar o lado ativo ---------- */

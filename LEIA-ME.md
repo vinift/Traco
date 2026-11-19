@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.30.1
+
+- **Miniaturas da tela de exportar mais fáceis de rolar:** arraste em qualquer direção (dedo ou caneta) que a faixa rola de lado, com embalo; um toque sem arrastar marca/desmarca a página. As miniaturas carregam aos poucos (só as perto da tela), sem travar.
+- Correção: em notas com muitas páginas, a janela de exportar podia abrir deslocada para fora da tela.
+- Saiu do topo o botão de tela dividida — abra ao lado pela troca rápida (abas de notas → "Abrir ao lado"). Para fechar a tela dividida, use o botão entre os dois lados.
+
 ## Novidades da v0.30.0
 
 - **Nova tela de exportar (estilo Notewise):** abas **Nota inteira** / **Páginas específicas**. Em páginas específicas aparecem as miniaturas com ✓ (toque para marcar/desmarcar), o campo de intervalo ("2-5, 8") e "Selecionar tudo". Exportar como **PDF** (com a qualidade Leve/Normal/Alta/Máxima ali mesmo) ou **Imagens** (uma PNG por página). Botões **Salvar** e **Compartilhar**. Também abre pelo menu da nota na biblioteca.

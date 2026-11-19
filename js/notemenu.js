@@ -48,11 +48,36 @@ const ExportPanel = {
     const pages = el('div', { class: 'xp-pages' }, strip, el('div', { class: 'xp-box' }, range, el('label', { class: 'xp-row' }, el('span', {}, 'Selecionar tudo'), el('span', { class: 'xp-switch' }, allSw, el('i')))));
     const thumbs = [];
     const paintSel = () => { thumbs.forEach((t, i) => t.classList.toggle('on', sel.has(i))); allSw.checked = sel.size === n; if (document.activeElement !== range) range.value = sel.size === n ? '' : rangeText(sel, n); go.textContent = label(); };
+    /* v0.30.1: miniaturas carregadas aos poucos (só as perto da tela, uma por vez) e rolagem própria da faixa:
+       arrastar em qualquer direção (dedo ou caneta) rola de lado, com inércia; toque sem arrastar marca/desmarca */
+    const toggle = (i) => { sel.has(i) ? sel.delete(i) : sel.add(i); paintSel(); };
+    const queue = [], pending = new Set(); let busyT = false;
+    const pump = async () => { if (busyT) return; busyT = true; while (queue.length && box.isConnected !== false) { const i = queue.shift(); try { thumbs[i]._img.src = await pageThumb(note, note.pages[i]); } catch (_) {} } busyT = false; };
+    const io = 'IntersectionObserver' in window ? new IntersectionObserver((es) => { for (const en of es) if (en.isIntersecting) { const i = +en.target.dataset.i; if (!pending.has(i)) { pending.add(i); queue.push(i); io.unobserve(en.target); } } queue.sort((a, b) => a - b); pump(); }, { root: strip, rootMargin: '0px 700px' }) : null;
     note.pages.forEach((p, i) => {
-      const img = el('img', { alt: '' }), t = el('button', { class: 'xp-th' + (i === cur ? ' cur' : ''), style: { width: Math.round((150 * (p.w || 1000)) / (p.h || 1414)) + 'px' }, onclick: () => { sel.has(i) ? sel.delete(i) : sel.add(i); paintSel(); } }, img, el('span', { class: 'xp-ck' }, '✓'));
-      thumbs.push(t); strip.append(el('div', { class: 'xp-thw' }, t, el('small', {}, String(i + 1))));
-      if (i < 60) pageThumb(note, p).then((u) => (img.src = u)).catch(() => {});
+      const img = el('img', { alt: '', draggable: 'false' }), t = el('div', { class: 'xp-th' + (i === cur ? ' cur' : ''), 'data-i': i, style: { width: Math.round((150 * (p.w || 1000)) / (p.h || 1414)) + 'px' } }, img, el('span', { class: 'xp-ck' }, '✓'));
+      t._img = img; thumbs.push(t); strip.append(el('div', { class: 'xp-thw' }, t, el('small', {}, String(i + 1))));
+      if (io) io.observe(t); else if (i < 40) { queue.push(i); }
     });
+    if (!io) pump();
+    let drag = null, vel = 0, raf = 0;
+    const stopIn = () => { cancelAnimationFrame(raf); raf = 0; };
+    strip.addEventListener('pointerdown', (e) => { if (drag) return; stopIn(); drag = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: strip.scrollLeft, moved: 0, lt: performance.now(), lp: 0 }; vel = 0; try { strip.setPointerCapture(e.pointerId); } catch (_) {} });
+    strip.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y, d = Math.abs(dx) >= Math.abs(dy) ? dx : dy; drag.moved = Math.max(drag.moved, Math.hypot(dx, dy));
+      if (drag.moved < 6) return;
+      const now = performance.now(), pos = drag.sx - d; vel = 0.8 * ((pos - strip.scrollLeft) / Math.max(1, now - drag.lt)) + 0.2 * vel; drag.lt = now; strip.scrollLeft = pos;
+    });
+    const end = (e) => {
+      if (!drag || e.pointerId !== drag.id) return; const dd = drag; drag = null;
+      if (dd.moved < 6 && e.type === 'pointerup') { const t = document.elementFromPoint(e.clientX, e.clientY); const th = t && t.closest && t.closest('.xp-th'); if (th && strip.contains(th)) toggle(+th.dataset.i); return; }
+      if (performance.now() - dd.lt > 80) vel = 0;
+      let last = performance.now(); const step = (now) => { const dt = now - last; last = now; vel *= Math.pow(0.995, dt); if (Math.abs(vel) < 0.02) return (raf = 0); strip.scrollLeft += vel * dt; raf = requestAnimationFrame(step); };
+      if (Math.abs(vel) > 0.05) raf = requestAnimationFrame(step);
+    };
+    strip.addEventListener('pointerup', end); strip.addEventListener('pointercancel', end);
+    strip.addEventListener('wheel', (e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { strip.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
     range.addEventListener('input', () => { const s = parsePageRange(range.value, n); if (s.size) { sel = s; paintSel(); } });
     allSw.addEventListener('change', () => { sel = allSw.checked ? new Set(note.pages.map((_, i) => i)) : new Set([cur]); paintSel(); });
     const setScope = (k) => { scope = k; [...tabs.children].forEach((b) => b.classList.toggle('on', b.dataset.k === k)); pages.style.display = k === 'some' ? '' : 'none'; if (k === 'all') sel = new Set(note.pages.map((_, i) => i)); else if (sel.size === n) sel = new Set([cur]); paintSel(); setTimeout(() => thumbs[cur] && thumbs[cur].scrollIntoView({ inline: 'center', block: 'nearest' }), 30); };
