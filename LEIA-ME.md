@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.31.1
+
+- **Espessura das formas do "segurar":** agora saem exatamente com a espessura selecionada na caneta (antes ficavam um pouco mais finas, 90% dela — ex.: 2,5 virava 2,25).
+
 ## Novidades da v0.31.0
 
 - **Colchete ("└") mais confiável:** quando a curva do canto é grande, o reconhecimento separava em dois cantos (4 vértices) e aí não alinhava. Agora junta num canto só (3 vértices), com a reta exatamente vertical e a ponta exatamente horizontal. Um ganchinho na hora de pousar a caneta também é ignorado.

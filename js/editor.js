@@ -684,7 +684,7 @@ const Editor = {
     }
     if (!r) return;
     if (r.kind === 'line') [r.x2, r.y2] = snapAngle(r.x1, r.y1, r.x2, r.y2);
-    a.shape = { id: uid(), type: 'shape', color: a.color, width: Math.max(1, a.width * 0.9), fill: null, dash: a.dash, ...r };
+    a.shape = { id: uid(), type: 'shape', color: a.color, width: a.width /* v0.31.1: sempre a espessura selecionada (antes 0,9×) */, fill: null, dash: a.dash, ...r };
     a.shapeAnchor = r.kind === 'line' ? null : { x1: r.x1, y1: r.y1 };
     if (a.shape.bk) { /* v0.31: colchete parecido com o último e ponto de partida para seguir a caneta sem entortar */
       a.shape = applyBracketStyle(a.shape, Store.settings.bracketStyle);
