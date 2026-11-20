@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.41.2
+
+- **Tamanho do hífen rápido nas Configurações:** em Configurações → Botões da caneta → "Hífen rápido" dá para ajustar o **comprimento** (em % do quadrado, padrão 25%) e o **deslocamento** em relação ao centro do quadrado (padrão 10% para baixo; também dá para subir).
+
 ## Novidades da v0.41.1
 
 - **Hífen rápido menor:** agora com cerca de um quarto da largura do quadrado (antes quase metade).

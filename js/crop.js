@@ -230,9 +230,10 @@ Object.assign(Editor, {
     const w = this.toWorld(p.x, p.y), pi = this.pageIndexAt(w.x, w.y, true), page = this.note.pages[pi]; if (!page) return false;
     const l = this.local(pi, w.x, w.y), tpl = page.template || this.note.template, has = tpl && tpl.type !== 'blank';
     const rows = has ? this.gridLines(tpl, page, 1) : null, cols = has ? this.gridLines(tpl, page, 0) : null;
-    let cx = l.x, cy = l.y, len = 14;
-    if (rows && rows.s > 0) { const k = Math.floor((l.y - rows.o) / rows.s); cy = rows.o + (k + 0.5) * rows.s + rows.s * 0.1; len = rows.s * 0.25; }
-    if (cols && cols.s > 0) { const k = Math.floor((l.x - cols.o) / cols.s); cx = cols.o + (k + 0.5) * cols.s; len = cols.s * 0.25; /* v0.41.1: ~1/4 do quadrado (antes 0,42) */ }
+    const S = Store.settings, kL = clamp((S.hyphenLen ?? 25) / 100, 0.05, 0.95), kD = clamp((S.hyphenDrop ?? 10) / 100, -0.45, 0.45); /* v0.41.2: comprimento e deslocamento nas Configurações (% do quadrado) */
+    let cx = l.x, cy = l.y, len = 56 * kL;
+    if (rows && rows.s > 0) { const k = Math.floor((l.y - rows.o) / rows.s); cy = rows.o + (k + 0.5) * rows.s + rows.s * kD; len = rows.s * kL; }
+    if (cols && cols.s > 0) { const k = Math.floor((l.x - cols.o) / cols.s); cx = cols.o + (k + 0.5) * cols.s; len = cols.s * kL; }
     const st = Store.settings.tools.pen, h = len / 2, el = { id: uid(), type: 'stroke', tool: 'pen', color: st.color, width: st.width, pen: st.type || 'ball', pts: [r2(cx - h), r2(cy), 0.5, r2(cx), r2(cy), 0.5, r2(cx + h), r2(cy), 0.5] };
     if (st.type === 'calli') el.nib = st.nib ?? 45; if (st.dash && st.dash !== 'solid') el.dash = st.dash;
     this.recAdd(page, el); this.opCommit(); return true;
