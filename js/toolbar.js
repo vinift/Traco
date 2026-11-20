@@ -562,7 +562,7 @@ const UI = {
   buildSelBar() {
     const bar = $('#selBar'); bar.innerHTML = '';
     const B = (ic, title, fn) => { const b = el('button', { class: 'icon-btn', title, onclick: fn }); b.innerHTML = icon(ic); bar.append(b); return b; };
-    const te = Editor.selTable(), ts = Editor.tsel;
+    const te = Editor.tableCells(), ts = Editor.tsel;
     if (te && ts && ts.id === te.id) return this.buildCellBar(bar, B, te, ts);
     if (Editor.selLocked()) { // bloqueados: só desbloquear ou copiar
       B('unlock', 'Desbloquear', () => Editor.lockSel(false));
@@ -582,6 +582,7 @@ const UI = {
     if (one.length === 1 && ['stroke', 'shape', 'text'].includes(one[0].type)) B('eyedrop', 'Conta-gotas: usar este estilo na ferramenta', () => Editor.pickStyle());
     if (one.length === 1 && one[0].type === 'text') B('text', 'Editar texto (ou toque duas vezes)', () => { const e = one[0], pg = Editor.pageById(Editor.sel.pageId); Editor.sel = null; Editor.openTextEditor(pg, e, false); });
     const els = Editor.selElements();
+    if (Editor.selTable()) { const tb = B('grid', Editor.tEdit ? 'Voltar a mover e redimensionar a tabela' : 'Editar células (linhas, colunas, cores, mesclar)', () => Editor.toggleTableCells()); if (Editor.tEdit) tb.classList.add('tcell-on'); } /* v0.39 */
     if (els.length === 1 && els[0].type === 'table') B('table', 'Ajustes da tabela', () => this.openTableEdit(els[0].id));
     if (els.length === 1 && els[0].type === 'image') B('crop', 'Recortar imagem', () => Editor.cropSel());
     if (Editor.selElements().some((e) => e.type === 'stroke' && e.tool === 'pen')) {
@@ -690,6 +691,7 @@ const UI = {
     sep();
     B('table', 'Ajustes da tabela', () => this.openTableEdit(e.id));
     B('check', 'Concluir seleção de células', () => { Editor.tsel = null; this.buildSelBar(); Editor.requestRender(); });
+    { const mv = B('grid', 'Voltar a mover e redimensionar a tabela', () => Editor.toggleTableCells(false)); mv.classList.add('tcell-on'); }
   },
 
   /* ---------- auxiliares usados nos diálogos ---------- */

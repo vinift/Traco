@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.39.0
+
+- **Tabela com dois modos, como a caixa de texto:**
+  - **Selecionada com o laço:** a tabela se comporta como qualquer item. Arrastar por dentro move, as alças redimensionam e o que estiver escrito dentro vai junto.
+  - **Editar células:** toque na tabela (com o dedo, ou duas vezes com a caneta) ou use o novo botão de grade na barra da seleção. A moldura fica verde-azulada e aparecem as faixas de linhas e colunas e a alça de mover no canto. Dá para tocar nas células para colorir, inserir ou excluir linhas e colunas, mesclar etc.
+  - O mesmo botão (verde-azulado) volta a mover e redimensionar.
+
 ## Novidades da v0.38.2
 
 - **Cor em degradê:** tocar na cor normal que é igual à primeira cor do degradê agora troca para a cor normal de verdade. Antes o app voltava direto para o degradê.

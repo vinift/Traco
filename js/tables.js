@@ -219,6 +219,10 @@ Object.assign(Editor, {
   },
 
   /* ---------- tabela selecionada: alças de linha/coluna, células, redimensionar linhas ---------- */
+  /* v0.39: tabela tem dois modos, como a caixa de texto: seleção comum (mover/redimensionar pelas alças) e "editar células"
+     (faixas de linhas/colunas, células, cores, mesclar — barra das células). tEdit liga pelo botão da barra ou toque (duplo, com a caneta) na tabela */
+  tableCells() { if (!this.tEdit) return null; const e = this.selTable(); if (!e) { this.tEdit = false; this.tsel = null; } return e; },
+  toggleTableCells(on = !this.tableCells()) { this.tEdit = !!on && !!this.selTable(); this.tsel = null; UI.buildSelBar(); this.requestRender(); if (this.tEdit) toast('Toque nas células, linhas ou colunas para editar', 1600); },
   selTable() { const els = this.selElements(); return els.length === 1 && els[0].type === 'table' && !els[0].rot ? els[0] : null; },
   tableScreen(e) { const pi = this.pageIdx(this.pageById(this.sel.pageId)), o = this.layout[pi], g = tableGrid(e); return { xs: g.xs.map((x) => this.toScreen(x + o.x, 0).x), ys: g.ys.map((y) => this.toScreen(0, y + o.y).y), o, pi }; },
   tableHit(e, p) {

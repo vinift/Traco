@@ -99,7 +99,7 @@ const Editor = {
     const cam = { ...this.cam }, page = this.currentPageIndex();
     this.saveNow().catch((e) => logError(e, 'trocar lado: salvar')); /* lê nota e título agora, grava depois */
     DB.get('meta', 'views').then((v) => { v = v || {}; v[note.id] = { ...cam, page, at: Date.now() }; return DB.put('meta', v, 'views'); }).catch(() => {});
-    this.sel = null; this.selTf = null; this.action = null; this.gesture = null; this.stopInertia(); this.pointers.clear(); this.vEdit = false; this.tsel = null; this.tPreview = null; this.guides = null;
+    this.sel = null; this.selTf = null; this.action = null; this.gesture = null; this.stopInertia(); this.pointers.clear(); this.vEdit = false; this.tEdit = false; this.tsel = null; this.tPreview = null; this.guides = null;
     if (this.inkOn) this.inkHide(); this.clearLive();
     const w = this.world; this.world = null; this.wFrames = null; this.wLevels = new Map(); this._frDivs = new Map(); this._frSig = null;
     this.tiles = new Map(); this.pcache = new Map(); this._curLvl = null; this._fbLvl = null; this._ovLvl = null; this._ovNext = null; this.imgEpoch = (this.imgEpoch || 0) + 1;
@@ -324,7 +324,10 @@ const Editor = {
     if (this.selLocked()) { // seleção bloqueada: só a moldura e um cadeado
       ctx.save(); ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
       ctx.fillStyle = '#6b7280'; ctx.beginPath(); ctx.roundRect(box.x + box.w - 22, box.y - 26, 22, 20, 6); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6; ctx.strokeRect(box.x + box.w - 16, box.y - 18, 10, 7); ctx.beginPath(); ctx.arc(box.x + box.w - 11, box.y - 19, 3, Math.PI, 0); ctx.stroke(); ctx.restore();
-    } else if (this.vEditEl()) { this.drawVEdit(box); } else {
+    } else if (this.vEditEl()) { this.drawVEdit(box); } else if (this.tableCells()) { /* v0.39: modo células da tabela — sem alças, moldura verde-azulada */
+      ctx.save(); ctx.strokeStyle = '#0d9488'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]); ctx.restore();
+      if (!this.selTf && !this.tPreview) this.drawTableOverlay(box);
+    } else {
     ctx.save(); ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
     for (const [h, x, y] of this.selHandles(box)) { /* v0.22: alças em todos os cantos e lados */
       /* v0.26.1: alças menores (a área de toque continua a mesma) */
@@ -338,7 +341,6 @@ const Editor = {
     if (this.ratioLabel) { ctx.fillStyle = '#ec4899'; ctx.font = '600 12px system-ui'; ctx.textAlign = 'right'; ctx.fillText(this.ratioLabel, box.x + box.w - 14, box.y + box.h + 22); }
     if (this.selTf && this.selTf.rot != null) { ctx.fillStyle = '#7c3aed'; ctx.font = '600 13px system-ui'; ctx.textAlign = 'center'; ctx.fillText(Math.round(this.selTf.rot * 180 / Math.PI) + '°', rx, ry - 18); }
     ctx.restore();
-    if (!this.selTf && !this.tPreview) this.drawTableOverlay(box);
     }
     if (this.selTf || this.tPreview) { bar.classList.add('hidden'); return; }
     if (bar.classList.contains('hidden') || bar.dataset.n !== String(this.sel.ids.size)) UI.buildSelBar();
@@ -845,7 +847,7 @@ const Editor = {
     const k = mode !== 'shot' && this.sel && this.selHit(p);
     if (k) { this.action = { ...base, kind: k, hh: this._sh, start: p, box: this.selScreenBox(), penFree: base.ptype === 'pen' }; /* v0.25: com a caneta, mover/redimensionar/girar é sempre livre (sem grudar), como com o 2º dedo */ if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
     this.tsel = null;
-    this.sel = null; this.vEdit = false; this.requestRender();
+    this.sel = null; this.vEdit = false; this.tEdit = false; this.requestRender();
     const pi = this.pageIndexAt(w.x, w.y, true);
     this.action = { ...base, kind: 'lasso', pi, pts: [[p.x, p.y]], mode };
   },
@@ -895,10 +897,9 @@ const Editor = {
        Antes o raio de 26 px das alças cobria a caixa inteira e não dava para arrastar coisas pequenas */
     const small = Math.min(box.w, box.h), inBox = p.x >= box.x && p.x <= box.x + box.w && p.y >= box.y && p.y <= box.y + box.h;
     if (this.vEditEl()) { const n = this.vHit(p); if (n) { this._vn = n; return 'vnode'; } return inBox ? 'move' : null; } /* v0.25: editar pontos da forma */
-    if (!(small < 70 && inBox && !this.selTable())) { let best = null, bd = small < 70 ? 20 : 26; for (const [h, x, y] of this.selHandles(box)) { const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = h; } } if (best) { this._sh = best; return 'scale'; } }
+    { const tc = this.tableCells(); if (tc) { const h = this.tableHit(tc, p); this._thit = h; return h ? (h.k === 'tmove' ? 'move' : 'tableact') : null; } } /* v0.39: tabela no modo células */
+    if (!(small < 70 && inBox)) { let best = null, bd = small < 70 ? 20 : 26; for (const [h, x, y] of this.selHandles(box)) { const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = h; } } if (best) { this._sh = best; return 'scale'; } }
     if (Math.hypot(p.x - (box.x + box.w / 2), p.y - (box.y - 34)) < 24) return 'rotate';
-    const te = this.selTable();
-    if (te) { const h = this.tableHit(te, p); this._thit = h; return h ? (h.k === 'tmove' ? 'move' : 'tableact') : null; }
     if (p.x >= box.x && p.x <= box.x + box.w && p.y >= box.y && p.y <= box.y + box.h) return 'move';
     return null;
   },

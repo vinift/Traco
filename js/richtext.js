@@ -480,6 +480,7 @@ Object.assign(Editor, {
     const ck = this.checkAt(page, l); if (ck && this.sel.ids.has(ck.e.id)) return this.toggleCheck(page, ck.e, ck.ci);
     const els = this.selElements(), now = performance.now();
     if (els.length === 1 && els[0].type === 'text' && !els[0].lock && (a.ptype === 'touch' || (this._lastTap && this._lastTap.id === els[0].id && now - this._lastTap.t < 450))) { this._lastTap = null; const e = els[0]; this.sel = null; return this.openTextEditor(page, e, false); }
+    if (els.length === 1 && els[0].type === 'table' && !els[0].lock && !this.tEdit && (a.ptype === 'touch' || (this._lastTap && this._lastTap.id === els[0].id && now - this._lastTap.t < 450))) { this._lastTap = null; return this.toggleTableCells(true); } /* v0.39: toque (dedo) ou toque duplo (caneta) na tabela → editar células */
     if (els.length === 1) this._lastTap = { id: els[0].id, t: now };
   },
   /* toque curto da caneta: alterna ☐, ou toque duplo num texto abre a edição (o pontinho só entra se não for toque duplo) */
