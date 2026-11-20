@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.39.1
+
+- **Mover só um pouquinho funciona:** arrastar uma seleção por 1 ou 2 pixels (com a caneta ou o dedo) agora fica gravado. Antes, qualquer movimento menor que ~3,5 px era tratado como toque e a forma voltava ao lugar. Só conta como toque o que quase não mexe, ou um toque rápido.
+
 ## Novidades da v0.39.0
 
 - **Tabela com dois modos, como a caixa de texto:**

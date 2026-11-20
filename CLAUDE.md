@@ -122,7 +122,7 @@ Não confirmado (não deu para ler a doc do PWABuilder daqui): se há uma opçã
 
 ### Seleção
 - Alças: 4 cantos (proporcional, ancorado no canto oposto) + 4 lados (estica um eixo); texto só tem laterais; itens girados só cantos. Alça de girar em cima. Seleção pequena (caixa < 70 px na tela): tocar dentro sempre move; alças só por fora, raio 20 px (`selHit`).
-- Mover pouco (v0.26): só é toque se o máximo deslocamento < 3,5 px (`a.maxD`); movimento < 14 px não gruda (`near0` em `moveSel`).
+- Mover pouco (v0.26; v0.39.1): `Editor.isTapMove(a, md)` — só é toque se o máximo deslocamento < 1,2 px, ou < 4 px E < 200 ms (`a.t0`, gravado no `startLasso` e no início do mover com o dedo); vale para mover e para `vnode`. Antes < 3,5 px sempre voltava ao lugar (o usuário escreve pequeno e precisa de ajustes de 1–3 px). Movimento < 14 px não gruda (`near0` em `moveSel`).
 - Busca na nota (v0.28, `noteSearchPop` em ui.js): também no texto do PDF via `PdfFind` (workspace.js): `readPage(ref)` lê `getTextContent`, agrupa em linhas `[texto, y, h, [[início, x, w, tamanho]…]]` e guarda em meta `'pdftxt:<blobId>'` (salva a cada 40 páginas); `findIn` compara por caractere sem acento (`normCh`) e calcula o retângulo pela proporção dentro de cada pedaço. Resultado → `Editor.flashRects(i, rects, true, 'keep')` (marca fica até a caneta tocar a página; `drawFlash` para de pedir quadros depois do pulso). Busca cancelável (`token.stop`) e com progresso.
 - Laço: forma é selecionada se algum ponto está dentro OU se o traço do laço cruza a linha dela (`elInLasso`).
 - Com a caneta, mover/redimensionar/girar é sempre livre (`action.penFree`, mesmo efeito do `noSnap` do 2º dedo).
@@ -259,6 +259,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 - v0.38.2 — cor normal igual à 1ª do degradê voltava ao degradê (`Fades.active` só compara `st.color === st.fadeBase`): agora toda escolha de cor normal faz `st.fade = null`. Teste: degradê ativo → traço com `fade`; clique na bolinha #111827 → `st.fade` null e traço sem `fade`. Cuidado no teste: `UI.setTool('pen')` com a caneta já ativa abre o painel da ferramenta e a caneta simulada não desenha.
 
 - v0.39.0 — tabela com seleção comum (mover/redimensionar) e modo "editar células" separado (`tEdit`). Teste (toque CDP): arrastar pelo meio 120,120 → 162,150; alça do canto 360×180 → 402×201; toque → `tEdit`; toque na célula → `tsel` 'cell' 0,0 com a barra das células; botão → volta, `tsel` null.
+
+- v0.39.1 — ajuste fino ao mover (`isTapMove`). Teste (caneta e dedo CDP, 2,5 dpr, arrasto lento de 320 ms): 1 px → andou 0,7 un.; 2 px → 1,4 (antes 0 nos dois); 4/6/10 px iguais a antes; toque na tabela continua entrando no modo células.
 
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).

@@ -305,6 +305,9 @@ const Editor = {
     this.evictTiles(); if (allDone && !st.zooming) { this.schedulePrefetch(); if (this.lowLat) this.inkPrepLater(); }
     if (this._lastCam !== `${this.cam.x}|${this.cam.y}|${this.cam.z}`) { this._lastCam = `${this.cam.x}|${this.cam.y}|${this.cam.z}`; this.viewDebounced(); }
   },
+  /* v0.39.1: arrastar a seleção só conta como TOQUE se quase não mexeu (< 1,2 px) ou se foi rápido (< 200 ms) e curto (< 4 px).
+     Ajuste fino e lento (1–3 px, para quem escreve pequeno) fica gravado — antes < 3,5 px sempre voltava ao lugar */
+  isTapMove(a, md) { const dt = performance.now() - (a.t0 || 0); return md < 1.2 || (md < 4 && dt < 200); },
   selElements() { if (!this.sel) return []; const p = this.pageById(this.sel.pageId); return p ? p.elements.filter((e) => this.sel.ids.has(e.id)) : []; },
   selScreenBox() {
     const els = this.selElements(); if (!els.length) return null;
@@ -616,7 +619,7 @@ const Editor = {
     if (a.kind === 'cropout') return;
     if (a.kind === 'lasso') { if (a.mode === 'free') a.pts.push([p.x, p.y]); else a.pts = [a.pts[0], [p.x, p.y]]; this.drawLasso(); return; }
     if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate') { if (a.start) a.maxD = Math.max(a.maxD || 0, Math.hypot(p.x - a.start.x, p.y - a.start.y)); return this.moveSel(p); }
-    if (a.kind === 'vnode') { if (a.start) a.maxD = Math.max(a.maxD || 0, Math.hypot(p.x - a.start.x, p.y - a.start.y)); if ((a.maxD || 0) < 2.5) return; return this.moveVNode(p); }
+    if (a.kind === 'vnode') { if (a.start) a.maxD = Math.max(a.maxD || 0, Math.hypot(p.x - a.start.x, p.y - a.start.y)); if ((a.maxD || 0) < 1.2) return; return this.moveVNode(p); }
     if (a.kind === 'tableact') return this.moveTableAct(p);
     if (a.kind === 'shape') return this.moveShape(w);
     if (a.kind === 'table') return this.moveTable(w);
@@ -631,8 +634,8 @@ const Editor = {
     if (a.kind === 'draw') return this.endDraw(a);
     if (a.kind === 'erase') { this.clearLive(); this.opCommit(); return; }
     if (a.kind === 'lasso') return this.endLasso(a);
-    if (a.kind === 'move') { const p = this.pt(e), tap = Math.max(a.maxD || 0, Math.hypot(p.x - a.start.x, p.y - a.start.y)) < 3.5; /* v0.25.1: só é toque se quase não mexeu (antes < 8 px: arrastar um pouquinho voltava ao lugar) */ if (tap) { this.selTf = null; this.guides = null; this.ratioLabel = null; this.requestRender(); if (this.vEditEl()) return this.vTap(p, null); return this.tapOnSel(a, p); } }
-    if (a.kind === 'vnode' && (a.maxD || 0) < 2.5) { this.selTf = null; this.requestRender(); return this.vTap(this.pt(e), a.node || this._vn); } /* toque num ponto (sem arrastar) */
+    if (a.kind === 'move') { const p = this.pt(e), md = Math.max(a.maxD || 0, Math.hypot(p.x - a.start.x, p.y - a.start.y)), tap = this.isTapMove(a, md); /* v0.25.1: só é toque se quase não mexeu (antes < 8 px: arrastar um pouquinho voltava ao lugar) */ if (tap) { this.selTf = null; this.guides = null; this.ratioLabel = null; this.requestRender(); if (this.vEditEl()) return this.vTap(p, null); return this.tapOnSel(a, p); } }
+    if (a.kind === 'vnode' && this.isTapMove(a, a.maxD || 0)) { this.selTf = null; this.requestRender(); return this.vTap(this.pt(e), a.node || this._vn); } /* toque num ponto (sem arrastar) */
     if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate' || a.kind === 'vnode') return this.endMoveSel();
     if (a.kind === 'shape') return this.endShape(a);
     if (a.kind === 'table') return this.endTable(a);
@@ -845,7 +848,7 @@ const Editor = {
   startLasso(base, p, w) {
     const mode = (Store.settings.tools.lasso || {}).mode || 'free';
     const k = mode !== 'shot' && this.sel && this.selHit(p);
-    if (k) { this.action = { ...base, kind: k, hh: this._sh, start: p, box: this.selScreenBox(), penFree: base.ptype === 'pen' }; /* v0.25: com a caneta, mover/redimensionar/girar é sempre livre (sem grudar), como com o 2º dedo */ if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
+    if (k) { this.action = { ...base, kind: k, hh: this._sh, start: p, t0: performance.now(), box: this.selScreenBox(), penFree: base.ptype === 'pen' }; /* v0.25: com a caneta, mover/redimensionar/girar é sempre livre (sem grudar), como com o 2º dedo */ if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
     this.tsel = null;
     this.sel = null; this.vEdit = false; this.tEdit = false; this.requestRender();
     const pi = this.pageIndexAt(w.x, w.y, true);
