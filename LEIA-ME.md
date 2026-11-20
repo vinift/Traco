@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.41.1
+
+- **Hífen rápido menor:** agora com cerca de um quarto da largura do quadrado (antes quase metade).
+
 ## Novidades da v0.41.0
 
 - **Hífen rápido no quadrado:** o hífen sai no centro do quadrado da grade, um pouquinho abaixo do meio, com a cor, a espessura e o tipo da caneta selecionada. Duas formas de usar (escolha nas Configurações → Botões da caneta):
