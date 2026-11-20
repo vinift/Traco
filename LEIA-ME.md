@@ -153,6 +153,15 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.39.2
+
+- **Melhorar escrita (✨) sem letras subindo e descendo:**
+  - A parte de baixo de cada letra agora encosta na linha da pauta (ou da grade) em que a frase está.
+  - Letras com perna (g, p, q, j) continuam com a perna abaixo da linha.
+  - Sinais pequenos no meio da altura, como o hífen, ficam onde estão.
+  - Em página lisa, as letras se alinham pela base da própria frase.
+- **Relatório de estudo:** tocar numa barra mostra as matérias estudadas naquele dia (ou naquela semana, em "12 semanas") e o tempo de cada uma, incluindo "Fora das notas" (tempo com o cronômetro rodando na biblioteca).
+
 ## Novidades da v0.39.1
 
 - **Mover só um pouquinho funciona:** arrastar uma seleção por 1 ou 2 pixels (com a caneta ou o dedo) agora fica gravado. Antes, qualquer movimento menor que ~3,5 px era tratado como toque e a forma voltava ao lugar. Só conta como toque o que quase não mexe, ou um toque rápido.

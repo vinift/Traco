@@ -1141,3 +1141,6 @@ select{border-radius:14px!important}
 .fd-chip .xbadge{position:absolute;top:-6px;right:-6px}
 /* v0.39: botão "editar células" da tabela ligado */
 #selBar .icon-btn.tcell-on{background:#0d9488;color:#fff;border-radius:10px}
+/* v0.39.2: matérias do dia tocado no relatório */
+.sr-tip .sr-daylist{margin-top:8px;text-align:left}
+.sr-tip b{font-weight:600}

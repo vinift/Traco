@@ -279,8 +279,8 @@ const StudyReport = {
       const keys = []; for (let i = nDays - 1; i >= 0; i--) keys.push(dayK(i));
       /* barras: por dia (7/30) ou por semana (12 semanas, começando na segunda) */
       let bars;
-      if (this.period !== '84') bars = keys.map(([k, d]) => ({ v: this.sum(map[k]), lab: this.period === '7' ? ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][d.getDay()] : d.getDate() % 5 === 0 || d.getDate() === 1 ? String(d.getDate()) : '', tip: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }), goal }));
-      else { bars = []; for (let w = 0; w < 12; w++) { const part = keys.slice(w * 7, w * 7 + 7); const v = part.reduce((a, [k]) => a + this.sum(map[k]), 0), d0 = part[0][1], d1 = part[part.length - 1][1]; bars.push({ v, lab: w % 2 === 0 ? d0.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '', tip: d0.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + '–' + d1.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), goal: goal * 7 }); } }
+      if (this.period !== '84') bars = keys.map(([k, d]) => ({ v: this.sum(map[k]), lab: this.period === '7' ? ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][d.getDay()] : d.getDate() % 5 === 0 || d.getDate() === 1 ? String(d.getDate()) : '', tip: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }), goal, ks: [k] }));
+      else { bars = []; for (let w = 0; w < 12; w++) { const part = keys.slice(w * 7, w * 7 + 7); const v = part.reduce((a, [k]) => a + this.sum(map[k]), 0), d0 = part[0][1], d1 = part[part.length - 1][1]; bars.push({ ks: part.map((x) => x[0]), v, lab: w % 2 === 0 ? d0.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '', tip: d0.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + '–' + d1.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), goal: goal * 7 }); } }
       const vals = keys.map(([k]) => this.sum(map[k])), total = vals.reduce((a, b) => a + b, 0), studied = vals.filter((v) => v > 0).length;
       const hit = vals.filter((v) => v >= goal).length;
       let streak = 0; { let i = 0; if (this.sum(map[dayK(0)[0]]) < goal) i = 1; for (; i < 400; i++) { if (this.sum(map[dayK(i)[0]]) >= goal) streak++; else break; } }
@@ -295,8 +295,16 @@ const StudyReport = {
       /* gráfico (uma série: altura = tempo; linha tracejada = meta) */
       const max = Math.max(...bars.map((b) => b.v), bars[0].goal * 1.1, 1), tipEl = el('div', { class: 'sr-tip' }, 'Toque numa barra para ver o tempo');
       const gl = el('div', { class: 'sr-goal', style: { bottom: (bars[0].goal / max) * 100 + '%' } }, el('span', {}, 'meta'));
+      /* v0.39.2: tocar na barra mostra as matérias daquele dia (ou semana) com o tempo de cada uma */
+      const showBar = (b) => {
+        const m = new Map(); for (const k of b.ks || []) for (const [id, v] of Object.entries(map[k] || {})) { const sj = this.subjectOf(id), cur = m.get(sj.key) || { ...sj, v: 0 }; cur.v += v; m.set(sj.key, cur); }
+        const L = [...m.values()].sort((x, y) => y.v - x.v), mx = Math.max(1, ...L.map((x) => x.v));
+        tipEl.innerHTML = ''; tipEl.append(el('b', {}, `${b.tip}: ${T.fmtDur(b.v)}${b.v >= b.goal ? ' ✓ meta' : ''}`));
+        if (L.length) tipEl.append(el('div', { class: 'sr-list sr-daylist' }, ...L.map((x) => el('div', { class: 'sr-row' }, el('span', { class: 'sr-name' }, el('i', { class: 'sr-dot', style: { background: x.color } }), x.name), el('span', { class: 'sr-track' }, el('i', { style: { width: (x.v / mx) * 100 + '%' } })), el('b', {}, T.fmtDur(x.v))))));
+        else tipEl.append(el('div', { class: 'tm-hint' }, 'Nada registrado.'));
+      };
       const plot = el('div', { class: 'sr-plot' + (bars.length > 14 ? ' dense' : '') }, gl, ...bars.map((b) => {
-        const c = el('button', { class: 'sr-col', title: `${b.tip}: ${T.fmtDur(b.v)}`, onclick: () => { [...plot.querySelectorAll('.sr-col.on')].forEach((x) => x.classList.remove('on')); c.classList.add('on'); tipEl.textContent = `${b.tip}: ${T.fmtDur(b.v)}${b.v >= b.goal ? ' ✓ meta' : ''}`; } },
+        const c = el('button', { class: 'sr-col', title: `${b.tip}: ${T.fmtDur(b.v)}`, onclick: () => { [...plot.querySelectorAll('.sr-col.on')].forEach((x) => x.classList.remove('on')); c.classList.add('on'); showBar(b); } },
           el('i', { class: b.v >= b.goal ? 'hit' : '', style: { height: b.v ? Math.max(2, (b.v / max) * 100) + '%' : '0' } }), el('small', {}, b.lab));
         return c;
       }));

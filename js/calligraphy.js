@@ -160,10 +160,27 @@ async function beautifySelection() {
       const all = w.gs.flatMap((g) => g.ids); if (shift) mapPts(all, (x, y) => [x + shift, y]);
       if (gT != null) for (let k = 1; k < w.gs.length; k++) { const prev = w.gs[k - 1], g = w.gs[k], pb = bbOf(prev.ids), b = bbOf(g.ids), gap = b.x - (pb.x + pb.w), dx = (gT - gap) * 0.6; if (Math.abs(dx) > 0.05) { const rest = w.gs.slice(k).flatMap((q) => q.ids); mapPts(rest, (x, y) => [x + dx, y]); shift += dx; } }
       const b = bbOf(all), y = ysOf(all), real = b.h > core * 0.55;
-      if (real) { const med = pct(y, 0.5), sc = 1 + (clamp(cT / wc[wi], 0.85, 1.2) - 1) * 0.5, dy = (midT - med) * 0.7, ox = b.x; mapPts(all, (x, yy) => [ox + (x - ox) * sc, med + (yy - med) * sc + dy]); shift += b.w * (sc - 1); }
+      if (real) { const med = pct(y, 0.5), sc = 1 + (clamp(cT / wc[wi], 0.85, 1.2) - 1) * 0.5, dy = 0 /* v0.39.2: a altura agora é decidida pela base na linha (passo 6) */, ox = b.x; mapPts(all, (x, yy) => [ox + (x - ox) * sc, med + (yy - med) * sc + dy]); shift += b.w * (sc - 1); }
     });
     /* 5) alisamento leve */
     const sig = clamp(core * 0.05, 0.3, 2.2); for (const id of ids) ptsOf.set(id, Array.from(smoothArc(ptsOf.get(id), sig)));
+    /* 6) v0.39.2: base de cada letra ENCOSTANDO na linha da pauta/grade em que a linha escrita está (sem pauta: na base mediana da
+       própria linha). Antes as palavras eram puxadas para o meio da linha e subiam/desciam. Letra com perna (g, p, q, j — o fundo bem
+       abaixo da base) e sinal pequeno no meio da altura (hífen) só acompanham o deslocamento da linha, sem encostar o fundo */
+    {
+      const wOf = (lids) => Math.max(...lids.map((id) => orig.get(id).width || 1));
+      const gs = splitLetters(L.items.map((o) => cur(o.e)), core).map((g) => { const lids = g.items.map((e) => e.id), b = bbOf(lids); return { lids, bot: b.y + b.h, h: b.h, w: wOf(lids) }; });
+      const body = gs.filter((g) => g.h >= core * 0.35).map((g) => g.bot).sort((a, b) => a - b);
+      if (body.length) {
+        const b0 = body[Math.floor((body.length - 1) / 2)], rg = Editor.ruledFor(page);
+        const target = rg && rg.s > 0 ? rg.o + Math.round((b0 - rg.o) / rg.s) * rg.s : b0, lineShift = target - b0;
+        for (const g of gs) {
+          const desc = g.bot > b0 + core * 0.3 && g.h > core * 1.3, mark = g.h < core * 0.35 && g.bot < b0 - core * 0.2;
+          const dy = desc || mark ? lineShift : target - g.w * 0.45 - g.bot; /* o centro do traço fica meia espessura acima: a tinta encosta na linha */
+          if (Math.abs(dy) > 0.01) mapPts(g.lids, (x, y) => [x, y + dy]);
+        }
+      }
+    }
   }
   for (const [id, p] of ptsOf) { const e = orig.get(id), cur = page.elements.find((x) => x.id === id); if (cur) Editor.recReplace(page, cur, { ...e, pts: p.map((v) => r2(v)) }); }
   Editor.opCommit(); UI.buildSelBar(); Editor.requestRender();
