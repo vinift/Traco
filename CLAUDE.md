@@ -288,6 +288,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v0.42.1 — ajuste manual no relatório (`StudyReport.adjust(render)`/`manualAdd(d, k, ms)`): grava em `log.days[dia]['f:<pastaId>']` ('f:~' = sem matéria, '_' = fora das notas) e lista em `log.manual` [{id, d, k, ms, at}] (até 200) com "Desfazer"; `subjectOfNote('f:…')` resolve a matéria pela pasta; "Tirar" limitado ao que a matéria tem no dia (`dayMap`); chaves 'f:' ficam fora de "Notas mais estudadas". Corrigido "null" no relatório (`box.append` nativo escrevia os `null` → `.filter(Boolean)`). Teste: 22 min na nota + 8 de ajuste → matéria 30; tirar 50 → dia 0; desfazer → 30.
 
+- v0.42.2 — botão "Recarregar" no relatório (`.sr-reload` em `.sr-top`, ao lado das abas de período): `T.boundary(now)` se o cronômetro roda, relê meta 'studyLog' para `T.log` e chama `render()`. Teste: log trocado por fora no IndexedDB (10 → 45 min) → depois do toque o total mostra 45 min.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

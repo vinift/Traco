@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.42.2
+
+- **Recarregar o relatório:** botão **Recarregar** no topo do relatório de estudo. Ele grava o tempo que está correndo agora, relê o histórico salvo e redesenha os números e gráficos.
+
 ## Novidades da v0.42.1
 
 - **Ajustar tempo no relatório:** botão **Ajustar tempo** (ao lado da meta diária) para adicionar ou tirar minutos de uma matéria num dia, quando perceber que o registro ficou errado. Os ajustes ficam listados na mesma janela e cada um pode ser desfeito. Tirar nunca deixa a matéria abaixo de zero naquele dia.

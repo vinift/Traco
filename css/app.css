@@ -1169,3 +1169,9 @@ select{border-radius:14px!important}
 .sr-manual .sr-row{grid-template-columns:1fr auto auto}
 .sr-manual b.neg{color:var(--danger)}
 .sr-undo{padding:4px 10px;font-size:12px}
+/* v0.42.2: recarregar o relatório */
+.sr-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.sr-reload{display:inline-flex;align-items:center;gap:6px}
+.sr-reload svg{width:18px;height:18px}
+.sr-reload.spin svg{animation:sr-spin .6s linear infinite}
+@keyframes sr-spin{to{transform:rotate(360deg)}}

@@ -396,7 +396,13 @@ const StudyReport = {
       const goalIn = el('input', { type: 'number', min: 5, max: 900, step: 15, value: Math.round(goal / 60000), class: 'sr-goalin', onchange: () => { Store.settings.studyGoal = clamp(Math.round(+goalIn.value || 60), 5, 900); Store.saveSettings(); render(); } });
       const per = el('div', { class: 'xp-tabs sr-per' }, ...[['7', '7 dias'], ['30', '30 dias'], ['84', '12 semanas']].map(([k, n]) => el('button', { class: 'xp-tab' + (this.period === k ? ' on' : ''), onclick: () => { this.period = k; render(); } }, n)));
       box.innerHTML = '';
-      box.append(...[per, tiles, awTot >= 60000 ? el('p', { class: 'tm-hint sr-away' }, `${T.fmtDur(awTot)} com o cronômetro rodando e o app fora da tela (tela apagada ou outro app) — não contou. Toque numa barra para ver o dia.`) : null, el('div', { class: 'sr-sec' }, this.period === '84' ? 'Tempo por semana' : 'Tempo por dia'), plot, tipEl,
+      /* v0.42.2: recarregar — fecha o trecho em andamento, relê o histórico gravado e redesenha */
+      const reload = el('button', { class: 'btn sr-reload', title: 'Recarregar informações', onclick: async () => {
+        reload.classList.add('spin');
+        try { if (T.st && T.st.running) T.boundary(Date.now()); await new Promise((r) => setTimeout(r, 120)); const l = await DB.get('meta', 'studyLog'); if (l && l.days) T.log = l; } catch (e) { console.warn('relatório', e); }
+        render(); toast('Relatório atualizado', 1500);
+      } }, iconEl('refresh'), 'Recarregar');
+      box.append(...[el('div', { class: 'sr-top' }, per, reload), tiles, awTot >= 60000 ? el('p', { class: 'tm-hint sr-away' }, `${T.fmtDur(awTot)} com o cronômetro rodando e o app fora da tela (tela apagada ou outro app) — não contou. Toque numa barra para ver o dia.`) : null, el('div', { class: 'sr-sec' }, this.period === '84' ? 'Tempo por semana' : 'Tempo por dia'), plot, tipEl,
         el('div', { class: 'sr-goalrow' }, el('label', {}, 'Meta diária ', goalIn, ' min'), el('button', { class: 'btn sr-adj', onclick: () => this.adjust(render) }, 'Ajustar tempo')),
         el('div', { class: 'sr-sec' }, 'Por matéria'), sl.length ? subjBox : el('p', { class: 'tm-hint' }, 'Sem tempo registrado neste período. O tempo conta com o cronômetro rodando e o app aberto.'), !Store.folders.some((f) => f.subject) ? el('p', { class: 'tm-hint' }, 'Dica: marque pastas como matéria (menu ⋯ da pasta → "Marcar como matéria" ou "Transformar as subpastas em matérias").') : null,
         nl.length ? el('div', { class: 'sr-sec' }, 'Notas mais estudadas') : null, nl.length ? noteBox : null].filter(Boolean));
