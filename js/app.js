@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.38.0',
+  version: '0.38.1',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -45,7 +45,7 @@ const App = {
   keepPlace() { try { sessionStorage.setItem('traco-lib-place', JSON.stringify({ folder: Library.folder, view: Library.view })); } catch (_) {} },
   restorePlace() {
     let p = null; try { p = JSON.parse(sessionStorage.getItem('traco-lib-place') || localStorage.getItem('traco-lib-place') || 'null'); sessionStorage.removeItem('traco-lib-place'); } catch (_) {} /* v0.29: também depois que o Android fecha o app */
-    if (!p) return; Library.view = p.view || 'home';
+    if (!p) return; Library.view = p.view && p.view !== 'recent' ? p.view : 'home';
     Library.folder = p.folder && Store.folderChain(p.folder).length ? p.folder : null;
   },
   /* procura uma versão nova no GitHub; se houver, salva a nota, atualiza e reinicia */
@@ -88,7 +88,7 @@ const App = {
   wire() {
     on(['btnNewNote2'], async () => { const n = await newNoteDialog(Library.folder); if (n) this.openNote(n.id); });
     on(['btnSettings'], () => openSettings());
-    on(['btnStudyReport'], () => StudyReport.open());
+    /* v0.38.1: botões "Recentes" e "Estudo" saíram da barra lateral (Notas recentes + cartão Estudo de hoje) */
     on(['btnEdSettings'], (e) => NoteMenu.open(e.currentTarget));
     on(['btnUpdate'], (e) => this.checkUpdate(e.currentTarget));
     $('#libSearch').addEventListener('input', (e) => { Library.query = e.target.value; Library.render(); });
