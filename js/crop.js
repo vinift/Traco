@@ -183,7 +183,7 @@ Object.assign(Editor, {
     const skip = (e) => e.target.closest && e.target.closest('#selBar,#cropBar,#textBar,#hbar,.chrome');
     let down = null, taps = [];
     this.stage.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'pen' || !(e.buttons & 1) || penDoubleAction() === 'none' || !this.note || this.crop || skip(e)) { down = null; return; }
+      if (e.pointerType !== 'pen' || !(e.buttons & 1) || !this.note || this.crop || skip(e)) { down = null; return; } /* v0.40: mesmo com a ação 'nada', o toque duplo num colchete continua o colchete */
       if (this.vEditEl && this.vEditEl()) { down = null; taps = []; return; } /* v0.26.1: editando pontos, o toque duplo é para criar/remover vértice */
       const now = performance.now(), last = taps[taps.length - 1];
       if (!last || now - last.up > GAP_MS || Math.hypot(e.clientX - taps[0].x, e.clientY - taps[0].y) > NEAR) {
@@ -201,12 +201,29 @@ Object.assign(Editor, {
       taps.push({ x: d.x, y: d.y, up: now });
       if (taps.length < 2) return;
       taps = []; const base = this._tripleBase, was = this._tripleTool;
-      setTimeout(() => this.penTripleFire(base, was), 0); // depois que o editor terminar de tratar o 2º toque
+      setTimeout(() => this.penTripleFire(base, was, { x: d.x, y: d.y }), 0); // depois que o editor terminar de tratar o 2º toque
     };
     this.stage.addEventListener('pointerup', up, true);
     this.stage.addEventListener('pointercancel', () => { down = null; }, true);
   },
-  penTripleFire(base, was) {
+  /* v0.40: toque duplo da caneta em cima (na área) de um colchete → cria outro colchete que continua a mesma reta e termina
+     DUAS linhas da pauta/grade abaixo do fim deste (pula uma linha), com a mesma ponta, curva, cor e espessura. A reta nova começa
+     em (canto − raio), como no encadear da v0.34.1, então passa direto pela junção. Sem pauta: o mesmo comprimento do colchete tocado */
+  bracketChain(pos) {
+    const r = this.stage.getBoundingClientRect(), w = this.toWorld(pos.x - r.left, pos.y - r.top), pi = this.pageIndexAt(w.x, w.y, true), page = this.note.pages[pi]; if (!page) return false;
+    const l = this.local(pi, w.x, w.y), m = 18 / this.cam.z;
+    for (let i = page.elements.length - 1; i >= 0; i--) {
+      const e = page.elements[i]; if (e.type !== 'shape' || e.kind !== 'path' || e.lock) continue;
+      const b = elBBox(e); if (l.x < b.x - m || l.x > b.x + b.w + m || l.y < b.y - m || l.y > b.y + b.h + m) continue;
+      const k = bracketBottom(e); if (!k) continue;
+      const rg = this.ruledFor(page), step = rg && rg.s > 0 ? 2 * rg.s : Math.max(20, k.len), y2 = k.y + step;
+      const n = { id: uid(), type: 'shape', kind: 'path', pts: [k.x, k.y - k.r, k.x, y2, k.x + k.tip, y2].map(r2), rr: [0, r2(k.r), 0], color: e.color, width: e.width, fill: null };
+      if (e.dash) n.dash = e.dash; if (e.opacity != null) n.opacity = e.opacity;
+      this.recAdd(page, n); this.opCommit(); toast('Colchete continuado', 900); return true;
+    }
+    return false;
+  },
+  penTripleFire(base, was, pos) {
     if (!this.note) return;
     if (this._penDot) { clearTimeout(this._penDot.timer); this._penDot = null; } // pontinho ainda não gravado: descarta
     if (this.textEl) this.commitText();
@@ -215,8 +232,9 @@ Object.assign(Editor, {
     while (this.undoStack.length && this.undoStack[this.undoStack.length - 1].t >= base) { this.undo(); n++; }
     if (n) this.redoStack.splice(this.redoStack.length - n, n);
     this.sel = null; this.updateUndoBtns();
+    if (pos && this.bracketChain(pos)) { if (navigator.vibrate) navigator.vibrate(12); this.requestRender(); return; } /* v0.40: em cima de um colchete → continua o colchete, sem trocar de ferramenta */
     if (navigator.vibrate) navigator.vibrate(12);
-    const act = penDoubleAction();
+    const act = penDoubleAction(); if (act === 'none') return this.requestRender();
     if (act === 'lassoToggle') { /* laço ↔ caneta (a caneta volta com o tipo, cor e espessura de antes) */
       const to = was === 'lasso' ? 'pen' : 'lasso'; UI.setTool(to, true); toast(to === 'pen' ? 'Caneta' : 'Laço', 700);
     } else if (act === 'eraserToggle') {

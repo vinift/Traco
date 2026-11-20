@@ -563,6 +563,22 @@ function rdpIdx(P, eps) { /* RDP devolvendo os índices */
   while (st.length) { const [a, b] = st.pop(); let dm = 0, im = -1; for (let i = a + 1; i < b; i++) { const d = distSeg(P[i][0], P[i][1], P[a][0], P[a][1], P[b][0], P[b][1]); if (d > dm) { dm = d; im = i; } } if (dm > eps && im > 0) { keep[im] = 1; st.push([a, im], [im, b]); } }
   const out = []; for (let i = 0; i < P.length; i++) if (keep[i]) out.push(i); return out;
 }
+/* v0.40: canto de baixo de um colchete ("└", "[", "┘"…): vértice interno com um vizinho EM CIMA (reta quase vertical) e o outro
+   ao lado (ponta quase horizontal). Devolve o mais baixo: { x, y, r (raio do canto), tip (ponta, com sinal), len (comprimento da reta) } */
+function bracketBottom(e) {
+  if (!e || e.kind !== 'path' || !e.pts || e.pts.length < 6) return null;
+  const P = e.pts, n = P.length / 2; let best = null;
+  for (let i = 1; i < n - 1; i++) {
+    const x = P[i * 2], y = P[i * 2 + 1];
+    for (const [a, c] of [[i - 1, i + 1], [i + 1, i - 1]]) {
+      const vx = P[a * 2] - x, vy = P[a * 2 + 1] - y, hx = P[c * 2] - x, hy = P[c * 2 + 1] - y;
+      if (vy < 0 && Math.abs(vx) <= Math.abs(vy) * 0.25 && Math.abs(hy) <= Math.abs(hx) * 0.35 && Math.abs(hx) > 1) {
+        if (!best || y > best.y) best = { x, y, r: (e.rr && e.rr[i]) || 0, tip: hx, len: -vy };
+      }
+    }
+  }
+  return best;
+}
 function recognizeShape(flat, z = 1) {
   const P = []; for (let i = 0; i < flat.length; i += 3) P.push([flat[i], flat[i + 1]]);
   if (P.length < 3) return null;

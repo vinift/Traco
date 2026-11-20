@@ -153,6 +153,17 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.40.0
+
+- **Cronômetro em tela cheia:** no painel do cronômetro, toque em "Tela cheia".
+  - O tempo aparece bem grande, com a fase (Cronômetro, Foco, Pausa…), a barra de progresso no temporizador e no Pomodoro, o nome da nota e os botões Pausar/Continuar, Zerar e Pular.
+  - A cor muda: roxo rodando, verde na pausa do Pomodoro, laranja pausado.
+  - Enquanto está aberta, a tela não apaga sozinha. Fecha pelo × ou pelo voltar do Android.
+- **Continuar colchete com toque duplo da caneta:** dê um toque duplo com a caneta em cima de um colchete.
+  - Sai um colchete novo que continua a mesma reta e termina duas linhas da pauta/grade abaixo do fim do anterior (pula uma linha), com a mesma ponta, curva, cor e espessura.
+  - Pode repetir no colchete novo para continuar descendo.
+  - Nesse caso a ferramenta não muda (o toque duplo em outro lugar continua trocando laço/caneta).
+
 ## Novidades da v0.39.2
 
 - **Melhorar escrita (✨) sem letras subindo e descendo:**

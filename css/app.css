@@ -1144,3 +1144,17 @@ select{border-radius:14px!important}
 /* v0.39.2: matérias do dia tocado no relatório */
 .sr-tip .sr-daylist{margin-top:8px;text-align:left}
 .sr-tip b{font-weight:600}
+/* v0.40: cronômetro em tela cheia */
+.tm-full{background:var(--home)}
+.tm-full .sp-head{background:transparent}
+.tmf-note{font-size:15px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tmf-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:0 24px 8vh}
+.tmf-sub{font-size:clamp(16px,2.4vw,24px);color:var(--muted);letter-spacing:.02em}
+.tmf-big{font-size:clamp(84px,19vw,260px);font-weight:300;line-height:1;font-variant-numeric:tabular-nums;color:var(--accent);letter-spacing:-.02em}
+.tm-full.brk .tmf-big{color:#16a34a}
+.tm-full.paused .tmf-big{color:#ea580c}
+.tmf-prog{width:min(560px,80vw);height:8px;border-radius:4px;background:color-mix(in srgb,var(--accent) 16%,transparent);overflow:hidden}
+.tmf-prog i{display:block;height:100%;background:var(--accent);border-radius:4px;transition:width .9s linear}
+.tmf-prog.empty{visibility:hidden}
+.tmf-ctrl{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.tmf-btn{font-size:17px;padding:12px 26px;border-radius:999px}

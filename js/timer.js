@@ -140,9 +140,35 @@ const StudyTimer = {
       n.title = `${this.phaseName()}${s.running ? '' : ' (pausado)'} · toque para abrir`;
     }
     const ct = document.querySelector('.ch-title'); if (ct) ct.classList.toggle('has-timer', show);
+    if (this.full && this.full.isConnected) { if (this._fullKey !== s.running + '|' + s.acc + '|' + s.phase + '|' + s.mode) this.renderFull(); else { const b = this.full.querySelector('.tmf-big'); if (b && b.textContent !== txt) b.textContent = txt; const pr = this.full.querySelector('.tmf-prog i'); if (pr && this.hasTarget()) pr.style.width = clamp(1 - this.remaining() / Math.max(1, s.target), 0, 1) * 100 + '%'; } }
     if (this.pop && this.pop.isConnected) { const b = this.pop.querySelector('.tm-big'); if (b) b.textContent = txt; const st = this.pop.querySelector('.tm-stats'); if (st && (!this._statT || Date.now() - this._statT > 15000)) { this._statT = Date.now(); st.replaceWith(this.statsEl()); } }
   },
 
+  /* ---------- v0.40: cronômetro em tela cheia ----------
+     Página inteira (.settings-page → o voltar do Android fecha) com o tempo bem grande, a fase, a nota e os controles.
+     Pede para a tela não apagar (Wake Lock) enquanto está aberta — o histórico só conta com o app na tela. */
+  openFull() {
+    closePop(); if (this.full && this.full.isConnected) return;
+    const close = el('button', { class: 'cbtn', title: 'Fechar', onclick: () => this.closeFull() }); close.innerHTML = icon('x');
+    const pg = el('div', { class: 'settings-page tm-full' }, el('div', { class: 'sp-head' }, close, el('span', { class: 'tmf-note' }, '')), el('div', { class: 'tmf-body' }));
+    document.body.append(pg); this.full = pg; this.renderFull();
+    try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then((l) => { this._wake = l; }).catch(() => {}); } catch (_) {}
+  },
+  closeFull() { const pg = this.full; this.full = null; if (pg) pg.remove(); try { if (this._wake) this._wake.release(); } catch (_) {} this._wake = null; },
+  renderFull() {
+    const pg = this.full; if (!pg || !pg.isConnected) return; const s = this.st, P = s.pomo, body = pg.querySelector('.tmf-body');
+    const n = this.curNote(); pg.querySelector('.tmf-note').textContent = n ? n.title : '';
+    const btn = (label, fn, cls = '') => el('button', { class: 'btn tmf-btn ' + cls, onclick: fn }, label);
+    const brk = s.mode === 'pomodoro' && s.phase !== 'focus', sub = s.mode === 'pomodoro' ? `${this.phaseName()} · 🍅 ${s.cycle % P.every}/${P.every}` : this.phaseName();
+    const prog = this.hasTarget() ? el('div', { class: 'tmf-prog' }, el('i', { style: { width: clamp(1 - this.remaining() / Math.max(1, s.target), 0, 1) * 100 + '%' } })) : null;
+    body.innerHTML = ''; pg.classList.toggle('brk', brk); pg.classList.toggle('paused', !s.running);
+    body.append(el('div', { class: 'tmf-sub' }, sub + (!s.running && s.acc > 0 ? ' · pausado' : '')), el('div', { class: 'tmf-big' }, this.display()), prog || el('div', { class: 'tmf-prog empty' }),
+      el('div', { class: 'tmf-ctrl' },
+        s.running ? btn('Pausar', () => this.pause()) : btn(s.acc > 0 ? 'Continuar' : 'Iniciar', () => this.start(), 'primary'),
+        !this.idle() ? btn(s.mode === 'pomodoro' ? 'Parar' : 'Zerar', () => this.reset()) : null,
+        s.mode === 'pomodoro' && !this.idle() ? btn(s.phase === 'focus' ? 'Pular para a pausa' : 'Pular pausa', () => this.skip()) : null));
+    this._fullKey = s.running + '|' + s.acc + '|' + s.phase + '|' + s.mode;
+  },
   /* ---------- painel ---------- */
   open(anchor) { const box = el('div', { class: 'tm-pop' }); this.pop = box; this.renderPanel(true); openPop(anchor, box, { onClose: () => { if (this.pop === box) this.pop = null; } }); this.pop = box; },
   renderPanel(force) {
@@ -157,7 +183,8 @@ const StudyTimer = {
       el('div', { class: 'tm-ctrl' },
         s.running ? btn('Pausar', () => this.pause()) : btn(s.acc > 0 ? 'Continuar' : 'Iniciar', () => this.start(), 'primary'),
         !this.idle() ? btn(s.mode === 'pomodoro' ? 'Parar' : 'Zerar', () => this.reset()) : null,
-        s.mode === 'pomodoro' && !this.idle() ? btn(s.phase === 'focus' ? 'Pular para a pausa' : 'Pular pausa', () => this.skip()) : null),
+        s.mode === 'pomodoro' && !this.idle() ? btn(s.phase === 'focus' ? 'Pular para a pausa' : 'Pular pausa', () => this.skip()) : null,
+        el('button', { class: 'btn tm-fullbtn', title: 'Abrir em tela cheia', onclick: () => this.openFull() }, 'Tela cheia')),
     ];
     if (s.mode === 'countdown' && idle) {
       const inp = el('input', { type: 'number', min: 1, max: 600, value: s.cdMin, class: 'tm-num', onchange: () => this.setCountdown(+inp.value || s.cdMin) });
