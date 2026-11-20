@@ -54,7 +54,7 @@ function yPercentiles(strokes, qs) {
 }
 
 /* botão "Melhorar escrita" (laço) */
-function beautifySelection() {
+function beautifySelectionOld() { /* v0.36: substituída pela de calligraphy.js (fica para referência) */
   if (!Editor.sel) return; const page = Editor.pageById(Editor.sel.pageId);
   const lines = OCR.groupLines(Editor.selElements()); if (!lines.length) return toast('Selecione escrita feita com a caneta');
   const cur = (e) => page.elements.find((x) => x.id === e.id);

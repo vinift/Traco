@@ -580,7 +580,7 @@ const UI = {
     if (Editor.selElements().some((e) => e.type === 'stroke' && e.tool === 'pen')) {
       B('ocr', 'Reconhecer texto (copiar ou converter)', () => recognizeSelection());
       B('align', 'Alinhar a escrita na horizontal', () => straightenSelection());
-      B('sparkle', 'Melhorar escrita (alisa, endireita e iguala o tamanho das palavras)', () => beautifySelection());
+      B('sparkle', 'Melhorar escrita (endireita, corrige a inclinação e aproxima as letras do seu caderno de caligrafia)', () => beautifySelection());
     }
     const d = B('trash', 'Excluir', () => Editor.deleteSel()); d.style.color = 'var(--danger)';
   },

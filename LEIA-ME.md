@@ -153,6 +153,17 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.36.0
+
+- **Caderno de caligrafia** (Configurações → Escrita e caneta → "✍ Caderno de caligrafia…"): escreva cada letra (minúsculas, maiúsculas, números e acentos) do seu jeito mais bonito, em cima da linha de base — até 3 versões por letra. O app guarda e usa no "Melhorar escrita".
+- **"Melhorar escrita" (✨ no laço) refeito:**
+  - endireita a linha e **corrige a inclinação** (letras em pé);
+  - reconhece cada letra comparando com o seu caderno e **aproxima** a sua letra do modelo (padrão 60%, ajustável no caderno); se não tiver certeza de qual letra é, não mexe (evita trocar letra errada);
+  - deixa o **espaço entre letras** e a altura das palavras mais iguais, de forma suave (antes aumentava demais as palavras);
+  - alisamento leve. Desfazer volta tudo de uma vez.
+  - Letras emendadas (cursiva ligada) não dá para separar: elas só recebem o "arrumar".
+- **Busca nas Configurações:** campo "Buscar uma opção…" no topo da lista — mostra só as opções com o texto procurado (sem diferenciar acento/maiúscula).
+
 ## Novidades da v0.35.0
 
 - **Tempo de estudo por matéria:** pastas podem virar **matérias** — o tempo de estudo das notas dentro delas (e das subpastas) soma para a matéria.

@@ -405,6 +405,7 @@ async function openSettings(focus) {
       })(),
       UI.slider('Melhorar escrita automático (ao levantar a caneta)', 0, 10, 1, autoBeautifyLevel(), (v) => { S.autoBeautify = v; Store.saveSettings(); }, (v) => (v === 0 ? 'desligado' : String(v))),
       el('p', { class: 'muted' }, 'Arredonda as curvas e tira o tremido sem apagar os cantos das letras. Para arrumar algo já escrito: laço → botão ✨ "Melhorar escrita" (também iguala o tamanho e a altura das palavras).'),
+      el('div', { class: 'field' }, el('button', { class: 'btn', onclick: () => caligraphyNotebook() }, '✍ Caderno de caligrafia…'), el('p', { class: 'muted' }, 'Escreva cada letra do seu jeito mais bonito; o ✨ "Melhorar escrita" do laço aproxima as suas letras destas.')),
       UI.check('Modo de baixa latência para a caneta (a tinta aparece mais rápido; reabra o app depois de mudar)', S.lowLatency === true, (v) => { S.lowLatency = v; Store.saveSettings(); toast('Reabra o app para aplicar'); }),
       el('p', { class: 'muted' }, 'Estabilização do traço (0 a 10): fica no painel de cada caneta — cada tipo guarda o seu nível.'),
       )));
@@ -488,9 +489,24 @@ function settingsPage(body, focus, onClose) {
     }
     const close = () => { page.remove(); onClose && onClose(); resolve(); };
     const back = el('button', { class: 'cbtn round', title: 'Voltar', onclick: close }); back.innerHTML = icon('arrowLeft');
+    const ITEM = '.chk,.field,.grp,.sl-row,.slider-row,.pen-map-row,.plugin-row,.seg,p,button,label,select,input';
+    const spItems = (node) => { const out = []; for (const c of node.children) { if (c.tagName === 'H3') continue; if (!c.matches(ITEM) && c.children.length > 1) out.push(...spItems(c)); else out.push(c); } return out; }; /* opções "folha" (desce nos blocos que só agrupam) */
+    /* v0.36: busca nas configurações — mostra só os itens (e seções) com o texto procurado, sem acento/maiúscula */
+    const nrm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const empty = el('p', { class: 'sp-empty hidden' }, 'Nada encontrado nas configurações.');
+    const search = el('input', { class: 'sp-search', type: 'search', placeholder: 'Buscar uma opção…', oninput: () => {
+      const q = nrm(search.value.trim()); let any = false;
+      for (const sec of secs) {
+        const kids = spItems(sec), titleHit = q && nrm(sec.querySelector('h3').textContent).includes(q); let hits = 0;
+        for (const c of kids) { const ok = !q || titleHit || nrm(c.textContent).includes(q) || [...c.querySelectorAll('option')].some((o) => nrm(o.textContent).includes(q)); c.classList.toggle('sp-hide', !ok); if (ok) hits++; }
+        sec.classList.toggle('sp-hide', !!q && !hits); if (hits) any = true;
+        const b = nav.querySelector(`[data-sec="${sec.id}"]`); if (b) b.classList.toggle('sp-dim', !!q && !hits);
+      }
+      empty.classList.toggle('hidden', !q || any); content.scrollTop = 0;
+    } });
     const page = el('div', { class: 'settings-page' },
       el('header', { class: 'sp-head' }, back, el('h1', {}, 'Configurações'), el('span', { class: 'sp-ver' }, 'v' + App.version)),
-      el('div', { class: 'sp-body' }, nav, content));
+      el('div', { class: 'sp-body' }, el('div', { class: 'sp-side' }, search, nav), el('div', { class: 'sp-main' }, empty, content)));
     content.addEventListener('scroll', () => { // destaca a seção visível
       let cur = null; for (const sec of content.children) if (sec.offsetTop - content.scrollTop < 140) cur = sec.id;
       $$('.sp-item', nav).forEach((b) => b.classList.toggle('on', b.dataset.sec === cur));

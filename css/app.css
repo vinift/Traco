@@ -1047,3 +1047,32 @@ select{border-radius:14px!important}
 .subj-chip{display:inline-block;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:1px 7px;margin-right:6px;vertical-align:1px}
 .fdot.subj{box-shadow:0 0 0 2px var(--side,var(--panel)),0 0 0 3.5px var(--accent)}
 .tm-subj{display:flex;align-items:center;gap:6px;min-width:0}
+/* v0.36: caderno de caligrafia */
+.cal{display:flex;flex-direction:column;gap:12px}
+.cal-tabs{align-self:flex-start}
+.cal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px}
+.cal-key{border:0;border-radius:12px;background:var(--panel2);color:var(--text);padding:6px 0 4px;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:background-color .15s ease}
+.cal-key b{font-size:18px;font-weight:600}
+.cal-key small{font-size:9px;color:var(--muted);letter-spacing:1px;min-height:11px}
+.cal-key.has small{color:var(--accent)}
+.cal-key.on{background:var(--accent-soft);box-shadow:0 0 0 2px var(--accent) inset}
+.cal-edit{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.cal-ch{font-size:56px;font-weight:600;min-width:60px;text-align:center;color:var(--accent)}
+.cal-cells{display:flex;gap:12px;flex-wrap:wrap}
+.cal-cell{display:flex;flex-direction:column;gap:4px}
+.cal-cv{border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.15);touch-action:none;background:#fff;cursor:crosshair}
+.cal-row{display:flex;justify-content:space-between;align-items:center}
+.cal-row small{color:var(--muted)}
+.cal-clear{height:28px;padding:0 10px;font-size:12px}
+.cal-next{align-self:center}
+/* v0.36: busca nas configurações */
+.sp-side{width:250px;flex:none;display:flex;flex-direction:column;min-height:0;background:var(--side);border-top-right-radius:22px}
+.sp-side .sp-nav{width:auto;flex:1;background:transparent;border-radius:0}
+.sp-search{margin:12px 12px 4px;height:42px;border-radius:999px;border:0;background:var(--tile);padding:0 16px;font-size:15px;color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08);outline:none}
+.sp-search:focus{box-shadow:0 0 0 2px var(--accent)}
+.sp-main{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
+.sp-main .sp-content{flex:1}
+.sp-hide{display:none!important}
+.sp-item.sp-dim{opacity:.35}
+.sp-empty{text-align:center;color:var(--muted);margin:30px 0 0}
+@media (max-width:760px){ .sp-side{width:auto;border-radius:0} .sp-search{margin:8px 12px 2px} }
