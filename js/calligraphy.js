@@ -170,72 +170,97 @@ async function beautifySelection() {
   toast(tplOn ? `Escrita melhorada · ${nMorph} de ${nLetters} letras aproximadas do seu caderno · Desfazer volta ao original` : `Escrita arrumada (inclinação, espaço e altura) · Preencha o Caderno de caligrafia nas Configurações para as letras ficarem como as suas melhores`, 3200);
 }
 
-/* ---------- Caderno de caligrafia (página inteira) ----------
-   v0.36.1: página inteira (como as Configurações; fecha só pelo voltar — a palma encostando fora não fecha mais) e à prova de palma:
-   cada tela guarda o seu traço por ponteiro; depois que a caneta aparece, toques de dedo nas telas são ignorados; a caneta
-   tem prioridade (se um toque estava desenhando, ele é descartado e a caneta começa); toque grande (Palm.big) nunca desenha.
-   Ponto (traço de 1 ponto) é desenhado como bolinha cheia. */
+/* ---------- Caderno de caligrafia (página inteira, estilo nota) ----------
+   v0.36.2: uma folha grande no MEIO da tela (como uma nota) para a versão escolhida; as 3 versões em miniatura na coluna da
+   esquerda (longe da palma de quem é destro); a letra fica num botão do topo que abre a grade (abas + letras) num popup.
+   Entrada: S.caliInput 'pen' (padrão: só a caneta escreve, qualquer toque é ignorado) ou 'finger' (dedo e caneta; toque
+   grande = palma não escreve; a caneta tem prioridade e descarta o traço do dedo em andamento). Enquanto a caneta está
+   encostada e até 500 ms depois, toques na página inteira são barrados (palma não aperta botões). Ponto = bolinha cheia.
+   Fecha só pelo ← / voltar do Android (é uma .settings-page). */
 async function caligraphyNotebook() {
-  await Cali.load(); const D = Cali.data; let set = 0, ch = CALI_SETS[0][1][0], penSeen = false;
-  const grid = el('div', { class: 'cal-grid' }), cells = el('div', { class: 'cal-cells' }), title = el('div', { class: 'cal-ch' });
-  const tabs = el('div', { class: 'xp-tabs cal-tabs' }), countEl = el('span', { class: 'sp-ver' });
+  await Cali.load(); const D = Cali.data, ST = Store.settings; let set = 0, ch = CALI_SETS[0][1][0], ver = 0;
+  let penDown = false, penUpAt = 0, blockedAt = 0;
   const filled = (c) => ((D.glyphs[c] || []).filter((s) => s && s.length).length);
-  const paintGrid = () => {
-    grid.innerHTML = '';
-    for (const c of CALI_SETS[set][1]) { const f = filled(c); grid.append(el('button', { class: 'cal-key' + (c === ch ? ' on' : '') + (f ? ' has' : ''), onclick: () => { ch = c; paintGrid(); paintCells(); } }, el('b', {}, c), el('small', {}, f ? '●'.repeat(f) : '·'))); }
-    [...tabs.children].forEach((b, i) => b.classList.toggle('on', i === set)); countEl.textContent = Cali.count() + ' versões salvas';
-  };
-  const wide = innerWidth >= 900, dpr = Math.min(3, devicePixelRatio || 1);
-  const S = Math.round(clamp(wide ? Math.min((innerWidth - 436) / 3 - 16, innerHeight - 250) : Math.min((innerWidth - 64) / 3 - 10, 300), 150, 340));
-  const drawCell = (cv, sample) => {
-    const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, S, S);
-    g.fillStyle = '#fff'; g.fillRect(0, 0, S, S);
-    const line = (y, c, dash, lw) => { const yy = Math.round((y * S) / 100) + 0.5; g.strokeStyle = c; g.lineWidth = lw || 1; g.setLineDash(dash || []); g.beginPath(); g.moveTo(8, yy); g.lineTo(S - 8, yy); g.stroke(); };
-    line(16, '#e5e7eb', [4, 4]); line(42, '#c7d2fe', [4, 4]); line(72, '#818cf8', null, 1.6); line(92, '#e5e7eb', [4, 4]); g.setLineDash([]);
-    const lw = (3.2 * S) / 200; g.strokeStyle = g.fillStyle = '#111827'; g.lineWidth = lw; g.lineCap = 'round'; g.lineJoin = 'round';
+  const listOf = () => D.glyphs[ch] || (D.glyphs[ch] = [null, null, null]);
+  const dpr = Math.min(3, devicePixelRatio || 1), HEAD = 76, wide = innerWidth - 2 * 230 >= 420;
+  const S = Math.round(wide ? clamp(Math.min(innerHeight - HEAD - 28, innerWidth - 2 * 230), 300, 760) : clamp(Math.min(innerWidth - 32, innerHeight - HEAD - 210), 260, 760));
+  const drawSample = (g, size, sample, guides) => {
+    g.fillStyle = '#fff'; g.fillRect(0, 0, size, size);
+    if (guides) {
+      const line = (y, c, dash, lw) => { const yy = Math.round((y * size) / 100) + 0.5; g.strokeStyle = c; g.lineWidth = lw || 1; g.setLineDash(dash || []); g.beginPath(); g.moveTo(size * 0.04, yy); g.lineTo(size * 0.96, yy); g.stroke(); };
+      line(16, '#e5e7eb', [6, 6]); line(42, '#c7d2fe', [6, 6]); line(72, '#818cf8', null, size > 300 ? 2 : 1.4); line(92, '#e5e7eb', [6, 6]); g.setLineDash([]);
+    }
+    const lw = Math.max(1.6, size * 0.014); g.strokeStyle = g.fillStyle = '#111827'; g.lineWidth = lw; g.lineCap = 'round'; g.lineJoin = 'round';
     for (const st of sample || []) {
       const short = st.length <= 2 || (st.length <= 6 && Math.hypot(st[st.length - 2] - st[0], st[st.length - 1] - st[1]) < 0.5);
-      if (short) { g.beginPath(); g.arc((st[0] * S) / 100, (st[1] * S) / 100, lw * 0.75, 0, Math.PI * 2); g.fill(); continue; } /* ponto */
-      g.beginPath(); for (let i = 0; i + 1 < st.length; i += 2) { const x = (st[i] * S) / 100, y = (st[i + 1] * S) / 100; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+      if (short) { g.beginPath(); g.arc((st[0] * size) / 100, (st[1] * size) / 100, lw * 0.75, 0, Math.PI * 2); g.fill(); continue; } /* ponto */
+      g.beginPath(); for (let i = 0; i + 1 < st.length; i += 2) { const x = (st[i] * size) / 100, y = (st[i + 1] * size) / 100; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
     }
   };
-  const paintCells = () => {
-    title.textContent = ch; cells.innerHTML = ''; const list = D.glyphs[ch] || (D.glyphs[ch] = [null, null, null]);
+  /* folha principal */
+  const cv = el('canvas', { class: 'cal-cv', width: S * dpr, height: S * dpr, style: { width: S + 'px', height: S + 'px' } });
+  const GF = Math.round(S * 0.56), ghost = el('div', { class: 'cal-ghost', style: { fontSize: GF + 'px', top: Math.round(S * 0.72 - GF * 0.88) + 'px' } }); /* letra de referência bem clara, apoiada na linha de base */
+  const redraw = () => { const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); drawSample(g, S, listOf()[ver], true); ghost.textContent = (listOf()[ver] && listOf()[ver].length) ? '' : ch; };
+  /* miniaturas das versões */
+  const T = wide ? 120 : 96, thumbs = el('div', { class: 'cal-thumbs' }), countEl = el('span', { class: 'sp-ver' });
+  const paintThumbs = () => {
+    thumbs.innerHTML = ''; const list = listOf();
     for (let k = 0; k < 3; k++) {
-      const cv = el('canvas', { class: 'cal-cv', width: S * dpr, height: S * dpr, style: { width: S + 'px', height: S + 'px' } }); let cur = null, pid = null, ptype = '';
-      drawCell(cv, list[k]);
-      const pt = (e) => { const r = cv.getBoundingClientRect(); return [r2(((e.clientX - r.left) / r.width) * 100), r2(((e.clientY - r.top) / r.height) * 100)]; };
-      const drop = () => { if (cur && list[k]) { const j = list[k].indexOf(cur); if (j >= 0) list[k].splice(j, 1); if (!list[k].length) list[k] = null; } cur = null; pid = null; drawCell(cv, list[k]); };
-      cv.addEventListener('pointerdown', (e) => {
-        e.preventDefault(); const pen = e.pointerType === 'pen';
-        if (pen) penSeen = true;
-        else if (e.pointerType === 'touch' && (penSeen || (typeof Palm !== 'undefined' && Palm.big(e.width || 0, e.height || 0)))) return; /* palma / dedo depois da caneta */
-        if (pid !== null) { if (pen && ptype !== 'pen') drop(); else return; } /* a caneta toma o lugar do toque */
-        pid = e.pointerId; ptype = e.pointerType; try { cv.setPointerCapture(pid); } catch (_) {}
-        if (!list[k]) list[k] = []; cur = pt(e); list[k].push(cur); drawCell(cv, list[k]);
-      });
-      cv.addEventListener('pointermove', (e) => {
-        if (e.pointerId !== pid || !cur) return;
-        if (ptype === 'touch' && typeof Palm !== 'undefined' && Palm.big(e.width || 0, e.height || 0)) return drop(); /* cresceu: era a palma */
-        const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; for (const ev of evs.length ? evs : [e]) cur.push(...pt(ev)); drawCell(cv, list[k]);
-      });
-      const end = (e) => { if (e.pointerId !== pid) return; if (e.type === 'pointercancel' && ptype === 'touch') return drop(); pid = null; cur = null; Cali.changed(); paintGrid(); };
-      cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
-      cells.append(el('div', { class: 'cal-cell' }, cv, el('div', { class: 'cal-row' }, el('small', {}, `Versão ${k + 1}`), el('button', { class: 'btn ghost cal-clear', onclick: () => { list[k] = null; cur = null; pid = null; drawCell(cv, null); Cali.changed(); paintGrid(); } }, 'Limpar'))));
+      const c = el('canvas', { width: T * dpr, height: T * dpr, style: { width: T + 'px', height: T + 'px' } }); const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); drawSample(g, T, list[k], true);
+      thumbs.append(el('button', { class: 'cal-thumb' + (k === ver ? ' on' : ''), onclick: () => { ver = k; paintAll(); } }, c, el('small', {}, `Versão ${k + 1}` + (list[k] && list[k].length ? ' ●' : ''))));
     }
+    countEl.textContent = Cali.count() + ' versões salvas';
   };
-  CALI_SETS.forEach(([n], i) => tabs.append(el('button', { class: 'xp-tab', onclick: () => { set = i; ch = CALI_SETS[i][1][0]; paintGrid(); paintCells(); } }, n)));
-  const all = CALI_SETS.map((x) => x[1]).join(''), step = (d) => { const i = all.indexOf(ch); ch = all[(i + d + all.length) % all.length]; set = CALI_SETS.findIndex((x) => x[1].includes(ch)); paintGrid(); paintCells(); };
-  const sl = UI.slider('Quanto aproximar as letras do caderno', 0, 100, 10, Math.round(Cali.strength() * 100), (v) => { D.strength = v / 100; Cali.saveLater(); }, (v) => v + '%');
-  paintGrid(); paintCells();
+  const letterBtn = el('button', { class: 'cal-letter', title: 'Escolher letra' });
+  const paintAll = () => { letterBtn.innerHTML = ''; letterBtn.append(el('b', {}, ch), el('small', {}, 'trocar ▾')); redraw(); paintThumbs(); };
+  const go = (c) => { ch = c; ver = 0; set = Math.max(0, CALI_SETS.findIndex((x) => x[1].includes(ch))); const l = listOf(); const e = l.findIndex((v) => !v || !v.length); ver = e < 0 ? 0 : e; paintAll(); };
+  const all = CALI_SETS.map((x) => x[1]).join(''), step = (d) => go(all[(all.indexOf(ch) + d + all.length) % all.length]);
+  letterBtn.onclick = () => {
+    const tabs = el('div', { class: 'xp-tabs cal-tabs' }), grid = el('div', { class: 'cal-grid' });
+    const paint = () => { grid.innerHTML = ''; for (const c of CALI_SETS[set][1]) { const f = filled(c); grid.append(el('button', { class: 'cal-key' + (c === ch ? ' on' : '') + (f ? ' has' : ''), onclick: () => { closePop(); go(c); } }, el('b', {}, c), el('small', {}, f ? '●'.repeat(f) : '·'))); } [...tabs.children].forEach((b, i) => b.classList.toggle('on', i === set)); };
+    CALI_SETS.forEach(([n], i) => tabs.append(el('button', { class: 'xp-tab', onclick: () => { set = i; paint(); } }, n)));
+    paint(); openPop(letterBtn, el('div', { class: 'cal-pick' }, tabs, grid));
+  };
+  /* entrada */
+  const mode = () => (ST.caliInput === 'finger' ? 'finger' : 'pen');
+  const modeSeg = UI.seg([['pen', 'Caneta'], ['finger', 'Dedo']], mode(), (v) => { ST.caliInput = v; Store.saveSettings(); });
+  let cur = null, pid = null, ptype = '';
+  const pt = (e) => { const r = cv.getBoundingClientRect(); return [r2(((e.clientX - r.left) / r.width) * 100), r2(((e.clientY - r.top) / r.height) * 100)]; };
+  const drop = () => { const l = listOf(); if (cur && l[ver]) { const j = l[ver].indexOf(cur); if (j >= 0) l[ver].splice(j, 1); if (!l[ver].length) l[ver] = null; } cur = null; pid = null; redraw(); };
+  const big = (e) => typeof Palm !== 'undefined' && Palm.big(e.width || 0, e.height || 0);
+  cv.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); const pen = e.pointerType === 'pen';
+    if (!pen && e.pointerType === 'touch' && (mode() === 'pen' || big(e))) return; /* palma / modo caneta */
+    if (pid !== null) { if (pen && ptype !== 'pen') drop(); else return; } /* a caneta toma o lugar do dedo */
+    pid = e.pointerId; ptype = e.pointerType; try { cv.setPointerCapture(pid); } catch (_) {}
+    const l = listOf(); if (!l[ver]) l[ver] = []; cur = pt(e); l[ver].push(cur); redraw();
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== pid || !cur) return;
+    if (ptype === 'touch' && big(e)) return drop(); /* cresceu: era a palma */
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; for (const ev of evs.length ? evs : [e]) cur.push(...pt(ev)); redraw();
+  });
+  const end = (e) => { if (e.pointerId !== pid) return; if (e.type === 'pointercancel' && ptype === 'touch') return drop(); pid = null; cur = null; Cali.changed(); paintThumbs(); };
+  cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+  const undoStroke = () => { const l = listOf(); if (l[ver] && l[ver].length) { l[ver].pop(); if (!l[ver].length) l[ver] = null; Cali.changed(); paintAll(); } };
+  const clearVer = () => { listOf()[ver] = null; cur = null; pid = null; Cali.changed(); paintAll(); };
+  const sl = UI.slider('Aproximar', 0, 100, 10, Math.round(Cali.strength() * 100), (v) => { D.strength = v / 100; Cali.saveLater(); }, (v) => v + '%');
+  go(ch);
   await new Promise((resolve) => {
     const close = () => { page.remove(); resolve(); };
     const back = el('button', { class: 'cbtn round', title: 'Voltar', onclick: close }); back.innerHTML = icon('arrowLeft');
-    const side = el('div', { class: 'cal-side' }, tabs, grid, sl, el('p', { class: 'lbl-sm' }, 'Escreva cada letra do seu jeito mais bonito, em cima da linha roxa (linha de base). Até 3 versões por letra ajudam a reconhecer os jeitos diferentes que você escreve. O ✨ "Melhorar escrita" do laço aproxima as suas letras destas. Pode apoiar a mão: depois que a caneta escreve, o dedo e a palma não riscam as telas.'));
-    const main = el('div', { class: 'cal-main' }, el('div', { class: 'cal-edit' }, el('button', { class: 'btn ghost cal-prev', title: 'Letra anterior', onclick: () => step(-1) }, '←'), title, el('button', { class: 'btn primary cal-next', onclick: () => step(1) }, 'Próxima letra →')), cells);
+    const side = el('div', { class: 'cal-side' }, thumbs, el('div', { class: 'cal-tools' }, el('button', { class: 'btn ghost', onclick: undoStroke, title: 'Desfazer o último traço' }, 'Desfazer'), el('button', { class: 'btn ghost', onclick: clearVer }, 'Limpar')), sl,
+      el('p', { class: 'lbl-sm' }, '"Aproximar" = quanto o ✨ puxa a sua escrita para estas letras. Escreva cada letra do seu jeito mais bonito em cima da linha roxa; até 3 versões por letra.'));
     const page = el('div', { class: 'settings-page cal-page' + (wide ? '' : ' narrow') },
-      el('header', { class: 'sp-head' }, back, el('h1', {}, 'Caderno de caligrafia'), countEl),
-      el('div', { class: 'cal-body' }, side, main));
+      el('header', { class: 'sp-head' }, back, el('h1', {}, 'Caligrafia'), el('button', { class: 'btn ghost cal-nav', title: 'Letra anterior', onclick: () => step(-1) }, '←'), letterBtn,
+        el('button', { class: 'btn ghost cal-nav', title: 'Próxima letra', onclick: () => step(1) }, '→'), el('span', { class: 'cal-sp' }), modeSeg, countEl),
+      el('div', { class: 'cal-body' }, side, el('div', { class: 'cal-paper', style: { width: S + 'px', height: S + 'px' } }, cv, ghost)));
+    /* palma: com a caneta encostada (e logo depois) nenhum toque passa na página */
+    const guard = (e) => { if (e.pointerType === 'touch' && (penDown || performance.now() - penUpAt < 500)) { e.stopPropagation(); if (e.cancelable) e.preventDefault(); blockedAt = performance.now(); } };
+    page.addEventListener('pointerdown', (e) => { if (e.pointerType === 'pen') penDown = true; else guard(e); }, true);
+    page.addEventListener('pointermove', guard, true);
+    for (const t of ['pointerup', 'pointercancel']) page.addEventListener(t, (e) => { if (e.pointerType === 'pen') { penDown = false; penUpAt = performance.now(); } }, true);
+    page.addEventListener('click', (e) => { if (performance.now() - blockedAt < 600) { e.stopPropagation(); e.preventDefault(); } }, true); /* clique gerado pelo toque barrado */
     document.body.append(page);
   });
   try { await DB.put('meta', Cali.data, 'calligraphy'); } catch (_) {}

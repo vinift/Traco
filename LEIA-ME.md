@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.36.2
+
+- **Caderno de caligrafia como uma nota:** uma folha grande no meio da tela para escrever a letra (com a letra de referência bem clarinha ao fundo enquanto a versão está vazia). As 3 versões ficam em miniatura na coluna da esquerda — toque para escolher qual escrever —, longe da mão de quem é destro.
+- A letra fica num botão no topo (toque para abrir a grade com Minúsculas/Maiúsculas/Números/Acentos), com ← e → para andar entre as letras.
+- **Caneta ou Dedo** no topo (padrão: Caneta). No modo Caneta só a caneta escreve; no modo Dedo, a palma (toque grande) não escreve e a caneta tem prioridade.
+- **Rejeição de palma na página toda:** com a caneta encostada (e meio segundo depois) nenhum toque passa — a palma não aperta botões nem risca.
+- "Desfazer" (último traço) e "Limpar" ao lado das versões.
+
 ## Novidades da v0.36.1
 
 - **Caderno de caligrafia em página inteira:** abre como as Configurações e só fecha pelo botão voltar (← no topo ou o voltar do Android). A palma encostando fora das telas não fecha mais o caderno.
