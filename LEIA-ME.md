@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.36.3
+
+- **Tamanho da letra no caderno de caligrafia** (coluna da esquerda, 20–100%): diminui as linhas-guia no meio da folha para você escrever do tamanho com que está acostumado. A letra é gravada do mesmo jeito (relativa às linhas), então o ✨ funciona igual. O tamanho fica lembrado.
+
 ## Novidades da v0.36.2
 
 - **Caderno de caligrafia como uma nota:** uma folha grande no meio da tela para escrever a letra (com a letra de referência bem clarinha ao fundo enquanto a versão está vazia). As 3 versões ficam em miniatura na coluna da esquerda — toque para escolher qual escrever —, longe da mão de quem é destro.

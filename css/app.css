@@ -1102,3 +1102,7 @@ select{border-radius:14px!important}
 .cal-page.narrow .cal-body{flex-direction:column-reverse;justify-content:flex-end;gap:12px}
 .cal-page.narrow .cal-side{position:static;width:auto}
 .cal-page.narrow .cal-thumbs{flex-direction:row}
+.cal-side .grp{flex-wrap:wrap;row-gap:2px!important}
+.cal-side .grp label{flex:1 0 100%;font-size:13px;color:var(--muted)}
+.cal-side .grp input[type=range]{flex:1;min-width:0}
+.cal-side .grp .val{min-width:40px;text-align:right;font-size:13px}

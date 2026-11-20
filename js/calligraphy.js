@@ -184,23 +184,28 @@ async function caligraphyNotebook() {
   const listOf = () => D.glyphs[ch] || (D.glyphs[ch] = [null, null, null]);
   const dpr = Math.min(3, devicePixelRatio || 1), HEAD = 76, wide = innerWidth - 2 * 230 >= 420;
   const S = Math.round(wide ? clamp(Math.min(innerHeight - HEAD - 28, innerWidth - 2 * 230), 300, 760) : clamp(Math.min(innerWidth - 32, innerHeight - HEAD - 210), 260, 760));
-  const drawSample = (g, size, sample, guides) => {
+  /* k = escala da linha (v0.36.3): a "caixa" da letra (0–100) ocupa k da folha, centralizada; fora dela a folha continua escrevível */
+  const drawSample = (g, size, sample, guides, k = 1) => {
+    const bs = size * k, o = (size - bs) / 2, X = (u) => o + (u * bs) / 100;
     g.fillStyle = '#fff'; g.fillRect(0, 0, size, size);
     if (guides) {
-      const line = (y, c, dash, lw) => { const yy = Math.round((y * size) / 100) + 0.5; g.strokeStyle = c; g.lineWidth = lw || 1; g.setLineDash(dash || []); g.beginPath(); g.moveTo(size * 0.04, yy); g.lineTo(size * 0.96, yy); g.stroke(); };
-      line(16, '#e5e7eb', [6, 6]); line(42, '#c7d2fe', [6, 6]); line(72, '#818cf8', null, size > 300 ? 2 : 1.4); line(92, '#e5e7eb', [6, 6]); g.setLineDash([]);
+      const x1 = k < 1 ? Math.max(size * 0.04, o - bs * 0.6) : size * 0.04, x2 = size - x1;
+      const line = (y, c, dash, lw) => { const yy = Math.round(X(y)) + 0.5; g.strokeStyle = c; g.lineWidth = lw || 1; g.setLineDash(dash || []); g.beginPath(); g.moveTo(x1, yy); g.lineTo(x2, yy); g.stroke(); };
+      line(16, '#e5e7eb', [6, 6]); line(42, '#c7d2fe', [6, 6]); line(72, '#818cf8', null, bs > 300 ? 2 : 1.4); line(92, '#e5e7eb', [6, 6]); g.setLineDash([]);
     }
-    const lw = Math.max(1.6, size * 0.014); g.strokeStyle = g.fillStyle = '#111827'; g.lineWidth = lw; g.lineCap = 'round'; g.lineJoin = 'round';
+    const lw = Math.max(k < 1 ? 2 : 1.6, bs * 0.014); g.strokeStyle = g.fillStyle = '#111827'; g.lineWidth = lw; g.lineCap = 'round'; g.lineJoin = 'round';
     for (const st of sample || []) {
       const short = st.length <= 2 || (st.length <= 6 && Math.hypot(st[st.length - 2] - st[0], st[st.length - 1] - st[1]) < 0.5);
-      if (short) { g.beginPath(); g.arc((st[0] * size) / 100, (st[1] * size) / 100, lw * 0.75, 0, Math.PI * 2); g.fill(); continue; } /* ponto */
-      g.beginPath(); for (let i = 0; i + 1 < st.length; i += 2) { const x = (st[i] * size) / 100, y = (st[i + 1] * size) / 100; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+      if (short) { g.beginPath(); g.arc(X(st[0]), X(st[1]), lw * 0.75, 0, Math.PI * 2); g.fill(); continue; } /* ponto */
+      g.beginPath(); for (let i = 0; i + 1 < st.length; i += 2) { const x = X(st[i]), y = X(st[i + 1]); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
     }
   };
+  const scale = () => clamp(+ST.caliScale || 1, 0.2, 1);
   /* folha principal */
   const cv = el('canvas', { class: 'cal-cv', width: S * dpr, height: S * dpr, style: { width: S + 'px', height: S + 'px' } });
-  const GF = Math.round(S * 0.56), ghost = el('div', { class: 'cal-ghost', style: { fontSize: GF + 'px', top: Math.round(S * 0.72 - GF * 0.88) + 'px' } }); /* letra de referência bem clara, apoiada na linha de base */
-  const redraw = () => { const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); drawSample(g, S, listOf()[ver], true); ghost.textContent = (listOf()[ver] && listOf()[ver].length) ? '' : ch; };
+  const ghost = el('div', { class: 'cal-ghost' }); /* letra de referência bem clara, apoiada na linha de base */
+  const placeGhost = () => { const k = scale(), bs = S * k, o = (S - bs) / 2, GF = Math.round(bs * 0.56); ghost.style.fontSize = GF + 'px'; ghost.style.top = Math.round(o + bs * 0.72 - GF * 0.88) + 'px'; };
+  const redraw = () => { const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); drawSample(g, S, listOf()[ver], true, scale()); placeGhost(); ghost.textContent = (listOf()[ver] && listOf()[ver].length) ? '' : ch; };
   /* miniaturas das versões */
   const T = wide ? 120 : 96, thumbs = el('div', { class: 'cal-thumbs' }), countEl = el('span', { class: 'sp-ver' });
   const paintThumbs = () => {
@@ -225,7 +230,7 @@ async function caligraphyNotebook() {
   const mode = () => (ST.caliInput === 'finger' ? 'finger' : 'pen');
   const modeSeg = UI.seg([['pen', 'Caneta'], ['finger', 'Dedo']], mode(), (v) => { ST.caliInput = v; Store.saveSettings(); });
   let cur = null, pid = null, ptype = '';
-  const pt = (e) => { const r = cv.getBoundingClientRect(); return [r2(((e.clientX - r.left) / r.width) * 100), r2(((e.clientY - r.top) / r.height) * 100)]; };
+  const pt = (e) => { const r = cv.getBoundingClientRect(), k = scale(), bs = r.width * k, o = (r.width - bs) / 2; return [r2(((e.clientX - r.left - o) / bs) * 100), r2(((e.clientY - r.top - o) / bs) * 100)]; }; /* unidades da caixa da letra */
   const drop = () => { const l = listOf(); if (cur && l[ver]) { const j = l[ver].indexOf(cur); if (j >= 0) l[ver].splice(j, 1); if (!l[ver].length) l[ver] = null; } cur = null; pid = null; redraw(); };
   const big = (e) => typeof Palm !== 'undefined' && Palm.big(e.width || 0, e.height || 0);
   cv.addEventListener('pointerdown', (e) => {
@@ -244,13 +249,14 @@ async function caligraphyNotebook() {
   cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
   const undoStroke = () => { const l = listOf(); if (l[ver] && l[ver].length) { l[ver].pop(); if (!l[ver].length) l[ver] = null; Cali.changed(); paintAll(); } };
   const clearVer = () => { listOf()[ver] = null; cur = null; pid = null; Cali.changed(); paintAll(); };
+  const szl = UI.slider('Tamanho da letra', 20, 100, 5, Math.round(scale() * 100), (v) => { ST.caliScale = v / 100; Store.saveSettings(); if (pid === null) redraw(); }, (v) => v + '%');
   const sl = UI.slider('Aproximar', 0, 100, 10, Math.round(Cali.strength() * 100), (v) => { D.strength = v / 100; Cali.saveLater(); }, (v) => v + '%');
   go(ch);
   await new Promise((resolve) => {
     const close = () => { page.remove(); resolve(); };
     const back = el('button', { class: 'cbtn round', title: 'Voltar', onclick: close }); back.innerHTML = icon('arrowLeft');
-    const side = el('div', { class: 'cal-side' }, thumbs, el('div', { class: 'cal-tools' }, el('button', { class: 'btn ghost', onclick: undoStroke, title: 'Desfazer o último traço' }, 'Desfazer'), el('button', { class: 'btn ghost', onclick: clearVer }, 'Limpar')), sl,
-      el('p', { class: 'lbl-sm' }, '"Aproximar" = quanto o ✨ puxa a sua escrita para estas letras. Escreva cada letra do seu jeito mais bonito em cima da linha roxa; até 3 versões por letra.'));
+    const side = el('div', { class: 'cal-side' }, thumbs, el('div', { class: 'cal-tools' }, el('button', { class: 'btn ghost', onclick: undoStroke, title: 'Desfazer o último traço' }, 'Desfazer'), el('button', { class: 'btn ghost', onclick: clearVer }, 'Limpar')), szl, sl,
+      el('p', { class: 'lbl-sm' }, '"Tamanho da letra" diminui as linhas-guia para você escrever do tamanho de costume (a letra é gravada igual). "Aproximar" = quanto o ✨ puxa a sua escrita para estas letras. Escreva cada letra do seu jeito mais bonito em cima da linha roxa; até 3 versões por letra.'));
     const page = el('div', { class: 'settings-page cal-page' + (wide ? '' : ' narrow') },
       el('header', { class: 'sp-head' }, back, el('h1', {}, 'Caligrafia'), el('button', { class: 'btn ghost cal-nav', title: 'Letra anterior', onclick: () => step(-1) }, '←'), letterBtn,
         el('button', { class: 'btn ghost cal-nav', title: 'Próxima letra', onclick: () => step(1) }, '→'), el('span', { class: 'cal-sp' }), modeSeg, countEl),
