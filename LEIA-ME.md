@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.34.5
+
+- **Zoom com dois dedos em cima de caixas de texto:** encostar dois dedos numa caixa de texto selecionada (ou aberta para escrever) agora faz zoom/rolagem em vez de mexer na caixa. Um dedo só continua movendo a caixa selecionada.
+- **Rabiscar para apagar não apaga caixas de texto** (só traços e formas). Rabiscar por cima de um texto vira tinta normal.
+
 ## Novidades da v0.34.4
 
 - **Tela cheia / escrevendo:** a barra do meio perdeu o fundo cinza — ficam só as informações (nome, horário, bateria) com uma sombrinha leve para dar para ler sobre a folha, e o fundo roxo do tempo de estudo.

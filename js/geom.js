@@ -667,7 +667,7 @@ function scribbleTargets(elements, flat, z = 1, strength = 2) {
   const out = [], step = Math.max(1, Math.floor(P.length / 120));
   for (const e of elements) {
     const b = elBBox(e); if (!rectsHit(b, sb)) continue;
-    if (e.type === 'image' || e.type === 'table' || e.lock) continue; // imagens, tabelas e bloqueados ficam
+    if (e.type === 'image' || e.type === 'table' || e.type === 'text' || e.lock) continue; // imagens, tabelas, caixas de texto (v0.34.5) e bloqueados ficam
     /* coisa pequena (ponto, acento, letra) com a caixa toda dentro da área do rabisco: apaga */
     if (b.x >= sb.x && b.y >= sb.y && b.x + b.w <= sb.x + sb.w && b.y + b.h <= sb.y + sb.h && (b.w + b.h) < (sb.w + sb.h) * 1.2) { out.push(e); continue; }
     if (strength < 2) { if (coverIn(e, hull) >= 0.35) out.push(e); continue; } // rabisco leve: só o que ficou bem coberto

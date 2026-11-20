@@ -433,7 +433,12 @@ const Editor = {
     this.rect = this.stage.getBoundingClientRect();
     this.stopInertia(); if (this.flash && this.flash.hold === 'keep' && e.pointerType !== 'touch' && performance.now() - this.flash.t0 > 600) { this.flash = null; this.requestRender(); } /* tocou na página: a marca do PDF sai */
     if (this._eyedrop && !(e.target.closest && e.target.closest('#selBar,#textBar,#hbar'))) { e.preventDefault(); this.eyedropDown(e); return; } // conta-gotas (v0.32: prévia, solta para confirmar)
-    if (this.textEl && this.textEl.contains(e.target)) return;
+    if (this.textEl && this.textEl.contains(e.target)) { /* caixa de texto aberta: 1 dedo/caneta escreve nela; v0.34.5: 2 dedos (um deles nela) fazem zoom/rolagem */
+      if (e.pointerType !== 'touch') return;
+      const p = this.pt(e); this.pointers.set(e.pointerId, { ...p, sx: p.x, sy: p.y, type: 'touch', t0: performance.now(), onText: true });
+      if (this.touchIds().length >= 2) this.startGesture();
+      return;
+    }
     if (e.target.closest && e.target.closest('#textBar,#hbar')) return;
     if (e.target.closest && e.target.closest('#selBar,#cropBar')) return; // botões da seleção não iniciam novo laço
     if (UI.panelOpen) UI.closePanel();
@@ -446,6 +451,10 @@ const Editor = {
     if (this.crop && this.cropDown(e, p, rec)) return; // recorte na página: alças e moldura
     if (e.pointerType === 'touch') {
       const tr = this.action && ['move', 'scale', 'rotate', 'vnode'].includes(this.action.kind) && this.action.pid !== e.pointerId;
+      if (tr && this.action.ptype === 'touch' && performance.now() - (this.action.t0 || 0) < 320) { /* v0.34.5: dois dedos quase juntos em cima da seleção (ex.: caixa de texto) = pinça de zoom, não mover */
+        const ap = this.pointers.get(this.action.pid);
+        if (!ap || Math.hypot(ap.x - ap.sx, ap.y - ap.sy) < 12) { this.cancelAction(); if (ap) ap.drawing = false; const p = this.pt(e); this.pointers.set(e.pointerId, { ...p, sx: p.x, sy: p.y, type: 'touch', t0: performance.now() }); try { this.stage.setPointerCapture(e.pointerId); } catch (_) {} this.startGesture(); return; }
+      }
       if (tr) { // segundo dedo enquanto move/redimensiona: sem ajustes automáticos (palma grande é ignorada)
         rec.ignored = true;
         if (!(e.width > 48 || e.height > 48)) { rec.noSnap = true; this.action.noSnap = (this.action.noSnap || 0) + 1; const ap = this.pointers.get(this.action.pid); if (ap) this.moveAction([], { clientX: ap.x + this.rect.left, clientY: ap.y + this.rect.top }); }
@@ -455,7 +464,7 @@ const Editor = {
       const drawingTouch = this.action && this.action.ptype === 'touch';
       if (!this.gesture && !drawingTouch && this.touchIds().length === 1 && this.sel && !this.readOnly) { // dedo também move, redimensiona e gira a seleção
         const k = this.selHit(p);
-        if (k) { rec.drawing = true; this.action = { pid: e.pointerId, ptype: 'touch', tool: 'lasso', sx: p.x, sy: p.y, kind: k, hh: this._sh, start: p, box: this.selScreenBox() }; if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
+        if (k) { rec.drawing = true; this.action = { pid: e.pointerId, ptype: 'touch', t0: performance.now(), tool: 'lasso', sx: p.x, sy: p.y, kind: k, hh: this._sh, start: p, box: this.selScreenBox() }; if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
       }
       if (Store.settings.fingerDraws && !this.readOnly && !this.gesture && !drawingTouch && this.touchIds().length === 1) { rec.drawing = true; this.startAction(e, p); return; }
       if (drawingTouch) { const ap = this.pointers.get(this.action.pid); this.cancelAction(); if (ap) ap.drawing = false; }
