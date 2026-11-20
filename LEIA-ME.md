@@ -153,6 +153,16 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.35.0
+
+- **Tempo de estudo por matéria:** pastas podem virar **matérias** — o tempo de estudo das notas dentro delas (e das subpastas) soma para a matéria.
+  - menu ⋯ de uma pasta → **"Marcar como matéria"** (ou "Deixar de ser matéria");
+  - menu ⋯ de PF/Direito → **"Transformar as subpastas em matérias"** (todas de uma vez);
+  - **"Nova matéria"** no botão + da tela inicial e "Nova matéria dentro" no menu da pasta;
+  - as matérias ganham o selo "matéria" e, na barra lateral, um anel na bolinha de cor.
+- O painel do cronômetro mostra **"Matérias nos últimos 7 dias"** e o relatório de estudo mostra o tempo **por matéria** (com "Sem matéria" para notas fora delas); as notas mais estudadas continuam embaixo no relatório.
+- O histórico antigo também passa a aparecer por matéria (ele é guardado por nota e agrupado na hora).
+
 ## Novidades da v0.34.6
 
 - **Colchete mais rápido no "segurar para desenhar":** o colchete agora vira forma com a caneta parada por ~0,3 s (antes 0,6 s). As outras formas (linha, retângulo, círculo…) continuam com o tempo de antes, para não virarem forma sem querer.

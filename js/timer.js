@@ -184,14 +184,15 @@ const StudyTimer = {
     const vals = days.map((x) => dayTotal(x.k)), max = Math.max(...vals, 1), week = vals.reduce((a, b) => a + b, 0);
     const per = {}; for (const { k } of days) { const d = L.days[k] || {}; for (const x in d) per[x] = (per[x] || 0) + d[x]; }
     if (pend) { const k = s.segNote || '_'; per[k] = (per[k] || 0) + pend; }
-    const top = Object.entries(per).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const subj = new Map(); for (const [id, v] of Object.entries(per)) { const sb = subjectOfNote(id), c = subj.get(sb.key) || { ...sb, v: 0 }; c.v += v; subj.set(sb.key, c); } /* v0.35: por matéria */
+    const top = [...subj.values()].sort((a, b) => b.v - a.v).slice(0, 6);
     const WD = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
     const curTitle = (id) => (id === s.segNote && s.segTitle) || L.titles[id] || (typeof Store !== 'undefined' && Store.heads[id] && Store.heads[id].title) || 'Nota apagada';
     const rep = el('button', { class: 'btn sr-open', onclick: () => { closePop(); StudyReport.open(); } }, 'Ver relatório completo'); /* v0.34 */
     return el('div', { class: 'tm-stats' }, rep,
       el('div', { class: 'tm-tot' }, el('span', {}, 'Hoje ', el('b', {}, this.fmtDur(vals[6]))), el('span', {}, '7 dias ', el('b', {}, this.fmtDur(week)))),
       el('div', { class: 'tm-bars' }, ...days.map((x, i) => el('div', { class: 'tm-bar' + (i === 6 ? ' today' : ''), title: `${x.d.toLocaleDateString('pt-BR')}: ${this.fmtDur(vals[i])}` }, el('i', { style: { height: Math.round((vals[i] / max) * 100) + '%' } }), el('small', {}, WD[x.d.getDay()])))),
-      top.length ? el('div', { class: 'tm-notes' }, el('div', { class: 'tm-h' }, 'Notas nos últimos 7 dias'), ...top.map(([id, v]) => el('div', { class: 'tm-row' }, el('span', {}, id === '_' ? 'Fora das notas' : curTitle(id)), el('b', {}, this.fmtDur(v))))) : el('p', { class: 'tm-hint' }, 'O tempo estudado aparece aqui, por dia e por nota.'));
+      top.length ? el('div', { class: 'tm-notes' }, el('div', { class: 'tm-h' }, 'Matérias nos últimos 7 dias'), ...top.map((x) => el('div', { class: 'tm-row' }, el('span', { class: 'tm-subj' }, el('i', { class: 'sr-dot', style: { background: x.color } }), x.name), el('b', {}, this.fmtDur(x.v))))) : el('p', { class: 'tm-hint' }, 'O tempo estudado aparece aqui, por dia e por matéria.'));
   },
 };
 
@@ -268,12 +269,7 @@ const StudyReport = {
     return out;
   },
   sum(d) { let v = 0; for (const x in d || {}) v += d[x]; return v; },
-  subjectOf(id) {
-    if (id === '_') return { key: '_', name: 'Fora das notas', color: 'var(--muted)' };
-    const h = Store.heads[id]; if (!h) return { key: '?', name: 'Notas apagadas', color: 'var(--line)' };
-    const top = h.folderId ? Store.folderChain(h.folderId)[0] : null;
-    return top ? { key: top.id, name: top.name, color: top.color || FOLDER_COLORS[0] } : { key: '~', name: 'Sem pasta', color: 'var(--muted)' };
-  },
+  subjectOf(id) { return subjectOfNote(id); }, /* v0.35: pasta-matéria mais próxima (antes: pasta de cima) */
   open() {
     const box = el('div', { class: 'sr' });
     const render = () => {
@@ -318,7 +314,7 @@ const StudyReport = {
       box.innerHTML = '';
       box.append(per, tiles, el('div', { class: 'sr-sec' }, this.period === '84' ? 'Tempo por semana' : 'Tempo por dia'), plot, tipEl,
         el('label', { class: 'sr-goalrow' }, 'Meta diária', goalIn, 'min'),
-        el('div', { class: 'sr-sec' }, 'Por matéria (pasta)'), sl.length ? subjBox : el('p', { class: 'tm-hint' }, 'Sem tempo registrado neste período. O tempo conta com o cronômetro rodando e o app aberto.'),
+        el('div', { class: 'sr-sec' }, 'Por matéria'), sl.length ? subjBox : el('p', { class: 'tm-hint' }, 'Sem tempo registrado neste período. O tempo conta com o cronômetro rodando e o app aberto.'), !Store.folders.some((f) => f.subject) ? el('p', { class: 'tm-hint' }, 'Dica: marque pastas como matéria (menu ⋯ da pasta → "Marcar como matéria" ou "Transformar as subpastas em matérias").') : null,
         nl.length ? el('div', { class: 'sr-sec' }, 'Notas mais estudadas') : null, nl.length ? noteBox : null);
     };
     render();

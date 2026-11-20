@@ -45,7 +45,7 @@ const Library = {
       for (const f of this.sortItems(this.children(pid), (x) => x.name, (x) => this.folderStats(x).latest)) {
         const kids = this.children(f.id), open = openSet.has(f.id);
         const arrow = kids.length ? el('span', { class: 'side-arrow' + (open ? ' open' : ''), title: open ? 'Fechar' : 'Mostrar subpastas', onclick: (e) => { e.stopPropagation(); const o = new Set(S.sideOpen || []); if (open) o.delete(f.id); else o.add(f.id); S.sideOpen = [...o]; Store.saveSettings(); this.render(); } }, iconEl('chevRight')) : el('span', { class: 'side-arrow none' });
-        sf.append(el('button', { class: 'side-item side-fold' + (this.folder === f.id ? ' on' : ''), style: { paddingLeft: 8 + depth * 18 + 'px' }, onclick: () => this.openFolder(f.id) }, arrow, el('span', { class: 'fdot', style: { background: f.color || FOLDER_COLORS[0] } }), el('span', { class: 'side-fname' }, f.name)));
+        sf.append(el('button', { class: 'side-item side-fold' + (this.folder === f.id ? ' on' : ''), style: { paddingLeft: 8 + depth * 18 + 'px' }, onclick: () => this.openFolder(f.id) }, arrow, el('span', { class: 'fdot' + (f.subject ? ' subj' : ''), title: f.subject ? 'Matéria' : '', style: { background: f.color || FOLDER_COLORS[0] } }), el('span', { class: 'side-fname' }, f.name)));
         if (open && kids.length) walk(f.id, depth + 1);
       }
     };
@@ -95,7 +95,7 @@ const Library = {
     const mb = el('button', { class: 'icon-btn more', title: 'Opções', onclick: (e) => { e.stopPropagation(); this.folderMenu(mb, f); } }); mb.innerHTML = icon('more');
     const ic = el('div', { class: 'ficon', html: folderSvg(f.color || FOLDER_COLORS[0]) });
     return el('div', { class: 'item' + (sel ? ' sel' : ''), onclick: () => this.selecting ? this.toggleSel('f:' + f.id) : this.openFolder(f.id) }, ic,
-      el('div', { class: 'meta' }, el('div', { class: 'dt' }, st.latest ? fmtDate(st.latest) : ''), el('div', { class: 'nm' }, f.name), el('div', { class: 'cnt' }, st.n === 1 ? '1 item' : `${st.n} itens`)), this.selecting ? el('span', { class: 'chk-dot' }, sel ? '✓' : '') : mb);
+      el('div', { class: 'meta' }, el('div', { class: 'dt' }, st.latest ? fmtDate(st.latest) : ''), el('div', { class: 'nm' }, f.name), el('div', { class: 'cnt' }, f.subject ? el('span', { class: 'subj-chip' }, 'matéria') : null, st.n === 1 ? '1 item' : `${st.n} itens`)), this.selecting ? el('span', { class: 'chk-dot' }, sel ? '✓' : '') : mb);
   },
   noteItem(h, hit, q) {
     const sel = this.selected.has('n:' + h.id);
@@ -217,6 +217,9 @@ const Library = {
       { label: 'Renomear', icon: 'pen', run: async () => { const n = await askText('Renomear pasta', f.name); if (n) { f.name = n; await Store.saveFolders(); Drive.schedule(); this.render(); } } },
       { label: 'Cor da pasta', icon: 'palette', run: () => colorPop(anchor, f.color || FOLDER_COLORS[0], async (c) => { f.color = c; await Store.saveFolders(); this.render(); }, FOLDER_COLORS.concat(['#111827', '#a16207', '#be185d', '#1d4ed8', '#15803d', '#b91c1c'])) },
       { label: 'Nova pasta dentro', icon: 'folder', run: () => this.newFolder(f.id) },
+      { label: 'Nova matéria dentro', icon: 'timer', run: () => this.newFolder(f.id, true) },
+      f.subject ? { label: 'Deixar de ser matéria', icon: 'timer', run: () => { this.setSubject([f], false); toast(`"${f.name}" não é mais matéria`, 1800); } } : { label: 'Marcar como matéria', icon: 'timer', run: () => { this.setSubject([f], true); toast(`"${f.name}" agora é uma matéria: o tempo de estudo das notas dela conta separado`, 2600); } },
+      ...(this.children(f.id).length ? [{ label: 'Transformar as subpastas em matérias', icon: 'timer', run: async () => { const kids = this.children(f.id); if (!(await confirmBox('Subpastas viram matérias', `As ${kids.length} pastas dentro de "${f.name}" (${kids.slice(0, 5).map((k) => k.name).join(', ')}${kids.length > 5 ? '…' : ''}) passam a contar tempo de estudo separado.`, 'Transformar'))) return; this.setSubject(kids, true); toast(`${kids.length} matérias criadas`, 1800); } }] : []),
       { label: 'Mover para…', icon: 'move', run: async () => { const d = await this.folderPicker('Mover pasta', new Set([f.id, ...this.descendants(f.id).map((x) => x.id)]), f.parentId); if (d !== undefined) { f.parentId = d; await Store.saveFolders(); Drive.schedule(); this.render(); } } },
       { label: 'Grupo de predefinições…', icon: 'layers', run: async () => {
         const G = Store.settings.presetGroups; const sel = el('select', {}, el('option', { value: '' }, '(herdar da pasta de cima)'), ...G.map((g) => el('option', { value: g.id }, g.name))); sel.value = f.groupId || '';
@@ -248,15 +251,18 @@ const Library = {
     const d = await this.folderPicker('Mover nota', new Set(), h.folderId); if (d === undefined) return;
     const n = await Store.getNote(h.id); n.folderId = d; await Store.putNote(n); this.render(); toast('Nota movida');
   },
-  async newFolder(parentId = this.folder) {
-    const n = await askText('Nova pasta', '', 'Nome da pasta (ex.: Direito Penal I)'); if (!n) return;
+  async newFolder(parentId = this.folder, subject = false) {
+    const n = await askText(subject ? 'Nova matéria' : 'Nova pasta', '', subject ? 'Nome da matéria (ex.: Direito Penal I) — o tempo de estudo das notas dela soma separado' : 'Nome da pasta (ex.: Direito Penal I)'); if (!n) return;
     const color = FOLDER_COLORS[Store.folders.length % FOLDER_COLORS.length];
-    Store.folders.push({ id: uid(), name: n, parentId: parentId || null, color, created: Date.now() }); await Store.saveFolders(); Drive.schedule(); this.render();
+    Store.folders.push({ id: uid(), name: n, parentId: parentId || null, color, created: Date.now(), ...(subject ? { subject: true } : {}) }); await Store.saveFolders(); Drive.schedule(); this.render();
   },
+  /* v0.35: pasta-matéria (f.subject) — o tempo de estudo das notas dela e das subpastas soma para ela */
+  async setSubject(list, on) { for (const f of list) { if (on) f.subject = true; else delete f.subject; } await Store.saveFolders(); Drive.schedule(); this.render(); },
   fabMenu(anchor) {
     menu(anchor, [
       { label: 'Nova nota', icon: 'pen', run: async () => { const n = await newNoteDialog(this.folder); if (n) App.openNote(n.id); } },
       { label: 'Nova pasta', icon: 'folder', run: () => this.newFolder() },
+      { label: 'Nova matéria', icon: 'timer', run: () => this.newFolder(this.folder, true) },
       '-',
       { label: 'Importar PDF', icon: 'file', run: () => this.importPdf() },
       { label: 'Importar do Notewise', icon: 'layers', run: () => this.importNotewise() },
@@ -575,4 +581,13 @@ function penMapSection() {
     }
   };
   render(); return sec;
+}
+
+/* v0.35: matéria de uma nota = a pasta-matéria mais próxima acima dela ('_' = cronômetro fora de uma nota) */
+function subjectOfNote(id) {
+  if (id === '_') return { key: '_', name: 'Fora das notas', color: 'var(--muted)' };
+  const h = Store.heads[id]; if (!h) return { key: '?', name: 'Notas apagadas', color: 'var(--line)' };
+  const ch = h.folderId ? Store.folderChain(h.folderId) : [];
+  for (let i = ch.length - 1; i >= 0; i--) if (ch[i].subject) return { key: ch[i].id, name: ch[i].name, color: ch[i].color || FOLDER_COLORS[0] };
+  return { key: '~', name: 'Sem matéria', color: 'var(--muted)' };
 }

@@ -1043,3 +1043,7 @@ select{border-radius:14px!important}
 #editor.writing .ch-title .note-bat svg,#editor.immersive .ch-title .note-bat svg{filter:drop-shadow(0 0 2px var(--ch)) drop-shadow(0 1px 1px rgba(0,0,0,.18))}
 #editor.writing .ch-title.has-timer>:not(.note-timer),#editor.immersive .ch-title.has-timer>:not(.note-timer){visibility:visible}
 #editor.writing .ch-title .title-input,#editor.immersive .ch-title .title-input{pointer-events:none}
+/* v0.35: pastas-matéria */
+.subj-chip{display:inline-block;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:1px 7px;margin-right:6px;vertical-align:1px}
+.fdot.subj{box-shadow:0 0 0 2px var(--side,var(--panel)),0 0 0 3.5px var(--accent)}
+.tm-subj{display:flex;align-items:center;gap:6px;min-width:0}
