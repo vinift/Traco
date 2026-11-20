@@ -290,6 +290,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v0.42.2 — botão "Recarregar" no relatório (`.sr-reload` em `.sr-top`, ao lado das abas de período): `T.boundary(now)` se o cronômetro roda, relê meta 'studyLog' para `T.log` e chama `render()`. Teste: log trocado por fora no IndexedDB (10 → 45 min) → depois do toque o total mostra 45 min.
 
+- v0.42.3 — linha da meta do relatório desalinhada das barras: `.sr-goal` usava `bottom: p%` da caixa inteira (169 px) + `margin-bottom:18px`, e as barras crescem só nos 151 px acima dos rótulos → meta 60 com máx. 66 ficava no topo. Agora `bottom: calc(18px + (100% − 18px)·p)` sem margem. Teste: barras de 30/90/60 min com meta 60 → topo da barra − linha = 51/−49/1 px.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

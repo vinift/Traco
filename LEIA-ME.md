@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.42.3
+
+- Corrigido: no gráfico "Tempo por dia" do relatório, a linha tracejada da meta ficava alta demais, e os dias que bateram a meta pareciam abaixo dela. Agora a barra de um dia com exatamente a meta encosta na linha.
+
 ## Novidades da v0.42.2
 
 - **Recarregar o relatório:** botão **Recarregar** no topo do relatório de estudo. Ele grava o tempo que está correndo agora, relê o histórico salvo e redesenha os números e gráficos.

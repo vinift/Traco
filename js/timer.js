@@ -369,7 +369,7 @@ const StudyReport = {
         tile('Sequência', `${streak} ${streak === 1 ? 'dia' : 'dias'}`, best.d ? `melhor dia: ${T.fmtDur(best.v)}` : ''));
       /* gráfico (uma série: altura = tempo; linha tracejada = meta) */
       const max = Math.max(...bars.map((b) => b.v), bars[0].goal * 1.1, 1), tipEl = el('div', { class: 'sr-tip' }, 'Toque numa barra para ver o tempo');
-      const gl = el('div', { class: 'sr-goal', style: { bottom: (bars[0].goal / max) * 100 + '%' } }, el('span', {}, 'meta'));
+      const gl = el('div', { class: 'sr-goal', style: { bottom: `calc(18px + (100% - 18px) * ${bars[0].goal / max})` } }, el('span', {}, 'meta'));
       /* v0.39.2: tocar na barra mostra as matérias daquele dia (ou semana) com o tempo de cada uma */
       const showBar = (b) => {
         const m = new Map(); for (const k of b.ks || []) for (const [id, v] of Object.entries(map[k] || {})) { const sj = this.subjectOf(id), cur = m.get(sj.key) || { ...sj, v: 0 }; cur.v += v; m.set(sj.key, cur); }
