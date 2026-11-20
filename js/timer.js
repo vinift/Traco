@@ -303,6 +303,45 @@ const StudyReport = {
     if (pend > 0) { const k = T.dayKey(Date.now()), n = s.segNote || '_'; const d = out[k] || (out[k] = {}); d[n] = (d[n] || 0) + pend; }
     return out;
   },
+  /* v0.42.1: ajuste manual — soma (ou tira) minutos numa matéria num dia. Gravado em log.days[dia]['f:<pasta>'] ('_' = fora das notas,
+     'f:~' = sem matéria) e listado em log.manual [{id, d, k, ms, at}] para poder desfazer. */
+  manualAdd(d, k, ms) {
+    const L = StudyTimer.log; if (!ms) return; const day = L.days[d] || (L.days[d] = {});
+    day[k] = (day[k] || 0) + ms; if (Math.abs(day[k]) < 1) delete day[k];
+    if (!Object.keys(day).length) delete L.days[d];
+  },
+  adjust(done) {
+    const T = StudyTimer, L = T.log; L.manual = L.manual || [];
+    const today = T.dayKey(Date.now());
+    const subs = Store.folders.filter((f) => f.subject && !(Store.trash && Store.trash.folders && Store.trash.folders[f.id])).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    const dIn = el('input', { type: 'date', value: today, max: today, class: 'sr-in' });
+    const sIn = el('select', { class: 'sr-in' }, ...subs.map((f) => el('option', { value: 'f:' + f.id }, f.name)), el('option', { value: 'f:~' }, 'Sem matéria'), el('option', { value: '_' }, 'Fora das notas'));
+    const mIn = el('input', { type: 'number', min: 1, max: 900, step: 5, value: 15, class: 'sr-in sr-min' });
+    let sign = 1; const seg = el('div', { class: 'seg sr-sign' });
+    const mk = (v, t) => el('button', { class: v === sign ? 'on' : '', onclick: () => { sign = v; [...seg.children].forEach((b, i) => b.classList.toggle('on', (i === 0 ? 1 : -1) === v)); } }, t);
+    seg.append(mk(1, 'Adicionar'), mk(-1, 'Tirar'));
+    const list = el('div', { class: 'sr-list sr-manual' });
+    const name = (k) => (k === '_' ? 'Fora das notas' : subjectOfNote(k).name);
+    const fmtD = (d) => { const [y, m, dd] = d.split('-'); return `${dd}/${m}`; };
+    const draw = () => {
+      list.innerHTML = ''; const M = L.manual.slice(-12).reverse();
+      if (!M.length) return list.append(el('p', { class: 'tm-hint' }, 'Nenhum ajuste feito ainda.'));
+      list.append(el('div', { class: 'sr-sec' }, 'Ajustes feitos'), ...M.map((x) => el('div', { class: 'sr-row' }, el('span', { class: 'sr-name' }, `${fmtD(x.d)} · ${name(x.k)}`), el('b', { class: x.ms < 0 ? 'neg' : '' }, (x.ms < 0 ? '−' : '+') + T.fmtDur(Math.abs(x.ms))),
+        el('button', { class: 'btn sr-undo', title: 'Desfazer este ajuste', onclick: () => { this.manualAdd(x.d, x.k, -x.ms); L.manual = L.manual.filter((y) => y.id !== x.id); T.saveLog(); draw(); done && done(); } }, 'Desfazer'))));
+    };
+    draw();
+    const add = () => {
+      const d = dIn.value || today, k = sIn.value, min = clamp(Math.round(+mIn.value || 0), 0, 900); if (!min || d > today) { toast('Escolha um dia até hoje e os minutos.'); return false; }
+      let ms = min * 60000 * sign;
+      if (sign < 0) { /* não tira mais do que a matéria tem naquele dia */ const key = k === '_' ? '_' : subjectOfNote(k).key; let have = 0; for (const [id, v] of Object.entries((StudyReport.dayMap()[d]) || {})) if ((id === '_' ? '_' : subjectOfNote(id).key) === key) have += v; ms = -Math.min(-ms, Math.max(0, have)); if (!ms) { toast('Não há tempo dessa matéria nesse dia.'); return false; } }
+      this.manualAdd(d, k, ms); L.manual.push({ id: uid(), d, k, ms, at: Date.now() }); if (L.manual.length > 200) L.manual.shift(); T.saveLog();
+      toast(`${ms < 0 ? 'Tirado' : 'Adicionado'}: ${T.fmtDur(Math.abs(ms))} em ${name(k)} (${fmtD(d)})`); draw(); done && done(); return false;
+    };
+    const body = el('div', { class: 'sr-adjbox' },
+      el('p', { class: 'tm-hint' }, 'Use quando o relatório não registrou (ou registrou a mais) algum estudo.'),
+      seg, el('label', {}, 'Dia', dIn), el('label', {}, 'Matéria', sIn), el('label', {}, 'Minutos', mIn), list);
+    openModal({ title: 'Ajustar tempo de estudo', body, buttons: [{ label: 'Fechar' }, { label: 'Salvar ajuste', cls: 'primary', action: add }] });
+  },
   sum(d) { let v = 0; for (const x in d || {}) v += d[x]; return v; },
   subjectOf(id) { return subjectOfNote(id); }, /* v0.35: pasta-matéria mais próxima (antes: pasta de cima) */
   open() {
@@ -351,16 +390,16 @@ const StudyReport = {
       const sl = [...subj.values()].sort((a, b) => b.v - a.v), smax = Math.max(1, ...sl.map((x) => x.v));
       const subjBox = el('div', { class: 'sr-list' }, ...sl.map((x) => el('div', { class: 'sr-row' }, el('span', { class: 'sr-name' }, el('i', { class: 'sr-dot', style: { background: x.color } }), x.name), el('span', { class: 'sr-track' }, el('i', { style: { width: (x.v / smax) * 100 + '%' } })), el('b', {}, T.fmtDur(x.v)), el('small', {}, Math.round((x.v / Math.max(1, total)) * 100) + '%'))));
       const title = (id) => (id === '_' ? 'Fora das notas' : (Store.heads[id] && Store.heads[id].title) || (T.log.titles || {})[id] || 'Nota apagada');
-      const nl = [...notes.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const nl = [...notes.entries()].filter(([id, v]) => !id.startsWith('f:') && v > 0).sort((a, b) => b[1] - a[1]).slice(0, 8);
       const noteBox = el('div', { class: 'sr-list' }, ...nl.map(([id, v]) => el('div', { class: 'sr-row note' + (Store.heads[id] ? ' link' : ''), onclick: () => { if (Store.heads[id]) { closeModalTop(); App.openNote(id); } } }, el('span', { class: 'sr-name' }, title(id)), el('b', {}, T.fmtDur(v)))));
       /* meta */
       const goalIn = el('input', { type: 'number', min: 5, max: 900, step: 15, value: Math.round(goal / 60000), class: 'sr-goalin', onchange: () => { Store.settings.studyGoal = clamp(Math.round(+goalIn.value || 60), 5, 900); Store.saveSettings(); render(); } });
       const per = el('div', { class: 'xp-tabs sr-per' }, ...[['7', '7 dias'], ['30', '30 dias'], ['84', '12 semanas']].map(([k, n]) => el('button', { class: 'xp-tab' + (this.period === k ? ' on' : ''), onclick: () => { this.period = k; render(); } }, n)));
       box.innerHTML = '';
-      box.append(per, tiles, awTot >= 60000 ? el('p', { class: 'tm-hint sr-away' }, `${T.fmtDur(awTot)} com o cronômetro rodando e o app fora da tela (tela apagada ou outro app) — não contou. Toque numa barra para ver o dia.`) : null, el('div', { class: 'sr-sec' }, this.period === '84' ? 'Tempo por semana' : 'Tempo por dia'), plot, tipEl,
-        el('label', { class: 'sr-goalrow' }, 'Meta diária', goalIn, 'min'),
+      box.append(...[per, tiles, awTot >= 60000 ? el('p', { class: 'tm-hint sr-away' }, `${T.fmtDur(awTot)} com o cronômetro rodando e o app fora da tela (tela apagada ou outro app) — não contou. Toque numa barra para ver o dia.`) : null, el('div', { class: 'sr-sec' }, this.period === '84' ? 'Tempo por semana' : 'Tempo por dia'), plot, tipEl,
+        el('div', { class: 'sr-goalrow' }, el('label', {}, 'Meta diária ', goalIn, ' min'), el('button', { class: 'btn sr-adj', onclick: () => this.adjust(render) }, 'Ajustar tempo')),
         el('div', { class: 'sr-sec' }, 'Por matéria'), sl.length ? subjBox : el('p', { class: 'tm-hint' }, 'Sem tempo registrado neste período. O tempo conta com o cronômetro rodando e o app aberto.'), !Store.folders.some((f) => f.subject) ? el('p', { class: 'tm-hint' }, 'Dica: marque pastas como matéria (menu ⋯ da pasta → "Marcar como matéria" ou "Transformar as subpastas em matérias").') : null,
-        nl.length ? el('div', { class: 'sr-sec' }, 'Notas mais estudadas') : null, nl.length ? noteBox : null);
+        nl.length ? el('div', { class: 'sr-sec' }, 'Notas mais estudadas') : null, nl.length ? noteBox : null].filter(Boolean));
     };
     render();
     const closeModalTop = () => { const b = box.closest('.modal-back'); if (b) b.remove(); };

@@ -1159,3 +1159,13 @@ select{border-radius:14px!important}
 .tma-btns{display:flex;gap:10px;margin-top:10px}
 .tma-btns .btn{font-size:18px;padding:12px 28px;border-radius:999px}
 .sr-away{color:var(--danger)!important}
+/* v0.42.1: ajustar tempo do relatório */
+.sr-goalrow{flex-wrap:wrap;justify-content:space-between}
+.sr-goalrow label{display:flex;align-items:center;gap:8px}
+.sr-adjbox{display:flex;flex-direction:column;gap:10px;min-width:min(380px,84vw)}
+.sr-adjbox>label{display:grid;grid-template-columns:90px 1fr;align-items:center;gap:10px;font-size:14px}
+.sr-adjbox .sr-in{width:100%}
+.sr-sign{align-self:flex-start}
+.sr-manual .sr-row{grid-template-columns:1fr auto auto}
+.sr-manual b.neg{color:var(--danger)}
+.sr-undo{padding:4px 10px;font-size:12px}

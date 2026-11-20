@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.42.1
+
+- **Ajustar tempo no relatório:** botão **Ajustar tempo** (ao lado da meta diária) para adicionar ou tirar minutos de uma matéria num dia, quando perceber que o registro ficou errado. Os ajustes ficam listados na mesma janela e cada um pode ser desfeito. Tirar nunca deixa a matéria abaixo de zero naquele dia.
+- Corrigido: aparecia a palavra "null" solta no relatório.
+
 ## Novidades da v0.42.0
 
 - **Alarme bem mais chamativo:** quando o temporizador ou uma fase do Pomodoro termina com o app na tela, um aviso grande cobre a tela piscando, com som mais alto (bipes em dois tons) e vibração repetindo a cada 2 segundos até você tocar em **Parar** (para sozinho depois de 1 minuto, mas o aviso fica). No temporizador há **+5 min**; no fim da pausa do Pomodoro, **Iniciar foco**.

@@ -608,6 +608,7 @@ function penMapSection() {
 /* v0.35: matéria de uma nota = a pasta-matéria mais próxima acima dela ('_' = cronômetro fora de uma nota) */
 function subjectOfNote(id) {
   if (id === '_') return { key: '_', name: 'Fora das notas', color: 'var(--muted)' };
+  if (id.startsWith('f:')) { /* v0.42.1: ajuste manual do relatório gravado direto na matéria */ const ch = Store.folderChain(id.slice(2)) || []; for (let i = ch.length - 1; i >= 0; i--) if (ch[i].subject) return { key: ch[i].id, name: ch[i].name, color: ch[i].color || FOLDER_COLORS[0] }; return { key: '~', name: 'Sem matéria', color: 'var(--muted)' }; }
   const h = Store.heads[id]; if (!h) return { key: '?', name: 'Notas apagadas', color: 'var(--line)' };
   const ch = h.folderId ? Store.folderChain(h.folderId) : [];
   for (let i = ch.length - 1; i >= 0; i--) if (ch[i].subject) return { key: ch[i].id, name: ch[i].name, color: ch[i].color || FOLDER_COLORS[0] };
