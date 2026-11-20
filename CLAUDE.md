@@ -36,6 +36,16 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 6. Commit com a versão no título (ex.: `v0.24.2: trava de rolagem vertical a partir de 70% de zoom`), push no branch da sessão e na `main`.
 7. No tablet, o usuário toca em "Verificar atualização" (tela inicial, embaixo da barra lateral).
 
+## 3b. Gerar o APK de novo (PWABuilder) — quando muda algo do manifesto
+
+"Verificar atualização" só atualiza a parte web. Recursos que o **Android** precisa conhecer vêm do `manifest.webmanifest` **no momento em que o APK é gerado**: "Abrir com" (`file_handlers`, v0.29), "Compartilhar para" (`share_target`, v0.29), nome, ícone, cor. Em 20/11/2026 o usuário relatou que o Traço não aparecia no "Abrir com" porque o APK era de antes da v0.29 — instruções dadas:
+1. Backup no Drive antes (Configurações → Google Drive → sincronizar). Os dados do TWA ficam no armazenamento do Chrome para o site, mas por segurança.
+2. pwabuilder.com → endereço `https://vinift.github.io/Traco/` → Package for stores → **Android** → *Options/All settings*.
+3. **Mesmo Package ID** do APK atual (ex.: `io.github.vinift.twa` — confira no app instalado: Configurações do Android → Apps → Traço → detalhes) e **mesma chave de assinatura**: "Signing key → Use mine" com o `signing.keystore` + senhas do `signing-key-info.txt` do zip da primeira geração. Com chave nova o Android recusa instalar por cima (assinatura diferente) e o `assetlinks.json` (no repositório do site raiz `vinift.github.io`, em `/.well-known/`, não neste) teria de ser atualizado com a impressão digital nova — senão aparece a barra de endereço.
+4. Gerar, baixar o zip, instalar o `.apk` por cima do atual (permitir "fontes desconhecidas" para o gerenciador de arquivos).
+5. Testar: tocar num PDF no gerenciador de arquivos → "Abrir com" → Traço → deve abrir a página "Abrir PDF no Traço". Compartilhar um PDF → Traço também.
+Não confirmado (não deu para ler a doc do PWABuilder daqui): se há uma opção a marcar para file handlers / share target; o Bubblewrap (gerador por baixo) aceita `fileHandlers` e `shareTarget` no twa-manifest.json e "merge" leva os campos do manifesto web. Se depois de gerar o Traço ainda não aparecer, abrir o zip e conferir no `twa-manifest.json` se `fileHandlers` está lá.
+
 ## 4. Arquitetura (JS puro, sem build)
 
 - Scripts clássicos que compartilham globais, carregados nesta ordem: util, store, geom, render, pdf, tpl-import, drive, editor, toolbar, tables, tiles, navigation, richtext, crop, shapeedit, colorpicker, ui, ocr, beautify, import-notewise, library, plugins, workspace, split, timer, pdfopen, notemenu, app (autotoc vem logo depois de workspace).
