@@ -221,6 +221,22 @@ Object.assign(Editor, {
       if (e.dash) n.dash = e.dash; if (e.opacity != null) n.opacity = e.opacity;
       this.recAdd(page, n); this.opCommit(); toast('Colchete continuado', 900); return true;
     }
+    /* v0.41.4: toque duplo num HÍFEN → colchete embaixo dele (como na foto do usuário): reta no meio do hífen, começando logo abaixo da
+       linha do hífen (topo do quadrado seguinte + 22%), descendo até o CENTRO do quadrado duas linhas abaixo; ponta até o fim do hífen,
+       curva de 18% do quadrado. Hífen = traço/linha curto quase horizontal (≤ 1,3 quadrado; altura ≤ max(1,5·espessura, 25% do comprimento)) */
+    const rg = this.ruledFor(page);
+    for (let i = page.elements.length - 1; i >= 0; i--) {
+      const e = page.elements[i]; if (e.lock || !(e.type === 'stroke' && e.tool === 'pen') && !(e.type === 'shape' && e.kind === 'line')) continue;
+      let x1, x2, y1, y2; if (e.type === 'shape') { x1 = Math.min(e.x1, e.x2); x2 = Math.max(e.x1, e.x2); y1 = Math.min(e.y1, e.y2); y2 = Math.max(e.y1, e.y2); }
+      else { x1 = y1 = Infinity; x2 = y2 = -Infinity; for (let k = 0; k < e.pts.length; k += 3) { x1 = Math.min(x1, e.pts[k]); x2 = Math.max(x2, e.pts[k]); y1 = Math.min(y1, e.pts[k + 1]); y2 = Math.max(y2, e.pts[k + 1]); } }
+      const L = x2 - x1, H = y2 - y1, s = rg && rg.s > 0 ? rg.s : L * 4; if (L < 2 || L > s * 1.3 || H > Math.max((e.width || 1) * 1.5, L * 0.25)) continue;
+      if (l.x < x1 - m || l.x > x2 + m || l.y < y1 - m || l.y > y2 + m) continue;
+      const hy = (y1 + y2) / 2, cx = (x1 + x2) / 2, o = rg && rg.s > 0 ? rg.o : hy - s * 0.6, k = Math.floor((hy - o) / s);
+      const top = o + (k + 1) * s + s * 0.22, end = o + (k + 2.5) * s, tip = x2 - cx, r = Math.min(s * 0.18, tip * 0.9);
+      const n = { id: uid(), type: 'shape', kind: 'path', pts: [cx, top, cx, end, x2, end].map(r2), rr: [0, r2(r), 0], color: e.color, width: e.width, fill: null };
+      if (e.dash && e.dash !== 'solid') n.dash = e.dash;
+      this.recAdd(page, n); this.opCommit(); toast('Colchete', 800); return true;
+    }
     return false;
   },
   /* v0.41: hífen rápido — no centro do quadrado da grade (um pouco abaixo do meio), com a cor/espessura/tipo da caneta atual.

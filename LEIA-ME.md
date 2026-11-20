@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.41.4
+
+- **Toque duplo num hífen cria um colchete embaixo dele:**
+  - A reta sai do meio do hífen, começa logo abaixo da linha dele e desce até o centro do quadrado duas linhas abaixo.
+  - A ponta curva vai até onde o hífen termina, com a mesma cor e espessura do hífen.
+  - Dá para tocar duas vezes no colchete novo para continuar descendo, e a ferramenta não muda.
+
 ## Novidades da v0.41.3
 
 - **Colchete reconhecido com mais facilidade e mais rápido:**
