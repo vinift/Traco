@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.40.1
+
+- **Tocar no tempo na tela cheia:** com a nota em tela cheia, tocar no tempo do cronômetro (ou no relógio) no topo abre o painel de sempre (pausar, zerar, trocar de modo…). Antes, na tela cheia, o topo não respondia a toques.
+- **Saiu o cronômetro em tela cheia da v0.40.0** (não era o que você queria).
+
 ## Novidades da v0.40.0
 
 - **Cronômetro em tela cheia:** no painel do cronômetro, toque em "Tela cheia".

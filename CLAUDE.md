@@ -153,7 +153,7 @@ Não confirmado (não deu para ler a doc do PWABuilder daqui): se há uma opçã
 ### Cronômetro de estudo (`js/timer.js`)
 - Modos: cronômetro, temporizador (atalhos 5–90 min), Pomodoro (25/5/15 a cada 4, ajustável; pausa começa sozinha, foco espera Iniciar).
 - Estado em meta 'studyTimer' (baseado em `Date.now()`); histórico em meta 'studyLog' `{days:{'AAAA-MM-DD':{noteId|'_':ms}}, titles}`, gravado por trechos (`boundary`) **só com o app visível** (`segAway`; app fechado/tela apagada não conta).
-- Tela cheia (v0.40): `StudyTimer.openFull()` (botão "Tela cheia" no painel) → `.settings-page.tm-full` (o voltar do Android fecha pelo `.sp-head .cbtn`), `renderFull()` (refaz só quando muda `running|acc|phase|mode` — `_fullKey`; o `paint()` atualiza `.tmf-big` e a barra `.tmf-prog` a cada segundo), Wake Lock da tela enquanto aberta (`_wake`, liberado em `closeFull`).
+- v0.40.1: na tela cheia da nota (`#editor.immersive`), `.note-timer` e `.note-clock` têm `pointer-events:auto` (o resto da pílula `.ch-title` continua sem toques) → tocar abre o painel do cronômetro. (A "tela cheia do cronômetro" da v0.40.0 — `openFull` — foi removida: o usuário queria isto.)
 - Notificações do sistema (`S.timerNotify`): fixa e silenciosa enquanto roda (tag 'traco-timer', botões Pausar/Continuar/Abrir) e alarme ao terminar (tag 'traco-timer-end'). Limite: não dispara se o Android encerrou o app; pode atrasar ~1 min em segundo plano longo.
 
 ## 6. Configurações (`Store.settings`, chaves usadas)
@@ -266,6 +266,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 - v0.39.2 — ✨ alinha a base das letras na linha da pauta (passo 6 do `beautifySelection`); relatório: toque na barra mostra as matérias do dia. Teste ✨: 9 letras sintéticas na pauta (entrelinha 32) com a base pulando −6…+6 → todas a 0 da linha; "g" com perna ficou com a perna abaixo (+9,7); hífen ficou acima (−3,6). Teste relatório: hoje 47 min Língua Portuguesa + 20 Direito + 5 fora → barra de hoje lista os três. Relato do usuário (47 min no cronômetro, 39 no relatório): o histórico só conta com o app NA TELA (decisão da v0.22, mantida a pedido); reproduzido com 8 min de tela apagada (47 → 39); o usuário acha que não foi isso — outras causas prováveis: tempo na biblioteca ("Fora das notas") ou em nota de outra matéria; o detalhe por dia ajuda a ver. Teste do cronômetro: `page.clock.install()` + `runFor` e `document.hidden` redefinido + `visibilitychange`.
 
 - v0.40.0 — cronômetro em tela cheia (`openFull`/`renderFull`/`closeFull`) e continuar colchete com toque duplo da caneta (`bracketChain`, `bracketBottom`). Teste (caneta CDP, grade 40): colchete [200,100]→[200,230]→[230,230] rr 10 → toque duplo nele → novo [200,220]→[200,310]→[230,310] rr 10, ferramenta continua 'pen'; toque duplo no novo → [200,300]→[200,390]; toque duplo longe → troca para o laço; tela cheia mostra 00:02 e o voltar fecha.
+
+- v0.40.1 — remove `StudyTimer.openFull` (mal-entendido) e libera o toque no tempo/relógio com a nota em tela cheia (CSS no fim do app.css). Teste: `Focus.toggle(true)` + cronômetro rodando → toque CDP no `#noteTimer` abre `.tm-pop` com Pausar/Zerar.
 
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
