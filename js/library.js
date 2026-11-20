@@ -600,7 +600,8 @@ function penMapSection() {
   /* v0.41.2: tamanho e posição do hífen rápido (em % do quadrado da grade) */
   sec.append(el('div', { class: 'field', style: { marginTop: '10px' } }, el('label', {}, 'Hífen rápido'),
     UI.slider('Comprimento', 5, 90, 1, S.hyphenLen ?? 25, (v) => { S.hyphenLen = v; Store.saveSettings(); }, (v) => v + '% do quadrado'),
-    UI.slider('Deslocamento para baixo do centro', -40, 40, 1, S.hyphenDrop ?? 10, (v) => { S.hyphenDrop = v; Store.saveSettings(); }, (v) => (v === 0 ? 'no centro' : v < 0 ? Math.abs(v) + '% para cima' : v + '% para baixo'))));
+    UI.slider('Deslocamento para baixo do centro', -40, 40, 1, S.hyphenDrop ?? 10, (v) => { S.hyphenDrop = v; Store.saveSettings(); }, (v) => (v === 0 ? 'no centro' : v < 0 ? Math.abs(v) + '% para cima' : v + '% para baixo')),
+    UI.slider('Colchete do hífen (toque duplo no hífen): fim abaixo do centro do quadrado', -40, 40, 1, S.bracketDrop ?? S.hyphenDrop ?? 10, (v) => { S.bracketDrop = v; Store.saveSettings(); }, (v) => (v === 0 ? 'no centro' : v < 0 ? Math.abs(v) + '% para cima' : v + '% para baixo'))));
   return sec;
 }
 

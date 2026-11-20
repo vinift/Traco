@@ -232,7 +232,7 @@ Object.assign(Editor, {
       const L = x2 - x1, H = y2 - y1, s = rg && rg.s > 0 ? rg.s : L * 4; if (L < 2 || L > s * 1.3 || H > Math.max((e.width || 1) * 1.5, L * 0.25)) continue;
       if (l.x < x1 - m || l.x > x2 + m || l.y < y1 - m || l.y > y2 + m) continue;
       const hy = (y1 + y2) / 2, cx = (x1 + x2) / 2, o = rg && rg.s > 0 ? rg.o : hy - s * 0.6, k = Math.floor((hy - o) / s);
-      const top = o + (k + 1) * s + s * 0.22, end = o + (k + 2.5) * s, tip = x2 - cx, r = Math.min(s * 0.18, tip * 0.9);
+      const S = Store.settings, kE = clamp((S.bracketDrop ?? S.hyphenDrop ?? 10) / 100, -0.45, 0.45) /* v0.41.6: fim abaixo do centro, como o hífen (configurável) */, top = o + (k + 1) * s + s * 0.22, end = o + (k + 2.5) * s + s * kE, tip = x2 - cx, r = Math.min(s * 0.18, tip * 0.9);
       const n = { id: uid(), type: 'shape', kind: 'path', pts: [cx, top, cx, end, x2, end].map(r2), rr: [0, r2(r), 0], color: e.color, width: (Store.settings.tools.pen || {}).width || e.width, fill: null }; /* v0.41.5: espessura = a selecionada na caneta */
       if (e.dash && e.dash !== 'solid') n.dash = e.dash;
       this.recAdd(page, n); this.opCommit(); toast('Colchete', 800); return true;
