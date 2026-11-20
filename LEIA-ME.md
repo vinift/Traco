@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.34.4
+
+- **Tela cheia / escrevendo:** a barra do meio perdeu o fundo cinza — ficam só as informações (nome, horário, bateria) com uma sombrinha leve para dar para ler sobre a folha, e o fundo roxo do tempo de estudo.
+
 ## Novidades da v0.34.3
 
 - **Tela cheia e escrevendo com a caneta:** a barra do meio agora fica inteira — nome da nota, horário, bateria e tempo de estudo (antes só o tempo de estudo ficava). Os botões dos cantos continuam escondidos e a barra não atrapalha a escrita (toques passam por ela).

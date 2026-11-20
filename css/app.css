@@ -1037,6 +1037,9 @@ select{border-radius:14px!important}
 /* v0.34.3: escrevendo / tela cheia, a pílula do meio fica INTEIRA (nome, horário, bateria e tempo de estudo), não só o tempo;
    continua sem receber toques (pointer-events:none), e os botões dos cantos seguem escondidos */
 #editor.writing .ch-title,#editor.immersive .ch-title{opacity:1;pointer-events:none}
-#editor.writing .ch-title.has-timer,#editor.immersive .ch-title.has-timer{background:color-mix(in srgb,var(--ch) 82%,transparent);box-shadow:0 4px 18px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.05)}
+/* v0.34.4: sem o fundo cinza da pílula — só as informações (com sombrinha para ler sobre a folha) e o fundo roxo do tempo de estudo */
+#editor.writing .ch-title,#editor.immersive .ch-title{background:transparent!important;box-shadow:none!important;-webkit-backdrop-filter:none;backdrop-filter:none}
+#editor.writing .ch-title>:not(.note-timer),#editor.immersive .ch-title>:not(.note-timer),#editor.writing .ch-title .title-input,#editor.immersive .ch-title .title-input{text-shadow:0 0 3px var(--ch),0 0 6px var(--ch),0 1px 2px rgba(0,0,0,.18)}
+#editor.writing .ch-title .note-bat svg,#editor.immersive .ch-title .note-bat svg{filter:drop-shadow(0 0 2px var(--ch)) drop-shadow(0 1px 1px rgba(0,0,0,.18))}
 #editor.writing .ch-title.has-timer>:not(.note-timer),#editor.immersive .ch-title.has-timer>:not(.note-timer){visibility:visible}
 #editor.writing .ch-title .title-input,#editor.immersive .ch-title .title-input{pointer-events:none}
