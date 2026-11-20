@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.41.3
+
+- **Colchete reconhecido com mais facilidade e mais rápido:**
+  - Colchetes com curva grande ou com a reta um pouco torta agora viram colchete, em vez de linha curva.
+  - Basta segurar a caneta parada 0,25 s no fim (antes 0,3 s, e quando falhava só saía uma curva depois de 0,6 s).
+  - Parênteses e "C" continuam virando curva.
+
 ## Novidades da v0.41.2
 
 - **Tamanho do hífen rápido nas Configurações:** em Configurações → Botões da caneta → "Hífen rápido" dá para ajustar o **comprimento** (em % do quadrado, padrão 25%) e o **deslocamento** em relação ao centro do quadrado (padrão 10% para baixo; também dá para subir).

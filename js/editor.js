@@ -696,7 +696,7 @@ const Editor = {
     a.raw = l;
     // reconhecimento de forma ao segurar
     if (((a.tool === 'pen' && Store.settings.shapeHold) || (a.tool === 'highlighter' && Store.settings.hlHold !== false)) && !a.snap && !a.shape) {
-      if (Math.hypot(p.x - a.hold.x, p.y - a.hold.y) > 5) { a.hold = { x: p.x, y: p.y }; clearTimeout(a.holdT); clearTimeout(a.holdBk); a.holdBk = setTimeout(() => this.tryRecognize(true), 300); a.holdT = setTimeout(() => this.tryRecognize(), 600); } /* v0.34.6: colchete sai com 0,3 s parado; as outras formas continuam com 0,6 s */
+      if (Math.hypot(p.x - a.hold.x, p.y - a.hold.y) > 5) { a.hold = { x: p.x, y: p.y }; clearTimeout(a.holdT); clearTimeout(a.holdBk); a.holdBk = setTimeout(() => this.tryRecognize(true), 250); a.holdT = setTimeout(() => this.tryRecognize(), 600); } /* v0.34.6: colchete sai com 0,3 s parado; as outras formas continuam com 0,6 s */
     } else if (a.shape) { this.updateHeldShape(l); this.connectHeld(); }
   },
   tryRecognize(onlyBracket = false) {

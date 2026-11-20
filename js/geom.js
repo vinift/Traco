@@ -579,12 +579,48 @@ function bracketBottom(e) {
   }
   return best;
 }
+/* v0.41.3: reconhecedor próprio de colchete ("[", "]", "└", "┌"…), antes do genérico — o `fitPath` desistia quando a curva era
+   grande (quase do tamanho da ponta) ou a reta tinha "barriga", e aí saía uma linha curva (arco) só depois de 0,6 s.
+   Regras: forma alta (h ≥ 1,5·w); o miolo (40% do meio da altura) é quase reto e quase vertical (≤ 25°); pontas do traço no
+   topo/fundo, uma ou duas com gancho para o MESMO lado; a parte de fora de cada gancho é quase horizontal (espalha pouco na
+   vertical — é o que separa do parêntese "("). Resultado: reta vertical, pontas horizontais, raio medido no traço. */
+function quickBracket(P, z) {
+  const n = P.length; if (n < 8) return null;
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity; for (const [x, y] of P) { x1 = Math.min(x1, x); x2 = Math.max(x2, x); y1 = Math.min(y1, y); y2 = Math.max(y2, y); }
+  const w = x2 - x1, h = y2 - y1; if (h * z < 30 || h < w * 1.5) return null;
+  const mid = P.filter(([, y]) => y > y1 + h * 0.3 && y < y2 - h * 0.3); if (mid.length < 3) return null;
+  let sy = 0, sx = 0, syy = 0, sxy = 0; for (const [x, y] of mid) { sy += y; sx += x; syy += y * y; sxy += x * y; }
+  const m = mid.length, den = m * syy - sy * sy; if (!den) return null;
+  const bS = (m * sxy - sx * sy) / den, aS = (sx - bS * sy) / m; if (Math.abs(bS) > 0.47) return null;
+  const X = (y) => aS + bS * y; let res = 0; for (const [x, y] of mid) res = Math.max(res, Math.abs(x - X(y))); if (res > Math.max(3 / z, h * 0.035)) return null;
+  const minHook = Math.max(5 / z, h * 0.06), ends = [P[0], P[n - 1]].map((q, k) => ({ q, k, dx: q[0] - X(q[1]), top: q[1] < y1 + h * 0.5 }));
+  for (const e of ends) { e.hook = Math.abs(e.dx) >= minHook; if (Math.abs(e.q[1] - (e.top ? y1 : y2)) > h * 0.3) return null; }
+  const hooks = ends.filter((e) => e.hook); if (!hooks.length || ends[0].top === ends[1].top) return null;
+  if (hooks.length === 2 && Math.sign(hooks[0].dx) !== Math.sign(hooks[1].dx)) return null;
+  const sxm = X((y1 + y2) / 2), top = ends.find((e) => e.top), bot = ends.find((e) => !e.top);
+  for (const e of hooks) { /* parte de fora do gancho quase horizontal */
+    const near = (q) => (e.top ? q[1] < y1 + h * 0.4 : q[1] > y2 - h * 0.4), out = P.filter((q) => near(q) && Math.sign(q[0] - sxm) === Math.sign(e.dx) && Math.abs(q[0] - sxm) >= Math.abs(e.dx) * 0.6);
+    if (out.length < 2) return null; let a = Infinity, b2 = -Infinity, ys = []; for (const q of out) { a = Math.min(a, q[1]); b2 = Math.max(b2, q[1]); ys.push(q[1]); }
+    if (b2 - a > Math.max(4 / z, Math.abs(e.dx) * 0.12)) return null;
+    ys.sort((u, v) => u - v); e.y = ys[ys.length >> 1]; e.tip = e.q[0] - sxm;
+  }
+  const yT = top.hook ? top.y : y1, yB = bot.hook ? bot.y : y2; if (yB - yT < h * 0.6) return null;
+  const rOf = (cy, tip) => { let d = Infinity; for (const q of P) d = Math.min(d, Math.hypot(q[0] - sxm, q[1] - cy)); return clamp(d / (Math.SQRT2 - 1), 0, Math.min(Math.abs(tip) * 0.95, (yB - yT) * 0.45)); };
+  const V = [], RR = [];
+  if (top.hook) { V.push([sxm + top.tip, yT], [sxm, yT]); RR.push(0, rOf(yT, top.tip)); } else { V.push([sxm, yT]); RR.push(0); }
+  if (bot.hook) { V.push([sxm, yB], [sxm + bot.tip, yB]); RR.push(rOf(yB, bot.tip), 0); } else { V.push([sxm, yB]); RR.push(0); }
+  if (ends[0] === bot) { V.reverse(); RR.reverse(); }
+  const out = { kind: 'path', pts: V.flat().map(r2), rr: RR.map((r) => (r * z < 1.5 ? 0 : r2(r))), bk: 1 };
+  const S = pathSamples(out); let err = 0; for (let i = 0; i < n; i += 2) { let d = Infinity; for (let j = 1; j < S.length; j++) d = Math.min(d, distSeg(P[i][0], P[i][1], S[j - 1][0], S[j - 1][1], S[j][0], S[j][1])); err = Math.max(err, d); }
+  return err <= Math.max(6 / z, h * 0.09) ? out : null;
+}
 function recognizeShape(flat, z = 1) {
   const P = []; for (let i = 0; i < flat.length; i += 3) P.push([flat[i], flat[i + 1]]);
   if (P.length < 3) return null;
   let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity, len = 0;
   P.forEach((p, i) => { x1 = Math.min(x1, p[0]); x2 = Math.max(x2, p[0]); y1 = Math.min(y1, p[1]); y2 = Math.max(y2, p[1]); if (i) len += Math.hypot(p[0] - P[i - 1][0], p[1] - P[i - 1][1]); });
   const diag = Math.hypot(x2 - x1, y2 - y1); if (diag * z < 10) return null; /* v0.25.1: mínimo de ~10 px de TELA (antes 12 da folha): linhas curtinhas também viram reta */
+  if (diag * z >= 30) { const qb = quickBracket(P, z); if (qb) return qb; } /* v0.41.3 */
   const a = P[0], b = P[P.length - 1], chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
   if (chord / len > 0.9) {
     let dev = 0; for (const p of P) dev = Math.max(dev, distSeg(p[0], p[1], a[0], a[1], b[0], b[1]));
