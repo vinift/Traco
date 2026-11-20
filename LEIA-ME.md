@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.34.6
+
+- **Colchete mais rápido no "segurar para desenhar":** o colchete agora vira forma com a caneta parada por ~0,3 s (antes 0,6 s). As outras formas (linha, retângulo, círculo…) continuam com o tempo de antes, para não virarem forma sem querer.
+
 ## Novidades da v0.34.5
 
 - **Zoom com dois dedos em cima de caixas de texto:** encostar dois dedos numa caixa de texto selecionada (ou aberta para escrever) agora faz zoom/rolagem em vez de mexer na caixa. Um dedo só continua movendo a caixa selecionada.

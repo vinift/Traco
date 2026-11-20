@@ -639,7 +639,7 @@ const Editor = {
   },
   cancelAction() {
     const a = this.action; this.action = null; if (!a) return;
-    clearTimeout(a.holdT); this.clearLive(); if (this.inkOn) this.inkHide();
+    clearTimeout(a.holdT); clearTimeout(a.holdBk); this.clearLive(); if (this.inkOn) this.inkHide();
     if (a.kind === 'crop' && this.crop) this.crop.c = a.fresh ? a.prev : a.c0;
     if (a.kind === 'erase' || a.kind === 'plugin') this.opCommit();
     if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate' || a.kind === 'vnode' || a.kind === 'tableact') { this.selTf = null; this.tPreview = null; this.guides = null; }
@@ -690,12 +690,14 @@ const Editor = {
     a.raw = l;
     // reconhecimento de forma ao segurar
     if (((a.tool === 'pen' && Store.settings.shapeHold) || (a.tool === 'highlighter' && Store.settings.hlHold !== false)) && !a.snap && !a.shape) {
-      if (Math.hypot(p.x - a.hold.x, p.y - a.hold.y) > 5) { a.hold = { x: p.x, y: p.y }; clearTimeout(a.holdT); a.holdT = setTimeout(() => this.tryRecognize(), 600); }
+      if (Math.hypot(p.x - a.hold.x, p.y - a.hold.y) > 5) { a.hold = { x: p.x, y: p.y }; clearTimeout(a.holdT); clearTimeout(a.holdBk); a.holdBk = setTimeout(() => this.tryRecognize(true), 300); a.holdT = setTimeout(() => this.tryRecognize(), 600); } /* v0.34.6: colchete sai com 0,3 s parado; as outras formas continuam com 0,6 s */
     } else if (a.shape) { this.updateHeldShape(l); this.connectHeld(); }
   },
-  tryRecognize() {
-    const a = this.action; if (!a || a.kind !== 'draw' || a.pts.length < 9 /* 3 pontos */) return;
+  tryRecognize(onlyBracket = false) {
+    const a = this.action; if (!a || a.kind !== 'draw' || a.pts.length < 9 /* 3 pontos */ || a.shape) return;
+    if (onlyBracket && a.tool !== 'pen') return;
     let r = recognizeShape(a.pts, this.cam.z);
+    if (onlyBracket && !(r && r.bk)) return; /* tentativa cedo: só vale se for colchete */
     if (a.tool === 'highlighter') { // marca-texto: segurar só endireita a linha
       const n = a.pts.length; r = { kind: 'line', x1: a.pts[0], y1: a.pts[1], x2: a.pts[n - 3], y2: a.pts[n - 2] };
     }
@@ -777,7 +779,7 @@ const Editor = {
     a.drawn = n;
   },
   endDraw(a) {
-    clearTimeout(a.holdT); Focus.writingEnd();
+    clearTimeout(a.holdT); clearTimeout(a.holdBk); Focus.writingEnd();
     this._liveClear = true; this._liveT = performance.now(); this.requestRender(); // a prévia sai no próximo desenho completo (sem piscar)
     if (this.inkOn) { this._inkHide = true; this.requestRender(); } // some depois que os blocos já mostram o traço (sem piscar)
     const page = this.note.pages[a.pi];
