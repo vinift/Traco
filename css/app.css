@@ -1034,3 +1034,9 @@ select{border-radius:14px!important}
 .sw-dashes{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
 .sw-dash{border:0;background:var(--panel2);color:var(--text);border-radius:12px;height:36px;display:grid;place-items:center;cursor:pointer;transition:background-color .15s ease}
 .sw-dash.on{background:var(--accent-soft);color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
+/* v0.34.3: escrevendo / tela cheia, a pílula do meio fica INTEIRA (nome, horário, bateria e tempo de estudo), não só o tempo;
+   continua sem receber toques (pointer-events:none), e os botões dos cantos seguem escondidos */
+#editor.writing .ch-title,#editor.immersive .ch-title{opacity:1;pointer-events:none}
+#editor.writing .ch-title.has-timer,#editor.immersive .ch-title.has-timer{background:color-mix(in srgb,var(--ch) 82%,transparent);box-shadow:0 4px 18px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.05)}
+#editor.writing .ch-title.has-timer>:not(.note-timer),#editor.immersive .ch-title.has-timer>:not(.note-timer){visibility:visible}
+#editor.writing .ch-title .title-input,#editor.immersive .ch-title .title-input{pointer-events:none}

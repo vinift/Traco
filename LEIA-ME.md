@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.34.3
+
+- **Tela cheia e escrevendo com a caneta:** a barra do meio agora fica inteira — nome da nota, horário, bateria e tempo de estudo (antes só o tempo de estudo ficava). Os botões dos cantos continuam escondidos e a barra não atrapalha a escrita (toques passam por ela).
+
 ## Novidades da v0.34.2
 
 - **Tipo de linha na seleção:** selecione linhas, formas ou traços da caneta, toque no botão de espessura da barra da seleção e escolha também o **tipo de linha** (sólida, pontilhada, traço longo, traço curto, ponto e traço, traços mistos). Vale para vários itens de uma vez e o desfazer volta tudo num passo. (Marca-texto não muda.)
