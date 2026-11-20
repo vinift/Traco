@@ -1029,3 +1029,8 @@ select{border-radius:14px!important}
 .item:active{transform:scale(.985)}
 .nthumb,.ficon{transition:box-shadow .2s ease}
 .toast{border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.22)}
+/* v0.34.2: tipo de linha na janela de espessura da seleção */
+.sw-sub{margin-top:4px}
+.sw-dashes{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.sw-dash{border:0;background:var(--panel2);color:var(--text);border-radius:12px;height:36px;display:grid;place-items:center;cursor:pointer;transition:background-color .15s ease}
+.sw-dash.on{background:var(--accent-soft);color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}

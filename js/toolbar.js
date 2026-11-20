@@ -563,7 +563,7 @@ const UI = {
       return;
     }
     const cb = B('palette', 'Mudar cor', () => colorPop(cb, (Editor.selElements()[0] || {}).color || '#000000', (c) => Editor.recolorSel(c), PALETTE, { alpha: true }));
-    if (Editor.selElements().some((e) => (e.type === 'stroke' || e.type === 'shape') && !e.lock)) { const wb = B('line', 'Espessura do traço', () => this.selWidthPop(wb)); }
+    if (Editor.selElements().some((e) => (e.type === 'stroke' || e.type === 'shape') && !e.lock)) { const wb = B('line', 'Espessura e tipo de linha', () => this.selWidthPop(wb)); }
     { const one = Editor.selElements(); if (one.length === 1 && one[0].type === 'shape') { const vb = B('nodes', 'Editar pontos: vértices, arestas e curvas (a espessura não muda)', () => Editor.toggleVEdit()); if (Editor.vEdit) vb.classList.add('vedit-on'); } }
     if (Editor.selElements().some((e) => (e.type === 'text' && !e.sticky) || e.type === 'image')) { const fb = B('frame', 'Moldura (borda e cantos arredondados)', () => this.framePop(fb)); }
     B('copy', 'Copiar', () => Editor.copySel());
@@ -626,6 +626,14 @@ const UI = {
       el('div', { class: 'sw-row' }, el('button', { class: 'btn', title: 'Todos os itens 0,1 mais finos', onclick: () => nudge(-0.1) }, '− 0,1'), el('button', { class: 'btn', title: 'Todos os itens 0,1 mais grossos', onclick: () => nudge(0.1) }, '+ 0,1')),
       el('div', { class: 'sw-row' }, el('button', { class: 'btn', onclick: () => scale(1 / 1.25) }, 'Mais fino'), el('button', { class: 'btn', onclick: () => scale(1.25) }, 'Mais grosso')),
       el('p', { class: 'sw-hint' }, '"Mais fino/grosso" mantém a diferença entre traços de espessuras diferentes.'));
+    /* v0.34.2: tipo de linha (pontilhada, tracejada…) para traços da caneta e formas */
+    const dashable = els.filter((e) => (e.type === 'stroke' && e.tool === 'pen') || e.type === 'shape');
+    if (dashable.length) {
+      const curD = dashable.every((e) => (e.dash || 'solid') === (dashable[0].dash || 'solid')) ? dashable[0].dash || 'solid' : null;
+      const row = el('div', { class: 'sw-dashes' });
+      for (const [k, n] of LINE_TYPES) { const b = el('button', { class: 'sw-dash' + (curD === k ? ' on' : ''), title: n, onclick: () => { Editor.dashSel(k); [...row.children].forEach((x) => x.classList.toggle('on', x === b)); } }); b.innerHTML = lineTypeSvg(k, 30); row.append(b); }
+      box.insertBefore(el('div', { class: 'sw-head sw-sub' }, el('span', {}, 'Tipo de linha')), box.lastChild); box.insertBefore(row, box.lastChild);
+    }
     openPop(anchor, box);
   },
   penTypePop(anchor) {

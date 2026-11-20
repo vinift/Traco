@@ -955,6 +955,12 @@ const Editor = {
     for (const e of this.selElements()) if (!e.lock && (e.type === 'stroke' || e.type === 'shape')) { const w = fn(e.width); if (w !== e.width) this.recReplace(page, e, { ...e, width: w }); }
     this.opCommit(); this.requestRender();
   },
+  /* v0.34.2: tipo de linha da seleção (traços da caneta e formas; marca-texto fica como está) — um passo no desfazer */
+  dashSel(k) {
+    const page = this.pageById(this.sel.pageId);
+    for (const e of this.selElements()) if (!e.lock && ((e.type === 'stroke' && e.tool === 'pen') || e.type === 'shape') && (e.dash || 'solid') !== k) { const n = { ...e }; if (k === 'solid') delete n.dash; else n.dash = k; this.recReplace(page, e, n); }
+    this.opCommit(); this.requestRender();
+  },
   orderSel(front) {
     const page = this.pageById(this.sel.pageId), els = this.selElements();
     for (const e of els) this.recRemove(page, e);

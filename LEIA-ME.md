@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.34.2
+
+- **Tipo de linha na seleção:** selecione linhas, formas ou traços da caneta, toque no botão de espessura da barra da seleção e escolha também o **tipo de linha** (sólida, pontilhada, traço longo, traço curto, ponto e traço, traços mistos). Vale para vários itens de uma vez e o desfazer volta tudo num passo. (Marca-texto não muda.)
+
 ## Novidades da v0.34.1
 
 - **Colchetes que continuam um no outro:** começando um colchete perto do canto (ou da reta) de outro, ele gruda: mesma reta vertical e a reta nova sai de onde a curva do anterior começa — fica uma linha só com os ganchos saindo dela, como no caderno. Vale até ~34 px de distância (antes 14).
