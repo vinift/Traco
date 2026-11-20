@@ -31,7 +31,7 @@ const Library = {
   render() {
     try { localStorage.setItem('traco-lib-place', JSON.stringify({ folder: this.folder, view: this.view, t: Date.now() })); } catch (_) {} /* v0.29: lembra a pasta/visão sempre (o app volta para ela ao reabrir) */
     const S = this.S, q = this.query.trim();
-    $('#hello').textContent = S.userName ? `Olá, ${S.userName}` : 'Olá!';
+    HomeTop.render(this.view === 'home' && !this.folder && !q); /* v0.37: data + frase do dia + Continuar + painel de estudo (no lugar do "Olá") */
     const ver = $('#libVersion'); if (ver) ver.textContent = 'Versão ' + App.version;
     $('#library').classList.toggle('side-closed', !!S.sideClosed);
     $$('.side-item[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === this.view && !q && (this.view !== 'home' || !this.folder)));
@@ -607,3 +607,67 @@ function subjectOfNote(id) {
   for (let i = ch.length - 1; i >= 0; i--) if (ch[i].subject) return { key: ch[i].id, name: ch[i].name, color: ch[i].color || FOLDER_COLORS[0] };
   return { key: '~', name: 'Sem matéria', color: 'var(--muted)' };
 }
+
+/* ===== v0.37 — topo autoral da tela inicial =====
+   Data de hoje (título) + frase curta do dia (muda à meia-noite, índice pelo dia do ano). Na tela inicial (raiz, sem busca):
+   cartão "Continuar" (última nota de S.recent, miniatura da página onde parou — meta 'views'[id].page — via pageThumb) e painel
+   de estudo (anel hoje/meta, sequência de dias na meta, 3 matérias da semana; toque abre StudyReport). Atualiza a cada 60 s. */
+const HOME_QUOTES = [
+  'Um pouco todo dia vence muito de vez em quando.', 'Escreva para lembrar; revise para entender.', 'Constância é mais forte que intensidade.',
+  'O caderno de hoje é a prova de amanhã.', 'Comece pequeno, mas comece agora.', 'Revisar também é estudar.',
+  'Uma página bem feita vale mais que dez corridas.', 'Dúvida anotada é dúvida meio resolvida.', 'Foco em uma coisa de cada vez.',
+  'O progresso mora nos dias comuns.', 'Entender devagar ainda é entender.', 'Cada traço conta.',
+  'Feito é melhor que perfeito — e depois melhora.', 'Pausa também faz parte do estudo.', 'Explique com as suas palavras: aí você aprendeu.',
+  'Hoje: menos aba aberta, mais página escrita.', 'Quem revisa não esquece.', 'Disciplina é lembrar o que você quer.',
+  'Errar no caderno é barato. Errar na prova é caro.', 'Um Pomodoro de cada vez.', 'Organize a ideia antes de decorar.',
+  'Resumo bom cabe numa página.', 'Faça perguntas ao conteúdo.', 'O difícil de hoje é o básico de amanhã.',
+  'Sente, abra o caderno, o resto vem.', 'Estudar cansado rende menos: descanse e volte.', 'Menos marca-texto, mais explicação.',
+  'Seu eu do futuro agradece esta revisão.', 'Uma matéria por vez, todas no seu tempo.', 'Conhecimento se constrói traço a traço.',
+];
+const HomeTop = {
+  _t: 0,
+  render(full) {
+    const now = new Date(), h1 = $('#hello'), q = $('#heroQuote'), box = $('#homeCards'); if (!h1) return;
+    const d = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+    h1.textContent = d.charAt(0).toUpperCase() + d.slice(1);
+    const doy = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 864e5); q.textContent = HOME_QUOTES[doy % HOME_QUOTES.length];
+    box.classList.toggle('hidden', !full); if (!full) return;
+    box.innerHTML = ''; try { const c = this.cont(); if (c) box.append(c); const st = this.study(); if (st) box.append(st); } catch (e) { logError(e, 'tela inicial'); }
+    if (!box.children.length) box.classList.add('hidden');
+    clearInterval(this._t); this._t = setInterval(() => { if ($('#library') && !$('#library').classList.contains('hidden') && document.visibilityState === 'visible' && !$('#homeCards').classList.contains('hidden')) { const s2 = this.study(), old = $('#homeCards .hc-study'); if (s2 && old) old.replaceWith(s2); } }, 60000);
+  },
+  cont() {
+    const id = (Store.settings.recent || []).find((x) => Store.heads[x]); if (!id) return null;
+    const h = Store.heads[id], sub = typeof subjectOfNote === 'function' ? subjectOfNote(id) : null;
+    const img = el('img', { alt: '' }); if (h.thumb) img.src = h.thumb;
+    const pg = el('span', { class: 'hc-pg' }, h.pages + (h.pages === 1 ? ' página' : ' páginas'));
+    const card = el('button', { class: 'hc-card hc-cont', onclick: () => App.openNote(id) },
+      el('div', { class: 'hc-th' }, img),
+      el('div', { class: 'hc-info' }, el('small', {}, 'Continuar de onde parei'), el('b', {}, h.title || 'Sem título'),
+        el('span', { class: 'hc-meta' }, sub && sub.key !== '?' && sub.name !== 'Sem matéria' ? el('i', { class: 'hc-dot', style: { background: sub.color || 'var(--accent)' } }) : null, sub && sub.name !== 'Sem matéria' ? sub.name + ' · ' : '', pg),
+        el('span', { class: 'hc-go' }, 'Continuar →')));
+    (async () => { /* miniatura da página onde parou */
+      try {
+        const views = (await DB.get('meta', 'views')) || {}, v = views[id]; if (!v || !(v.page > 0)) return;
+        const n = await Store.getNote(id), p = n && n.pages[v.page]; if (!p) return;
+        pg.textContent = `página ${v.page + 1} de ${n.pages.length}`; img.src = await pageThumb(n, p);
+      } catch (_) {}
+    })();
+    return card;
+  },
+  study() {
+    if (typeof StudyReport === 'undefined' || typeof StudyTimer === 'undefined') return null;
+    if (!StudyTimer.st) { clearTimeout(this._w); this._w = setTimeout(() => { const s2 = this.study(), old = $('#homeCards .hc-study'); if (s2 && old) old.replaceWith(s2); }, 1200); return el('div', { class: 'hc-card hc-study' }); } /* cronômetro ainda carregando */
+    const R = StudyReport, T = StudyTimer, map = R.dayMap(), goal = R.goalMs(), day = (back) => { const x = new Date(); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - back); return T.dayKey(x.getTime()); };
+    const today = R.sum(map[day(0)]), frac = Math.min(1, today / goal);
+    let streak = 0; { let i = today >= goal ? 0 : 1; for (; i < 400; i++) { if (R.sum(map[day(i)]) >= goal) streak++; else break; } }
+    const subj = new Map(); for (let i = 0; i < 7; i++) for (const [nid, ms] of Object.entries(map[day(i)] || {})) { const s = subjectOfNote(nid), o = subj.get(s.key) || { name: s.name, color: s.color, ms: 0 }; o.ms += ms; subj.set(s.key, o); }
+    const top = [...subj.values()].sort((a, b) => b.ms - a.ms).slice(0, 3), mx = top.length ? top[0].ms : 1;
+    const r = 30, C = 2 * Math.PI * r, ring = el('div', { class: 'hc-ring' }); ring.innerHTML = `<svg viewBox="0 0 72 72" width="72" height="72"><circle cx="36" cy="36" r="${r}" fill="none" stroke="var(--panel2)" stroke-width="8"/><circle cx="36" cy="36" r="${r}" fill="none" stroke="${frac >= 1 ? 'var(--ok, #16a34a)' : 'var(--accent)'}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${(C * frac).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 36 36)"/></svg>`;
+    ring.append(el('b', {}, Math.round(frac * 100) + '%'));
+    return el('button', { class: 'hc-card hc-study', title: 'Abrir relatório de estudo', onclick: () => R.open() }, ring,
+      el('div', { class: 'hc-info' }, el('small', {}, 'Estudo de hoje'), el('b', {}, `${T.fmtDur(today)} de ${T.fmtDur(goal)}`),
+        el('span', { class: 'hc-meta' }, streak ? `🔥 ${streak} ${streak === 1 ? 'dia' : 'dias'} seguidos na meta` : 'Bata a meta hoje para começar a sequência')),
+      el('div', { class: 'hc-subj' }, el('small', {}, 'Esta semana'), ...(top.length ? top.map((s) => el('div', { class: 'hc-srow' }, el('span', {}, s.name), el('i', { style: { width: Math.max(6, (s.ms / mx) * 100) + '%', background: s.color || 'var(--accent)' } }), el('em', {}, T.fmtDur(s.ms)))) : [el('span', { class: 'hc-meta' }, 'Nada estudado ainda')])));
+  },
+};

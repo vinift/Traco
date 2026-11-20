@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.37.0
+
+- **Tela inicial com cara própria:** saiu o "Olá, Vinicius". No lugar:
+  - **A data de hoje** em destaque e uma **frase curta de estudo** que muda todo dia.
+  - **Continuar de onde parei:** cartão com a última nota aberta, a miniatura da página onde você parou ("página 3 de 12"), a matéria e o botão Continuar.
+  - **Estudo de hoje:** anel com o tempo de hoje em relação à meta, a sequência 🔥 de dias seguidos na meta e as 3 matérias mais estudadas na semana. Toque para abrir o relatório.
+- Os cartões aparecem só no Início (somem dentro de pastas e na busca).
+
 ## Novidades da v0.36.3
 
 - **Tamanho da letra no caderno de caligrafia** (coluna da esquerda, 20–100%): diminui as linhas-guia no meio da folha para você escrever do tamanho com que está acostumado. A letra é gravada do mesmo jeito (relativa às linhas), então o ✨ funciona igual. O tamanho fica lembrado.
