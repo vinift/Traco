@@ -452,6 +452,7 @@ const Editor = {
     this.pointers.set(e.pointerId, rec);
     if (e.pointerType === 'pen') { this.penDown = true; this.lastPenSeen = performance.now(); if (this.gesture) this.endGesture(); }
     if (this.readOnly && e.pointerType !== 'touch') { rec.type = 'touch'; this.startGesture(); return; } // modo leitura: caneta só navega
+    if (e.pointerType === 'pen' && this._hyArm && (e.buttons & 1) && !this.penClickHeld(e)) { const arm = this._hyArm; this._hyArm = null; if (performance.now() - arm.t < 8000 && !this.readOnly) { rec.ignored = true; this.placeHyphen(p); return; } } /* v0.41: hífen armado pelo botão da caneta */
     if (e.pointerType === 'pen' && (!(e.buttons & 1) || this.penClickHeld(e))) { rec.ignored = true; return; } // sem encostar (só botão) ou botão com atalho de clique: não desenha
     if (this.crop && this.cropDown(e, p, rec)) return; // recorte na página: alças e moldura
     if (e.pointerType === 'touch') {
@@ -1036,7 +1037,7 @@ const Editor = {
   /* --- Botões da caneta --- */
   penSigs(buttons) { const out = []; for (const bit of [2, 4, 8, 16, 32]) if (buttons & bit) out.push('pen:' + bit); return out; },
   penHoldTool(buttons) { const M = Store.settings.penMap || {}; for (const sg of this.penSigs(buttons)) { const a = M[sg]; if (a === 'eraser' || a === 'lasso' || a === 'highlighter') return a; } return null; },
-  penClickHeld(e) { const M = Store.settings.penMap || {}; return this.penSigs(e.buttons).some((sg) => ['undo', 'redo', 'toggle', 'read'].includes(M[sg])); },
+  penClickHeld(e) { const M = Store.settings.penMap || {}; return this.penSigs(e.buttons).some((sg) => ['undo', 'redo', 'toggle', 'read', 'hyphen'].includes(M[sg])); },
   penButtons(e) {
     if (e.pointerType !== 'pen') return;
     const b = e.type === 'pointerup' ? e.buttons & ~1 : e.buttons & ~1;
@@ -1053,6 +1054,7 @@ const Editor = {
     else if (a === 'redo') { this._lastSig = now; this.redo(); toast('Refeito', 700); }
     else if (a === 'toggle') { this._lastSig = now; const t = this.tool === 'eraser' ? (this._prevTool || 'pen') : 'eraser'; if (t === 'eraser') this._prevTool = this.tool; UI.setTool(t, true); }
     else if (a === 'read') { this._lastSig = now; this.setReadOnly(!this.readOnly); }
+    else if (a === 'hyphen') { this._lastSig = now; if (this._hyArm) { this._hyArm = null; toast('Hífen cancelado', 800); } else { this._hyArm = { t: now }; toast('Hífen: toque no quadrado com a caneta', 1400); } } /* v0.41 */
   },
   setReadOnly(v) {
     this.readOnly = v; this.commitText(); this.sel = null; $('#editor').classList.toggle('reading', v);

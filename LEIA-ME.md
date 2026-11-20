@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.41.0
+
+- **Hífen rápido no quadrado:** o hífen sai no centro do quadrado da grade, um pouquinho abaixo do meio, com a cor, a espessura e o tipo da caneta selecionada. Duas formas de usar (escolha nas Configurações → Botões da caneta):
+  - **Botão da caneta:** em "Hífen no quadrado", toque em "Definir" e aperte o botão que quer usar. Depois, é só apertar o botão e tocar com a ponta no quadrado. Apertar o botão de novo antes de tocar cancela.
+  - **Toque duplo com a ponta:** escolha "Hífen no quadrado tocado" em "Toque duplo com a ponta". Os dois toques não deixam marca.
+  - Na pauta (só linhas), o hífen fica no meio da faixa entre as linhas, onde você tocou. Na folha lisa, fica onde você tocou.
+
 ## Novidades da v0.40.1
 
 - **Tocar no tempo na tela cheia:** com a nota em tela cheia, tocar no tempo do cronômetro (ou no relógio) no topo abre o painel de sempre (pausar, zerar, trocar de modo…). Antes, na tela cheia, o topo não respondia a toques.

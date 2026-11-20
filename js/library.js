@@ -557,7 +557,7 @@ async function importAll() {
 }
 
 /* ===== Botões da caneta: mapear como em jogos ("pressione o botão") ===== */
-const PEN_ACTIONS = [['undo', 'Desfazer', 'clique'], ['redo', 'Refazer', 'clique'], ['toggle', 'Alternar caneta ↔ borracha', 'clique'], ['read', 'Modo leitura liga/desliga', 'clique'], ['eraser', 'Borracha enquanto segura', 'segurar'], ['lasso', 'Laço enquanto segura', 'segurar'], ['highlighter', 'Marca-texto enquanto segura', 'segurar']];
+const PEN_ACTIONS = [['hyphen', 'Hífen no quadrado (aperte e toque no quadrado)', 'clique'], ['undo', 'Desfazer', 'clique'], ['redo', 'Refazer', 'clique'], ['toggle', 'Alternar caneta ↔ borracha', 'clique'], ['read', 'Modo leitura liga/desliga', 'clique'], ['eraser', 'Borracha enquanto segura', 'segurar'], ['lasso', 'Laço enquanto segura', 'segurar'], ['highlighter', 'Marca-texto enquanto segura', 'segurar']];
 function sigLabel(sg) {
   return { 'pen:2': 'Botão lateral 1', 'pen:4': 'Botão lateral 2', 'pen:8': 'Botão extra', 'pen:16': 'Botão extra 2', 'pen:32': 'Ponta/botão borracha', 'pen:ctx': 'Clique do botão (menu)' }[sg] || (sg.startsWith('key:') ? 'Tecla ' + sg.slice(4) : sg);
 }
