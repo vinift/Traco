@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.41.5
+
+- **Colchete do hífen com a espessura selecionada:** o colchete criado pelo toque duplo num hífen agora usa a espessura que está selecionada na caneta. A cor continua a do hífen.
+
 ## Novidades da v0.41.4
 
 - **Toque duplo num hífen cria um colchete embaixo dele:**
