@@ -708,7 +708,13 @@ const Editor = {
   /* v0.31: conectar a forma do "segurar" às formas da página (connectShape em geom.js; desliga em S.shapeConnect) */
   connectHeld() {
     const a = this.action; if (!a || !a.shape || a.tool === 'highlighter' || Store.settings.shapeConnect === false) return;
-    const page = this.note.pages[a.pi]; if (page) a.shape = connectShape(a.shape, page.elements, this.cam.z);
+    const page = this.note.pages[a.pi]; if (!page) return;
+    let sh = connectShape(a.shape, page.elements, this.cam.z);
+    if (sh._srcStyle) { /* v0.34.1: conectou noutro colchete → fica com o MESMO formato dele (ponta e curva), uma vez; depois a ponta ainda segue a caneta */
+      const st = sh._srcStyle; delete sh._srcStyle;
+      if (!a.bkSrc) { sh = applyBracketStyle(sh, { ...st, force: true }); a.bkSrc = true; const P = sh.pts, k = P.length / 2 - 1; if (a.bkBase) { a.bkBase.len = Math.abs(P[k * 2] - P[k * 2 - 2]) || a.bkBase.len; if (a.raw) { a.bkBase.px = a.raw.x; a.bkBase.py = a.raw.y; } } }
+    }
+    a.shape = sh;
   },
   hlLine(a) { const sh = a.shape; return { id: sh.id, type: 'stroke', tool: 'highlighter', color: a.color, width: a.width, opacity: a.opacity, cap: 'round', pts: [r2(sh.x1), r2(sh.y1), 0.5, r2(sh.x2), r2(sh.y2), 0.5] }; },
   updateHeldShape(l) {

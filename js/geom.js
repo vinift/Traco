@@ -775,8 +775,8 @@ function shapeSnapTargets(els, skipId) {
   const pts = [], segs = [];
   for (const o of els) {
     if (o.type !== 'shape' || o.id === skipId) continue;
-    if (o.kind === 'line' || o.kind === 'arrow') { pts.push([o.x1, o.y1], [o.x2, o.y2]); segs.push([o.x1, o.y1, o.x2, o.y2]); }
-    else if ((o.kind === 'path' || o.kind === 'poly') && o.pts) { const n = o.pts.length / 2; for (let i = 0; i < n; i++) { pts.push([o.pts[i * 2], o.pts[i * 2 + 1]]); if (i) segs.push([o.pts[i * 2 - 2], o.pts[i * 2 - 1], o.pts[i * 2], o.pts[i * 2 + 1]]); } if (o.closed && n > 2) segs.push([o.pts[n * 2 - 2], o.pts[n * 2 - 1], o.pts[0], o.pts[1]]); }
+    if (o.kind === 'line' || o.kind === 'arrow') { pts.push([o.x1, o.y1, o], [o.x2, o.y2, o]); segs.push([o.x1, o.y1, o.x2, o.y2, o]); }
+    else if ((o.kind === 'path' || o.kind === 'poly') && o.pts) { const n = o.pts.length / 2; for (let i = 0; i < n; i++) { pts.push([o.pts[i * 2], o.pts[i * 2 + 1], o]); if (i) segs.push([o.pts[i * 2 - 2], o.pts[i * 2 - 1], o.pts[i * 2], o.pts[i * 2 + 1], o]); } if (o.closed && n > 2) segs.push([o.pts[n * 2 - 2], o.pts[n * 2 - 1], o.pts[0], o.pts[1]]); }
     else if (o.kind === 'rect' || o.kind === 'diamond') { const c = o.kind === 'rect' ? [[o.x1, o.y1], [o.x2, o.y1], [o.x2, o.y2], [o.x1, o.y2]] : [[(o.x1 + o.x2) / 2, o.y1], [o.x2, (o.y1 + o.y2) / 2], [(o.x1 + o.x2) / 2, o.y2], [o.x1, (o.y1 + o.y2) / 2]]; pts.push(...c); for (let i = 0; i < 4; i++) segs.push([...c[i], ...c[(i + 1) % 4]]); }
   }
   return { pts, segs };
@@ -787,6 +787,7 @@ function connectShape(sh, els, z) {
   const tolP = 14 / z, tolS = 10 / z;
   const nearPt = (x, y, filt) => { let best = null, bd = tolP; for (const p of T.pts) { if (filt && !filt(p)) continue; const d = Math.hypot(p[0] - x, p[1] - y); if (d < bd) { bd = d; best = p; } } return best; };
   const nearSeg = (x, y) => { let best = null, bd = tolS; for (const s of T.segs) { const dx = s[2] - s[0], dy = s[3] - s[1], l2 = dx * dx + dy * dy; if (!l2) continue; const t = clamp(((x - s[0]) * dx + (y - s[1]) * dy) / l2, 0, 1), q = [s[0] + dx * t, s[1] + dy * t], d = Math.hypot(q[0] - x, q[1] - y); if (d < bd) { bd = d; best = q; } } return best; };
+  const nearPtR = (x, y, tol, filt) => { let best = null, bd = tol; for (const p of T.pts) { if (filt && !filt(p)) continue; const d = Math.hypot(p[0] - x, p[1] - y); if (d < bd) { bd = d; best = p; } } return best; };
   const snapEnd = (x, y) => nearPt(x, y) || nearSeg(x, y);
   if (sh.kind === 'line' || sh.kind === 'arrow') {
     const a = snapEnd(sh.x1, sh.y1), b = snapEnd(sh.x2, sh.y2); if (!a && !b) return sh;
@@ -799,19 +800,25 @@ function connectShape(sh, els, z) {
     let si = -1, sl = 0; for (let i = 0; i < n - 1; i++) if (Math.abs(P[i * 2] - P[i * 2 + 2]) < 0.01) { const l = Math.abs(P[i * 2 + 3] - P[i * 2 + 1]); if (l > sl) { sl = l; si = i; } }
     if (si < 0) return sh;
     const sx = P[si * 2], ya = Math.min(P[si * 2 + 1], P[si * 2 + 3]), yb = Math.max(P[si * 2 + 1], P[si * 2 + 3]);
-    let best = null, bd = 22 / z;
+    let best = null, bd = 22 / z, src = null;
     for (const s of T.segs) {
       if (Math.abs(s[0] - s[2]) > 0.6 || Math.abs(s[3] - s[1]) < 8 / z) continue; /* só retas verticais */
       const dx = Math.abs(s[0] - sx), gap = Math.max(0, Math.max(ya, Math.min(s[1], s[3])) - Math.min(yb, Math.max(s[1], s[3])));
-      if (dx < bd && gap <= Math.max(sl * 2, 220 / z)) { bd = dx; best = s[0]; }
+      if (dx < bd && gap <= Math.max(sl * 2, 220 / z)) { bd = dx; best = s[0]; src = s[4]; }
     }
     if (best !== null && best !== sx) { const dx = best - sx; for (let i = 0; i < n; i++) P[i * 2] = r2(P[i * 2] + dx); changed = true; }
     const X = P[si * 2];
     for (const k of [0, n - 1]) {
       const nb = k === 0 ? 1 : n - 2, onSpine = Math.abs(P[k * 2] - P[nb * 2]) < 0.01;
-      if (onSpine) { const q = nearPt(P[k * 2], P[k * 2 + 1], (p) => Math.abs(p[0] - P[k * 2]) < 1.5 / z) || nearPt(P[k * 2], P[k * 2 + 1]); if (q) { const dx = q[0] - P[k * 2]; if (dx) for (let i = 0; i < n; i++) P[i * 2] = r2(P[i * 2] + dx); P[k * 2 + 1] = r2(q[1]); changed = true; } } /* ponto fora do eixo: o colchete inteiro anda de lado (continua vertical) */
+      if (onSpine) { const q = nearPtR(P[k * 2], P[k * 2 + 1], 34 / z, (p) => Math.abs(p[0] - P[k * 2]) < 1.5 / z) || nearPt(P[k * 2], P[k * 2 + 1]); if (q && q[2] && !src) src = q[2]; /* v0.34.1: continuar um colchete — a ponta da reta gruda no canto/ponta do outro na mesma vertical até ~34 px */ if (q) {
+        const dx = q[0] - P[k * 2]; if (dx) for (let i = 0; i < n; i++) P[i * 2] = r2(P[i * 2] + dx);
+        /* canto arredondado do outro: a reta nova começa onde a curva dele sai da vertical — fica uma reta só, sem vão (como no caderno) */
+        let r = 0; const o = q[2]; if (o && o.kind === 'path' && o.rr && o.pts) for (let j = 1; j < o.pts.length / 2 - 1; j++) if (o.pts[j * 2] === q[0] && o.pts[j * 2 + 1] === q[1]) r = o.rr[j] || 0;
+        const dir = Math.sign(P[nb * 2 + 1] - P[k * 2 + 1]) || 1; P[k * 2 + 1] = r2(q[1] - dir * r); changed = true;
+      } } /* ponto fora do eixo: o colchete inteiro anda de lado (continua vertical) */
       else { const q = nearPt(P[k * 2], P[k * 2 + 1], (p) => Math.abs(p[1] - P[k * 2 + 1]) < 6 / z); if (q) { P[k * 2] = r2(q[0]); changed = true; } }
     }
+    if (src && src.kind === 'path' && src.pts && src.pts.length >= 6) { const st = bracketStyleOf(src); if (st) { const out = { ...sh, pts: P, _srcStyle: st }; return out; } } /* conectou noutro colchete: o editor copia o formato dele */
   } else {
     for (const k of [0, n - 1]) { const q = snapEnd(P[k * 2], P[k * 2 + 1]); if (q) { P[k * 2] = r2(q[0]); P[k * 2 + 1] = r2(q[1]); changed = true; } }
   }
@@ -828,8 +835,8 @@ function bracketParts(sh) {
 }
 function applyBracketStyle(sh, st) {
   if (!sh || !sh.bk || !st) return sh; const P = sh.pts.slice(), rr = (sh.rr || []).slice(), { tails, radii } = bracketParts(sh);
-  if (st.t > 0) for (const t of tails) if (t.len >= st.t * 0.6 && t.len <= st.t * 1.6) P[t.k * 2] = r2(P[t.nb * 2] + t.side * st.t);
-  if (st.r > 0) for (const i of radii) if (rr[i] >= st.r * 0.5 && rr[i] <= st.r * 2) rr[i] = st.r;
+  if (st.t > 0) for (const t of tails) if (st.force || (t.len >= st.t * 0.6 && t.len <= st.t * 1.6)) P[t.k * 2] = r2(P[t.nb * 2] + t.side * st.t);
+  if (st.r > 0) for (let i = 1; i < P.length / 2 - 1; i++) if (st.force ? true : radii.includes(i) && rr[i] >= st.r * 0.5 && rr[i] <= st.r * 2) rr[i] = st.r; /* force: copia do colchete conectado */
   return { ...sh, pts: P, rr };
 }
 function bracketStyleOf(sh) {

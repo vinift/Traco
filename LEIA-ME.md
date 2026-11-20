@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.34.1
+
+- **Colchetes que continuam um no outro:** começando um colchete perto do canto (ou da reta) de outro, ele gruda: mesma reta vertical e a reta nova sai de onde a curva do anterior começa — fica uma linha só com os ganchos saindo dela, como no caderno. Vale até ~34 px de distância (antes 14).
+- **Mesmo formato do colchete conectado:** o novo copia a curva e o comprimento da ponta daquele em que se conectou (segurando a caneta, a ponta ainda dá para ajustar).
+
 ## Novidades da v0.34.0
 
 - **Relatório de estudo** (tela inicial → "Estudo", ou no painel do cronômetro → "Ver relatório completo"):
