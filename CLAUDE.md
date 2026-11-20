@@ -153,6 +153,7 @@ Não confirmado (não deu para ler a doc do PWABuilder daqui): se há uma opçã
 ### Cronômetro de estudo (`js/timer.js`)
 - Modos: cronômetro, temporizador (atalhos 5–90 min), Pomodoro (25/5/15 a cada 4, ajustável; pausa começa sozinha, foco espera Iniciar).
 - Estado em meta 'studyTimer' (baseado em `Date.now()`); histórico em meta 'studyLog' `{days:{'AAAA-MM-DD':{noteId|'_':ms}}, titles}`, gravado por trechos (`boundary`) **só com o app visível** (`segAway`; app fechado/tela apagada não conta).
+- v0.42: alarme em tela cheia piscando (`alarmShow`, repete som/vibração até Parar, máx. 1 min); `wake()` mantém a tela acesa com o cronômetro rodando; tempo fora da tela com o cronômetro contando vai para `log.away` e aparece no relatório.
 - v0.40.1: na tela cheia da nota (`#editor.immersive`), `.note-timer` e `.note-clock` têm `pointer-events:auto` (o resto da pílula `.ch-title` continua sem toques) → tocar abre o painel do cronômetro. (A "tela cheia do cronômetro" da v0.40.0 — `openFull` — foi removida: o usuário queria isto.)
 - Notificações do sistema (`S.timerNotify`): fixa e silenciosa enquanto roda (tag 'traco-timer', botões Pausar/Continuar/Abrir) e alarme ao terminar (tag 'traco-timer-end'). Limite: não dispara se o Android encerrou o app; pode atrasar ~1 min em segundo plano longo.
 
@@ -282,6 +283,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 - v0.41.5 — colchete do hífen com a espessura selecionada na caneta. Teste: hífen 1,6, caneta em 3,2 → colchete 3,2.
 
 - v0.41.6 — colchete do hífen termina abaixo do centro (`S.bracketDrop`, padrão 10% como o hífen). Teste (grade 40): padrão → fim em 224 (centro 220); 0 → 220.
+
+- v0.42.0 — alarme chamativo (`StudyTimer.alarmShow/alarmStop`: `.tm-alarm` por cima de tudo, piscando, `beep(true)` 4 bipes 880/1320 Hz triangular 0,7 + vibração a cada 2 s por até 30 vezes; depois fica `.late` sem som; `+5 min` no temporizador, `Iniciar foco` no fim da pausa; o toast saiu), `wake()` no `tick` (Wake Lock 'screen' enquanto `st.running` e visível) e tempo fora da tela registrado em `log.away[dia]` (`st.awayAt` no `away`, `closeAway(t)` no `back`/`init`, limitado ao fim do temporizador) → aviso `.sr-away` no relatório (período e barra tocada). Relato do usuário: temporizador 30 min sem sair da nota e o relatório com menos — simulação (nota aberta, sem esconder) registra 30/30, então a perda é o app fora da tela (provável tela apagando sozinha lendo sem tocar). Teste: 30 min com 8 escondidos → log 22, away 8 min, alarme com 30 toques, relatório avisa 8 min.
 
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).

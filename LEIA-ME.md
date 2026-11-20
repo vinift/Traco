@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.42.0
+
+- **Alarme bem mais chamativo:** quando o temporizador ou uma fase do Pomodoro termina com o app na tela, um aviso grande cobre a tela piscando, com som mais alto (bipes em dois tons) e vibração repetindo a cada 2 segundos até você tocar em **Parar** (para sozinho depois de 1 minuto, mas o aviso fica). No temporizador há **+5 min**; no fim da pausa do Pomodoro, **Iniciar foco**.
+- **Tela sempre acesa com o cronômetro rodando:** o tablet não apaga mais a tela sozinho enquanto o tempo conta. Era o motivo mais provável de o relatório mostrar menos tempo que o cronômetro: com a tela apagada o tempo não conta.
+- **Relatório mostra o tempo que não contou:** se o app ficou fora da tela (tela apagada ou outro app) com o cronômetro rodando, o relatório avisa quanto foi no período e no dia tocado.
+
 ## Novidades da v0.41.6
 
 - **Colchete do hífen termina um pouco abaixo do centro do quadrado,** igual ao hífen (padrão 10% para baixo). Dá para ajustar em Configurações → Botões da caneta → "Hífen rápido" → "Colchete do hífen".

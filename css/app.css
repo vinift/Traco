@@ -1146,3 +1146,16 @@ select{border-radius:14px!important}
 .sr-tip b{font-weight:600}
 /* v0.40.1: na tela cheia da nota, o tempo de estudo (e o relógio) continuam tocáveis → abre o painel de pausar/zerar */
 #editor.immersive .ch-title .note-timer,#editor.immersive .ch-title .note-clock{pointer-events:auto;cursor:pointer}
+/* v0.42: alarme do cronômetro por cima de tudo, piscando até tocar em Parar */
+.tm-alarm{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:16px;background:rgba(124,58,237,.55);animation:tma-flash 1s ease-in-out infinite;touch-action:none}
+.tm-alarm.late{animation:none;background:rgba(17,24,39,.55)}
+@keyframes tma-flash{0%,100%{background:rgba(124,58,237,.35)}50%{background:rgba(220,38,38,.7)}}
+.tma-box{background:var(--panel,#fff);color:var(--text);border-radius:28px;padding:28px 32px;min-width:min(380px,88vw);max-width:92vw;text-align:center;box-shadow:0 24px 80px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:10px;align-items:center}
+.tma-ic{font-size:72px;line-height:1;animation:tma-ring .5s ease-in-out infinite}
+.tm-alarm.late .tma-ic{animation:none}
+@keyframes tma-ring{0%,100%{transform:rotate(-14deg) scale(1.05)}50%{transform:rotate(14deg) scale(1.15)}}
+.tma-h{font-size:30px;font-weight:700}
+.tma-msg{font-size:17px;color:var(--muted)}
+.tma-btns{display:flex;gap:10px;margin-top:10px}
+.tma-btns .btn{font-size:18px;padding:12px 28px;border-radius:999px}
+.sr-away{color:var(--danger)!important}

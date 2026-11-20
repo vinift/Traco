@@ -19,10 +19,12 @@ const StudyTimer = {
     for (const id of ['noteClock', 'noteTimer', 'libTimer']) { const n = document.getElementById(id); if (n) { n.classList.add('tm-click'); n.addEventListener('click', (e) => { e.stopPropagation(); this.open(n); }); } }
     { const c = document.getElementById('noteClock'); if (c) c.title = 'Horário · toque para o cronômetro de estudo'; }
     /* v0.22: o histórico só soma o tempo com o app aberto na tela (fechado, em segundo plano ou com a tela apagada não conta) */
-    const away = () => { if (this.st.running) this.boundary(Date.now()); this.st.segAway = true; this.save(); };
-    const back = () => { if (this.st.segAway) { this.st.segAway = false; this.st.segStart = Date.now(); this.save(); } this.tick(); };
+    /* v0.42: o tempo fora da tela (com o cronômetro contando) fica registrado à parte em log.away, para o relatório mostrar o que não contou */
+    const away = () => { const t = Date.now(); if (this.st.running) this.boundary(t); if (this.counts() && !this.st.awayAt) this.st.awayAt = t; this.st.segAway = true; this.save(); };
+    const back = () => { this.closeAway(Date.now()); if (this.st.segAway) { this.st.segAway = false; this.st.segStart = Date.now(); this.save(); } this.tick(); };
     document.addEventListener('visibilitychange', () => (document.hidden ? away() : back()));
     addEventListener('pagehide', away);
+    this.closeAway(Date.now());
     if (this.st.running) { this.st.segAway = false; this.st.segStart = Date.now(); this.save(); } // app reaberto: o tempo fechado fica de fora
     setInterval(() => this.tick(), 1000);
     this.tick();
@@ -55,6 +57,18 @@ const StudyTimer = {
     if (this.counts() && s.segStart && !s.segAway) this.addLog(s.segStart, t, s.segNote, s.segTitle);
     const n = this.curNote(); s.segStart = t; s.segNote = n ? n.id : null; s.segTitle = n ? n.title : ''; this.save();
   },
+  /* v0.42: fecha o trecho fora da tela [awayAt, t) — só até o fim do temporizador/fase, se acabou nesse meio-tempo */
+  closeAway(t) {
+    const s = this.st, a = s.awayAt; if (!a) return; s.awayAt = 0;
+    let e = t; if (s.running && this.hasTarget()) e = Math.min(t, t + this.remaining(t));
+    if (!(e > a)) return; const L = this.log, k = this.dayKey(a); L.away = L.away || {}; L.away[k] = (L.away[k] || 0) + (e - a); this.saveLog();
+  },
+  /* v0.42: tela acesa enquanto o cronômetro roda (o Android apagava a tela lendo sem tocar e o tempo parava de contar) */
+  wake() {
+    const want = this.st && this.st.running && !document.hidden && 'wakeLock' in navigator;
+    if (want && !this._wl && !this._wlBusy) { this._wlBusy = true; navigator.wakeLock.request('screen').then((l) => { this._wl = l; l.addEventListener('release', () => { if (this._wl === l) this._wl = null; }); }).catch(() => {}).finally(() => { this._wlBusy = false; }); }
+    else if (!want && this._wl) { const l = this._wl; this._wl = null; l.release().catch(() => {}); }
+  },
   save() { DB.put('meta', clone(this.st), 'studyTimer').catch(() => {}); },
   saveLog() { DB.put('meta', this.log, 'studyLog').catch(() => {}); },
 
@@ -65,7 +79,7 @@ const StudyTimer = {
       const n = this.curNote();
       if ((n ? n.id : null) !== s.segNote || t - s.segStart > 60000) this.boundary(t);
     }
-    this.paint();
+    this.wake(); this.paint();
   },
 
   /* ---------- controles ---------- */
@@ -111,16 +125,37 @@ const StudyTimer = {
     if (quiet) return toast(msg, 2500);
     const late = Date.now() - endT > 5000; // terminou enquanto o app estava fechado/em segundo plano
     this.sysAlarm(msg, endT, late); // v0.24: alarme também como notificação do sistema
-    toast((late ? `(às ${new Date(endT).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}) ` : '⏰ ') + msg, 7000);
+    this.alarmShow(msg, endT, late);
+  },
+  /* v0.42: alarme chamativo — tela por cima de tudo piscando, som e vibração repetindo a cada 2 s até tocar em "Parar" (no máximo 1 min).
+     Terminou com o app fora (late): mostra a tela sem som. */
+  alarmShow(msg, endT, late) {
+    clearInterval(this._alarmT); if (this._alarm) this._alarm.remove(); this._alarm = null; const s = this.st, brk = s.mode === 'pomodoro' && s.phase !== 'focus';
+    const head = s.mode === 'countdown' ? 'Tempo esgotado!' : brk ? 'Hora da pausa' : 'Hora de voltar ao foco';
+    const stop = () => this.alarmStop();
+    const btns = [el('button', { class: 'btn primary tma-stop', onclick: stop }, 'Parar')];
+    if (s.mode === 'countdown') btns.push(el('button', { class: 'btn tma-more', onclick: () => { stop(); s.acc = 0; s.target = 5 * 60000; s.running = true; s.runStart = Date.now(); this.boundary(s.runStart); this.save(); this.paint(); this.renderPanel(); } }, '+5 min'));
+    else if (s.mode === 'pomodoro' && !s.running) btns.push(el('button', { class: 'btn tma-more', onclick: () => { stop(); this.start(); } }, 'Iniciar foco'));
+    const ov = el('div', { class: 'tm-alarm' + (late ? ' late' : '') },
+      el('div', { class: 'tma-box' }, el('div', { class: 'tma-ic' }, '⏰'), el('b', { class: 'tma-h' }, head), el('div', { class: 'tma-msg' }, (late ? `Terminou às ${this.hhmm(endT)} · ` : '') + msg), el('div', { class: 'tma-btns' }, ...btns)));
+    ov.addEventListener('pointerdown', (e) => { if (e.target === ov) stop(); });
+    document.body.append(ov); this._alarm = ov;
     if (late) return;
-    if (navigator.vibrate) navigator.vibrate([220, 120, 220, 120, 220]);
-    this.beep();
+    const ring = () => { if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 700]); this.beep(true); };
+    ring(); let n = 0; this._alarmT = setInterval(() => { if (++n >= 30 || !this._alarm) return this.alarmStop(true); ring(); }, 2000);
+  },
+  alarmStop(keep) {
+    clearInterval(this._alarmT); this._alarmT = null; if (navigator.vibrate) navigator.vibrate(0);
+    if (this._alarm && !keep) { this._alarm.remove(); this._alarm = null; this.sysClose && this.sysClose('traco-timer-end'); }
+    if (this._alarm && keep) this._alarm.classList.add('late'); // tocou 1 min: para o som, a tela fica até tocar
   },
   unlockAudio() { try { if (!this.ac) this.ac = new (window.AudioContext || window.webkitAudioContext)(); if (this.ac.state === 'suspended') this.ac.resume(); } catch (_) {} },
-  beep() {
+  beep(loud) {
     try {
       this.unlockAudio(); const ac = this.ac; if (!ac) return; const t0 = ac.currentTime;
-      for (let i = 0; i < 3; i++) { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 880; o.type = 'sine'; o.connect(g); g.connect(ac.destination); const a = t0 + i * 0.35; g.gain.setValueAtTime(0.0001, a); g.gain.exponentialRampToValueAtTime(0.35, a + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, a + 0.25); o.start(a); o.stop(a + 0.27); }
+      /* v0.42 (loud): 4 bipes alternando 880/1320 Hz, onda triangular e volume maior — mais fácil de ouvir */
+      const n = loud ? 4 : 3, vol = loud ? 0.7 : 0.35;
+      for (let i = 0; i < n; i++) { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = loud && i % 2 ? 1320 : 880; o.type = loud ? 'triangle' : 'sine'; o.connect(g); g.connect(ac.destination); const a = t0 + i * (loud ? 0.28 : 0.35); g.gain.setValueAtTime(0.0001, a); g.gain.exponentialRampToValueAtTime(vol, a + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, a + 0.22); o.start(a); o.stop(a + 0.24); }
     } catch (_) {}
   },
 
@@ -281,6 +316,7 @@ const StudyReport = {
       let bars;
       if (this.period !== '84') bars = keys.map(([k, d]) => ({ v: this.sum(map[k]), lab: this.period === '7' ? ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][d.getDay()] : d.getDate() % 5 === 0 || d.getDate() === 1 ? String(d.getDate()) : '', tip: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }), goal, ks: [k] }));
       else { bars = []; for (let w = 0; w < 12; w++) { const part = keys.slice(w * 7, w * 7 + 7); const v = part.reduce((a, [k]) => a + this.sum(map[k]), 0), d0 = part[0][1], d1 = part[part.length - 1][1]; bars.push({ ks: part.map((x) => x[0]), v, lab: w % 2 === 0 ? d0.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '', tip: d0.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + '–' + d1.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), goal: goal * 7 }); } }
+      const aw = (T.log && T.log.away) || {}, awTot = keys.reduce((a, [k]) => a + (aw[k] || 0), 0);
       const vals = keys.map(([k]) => this.sum(map[k])), total = vals.reduce((a, b) => a + b, 0), studied = vals.filter((v) => v > 0).length;
       const hit = vals.filter((v) => v >= goal).length;
       let streak = 0; { let i = 0; if (this.sum(map[dayK(0)[0]]) < goal) i = 1; for (; i < 400; i++) { if (this.sum(map[dayK(i)[0]]) >= goal) streak++; else break; } }
@@ -302,6 +338,7 @@ const StudyReport = {
         tipEl.innerHTML = ''; tipEl.append(el('b', {}, `${b.tip}: ${T.fmtDur(b.v)}${b.v >= b.goal ? ' ✓ meta' : ''}`));
         if (L.length) tipEl.append(el('div', { class: 'sr-list sr-daylist' }, ...L.map((x) => el('div', { class: 'sr-row' }, el('span', { class: 'sr-name' }, el('i', { class: 'sr-dot', style: { background: x.color } }), x.name), el('span', { class: 'sr-track' }, el('i', { style: { width: (x.v / mx) * 100 + '%' } })), el('b', {}, T.fmtDur(x.v))))));
         else tipEl.append(el('div', { class: 'tm-hint' }, 'Nada registrado.'));
+        const a = (b.ks || []).reduce((x, k) => x + (aw[k] || 0), 0); if (a >= 30000) tipEl.append(el('div', { class: 'tm-hint sr-away' }, `Não contado (app fora da tela com o cronômetro rodando): ${T.fmtDur(a)}`));
       };
       const plot = el('div', { class: 'sr-plot' + (bars.length > 14 ? ' dense' : '') }, gl, ...bars.map((b) => {
         const c = el('button', { class: 'sr-col', title: `${b.tip}: ${T.fmtDur(b.v)}`, onclick: () => { [...plot.querySelectorAll('.sr-col.on')].forEach((x) => x.classList.remove('on')); c.classList.add('on'); showBar(b); } },
@@ -320,7 +357,7 @@ const StudyReport = {
       const goalIn = el('input', { type: 'number', min: 5, max: 900, step: 15, value: Math.round(goal / 60000), class: 'sr-goalin', onchange: () => { Store.settings.studyGoal = clamp(Math.round(+goalIn.value || 60), 5, 900); Store.saveSettings(); render(); } });
       const per = el('div', { class: 'xp-tabs sr-per' }, ...[['7', '7 dias'], ['30', '30 dias'], ['84', '12 semanas']].map(([k, n]) => el('button', { class: 'xp-tab' + (this.period === k ? ' on' : ''), onclick: () => { this.period = k; render(); } }, n)));
       box.innerHTML = '';
-      box.append(per, tiles, el('div', { class: 'sr-sec' }, this.period === '84' ? 'Tempo por semana' : 'Tempo por dia'), plot, tipEl,
+      box.append(per, tiles, awTot >= 60000 ? el('p', { class: 'tm-hint sr-away' }, `${T.fmtDur(awTot)} com o cronômetro rodando e o app fora da tela (tela apagada ou outro app) — não contou. Toque numa barra para ver o dia.`) : null, el('div', { class: 'sr-sec' }, this.period === '84' ? 'Tempo por semana' : 'Tempo por dia'), plot, tipEl,
         el('label', { class: 'sr-goalrow' }, 'Meta diária', goalIn, 'min'),
         el('div', { class: 'sr-sec' }, 'Por matéria'), sl.length ? subjBox : el('p', { class: 'tm-hint' }, 'Sem tempo registrado neste período. O tempo conta com o cronômetro rodando e o app aberto.'), !Store.folders.some((f) => f.subject) ? el('p', { class: 'tm-hint' }, 'Dica: marque pastas como matéria (menu ⋯ da pasta → "Marcar como matéria" ou "Transformar as subpastas em matérias").') : null,
         nl.length ? el('div', { class: 'sr-sec' }, 'Notas mais estudadas') : null, nl.length ? noteBox : null);
