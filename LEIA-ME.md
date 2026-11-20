@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.38.2
+
+- **Cor em degradê:** tocar na cor normal que é igual à primeira cor do degradê agora troca para a cor normal de verdade. Antes o app voltava direto para o degradê.
+
 ## Novidades da v0.38.1
 
 - Barra lateral mais enxuta: saíram "Recentes" (as Notas recentes da barra já cobrem) e "Estudo" (o relatório abre pelo cartão "Estudo de hoje" da tela inicial e pelo painel do cronômetro).

@@ -505,7 +505,7 @@ Object.assign(Editor, {
     if (!src) return toast('Esse item não tem estilo para copiar');
     let tool = ['pen', 'highlighter', 'shape', 'text', 'sticky'].includes(this.tool) ? this.tool : src;
     const t = T[tool], color = e.color;
-    if (color) t.color = color;
+    if (color) { t.color = color; t.fade = null; }
     if (tool === src) { // mesma ferramenta: copia tudo
       if (src === 'pen') Object.assign(t, { width: e.width, type: e.pen || 'natural', nib: e.nib ?? t.nib, dash: e.dash || 'solid' });
       if (src === 'highlighter') Object.assign(t, { width: e.width, opacity: e.opacity ?? t.opacity });

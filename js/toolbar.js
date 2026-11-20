@@ -327,11 +327,11 @@ const UI = {
     makeSortable(box, '.cdot', list, () => { this.save(); this.renderOptions(); }, {
       tap: (i) => { if (this.editMode) return;
         if (Fades.isKey(list[i])) { const id = Fades.idOf(list[i]); if (!Fades.get(id)) return; if (Fades.active(st) && st.fade === id) { Fades.edit(id, () => this.renderOptions()).then((r) => { if (r === 'del') { list.splice(list.indexOf('fade:' + id), 1); delete Fades.all()[id]; st.fade = null; } this.save(); this.renderOptions(); }); return; } Fades.select(st, id); this.save(); this.refresh(); return; }
-        st.color = list[i]; this.save(); if (t === 'text') this.applyTextStyle({ color: list[i] }); this.refresh(); },
+        st.color = list[i]; st.fade = null; /* v0.38.2: cor normal desliga o degradê (mesmo sendo igual à 1ª cor dele) */ this.save(); if (t === 'text') this.applyTextStyle({ color: list[i] }); this.refresh(); },
       long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) toast('Toque no × para remover', 1500); },
     });
     const add = el('button', { class: 'cbtn addb', title: 'Adicionar cor' }); add.innerHTML = icon('plus');
-    add.onclick = () => colorPop(add, st.color, (c) => { if (!list.some((x) => x.toLowerCase() === c.toLowerCase())) list.push(c); st.color = c; this.save(); this.refresh(); }, t === 'highlighter' ? HL_PALETTE.concat(PALETTE.slice(4, 14)) : PALETTE, { alpha: t !== 'highlighter', tool: t });
+    add.onclick = () => colorPop(add, st.color, (c) => { if (!list.some((x) => x.toLowerCase() === c.toLowerCase())) list.push(c); st.color = c; st.fade = null; this.save(); this.refresh(); }, t === 'highlighter' ? HL_PALETTE.concat(PALETTE.slice(4, 14)) : PALETTE, { alpha: t !== 'highlighter', tool: t });
     box.append(add);
     if (t === 'pen') { const fb = el('button', { class: 'cbtn addb fd-new', title: 'Nova cor em degradê', onclick: () => { const id = Fades.create(st.color); list.push('fade:' + id); Fades.select(st, id); this.save(); this.refresh(); Fades.edit(id, () => this.renderOptions()).then((r) => { if (r === 'del') { list.splice(list.indexOf('fade:' + id), 1); delete Fades.all()[id]; st.fade = null; st.color = st.fadeBase || st.color; } this.save(); this.renderOptions(); }); } }); fb.append(el('span', { class: 'fd-ico' }), el('b', {}, '+')); box.append(fb); } /* v0.38 */
     box.append(this.editBtn('cores'));
@@ -435,7 +435,7 @@ const UI = {
       p.append(el('p', { style: { color: 'var(--chmuted)', fontSize: '13px' } }, 'Toque na página para colar um post-it. Você pode escrever dentro com o teclado ou desenhar por cima com a caneta; para mover, use o laço.'));
     }
     if (['pen', 'highlighter', 'shape', 'text'].includes(t)) {
-      p.append(this.colorSection('Cor', st.color, (c) => { st.color = c; this.save(); if (t === 'text') this.applyTextStyle({ color: c }); this.refresh(); }, t === 'highlighter' ? HL_PALETTE.concat(PALETTE.slice(4, 14)) : PALETTE, true, t));
+      p.append(this.colorSection('Cor', st.color, (c) => { st.color = c; st.fade = null; this.save(); if (t === 'text') this.applyTextStyle({ color: c }); this.refresh(); }, t === 'highlighter' ? HL_PALETTE.concat(PALETTE.slice(4, 14)) : PALETTE, true, t));
     }
     if (t === 'lasso') p.append(el('p', { style: { color: 'var(--chmuted)', fontSize: '14px' } }, 'Desenhe em volta dos itens ou toque em um deles. Arraste para mover, use a bolinha do canto para redimensionar e a alça de cima para girar — com a caneta ou com o dedo.'));
     if (pt && pt.renderOptions) { const box = el('div', {}); p.append(box); try { pt.renderOptions(box, Plugins.api(Editor.currentPageIndex(), pt.owner)); } catch (e) { box.textContent = 'Erro: ' + e.message; } }
