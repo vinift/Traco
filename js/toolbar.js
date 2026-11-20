@@ -136,7 +136,7 @@ const UI = {
   group() { return Store.activeGroup(Editor.note); },
   colorList(t) { const g = this.group(); const k = t === 'highlighter' ? 'highlighter' : 'pen'; g.colors = g.colors || {}; return g.colors[k] || (g.colors[k] = []); },
   /* v0.28: cores do grupo atual (caneta + marca-texto), para aparecerem em todos os seletores de cor */
-  groupColors() { try { return [...new Set([...this.colorList('pen'), ...this.colorList('highlighter')].map((c) => c.toLowerCase()))]; } catch (_) { return []; } },
+  groupColors() { try { return [...new Set([...this.colorList('pen'), ...this.colorList('highlighter')].filter((c) => !Fades.isKey(c)).map((c) => c.toLowerCase()))]; } catch (_) { return []; } },
   widthList(t) { const g = this.group(); g.widths = g.widths || {}; return g.widths[t] || (g.widths[t] = (Store.settings.widthPresets[t] || []).slice()); },
   /* grupos em árvore: um grupo pode ter subgrupos (ex.: Direito › Constitucional) */
   groupTree() {
@@ -316,18 +316,25 @@ const UI = {
   colorDots(sr, t) {
     const st = Store.settings.tools[t], list = this.colorList(t);
     const box = el('div', { class: 'scol' });
+    const fa = Fades.active(st);
     list.forEach((c, i) => {
-      const d = el('button', { class: 'cdot' + (st.color.toLowerCase() === c.toLowerCase() ? ' sel' : ''), style: { background: c }, title: c + ' · arraste para reordenar' }); d.dataset.i = i;
+      const fk = Fades.isKey(c), fd = fk && Fades.get(Fades.idOf(c)); /* v0.38: degradê na lista de cores */
+      const on = fk ? !!fa && st.fade === Fades.idOf(c) : !fa && st.color.toLowerCase() === c.toLowerCase();
+      const d = el('button', { class: 'cdot' + (fk ? ' fdot-g' : '') + (on ? ' sel' : ''), style: { background: fk ? Fades.css(fd) : c }, title: (fk ? 'Degradê · toque de novo para configurar' : c) + ' · arraste para reordenar' }); d.dataset.i = i;
       if (this.editMode) d.append(el('span', { class: 'xbadge', onclick: (e) => { e.stopPropagation(); list.splice(i, 1); this.save(); this.renderOptions(); } }, '×'));
       box.append(d);
     });
     makeSortable(box, '.cdot', list, () => { this.save(); this.renderOptions(); }, {
-      tap: (i) => { if (this.editMode) return; st.color = list[i]; this.save(); if (t === 'text') this.applyTextStyle({ color: list[i] }); this.refresh(); },
+      tap: (i) => { if (this.editMode) return;
+        if (Fades.isKey(list[i])) { const id = Fades.idOf(list[i]); if (!Fades.get(id)) return; if (Fades.active(st) && st.fade === id) { Fades.edit(id, () => this.renderOptions()).then((r) => { if (r === 'del') { list.splice(list.indexOf('fade:' + id), 1); delete Fades.all()[id]; st.fade = null; } this.save(); this.renderOptions(); }); return; } Fades.select(st, id); this.save(); this.refresh(); return; }
+        st.color = list[i]; this.save(); if (t === 'text') this.applyTextStyle({ color: list[i] }); this.refresh(); },
       long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) toast('Toque no × para remover', 1500); },
     });
     const add = el('button', { class: 'cbtn addb', title: 'Adicionar cor' }); add.innerHTML = icon('plus');
     add.onclick = () => colorPop(add, st.color, (c) => { if (!list.some((x) => x.toLowerCase() === c.toLowerCase())) list.push(c); st.color = c; this.save(); this.refresh(); }, t === 'highlighter' ? HL_PALETTE.concat(PALETTE.slice(4, 14)) : PALETTE, { alpha: t !== 'highlighter', tool: t });
-    box.append(add, this.editBtn('cores'));
+    box.append(add);
+    if (t === 'pen') { const fb = el('button', { class: 'cbtn addb fd-new', title: 'Nova cor em degradê', onclick: () => { const id = Fades.create(st.color); list.push('fade:' + id); Fades.select(st, id); this.save(); this.refresh(); Fades.edit(id, () => this.renderOptions()).then((r) => { if (r === 'del') { list.splice(list.indexOf('fade:' + id), 1); delete Fades.all()[id]; st.fade = null; st.color = st.fadeBase || st.color; } this.save(); this.renderOptions(); }); } }); fb.append(el('span', { class: 'fd-ico' }), el('b', {}, '+')); box.append(fb); } /* v0.38 */
+    box.append(this.editBtn('cores'));
     sr.append(box);
   },
   /* espessuras e cores lado a lado (alcance fácil com a mão esquerda) */

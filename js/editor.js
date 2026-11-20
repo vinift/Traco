@@ -654,7 +654,7 @@ const Editor = {
     if (this._liveClear && this._drawnComplete) { this._liveClear = false; this.clearLive(); }
     const a = this.action = { ...base, kind: 'draw', pi, pts: [], color: st.color, width: st.width, opacity: base.tool === 'highlighter' ? st.opacity ?? 0.4 : 1, drawn: 0, snap: Instruments.snapFor(p), hold: { x: p.x, y: p.y } };
     a.dash = base.tool === 'pen' ? st.dash || 'solid' : 'solid';
-    if (base.tool === 'pen') { a.pen = st.type || 'ball'; a.nib = st.nib ?? 45; a.inc = a.dash === 'solid' && (a.pen === 'ball' || a.pen === 'natural') && !colorHasAlpha(a.color); }
+    if (base.tool === 'pen') { a.pen = st.type || 'ball'; a.nib = st.nib ?? 45; a.inc = a.dash === 'solid' && (a.pen === 'ball' || a.pen === 'natural') && !colorHasAlpha(a.color); if (typeof Fades !== 'undefined') Fades.begin(a, st); } /* v0.38: cor em degradê */
     a.stab = stabLevel(base.tool, a.pen); a.inf = inf; if (e.pointerType === 'pen') Focus.writing(); // só a caneta esconde as barras do topo
     if (this.lowLat && e.pointerType === 'pen' && a.inc && a.tool === 'pen') this.inkBegin(); // baixa latência: tinta direto numa tela "rápida"
     this.addDrawPoint(e);
@@ -759,6 +759,7 @@ const Editor = {
     const a = this.action, c = this.lctx;
     if (a.shape) { this.clearLive(); this.pageTf(c, a.pi); drawElement(c, a.tool === 'highlighter' ? this.hlLine(a) : a.shape); return; }
     this.pageTf(c, a.pi);
+    if (a.fade) { this.clearLive(); this.pageTf(c, a.pi); drawElement(c, { type: 'stroke', tool: 'pen', pen: a.pen, nib: a.nib, color: a.color, width: a.width, dash: a.dash !== 'solid' ? a.dash : undefined, pts: a.pts, fade: a.fade }); return; } /* v0.38: degradê */
     if (a.tool === 'pen' && a.dash !== 'solid') {
       this.clearLive(); this.pageTf(c, a.pi);
       c.save(); c.strokeStyle = a.color; c.lineWidth = a.width; c.lineCap = 'round'; c.lineJoin = 'round'; c.setLineDash(dashPattern(a.dash, a.width));
@@ -806,7 +807,7 @@ const Editor = {
     const el = { id: uid(), type: 'stroke', tool: a.tool, color: a.color, width: a.width, pts };
     if (a.tool === 'highlighter') { el.opacity = a.opacity; if (a.snap) el.cap = 'butt'; }
     if (a.tool === 'pen' && a.dash !== 'solid') el.dash = a.dash;
-    if (a.tool === 'pen') { el.pen = a.pen; if (a.pen === 'calli') el.nib = a.nib; }
+    if (a.tool === 'pen') { el.pen = a.pen; if (a.pen === 'calli') el.nib = a.nib; if (a.fade) Fades.end(a, el); }
     this.recAdd(page, el); this.opCommit();
   },
 
@@ -952,7 +953,7 @@ const Editor = {
   /* recortar imagem: direto na página (js/crop.js) */
   recolorSel(color) {
     const page = this.pageById(this.sel.pageId);
-    for (const e of this.selElements()) if (!e.lock && ['stroke', 'shape', 'text'].includes(e.type)) this.recReplace(page, e, { ...e, color });
+    for (const e of this.selElements()) if (!e.lock && ['stroke', 'shape', 'text'].includes(e.type)) { const { fade, ...r } = e; this.recReplace(page, e, { ...r, color }); } /* v0.38: cor nova tira o degradê */
     this.opCommit();
   },
   /* v0.27: moldura de caixas de texto e imagens — fn(moldura atual ou null) → nova moldura (null = sem); cada mudança entra no desfazer */

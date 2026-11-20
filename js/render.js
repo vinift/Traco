@@ -75,7 +75,8 @@ function drawElement(ctx, e) {
   ctx.save();
   if (e.rot && hasRot(e)) { const c = rawCenter(e); ctx.translate(c.x, c.y); ctx.rotate(e.rot); ctx.translate(-c.x, -c.y); }
   if (e.type === 'stroke') {
-    if (e.tool === 'pen' && e.dash && e.dash !== 'solid') {
+    if (e.tool === 'pen' && e.fade && e.fade.c && typeof Fades !== 'undefined') Fades.draw(ctx, e); /* v0.38: cor em degradê */
+    else if (e.tool === 'pen' && e.dash && e.dash !== 'solid') {
       ctx.globalAlpha = e.opacity ?? 1; ctx.strokeStyle = e.color; ctx.lineWidth = e.width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       ctx.setLineDash(dashPattern(e.dash, e.width)); ctx.stroke(buildPolyPath(e.pts));
     } else if (e.tool === 'pen' && e.pen === 'fine') { ctx.globalAlpha = e.opacity ?? 1; ctx.strokeStyle = e.color; ctx.lineWidth = e.width; ctx.lineCap = 'butt'; ctx.lineJoin = 'round'; ctx.stroke(elPath(e)); }

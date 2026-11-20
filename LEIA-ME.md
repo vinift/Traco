@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.38.0
+
+- **Cores em degradê:** na barra de cores da caneta há um botão novo (bolinha colorida com +). Ele cria uma "cor" que vai alternando entre as cores que você escolher (2 a 8) e fica na lista como uma cor comum.
+  - **Dentro do traço:** a cor muda aos poucos enquanto você escreve e continua no traço seguinte (letras seguidas vão mudando). "Tamanho de cada troca" define a rapidez.
+  - **Uma cor por traço/letra:** cada traço sai de uma cor só, andando aos poucos para a próxima. "Traços para trocar de cor" define o ritmo.
+  - Toque no degradê já selecionado para configurar (cores, modo, velocidade, excluir). Escolher outra cor volta ao normal.
+
 ## Novidades da v0.37.1
 
 - **Estabilização da caneta até 20:** o 10 (o que você usava) agora é o padrão em todas as canetas, e de 11 a 20 vem uma estabilização forte ("· forte" no controle): a ponta "puxa" o traço como numa cordinha e tremidos somem — círculos ficam redondos e retas, retas. Quanto maior, mais suave (e um pouco mais "atrasado" atrás da caneta). Ajuste em Caneta → Estabilização.
