@@ -99,7 +99,7 @@ Não confirmado (não deu para ler a doc do PWABuilder daqui): se há uma opçã
 
 ### Caneta e escrita
 - Entrada da caneta por `pointerrawupdate` (`onRaw`, mais cedo que `pointermove`; `action.raw2` evita processar em dobro).
-- Estabilização por ferramenta/tipo (`stabLevel`, `S.stabPen[tipo]`, padrão da esferográfica 8): filtro adaptativo em `addDrawPoint`; "corda" só nos níveis 9–10.
+- Estabilização por ferramenta/tipo (`stabLevel`, `S.stabPen[tipo]`; v0.37.1: escala 0–`STAB_MAX` 20, padrão 10 em todas): filtro adaptativo em `addDrawPoint`; "corda" nos níveis 9–10 (0,45 px/nível) e, de 11 a 20 (`X = L − 10`), corda + 1,1·X px de tela, `kb` − 0,0145·X (0,25 → 0,105), divisor da velocidade + 14·X, e `smoothArc` do fim do traço com sigma × (1 + 0,12·X). O `endDraw` já completa até o ponto real da caneta (`a.raw`), então a corda não deixa o círculo aberto.
 - Fim do traço (`endDraw`): caneta → `smoothArc` com sigma `0,25·S.autoBeautify` px de tela (0 = desliga, padrão 5); marca-texto → `smoothStroke` leve.
 - Baixa latência (`S.lowLatency`): tinta numa tela `desynchronized` opaca (`cInk`) só durante o traço; o fundo dela é preparado em ocioso (`inkPrepLater`/`inkKey`/`inkPaint`).
 - **Sem piscar ao levantar a caneta:** a prévia ao vivo (`cLive`/`cInk`) só sai quando os blocos já mostram o traço (`_liveClear`/`_inkHide` + `allDone`).
@@ -251,6 +251,7 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 - v0.36.2 — caderno de caligrafia estilo nota (pedido: na v0.36.1 as 3 telas lado a lado deixavam a escrita no canto direito, ruim para destro). Teste (CDP): modo Caneta → dedo não escreve; caneta com palma de 16 px encostada → traço + ponto gravados; modo Dedo → dedo escreve, toque de 60 px não; toque grande fora não fecha; versão 2 pela miniatura; troca de letra pelo popup; ← fecha e grava. Folha 696 px centralizada em 1280×800.
 - v0.36.3 — escala da linha no caderno (`S.caliScale`; pedido: o usuário escreve pequeno e a letra grande ficava feia). Teste: caixa a 30%, traço da caneta da linha 42 à 72 da caixa → gravado exatamente [50,42]→[50,72], ponto [50,30].
 - v0.37.0 — tela inicial autoral (pedido: tirar o "Olá, Vinicius"; escolhas do usuário: painel de estudo + continuar + data/frase, visual mantido). Teste: 4 notas, views da 1ª na página 3, log com 40 min hoje/70 ontem/65 anteontem (meta 60) → cartão "página 3 de 3", anel 67%, sequência 2 dias; com busca os cartões somem. Cuidado: `Library.render` roda no `App.init` antes do `StudyTimer` carregar (`st` null → `counts()` quebrava).
+- v0.37.1 — estabilização forte 11–20 (pedido: no 10 os círculos não ficavam redondos). Teste (caneta CDP, círculo r 80 com tremido ±2,5 px e ondulação de 4%, reta com tremido): giro total do círculo (1,00 = perfeito) 8 → 5,49; 10 → 3,31; 15 → 1,29; 20 → 0,98; desvio da reta 1,46 → 0,98 px; o raio encolhe ~6% no 20 (a corda corta por dentro). Formas exatas continuam sendo o segurar-para-forma.
 
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).

@@ -46,11 +46,12 @@ function buildPenPath(pts, w, path = new Path2D(), from = 0) {
 }
 /* ---------- Estabilização ---------- */
 // nível 0–10 por tipo de caneta (esferográfica mais firme por padrão) e um para o marca-texto
-const STAB_DEFAULT = { ball: 8 };
+/* v0.37.1: escala 0–20 (11–20 = estabilização forte, para círculos e retas); padrão 10 em todas as canetas */
+const STAB_MAX = 20, STAB_DEFAULT = {};
 function stabLevel(tool, pen) {
-  const S = Store.settings, old = Math.round((S.stabilizer ?? 0.55) * 10);
-  if (tool === 'highlighter') return clamp(S.stabHl ?? old, 0, 10);
-  const v = (S.stabPen || {})[pen]; return clamp(v ?? STAB_DEFAULT[pen] ?? old, 0, 10);
+  const S = Store.settings, old = S.stabilizer != null ? Math.round(S.stabilizer * 10) : 10;
+  if (tool === 'highlighter') return clamp(S.stabHl ?? old, 0, STAB_MAX);
+  const v = (S.stabPen || {})[pen]; return clamp(v ?? STAB_DEFAULT[pen] ?? old, 0, STAB_MAX);
 }
 function smoothStroke(pts, s) { // passadas de média [1/4 1/2 1/4] em x e y, mantendo início e fim
   const n = pts.length / 3, passes = Math.round(clamp(s, 0, 1) * 4); if (n < 4 || !passes) return pts;

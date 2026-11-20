@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.37.1
+
+- **Estabilização da caneta até 20:** o 10 (o que você usava) agora é o padrão em todas as canetas, e de 11 a 20 vem uma estabilização forte ("· forte" no controle): a ponta "puxa" o traço como numa cordinha e tremidos somem — círculos ficam redondos e retas, retas. Quanto maior, mais suave (e um pouco mais "atrasado" atrás da caneta). Ajuste em Caneta → Estabilização.
+
 ## Novidades da v0.37.0
 
 - **Tela inicial com cara própria:** saiu o "Olá, Vinicius". No lugar:

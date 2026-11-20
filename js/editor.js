@@ -677,12 +677,12 @@ const Editor = {
     if (n) {
       const lx = a.pts[n - 3], ly = a.pts[n - 2], lp = a.pts[n - 1];
       // "corda": nos níveis altos a ponta só puxa o traço depois de se afastar um pouquinho (some o tremido fino)
-      const L = a.stab ?? 5, rope = a.snap ? 0 : Math.max(0, L - 8) * 0.45; /* v0.22: "corda" só nos níveis 9–10 (antes desde o 6: arredondava e encolhia letras pequenas) */
+      const L = a.stab ?? 5, X = Math.max(0, L - 10), rope = a.snap ? 0 : Math.max(0, Math.min(L, 10) - 8) * 0.45 + X * 1.1; /* v0.22: "corda" só nos níveis 9–10 (antes desde o 6: arredondava e encolhia letras pequenas); v0.37.1: 11–20 corda maior (até ~12 px de tela) */
       if (rope) { const d = Math.hypot(l.x - lx, l.y - ly) * this.cam.z; if (d <= rope) { a.raw = l; return; } const t = (d - rope) / d; l.x = lx + (l.x - lx) * t; l.y = ly + (l.y - ly) * t; }
       // estabilização adaptativa: segura o tremido em movimentos lentos e acompanha os rápidos
-      const sb = clamp(L / 10, 0, 1), kb = 1 - sb * 0.75;
+      const sb = clamp(L / 10, 0, 1), kb = 1 - sb * 0.75 - X * 0.0145; /* 10 → 0,25; 20 → 0,105 */
       const spd = Math.hypot(l.x - lx, l.y - ly) * this.cam.z; // px de tela desde a última amostra
-      const k = a.snap ? 1 : clamp(kb + spd / (40 + 80 * sb), kb, 1);
+      const k = a.snap ? 1 : clamp(kb + spd / (40 + 80 * sb + X * 14), kb, 1);
       const x = lx + (l.x - lx) * k, y = ly + (l.y - ly) * k;
       if (Math.hypot(x - lx, y - ly) < 0.35 / this.cam.z) return;
       a.pts.push(x, y, lp + (pr - lp) * 0.45);
@@ -800,7 +800,7 @@ const Editor = {
     }
     if (!a.snap) { /* v0.23: caneta → "melhorar escrita" automático (alisa por distância e guarda os cantos); marca-texto → alisamento leve de antes */
       const sg = a.tool === 'pen' && typeof smoothArc === 'function' ? autoBeautifySigma(this.cam.z) : 0;
-      if (sg) a.pts = smoothArc(a.pts, sg); else smoothStroke(a.pts, (a.stab ?? 5) / 20);
+      if (sg) a.pts = smoothArc(a.pts, sg * (1 + Math.max(0, (a.stab ?? 5) - 10) * 0.12)); /* v0.37.1: 11–20 também alisam mais no fim */ else smoothStroke(a.pts, (a.stab ?? 5) / 20);
     }
     const pts = a.pts.map((v, i) => (i % 3 === 2 ? Math.round(v * 100) / 100 : r2(v)));
     const el = { id: uid(), type: 'stroke', tool: a.tool, color: a.color, width: a.width, pts };
