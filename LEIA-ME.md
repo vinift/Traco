@@ -153,6 +153,16 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.45.0
+
+- **Atalho rápido com telinha:** o botão da caneta que fazia o hífen agora abre uma telinha no canto inferior direito. Escolha **Hífen**, **Tópico** ou **Romano** e toque no quadrado com a caneta. A escolha fica salva para as próximas vezes. Apertar o botão de novo (ou o ✕) fecha a telinha.
+- **Números romanos:** desenhados com traços retos e serifas, na cor e espessura da caneta.
+  - **Posição:** centralizados no quadrado; se o número for mais largo que o quadrado, começa na borda esquerda dele e cresce para a direita. Assim ficam alinhados um embaixo do outro.
+  - **Contagem:** por nota (I, II, III…). Na telinha dá para ver o próximo, mudar com − / + ou tocar em **Recomeçar**. Vai até LXXXIX (89).
+  - **Sinal depois:** nada, "I.", "I -" ou "I)", escolhido na telinha e salvo como padrão.
+  - **Desfazer** tira o número inteiro de uma vez.
+  - **Ajustes:** em Configurações → Botões da caneta → "Número romano rápido": altura (% do quadrado, padrão 50%) e deslocamento.
+
 ## Novidades da v0.44.0
 
 - **Tópico rápido:** uma bolinha vazia no centro do quadrado tocado, do mesmo jeito do hífen rápido. Usa a cor, a espessura e o tipo de linha da caneta selecionada.

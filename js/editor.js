@@ -452,7 +452,7 @@ const Editor = {
     this.pointers.set(e.pointerId, rec);
     if (e.pointerType === 'pen') { this.penDown = true; this.lastPenSeen = performance.now(); if (this.gesture) this.endGesture(); }
     if (this.readOnly && e.pointerType !== 'touch') { rec.type = 'touch'; this.startGesture(); return; } // modo leitura: caneta só navega
-    if (e.pointerType === 'pen' && this._hyArm && (e.buttons & 1) && !this.penClickHeld(e)) { const arm = this._hyArm; this._hyArm = null; if (performance.now() - arm.t < 8000 && !this.readOnly) { rec.ignored = true; if (arm.kind === 'bullet') this.placeBullet(p); else this.placeHyphen(p); return; } } /* v0.41: hífen (v0.44: ou tópico) armado pelo botão da caneta */
+    if (e.pointerType === 'pen' && this._hyArm && (e.buttons & 1) && !this.penClickHeld(e)) { const arm = this._hyArm; this._hyArm = null; if ((arm.panel || performance.now() - arm.t < 8000) && !this.readOnly) { rec.ignored = true; if (arm.panel) this.placeQuick(p); else if (arm.kind === 'bullet') this.placeBullet(p); else this.placeHyphen(p); return; } } /* v0.41: hífen (v0.44: ou tópico) armado pelo botão da caneta */
     if (e.pointerType === 'pen' && (!(e.buttons & 1) || this.penClickHeld(e))) { rec.ignored = true; return; } // sem encostar (só botão) ou botão com atalho de clique: não desenha
     if (this.crop && this.cropDown(e, p, rec)) return; // recorte na página: alças e moldura
     if (e.pointerType === 'touch') {
@@ -1054,7 +1054,8 @@ const Editor = {
     else if (a === 'redo') { this._lastSig = now; this.redo(); toast('Refeito', 700); }
     else if (a === 'toggle') { this._lastSig = now; const t = this.tool === 'eraser' ? (this._prevTool || 'pen') : 'eraser'; if (t === 'eraser') this._prevTool = this.tool; UI.setTool(t, true); }
     else if (a === 'read') { this._lastSig = now; this.setReadOnly(!this.readOnly); }
-    else if (a === 'hyphen' || a === 'bullet') { this._lastSig = now; const nm = a === 'bullet' ? 'Tópico' : 'Hífen'; if (this._hyArm && this._hyArm.kind === a) { this._hyArm = null; toast(nm + ' cancelado', 800); } else { this._hyArm = { t: now, kind: a }; toast(nm + ': toque no quadrado com a caneta', 1400); } } /* v0.41; v0.44: tópico (bolinha) */
+    else if (a === 'hyphen') { this._lastSig = now; if (this._qk) this.closeQuick(); else this.openQuick(); } /* v0.45: telinha do atalho rápido (hífen / tópico / romano) */
+    else if (a === 'bullet') { this._lastSig = now; const nm = a === 'bullet' ? 'Tópico' : 'Hífen'; if (this._hyArm && this._hyArm.kind === a) { this._hyArm = null; toast(nm + ' cancelado', 800); } else { this._hyArm = { t: now, kind: a }; toast(nm + ': toque no quadrado com a caneta', 1400); } } /* v0.41; v0.44: tópico (bolinha) */
   },
   setReadOnly(v) {
     this.readOnly = v; this.commitText(); this.sel = null; $('#editor').classList.toggle('reading', v);

@@ -1326,3 +1326,14 @@ select{border-radius:14px!important}
 .tm-ring{width:190px;height:190px}
 @media (max-width:720px){.tm-pop{grid-template-columns:minmax(0,1fr);width:min(360px,92vw)}.tm-colB .tm-stats{border-top:1px solid var(--line);padding-top:10px}}
 .rp-srow.off{opacity:.55}
+/* v0.45: telinha do atalho rápido (canto inferior direito) */
+.qk-panel{position:absolute;right:calc(16px + var(--sar,0px));bottom:calc(84px + var(--sab,0px));z-index:30;background:var(--panel);border-radius:18px;box-shadow:0 14px 40px rgba(0,0,0,.2);padding:12px 14px;display:flex;flex-direction:column;gap:9px;min-width:290px;animation:tr-pop .16s ease}
+.qk-head{display:flex;align-items:center;justify-content:space-between;font-size:14px}
+.qk-x{border:0;background:var(--panel2);width:28px;height:28px;border-radius:50%;cursor:pointer;color:var(--muted)}
+.qk-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.qk-row>span{min-width:58px}
+.qk-chip{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer;font-family:inherit}
+.qk-chip.on{background:var(--accent);border-color:transparent;color:#fff}
+.qk-chip[disabled]{opacity:.35}
+.qk-rn{font-family:Georgia,'Times New Roman',serif;font-size:20px;color:var(--text);min-width:64px;text-align:center}
+.qk-hint{color:var(--muted);font-size:12px}
