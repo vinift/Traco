@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.47.0
+
+- **Mais atalhos na telinha:**
+  - **1. Número** (1, 2, 3… até 999) e **a) Letra** (a até z), desenhados em traços limpos. Têm o mesmo jeito do romano: contagem por nota com − / + / Recomeçar, sinal depois (nada, ".", "-", ")") e centralizados no quadrado, crescendo para a direita quando não cabem.
+  - **→ Seta** e **☐ Caixa** (caixinha de marcar), centralizadas no quadrado, com comprimento/tamanho e altura em "Ajustes".
+- **Cor só do atalho:** linha "Cor" na telinha. "caneta" usa a cor da caneta; as bolinhas são as cores do grupo atual. Fica salva.
+- **📌 Fixar:** toque em "Fixar" para colocar vários seguidos (por exemplo 1., 2., 3. tocando em três quadrados) sem a telinha fechar. Cada toque da caneta na folha coloca um até você tocar em ✕. Sem o "Fixar", ela fecha depois de colocar, como antes. O "Fixar" não fica salvo: toda vez que abrir a telinha, precisa tocar nele de novo.
+
 ## Novidades da v0.46.0
 
 - **Telinha do atalho rápido melhorada:**

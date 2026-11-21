@@ -1353,3 +1353,13 @@ select{border-radius:14px!important}
 .qk-panel .qk-chip{padding:6px 11px;font-size:13.5px}
 .qk-row>span{min-width:52px}
 .qk-num .qk-rn{min-width:54px}
+/* v0.47: mais atalhos, cor e fixar */
+.qk-kinds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.qk-kinds .qk-chip{padding:6px 4px;font-size:12.5px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qk-head{gap:8px}
+.qk-head b{flex:1}
+.qk-pin{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:999px;padding:4px 10px;font:inherit;font-size:12.5px;cursor:pointer}
+.qk-pin.on{background:#f59e0b;border-color:transparent;color:#fff}
+.qk-dot{width:24px;height:24px;border-radius:50%;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
+.qk-dot.on{box-shadow:0 0 0 2px var(--accent)}
+.qk-hint.pin{color:#b45309;font-weight:600}
