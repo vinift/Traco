@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.44.0
+
+- **Tópico rápido:** uma bolinha vazia no centro do quadrado tocado, do mesmo jeito do hífen rápido. Usa a cor, a espessura e o tipo de linha da caneta selecionada.
+  - **Pelo botão da caneta:** em Configurações → Botões da caneta, escolha "Tópico (bolinha vazia) no quadrado". Aperte o botão e toque no quadrado com a ponta.
+  - **Pelo toque duplo da caneta:** escolha a opção "Tópico (bolinha) no quadrado tocado".
+  - **Ajustes:** em Configurações → Botões da caneta → "Tópico rápido (bolinha)": tamanho (% do quadrado, padrão 30%) e deslocamento para baixo do centro (padrão igual ao do hífen).
+
 ## Novidades da v0.43.1
 
 - **Verificar atualização** saiu de baixo da barra lateral e agora fica no topo da tela inicial, ao lado do botão da barra lateral, como o Drive e a busca (com a versão atual). Também está no menu **⋯ da nota**: atualiza e volta na mesma nota e página.

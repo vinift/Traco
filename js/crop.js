@@ -254,6 +254,20 @@ Object.assign(Editor, {
     if (st.type === 'calli') el.nib = st.nib ?? 45; if (st.dash && st.dash !== 'solid') el.dash = st.dash;
     this.recAdd(page, el); this.opCommit(); return true;
   },
+  /* v0.44: tópico rápido — bolinha vazia no centro do quadrado tocado (mesmo jeito do hífen). Tamanho = S.bulletSize% do quadrado
+     (padrão 30), deslocamento S.bulletDrop% (padrão = o do hífen). Cor/espessura/tracejado da caneta selecionada. */
+  placeBullet(p) {
+    const w = this.toWorld(p.x, p.y), pi = this.pageIndexAt(w.x, w.y, true), page = this.note.pages[pi]; if (!page) return false;
+    const l = this.local(pi, w.x, w.y), tpl = page.template || this.note.template, has = tpl && tpl.type !== 'blank';
+    const rows = has ? this.gridLines(tpl, page, 1) : null, cols = has ? this.gridLines(tpl, page, 0) : null;
+    const S = Store.settings, kS = clamp((S.bulletSize ?? 30) / 100, 0.05, 0.95), kD = clamp((S.bulletDrop ?? S.hyphenDrop ?? 10) / 100, -0.45, 0.45);
+    let cx = l.x, cy = l.y, d = 14;
+    if (rows && rows.s > 0) { const k = Math.floor((l.y - rows.o) / rows.s); cy = rows.o + (k + 0.5) * rows.s + rows.s * kD; d = rows.s * kS; }
+    if (cols && cols.s > 0) { const k = Math.floor((l.x - cols.o) / cols.s); cx = cols.o + (k + 0.5) * cols.s; d = cols.s * kS; }
+    const st = S.tools.pen, r = d / 2, el = { id: uid(), type: 'shape', kind: 'ellipse', x1: r2(cx - r), y1: r2(cy - r), x2: r2(cx + r), y2: r2(cy + r), color: st.color, width: st.width, fill: null };
+    if (st.dash && st.dash !== 'solid') el.dash = st.dash;
+    this.recAdd(page, el); this.opCommit(); return true;
+  },
   penTripleFire(base, was, pos) {
     if (!this.note) return;
     if (this._penDot) { clearTimeout(this._penDot.timer); this._penDot = null; } // pontinho ainda não gravado: descarta
@@ -274,6 +288,7 @@ Object.assign(Editor, {
     else if (act === 'redo') { this.redo(); toast('Refeito', 700); }
     else if (act === 'read') { this.setReadOnly(!this.readOnly); toast(this.readOnly ? 'Modo leitura' : 'Edição', 700); }
     else if (act === 'hyphen' && pos) { const r = this.stage.getBoundingClientRect(); this.placeHyphen({ x: pos.x - r.left, y: pos.y - r.top }); }
+    else if (act === 'bullet' && pos) { const r = this.stage.getBoundingClientRect(); this.placeBullet({ x: pos.x - r.left, y: pos.y - r.top }); }
     this.requestRender();
   },
 });
@@ -298,5 +313,5 @@ Object.assign(Editor, {
 });
 
 /* ação do toque duplo da caneta (configuração; quem tinha desligado os "três toques" fica com "nada") */
-const PEN_DOUBLE_ACTIONS = [['lassoToggle', 'Alternar laço ↔ caneta'], ['hyphen', 'Hífen no quadrado tocado'], ['eraserToggle', 'Alternar caneta ↔ borracha'], ['undo', 'Desfazer'], ['redo', 'Refazer'], ['read', 'Modo leitura liga/desliga'], ['none', 'Nada (desligado)']];
+const PEN_DOUBLE_ACTIONS = [['lassoToggle', 'Alternar laço ↔ caneta'], ['hyphen', 'Hífen no quadrado tocado'], ['bullet', 'Tópico (bolinha) no quadrado tocado'], ['eraserToggle', 'Alternar caneta ↔ borracha'], ['undo', 'Desfazer'], ['redo', 'Refazer'], ['read', 'Modo leitura liga/desliga'], ['none', 'Nada (desligado)']];
 function penDoubleAction() { const S = Store.settings; return S.penDouble || (S.penTriple === false ? 'none' : 'lassoToggle'); }

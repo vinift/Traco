@@ -557,7 +557,7 @@ async function importAll() {
 }
 
 /* ===== Botões da caneta: mapear como em jogos ("pressione o botão") ===== */
-const PEN_ACTIONS = [['hyphen', 'Hífen no quadrado (aperte e toque no quadrado)', 'clique'], ['undo', 'Desfazer', 'clique'], ['redo', 'Refazer', 'clique'], ['toggle', 'Alternar caneta ↔ borracha', 'clique'], ['read', 'Modo leitura liga/desliga', 'clique'], ['eraser', 'Borracha enquanto segura', 'segurar'], ['lasso', 'Laço enquanto segura', 'segurar'], ['highlighter', 'Marca-texto enquanto segura', 'segurar']];
+const PEN_ACTIONS = [['hyphen', 'Hífen no quadrado (aperte e toque no quadrado)', 'clique'], ['bullet', 'Tópico (bolinha vazia) no quadrado (aperte e toque)', 'clique'], ['undo', 'Desfazer', 'clique'], ['redo', 'Refazer', 'clique'], ['toggle', 'Alternar caneta ↔ borracha', 'clique'], ['read', 'Modo leitura liga/desliga', 'clique'], ['eraser', 'Borracha enquanto segura', 'segurar'], ['lasso', 'Laço enquanto segura', 'segurar'], ['highlighter', 'Marca-texto enquanto segura', 'segurar']];
 function sigLabel(sg) {
   return { 'pen:2': 'Botão lateral 1', 'pen:4': 'Botão lateral 2', 'pen:8': 'Botão extra', 'pen:16': 'Botão extra 2', 'pen:32': 'Ponta/botão borracha', 'pen:ctx': 'Clique do botão (menu)' }[sg] || (sg.startsWith('key:') ? 'Tecla ' + sg.slice(4) : sg);
 }
@@ -602,6 +602,10 @@ function penMapSection() {
     UI.slider('Comprimento', 5, 90, 1, S.hyphenLen ?? 25, (v) => { S.hyphenLen = v; Store.saveSettings(); }, (v) => v + '% do quadrado'),
     UI.slider('Deslocamento para baixo do centro', -40, 40, 1, S.hyphenDrop ?? 10, (v) => { S.hyphenDrop = v; Store.saveSettings(); }, (v) => (v === 0 ? 'no centro' : v < 0 ? Math.abs(v) + '% para cima' : v + '% para baixo')),
     UI.slider('Colchete do hífen (toque duplo no hífen): fim abaixo do centro do quadrado', -40, 40, 1, S.bracketDrop ?? S.hyphenDrop ?? 10, (v) => { S.bracketDrop = v; Store.saveSettings(); }, (v) => (v === 0 ? 'no centro' : v < 0 ? Math.abs(v) + '% para cima' : v + '% para baixo'))));
+  /* v0.44: tópico rápido (bolinha vazia) */
+  sec.append(el('div', { class: 'field', style: { marginTop: '10px' } }, el('label', {}, 'Tópico rápido (bolinha)'),
+    UI.slider('Tamanho', 5, 90, 1, S.bulletSize ?? 30, (v) => { S.bulletSize = v; Store.saveSettings(); }, (v) => v + '% do quadrado'),
+    UI.slider('Deslocamento para baixo do centro', -40, 40, 1, S.bulletDrop ?? S.hyphenDrop ?? 10, (v) => { S.bulletDrop = v; Store.saveSettings(); }, (v) => (v === 0 ? 'no centro' : v < 0 ? Math.abs(v) + '% para cima' : v + '% para baixo'))));
   return sec;
 }
 
