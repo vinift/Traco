@@ -1423,3 +1423,19 @@ body.sp-open #library{visibility:hidden}
 .set-body > .set-sub:first-child{margin-top:4px}
 .set-head:active{background:var(--accent-soft)}
 @media (max-width:760px){ .set-sum{display:none} }
+/* v0.52: barras deslizantes que enchem (caixa arredondada, roxo até o valor, marquinhas a cada 20%) — --p vem do RangeFill (navigation.js) */
+input[type=range]:not(.cpk-alpha){-webkit-appearance:none;appearance:none;height:40px;min-width:60px;margin:0;border:2px solid var(--accent);border-radius:14px;box-sizing:border-box;cursor:pointer;touch-action:none;
+  --rf:calc(4px + (100% - 8px) * var(--p,0));
+  background:repeating-linear-gradient(90deg,transparent 0 calc(20% - 1px),rgba(128,128,140,.38) calc(20% - 1px) 20%),linear-gradient(90deg,var(--accent) var(--rf),color-mix(in srgb,var(--accent) 7%,var(--panel,#fff)) var(--rf));
+  background-size:calc(100% + 1px) 100%,100% 100%;background-repeat:no-repeat}
+input[type=range]:not(.cpk-alpha)::-webkit-slider-runnable-track{height:100%;background:transparent;border:0}
+input[type=range]:not(.cpk-alpha)::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:8px;height:calc(100% - 8px);margin-top:4px;border-radius:4px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.12),0 1px 4px rgba(0,0,0,.3)}
+input[type=range]:not(.cpk-alpha)::-moz-range-thumb{width:8px;height:28px;border:0;border-radius:4px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rng-wrap{position:relative;flex:1;min-width:0;display:flex;align-items:center}
+.rng-wrap > input[type=range]{flex:1;width:100%;min-width:0}
+.rng-wrap > .rng-val{position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text);background:color-mix(in srgb,var(--panel,#fff) 82%,transparent);padding:2px 8px;border-radius:9px;min-width:0!important;white-space:nowrap}
+.sp-content input[type=range]:not(.cpk-alpha){height:44px}
+.ed-options input[type=range]:not(.cpk-alpha),.cpk-row input[type=range]:not(.cpk-alpha){height:32px;border-radius:11px}
+.ed-options .rng-wrap > .rng-val{font-size:12px;right:8px;padding:1px 6px}
+.qk-adj .grp .rng-wrap{grid-column:1 / -1;grid-row:2;width:100%}

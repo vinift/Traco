@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.52.0
+
+- **Barras deslizantes novas em todo o app:** as barras agora são caixas maiores, com os cantos arredondados, que enchem de roxo até o valor, com marquinhas dividindo em 5 partes. Nas Configurações o valor fica escrito dentro da barra. Tocar em qualquer ponto ou arrastar muda o valor.
+
 ## Novidades da v0.51.0
 
 - **Configurações em abas que expandem:** as opções agora estão em 7 grupos: Caneta e escrita · Formas e alinhamento · Botões da caneta · Tela e zoom · Leitura da escrita (OCR) · Backup e dados · Avançado. Fechada, cada aba mostra um resumo do que está ligado (ex.: "Palma 40 px · pressão 60%"). Tocar abre só aquela aba. A lista da esquerda abre a aba direto, e a busca abre sozinha as abas que têm o que você procurou.

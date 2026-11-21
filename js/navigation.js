@@ -303,3 +303,18 @@ const SpCover = {
   },
 };
 SpCover.init();
+
+/* v0.52: barras deslizantes "que enchem" — cada input range ganha --p (0–1) para o CSS pintar o roxo até o valor.
+   Atualiza no arrasto (input), quando aparece um novo (MutationObserver) e quando o código troca o value (setter). */
+const RangeFill = {
+  set(r) { const mn = +r.min || 0, mx = r.max === '' ? 100 : +r.max, v = +r.value; r.style.setProperty('--p', mx > mn ? Math.min(1, Math.max(0, (v - mn) / (mx - mn))) : 0); },
+  scan(root) { if (root.matches && root.matches('input[type=range]')) this.set(root); if (root.querySelectorAll) for (const r of root.querySelectorAll('input[type=range]')) this.set(r); },
+  init() {
+    document.addEventListener('input', (e) => { if (e.target.type === 'range') this.set(e.target); }, true);
+    new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1) this.scan(n); }).observe(document.body, { childList: true, subtree: true });
+    const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    if (d && d.set) Object.defineProperty(HTMLInputElement.prototype, 'value', { ...d, set(v) { d.set.call(this, v); if (this.type === 'range') RangeFill.set(this); } });
+    this.scan(document.body);
+  },
+};
+RangeFill.init();

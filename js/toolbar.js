@@ -699,7 +699,8 @@ const UI = {
     const out = el('span', { class: 'val' }, fmt(val));
     const r = el('input', { type: 'range', min, max, step, value: val });
     r.addEventListener('input', () => { out.textContent = fmt(+r.value); onInput(+r.value); });
-    return el('div', { class: 'grp', style: { display: 'flex', gap: '8px', alignItems: 'center' } }, el('label', {}, label), r, out);
+    out.classList.add('rng-val'); /* v0.52: valor escrito dentro da barra */
+    return el('div', { class: 'grp', style: { display: 'flex', gap: '8px', alignItems: 'center' } }, el('label', {}, label), el('div', { class: 'rng-wrap' }, r, out));
   },
   check(label, val, on) { const i = el('input', { type: 'checkbox' }); i.checked = !!val; i.addEventListener('change', () => on(i.checked)); return el('label', { class: 'chk' }, i, label); },
   seg(items, cur, on) {
