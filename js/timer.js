@@ -274,26 +274,28 @@ const StudyTimer = {
   },
   /* tempo registrado num dia (sessões + trecho em andamento) */
   dayMs(t = Date.now()) { const d = new Date(t); d.setHours(0, 0, 0, 0); const a = d.getTime(), b = a + 86400000; let v = 0; for (const x of this.allSess()) if (StudyReport.countable(x)) v += Math.max(0, Math.min(b, x.e) - Math.max(a, x.s)); return v; },
-  ringFrac(t = Date.now()) { const s = this.st; if (this.hasTarget()) return s.target > 0 ? clamp(1 - this.remaining(t) / s.target, 0, 1) : 0; return clamp(this.dayMs(t) / StudyReport.goalMs(), 0, 1); },
+  ringFrac(t = Date.now()) { const s = this.st; if (this.hasTarget()) return s.target > 0 ? clamp(1 - this.remaining(t) / s.target, 0, 1) : 0; const g = StudyReport.goalMs(t); return g ? clamp(this.dayMs(t) / g, 0, 1) : this.dayMs(t) > 0 ? 1 : 0; },
   paintRing() {
     const b = this.pop, p = b && b.querySelector('.tm-prog'); if (!p) return;
     const C = 2 * Math.PI * 92, f = this.ringFrac(); p.setAttribute('stroke-dasharray', `${(C * f).toFixed(1)} ${C.toFixed(1)}`);
-    const g = b.querySelector('.tm-goalbar i'), gt = b.querySelector('.tm-goaltxt'); if (g) { const v = this.dayMs(), goal = StudyReport.goalMs(); g.style.width = Math.min(100, (v / goal) * 100) + '%'; if (gt) gt.textContent = `${this.fmtDur(v)} de ${this.fmtDur(goal)}`; b.querySelector('.tm-goal').classList.toggle('hit', v >= goal); }
+    const g = b.querySelector('.tm-goalbar i'), gt = b.querySelector('.tm-goaltxt'); if (g) { const v = this.dayMs(), goal = StudyReport.goalMs(); g.style.width = (goal ? Math.min(100, (v / goal) * 100) : v > 0 ? 100 : 0) + '%'; if (gt) gt.textContent = goal ? `${this.fmtDur(v)} de ${this.fmtDur(goal)}` : `${this.fmtDur(v)} · descanso`; b.querySelector('.tm-goal').classList.toggle('hit', v >= goal); }
   },
   /* hoje (barra da meta), 7 dias e matérias da semana */
   statsEl() {
     const t = Date.now(), map = StudyReport.dayMap(), goal = StudyReport.goalMs(), today = this.dayMs(t), aw = ((this.log.away || {})[this.dayKey(t)]) || 0;
     const days = []; for (let i = 6; i >= 0; i--) { const d = new Date(t); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); days.push({ k: this.dayKey(d.getTime()), d }); }
-    const vals = days.map((x) => StudyReport.sum(map[x.k])), max = Math.max(...vals, goal, 1), week = vals.reduce((a, b) => a + b, 0);
+    const R = StudyReport, gl = R.goalMs(Date.parse('2024-01-03T12:00')), vals = days.map((x) => R.sum(map[x.k])), max = Math.max(...vals, gl, 1), week = vals.reduce((a, b) => a + b, 0);
     const subj = new Map(); for (const { k } of days) for (const [id, v] of Object.entries(map[k] || {})) { const sb = subjectOfNote(id), c = subj.get(sb.key) || { ...sb, v: 0 }; c.v += v; subj.set(sb.key, c); }
     const top = [...subj.values()].sort((a, b) => b.v - a.v).slice(0, 5);
     const WD = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
     const rep = el('button', { class: 'btn primary sr-open', onclick: () => { closePop(); StudyReport.open(); } }, 'Abrir relatório');
     return el('div', { class: 'tm-stats' },
-      el('div', { class: 'tm-goal' + (today >= goal ? ' hit' : '') }, el('div', { class: 'tm-tot' }, el('span', {}, 'Hoje'), el('b', { class: 'tm-goaltxt' }, `${this.fmtDur(today)} de ${this.fmtDur(goal)}`)), el('div', { class: 'tm-goalbar' }, el('i', { style: { width: Math.min(100, (today / goal) * 100) + '%' } })),
+      el('div', { class: 'tm-goal' + ((goal ? today >= goal : today > 0) ? ' hit' : '') }, el('div', { class: 'tm-tot' }, el('span', {}, 'Hoje'), el('b', { class: 'tm-goaltxt' }, goal ? `${this.fmtDur(today)} de ${this.fmtDur(goal)}` : `${this.fmtDur(today)} · descanso`)), el('div', { class: 'tm-goalbar' }, el('i', { style: { width: (goal ? Math.min(100, (today / goal) * 100) : today > 0 ? 100 : 0) + '%' } })),
+        /* v0.50: dia de pausa (feriado etc.) — não quebra a sequência */
+        el('button', { class: 'tm-pausebtn' + (R.isPause(t) ? ' on' : ''), onclick: () => { const on = R.togglePause(t); toast(on ? 'Hoje é dia de pausa: não quebra a sequência' : 'Dia de pausa removido', 1800); this.renderPanel(); } }, R.isPause(t) ? '⏸ Hoje é dia de pausa · tirar' : '⏸ Marcar hoje como dia de pausa'),
         aw >= 60000 ? el('small', { class: 'tm-away' }, `${this.fmtDur(aw)} hoje com o app fora da tela não contaram`) : null),
       el('div', { class: 'tm-tot' }, el('span', {}, 'Últimos 7 dias'), el('b', {}, this.fmtDur(week))),
-      el('div', { class: 'tm-bars' }, el('div', { class: 'tm-gl', style: { bottom: `calc(14px + (100% - 14px) * ${goal / max})` } }), ...days.map((x, i) => el('div', { class: 'tm-bar' + (i === 6 ? ' today' : '') + (vals[i] >= goal ? ' hit' : ''), title: `${x.d.toLocaleDateString('pt-BR')}: ${this.fmtDur(vals[i])}` }, el('i', { style: { height: Math.round((vals[i] / max) * 100) + '%' } }), el('small', {}, WD[x.d.getDay()])))),
+      el('div', { class: 'tm-bars' }, el('div', { class: 'tm-gl', style: { bottom: `calc(14px + (100% - 14px) * ${gl / max})` } }), ...days.map((x, i) => el('div', { class: 'tm-bar' + (i === 6 ? ' today' : '') + (R.dayHit(x.k, vals[i]) === 1 ? ' hit' : ''), title: `${x.d.toLocaleDateString('pt-BR')}: ${this.fmtDur(vals[i])}` }, el('i', { style: { height: Math.round((vals[i] / max) * 100) + '%' } }), el('small', {}, WD[x.d.getDay()])))),
       top.length ? el('div', { class: 'tm-notes' }, ...top.map((x) => el('div', { class: 'tm-row' }, el('span', { class: 'tm-subj' }, el('i', { class: 'sr-dot', style: { background: x.color } }), x.name), el('b', {}, this.fmtDur(x.v))))) : el('p', { class: 'tm-hint' }, 'O tempo estudado aparece aqui, por dia e por matéria.'),
       rep);
   },

@@ -153,6 +153,15 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.50.0
+
+- **Meta diferente no fim de semana:** no relatório (Visão geral, embaixo do gráfico) agora há **"Meta seg–sex"** e **"Sáb e dom"**. Deixe "Sáb e dom" vazio para usar a mesma meta, ou ponha **0** para o fim de semana ser descanso.
+  - A sequência, os "dias na meta", o calendário, o painel do cronômetro e o cartão da tela inicial usam a meta de cada dia.
+  - No gráfico, a linha tracejada é a meta de seg–sex; sábado e domingo ganham um tracinho com a meta deles.
+- **Dia de pausa (feriado, viagem…):** marque um dia como pausa e ele **não quebra a sequência** (se estudar nele, conta).
+  - Para hoje: no painel do cronômetro, "⏸ Marcar hoje como dia de pausa".
+  - Para qualquer dia (inclusive futuro): no relatório → Dia (ou toque no dia no Calendário) → "⏸ Marcar como dia de pausa". No calendário o dia aparece riscado com ⏸.
+
 ## Novidades da v0.49.0
 
 - **Selecionar palavras com o dedo (com a caneta ativa):** segure o dedo parado **0,4 s** em cima de uma palavra escrita. Ela é selecionada e o tablet vibra de leve. Sem soltar, **arraste por cima** de outras palavras: cada palavra que a faixa tocar entra na seleção, inclusive em outras linhas.

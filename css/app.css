@@ -1394,3 +1394,14 @@ select{border-radius:14px!important}
 .gp-mark{min-width:34px;height:30px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer;font-variant-numeric:tabular-nums}
 .gp-mark.on{background:var(--accent);color:#fff;border-color:transparent}
 .gp-all{align-self:stretch;justify-content:center}
+/* v0.50: meta de fim de semana e dia de pausa */
+.rp-goalrow{flex-wrap:wrap}
+.rp-goalrow label{display:inline-flex;align-items:center;gap:6px}
+.rp-goalrow small{color:var(--muted);font-size:11.5px;flex-basis:100%}
+.rp-gtick{position:absolute;left:12%;right:12%;height:0;border-top:2px dashed var(--muted);opacity:.7;z-index:1;pointer-events:none}
+.rp-col.rest small{color:var(--muted);font-style:italic}
+.rp-cell.rest:not(.fut){background:repeating-linear-gradient(45deg,var(--panel2),var(--panel2) 4px,transparent 4px,transparent 8px)}
+.rp-pause{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rp-pause small{color:var(--muted);font-size:12px}
+.tm-pausebtn{align-self:flex-start;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
+.tm-pausebtn.on{border-style:solid;background:var(--accent-soft);color:var(--accent)}
