@@ -153,6 +153,24 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.43.0 — relatório e cronômetro de estudo refeitos
+
+**Relatório de estudo** (agora em tela inteira):
+- **Período no topo:** Dia, Semana, Mês ou Ano, com ‹ › para voltar e avançar e o botão "Hoje". O botão **Recarregar** continua lá.
+- **Abas:**
+  - **Visão geral:** total (comparado com o período anterior), média por dia, dias na meta, sequência atual e a melhor, número de sessões e o tempo que não contou. O gráfico mostra cada barra dividida pelas cores das matérias. Tocar numa barra mostra as matérias daquele dia, hora ou mês, com o botão "Abrir o dia →". A meta diária é ajustada aqui.
+  - **Calendário:** cada dia é um quadrado com o tempo estudado, mais forte quanto mais perto da meta (✓ = meta batida). No Ano aparecem os 12 meses. Tocar num dia abre esse dia.
+  - **Matérias:** gráfico de rosca e a lista de matérias. Tocar numa matéria mostra as notas estudadas nela, o número de sessões e a média por sessão.
+  - **Horários:** quanto você estuda de madrugada, de manhã, à tarde e à noite, o gráfico por hora com o horário de pico e a grade dia da semana × hora.
+  - **Sessões:** cada sessão com início, fim, matéria e nota. Toque para mudar a matéria ou o horário, ou para excluir. "+ Adicionar sessão" serve para um estudo que não foi registrado (substitui o "Ajustar tempo").
+  - **Notas:** as notas mais estudadas no período; toque para abrir.
+- O histórico antigo foi convertido sozinho e continua nos totais e no calendário. Ele não tem horário, então fica fora da aba Horários.
+
+**Cronômetro:**
+- Painel novo com um anel grande. No temporizador e no Pomodoro o anel mostra o progresso; no cronômetro, mostra a meta do dia. No Pomodoro, bolinhas mostram os focos feitos.
+- **Escolher a matéria:** toque na matéria embaixo do anel. Por padrão o tempo vai para a matéria da nota aberta; escolhendo uma, o tempo vai para ela mesmo lendo um PDF de outra pasta ou estando na biblioteca. Volta a "pela nota" ao tocar em Zerar/Parar.
+- Barra "Hoje: X de Y", aviso do tempo que não contou com o app fora da tela, gráfico dos 7 dias com a linha da meta e o botão "Abrir relatório".
+
 ## Novidades da v0.42.3
 
 - Corrigido: no gráfico "Tempo por dia" do relatório, a linha tracejada da meta ficava alta demais, e os dias que bateram a meta pareciam abaixo dela. Agora a barra de um dia com exatamente a meta encosta na linha.

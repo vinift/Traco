@@ -15,6 +15,7 @@ const StudyTimer = {
     try { s = await DB.get('meta', 'studyTimer'); l = await DB.get('meta', 'studyLog'); } catch (e) { console.warn('cronômetro', e); }
     this.st = { ...clone(this.DEF), ...(s || {}) }; this.st.pomo = { ...this.DEF.pomo, ...(this.st.pomo || {}) };
     this.log = l && l.days ? l : { days: {}, titles: {} };
+    try { this.migrate(); } catch (e) { console.warn('histórico', e); }
     if (this._on) return this.tick(); this._on = true; // eventos só uma vez
     for (const id of ['noteClock', 'noteTimer', 'libTimer']) { const n = document.getElementById(id); if (n) { n.classList.add('tm-click'); n.addEventListener('click', (e) => { e.stopPropagation(); this.open(n); }); } }
     { const c = document.getElementById('noteClock'); if (c) c.title = 'Horário · toque para o cronômetro de estudo'; }
@@ -40,8 +41,40 @@ const StudyTimer = {
   curNote() { const ed = document.getElementById('editor'); return typeof Editor !== 'undefined' && Editor.note && ed && !ed.classList.contains('hidden') ? Editor.note : null; },
   dayKey(t) { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; },
 
+  /* v0.43: histórico por SESSÃO em log.sessions [{id, s, e, n (nota|null), f? (matéria escolhida: id da pasta | '~'), lg? (registro antigo,
+     sem horário), m? (sessão adicionada à mão)}]. log.days continua sendo gravado (compatibilidade), mas o relatório lê as sessões. */
+  migrate() {
+    const L = this.log; if (Array.isArray(L.sessions)) return;
+    const S = [];
+    for (const [d, map] of Object.entries(L.days || {})) {
+      const [y, m, dd] = d.split('-').map(Number), d0 = new Date(y, m - 1, dd).getTime(), subj = (k) => (k.startsWith('f:') || k === '_' ? k : subjectOfNote(k).key);
+      const pos = Object.entries(map).filter(([, v]) => v > 0).map(([k, v]) => [k, v]);
+      for (const [k, v] of Object.entries(map)) if (v < 0) { let r = -v; for (const p of pos) if (r > 0 && subj(p[0]) === subj(k)) { const t = Math.min(r, p[1]); p[1] -= t; r -= t; } } /* ajustes "Tirar" da v0.42.1 */
+      const tot = pos.reduce((a, p) => a + Math.max(0, p[1]), 0); let cur = Math.max(d0, Math.min(d0 + 8 * 3600000, d0 + 86400000 - tot - 1000));
+      for (const [k, v] of pos) { if (v < 1000) continue; const x = { id: uid(), s: cur, e: cur + v, n: null, lg: 1 }; if (k.startsWith('f:')) x.f = k.slice(2); else if (k !== '_') x.n = k; S.push(x); cur += v; }
+    }
+    S.sort((a, b) => a.s - b.s); L.sessions = S; L.v = 2; this.saveLog();
+  },
+  addSess(a, b, n, f) {
+    const S = this.log.sessions || (this.log.sessions = []), last = S[S.length - 1]; n = n || null; f = f || null;
+    if (last && !last.lg && !last.m && Math.abs(last.e - a) < 3000 && last.n === n && (last.f || null) === f) last.e = Math.max(last.e, b);
+    else { const x = { id: uid(), s: a, e: b, n }; if (f) x.f = f; S.push(x); }
+    if (S.length > 8000) S.splice(0, S.length - 8000);
+  },
+  /* sessões + o trecho em andamento (para o relatório e os painéis) */
+  allSess() {
+    const s = this.st, out = (this.log.sessions || []).slice();
+    if (s && this.counts() && s.segStart && !s.segAway) { const t = Date.now(); if (t > s.segStart) out.push({ id: '_live', s: s.segStart, e: t, n: s.segNote || null, f: s.segSubj || undefined, live: 1 }); }
+    return out;
+  },
+  sessKey(x) { return x.f ? 'f:' + x.f : x.n || '_'; },
+  /* matéria escolhida no cronômetro (null = pela nota aberta) */
+  setSubj(v) { const s = this.st; if (s.running) this.boundary(Date.now()); s.subj = v || null; if (!s.running) s.segSubj = s.subj; this.save(); this.renderPanel(); this.paint(); },
+  autoSubj() { const n = this.curNote(); return n ? subjectOfNote(n.id) : subjectOfNote('_'); },
+  curSubj() { const s = this.st; return s.subj ? subjectOfNote('f:' + s.subj) : this.autoSubj(); },
   /* soma no histórico o trecho [a, b), separando na meia-noite */
-  addLog(a, b, noteId, title) {
+  addLog(a, b, noteId, title, subj) {
+    this.addSess(a, b, noteId, subj);
     if (!(b > a)) return; const L = this.log, k = noteId || '_';
     while (a < b) {
       const d = new Date(a); d.setHours(24, 0, 0, 0); const e = Math.min(b, d.getTime()), key = this.dayKey(a);
@@ -54,8 +87,8 @@ const StudyTimer = {
   /* fecha o trecho atual (troca de nota, pausa, fim de fase ou a cada minuto) e começa outro */
   boundary(t) {
     const s = this.st;
-    if (this.counts() && s.segStart && !s.segAway) this.addLog(s.segStart, t, s.segNote, s.segTitle);
-    const n = this.curNote(); s.segStart = t; s.segNote = n ? n.id : null; s.segTitle = n ? n.title : ''; this.save();
+    if (this.counts() && s.segStart && !s.segAway) this.addLog(s.segStart, t, s.segNote, s.segTitle, s.segSubj);
+    const n = this.curNote(); s.segStart = t; s.segNote = n ? n.id : null; s.segTitle = n ? n.title : ''; s.segSubj = s.subj || null; this.save();
   },
   /* v0.42: fecha o trecho fora da tela [awayAt, t) — só até o fim do temporizador/fase, se acabou nesse meio-tempo */
   closeAway(t) {
@@ -93,7 +126,7 @@ const StudyTimer = {
     this.boundary(t); s.acc += t - s.runStart; s.running = false; this.save(); this.paint(); this.renderPanel();
   },
   reset() {
-    this.pause(); const s = this.st; s.acc = 0; s.cycle = 0; s.phase = 'focus'; this.resetPhase(); this.save(); this.paint(); this.renderPanel();
+    this.pause(); const s = this.st; s.acc = 0; s.cycle = 0; s.phase = 'focus'; s.subj = null; s.segSubj = null; this.resetPhase(); this.save(); this.paint(); this.renderPanel();
   },
   resetPhase() {
     const s = this.st, P = s.pomo; s.acc = 0;
@@ -175,20 +208,38 @@ const StudyTimer = {
       n.title = `${this.phaseName()}${s.running ? '' : ' (pausado)'} · toque para abrir`;
     }
     const ct = document.querySelector('.ch-title'); if (ct) ct.classList.toggle('has-timer', show);
-    if (this.pop && this.pop.isConnected) { const b = this.pop.querySelector('.tm-big'); if (b) b.textContent = txt; const st = this.pop.querySelector('.tm-stats'); if (st && (!this._statT || Date.now() - this._statT > 15000)) { this._statT = Date.now(); st.replaceWith(this.statsEl()); } }
+    if (this.pop && this.pop.isConnected) { const b = this.pop.querySelector('.tm-big'); if (b) b.textContent = txt; this.paintRing(); const st = this.pop.querySelector('.tm-stats'); if (st && (!this._statT || Date.now() - this._statT > 15000)) { this._statT = Date.now(); st.replaceWith(this.statsEl()); } }
   },
 
   /* ---------- painel ---------- */
   open(anchor) { const box = el('div', { class: 'tm-pop' }); this.pop = box; this.renderPanel(true); openPop(anchor, box, { onClose: () => { if (this.pop === box) this.pop = null; } }); this.pop = box; },
+  /* v0.43: painel com anel grande, matéria da sessão e meta do dia */
   renderPanel(force) {
     const box = this.pop; if (!box || (!force && !box.isConnected)) return;
-    const s = this.st, P = s.pomo, idle = !s.running && s.acc === 0;
+    const s = this.st, P = s.pomo, idle = !s.running && s.acc === 0, brk = s.mode === 'pomodoro' && s.phase !== 'focus';
     const tab = (m, label) => el('button', { class: 'tm-tab' + (s.mode === m ? ' on' : ''), onclick: () => this.setMode(m) }, label);
     const btn = (label, fn, cls = '') => el('button', { class: 'btn ' + cls, onclick: fn }, label);
-    const sub = s.mode === 'pomodoro' ? `${this.phaseName()} · 🍅 ${s.cycle % P.every}/${P.every}${s.cycle >= P.every ? ` (${s.cycle} no total)` : ''}` : this.phaseName();
+    const sub = s.mode === 'pomodoro' ? `${this.phaseName()} · ${s.cycle % P.every}/${P.every} focos` : s.mode === 'stopwatch' ? 'anel = meta do dia' : this.phaseName();
+    const R = 92, C = 2 * Math.PI * R, ring = el('div', { class: 'tm-ring' + (brk ? ' brk' : '') + (s.running ? ' run' : '') });
+    ring.innerHTML = `<svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="${R}" class="tm-rbg"/><circle cx="110" cy="110" r="${R}" class="tm-prog" stroke-dasharray="0 ${C.toFixed(1)}" transform="rotate(-90 110 110)"/></svg>`;
+    ring.append(el('div', { class: 'tm-rin' }, el('div', { class: 'tm-big' }, this.display()), el('div', { class: 'tm-sub' }, sub + (!s.running && s.acc > 0 ? ' · pausado' : '')),
+      s.mode === 'pomodoro' ? el('div', { class: 'tm-dots' }, ...Array.from({ length: P.every }, (_, i) => el('i', { class: i < s.cycle % P.every ? 'on' : '' }))) : null));
+    /* matéria */
+    const cs = this.curSubj(), subjBtn = el('button', { class: 'tm-subjbtn' + (this._subjOpen ? ' open' : ''), onclick: () => { this._subjOpen = !this._subjOpen; this.renderPanel(); } },
+      el('i', { class: 'sr-dot', style: { background: cs.color } }), el('span', {}, cs.name), el('small', {}, s.subj ? 'escolhida' : 'pela nota aberta'), el('b', {}, '▾'));
+    let subjList = null;
+    if (this._subjOpen) {
+      const pick = (v) => { this._subjOpen = false; this.setSubj(v); };
+      const subs = Store.folders.filter((f) => f.subject).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')), auto = this.autoSubj();
+      subjList = el('div', { class: 'tm-subjlist' },
+        el('button', { class: 'tm-chip' + (!s.subj ? ' on' : ''), onclick: () => pick(null) }, `Pela nota (${auto.name})`),
+        ...subs.map((f) => el('button', { class: 'tm-chip' + (s.subj === f.id ? ' on' : ''), onclick: () => pick(f.id) }, el('i', { class: 'sr-dot', style: { background: f.color || FOLDER_COLORS[0] } }), f.name)),
+        el('button', { class: 'tm-chip' + (s.subj === '~' ? ' on' : ''), onclick: () => pick('~') }, 'Sem matéria'),
+        subs.length ? null : el('p', { class: 'tm-hint' }, 'Marque pastas como matéria (menu ⋯ da pasta) para escolher aqui.'));
+    }
     const kids = [
       el('div', { class: 'tm-tabs' }, tab('stopwatch', 'Cronômetro'), tab('countdown', 'Temporizador'), tab('pomodoro', 'Pomodoro')),
-      el('div', { class: 'tm-face' + (s.mode === 'pomodoro' && s.phase !== 'focus' ? ' brk' : '') }, el('div', { class: 'tm-big' }, this.display()), el('div', { class: 'tm-sub' }, sub + (!s.running && s.acc > 0 ? ' · pausado' : ''))),
+      ring, subjBtn, subjList,
       el('div', { class: 'tm-ctrl' },
         s.running ? btn('Pausar', () => this.pause()) : btn(s.acc > 0 ? 'Continuar' : 'Iniciar', () => this.start(), 'primary'),
         !this.idle() ? btn(s.mode === 'pomodoro' ? 'Parar' : 'Zerar', () => this.reset()) : null,
@@ -201,33 +252,40 @@ const StudyTimer = {
     if (s.mode === 'pomodoro' && this.idle()) {
       const f = (label, k, unit) => { const i = el('input', { type: 'number', min: 1, value: P[k], class: 'tm-num', onchange: () => { this.setPomo(k, +i.value); this.renderPanel(); } }); return el('label', { class: 'tm-field' }, el('span', {}, label), i, unit); };
       kids.push(el('div', { class: 'tm-pomo' }, f('Foco', 'focus', 'min'), f('Pausa', 'short', 'min'), f('Pausa longa', 'long', 'min'), f('Longa a cada', 'every', 'focos')));
+      kids.push(el('p', { class: 'tm-hint' }, 'A pausa começa sozinha quando o foco acaba; o próximo foco espera você tocar em Iniciar. As pausas não entram no tempo de estudo.'));
     }
-    if (s.mode === 'pomodoro') kids.push(el('p', { class: 'tm-hint' }, 'A pausa começa sozinha quando o foco acaba; o próximo foco espera você tocar em Iniciar. As pausas não entram no tempo de estudo.'));
+    kids.push(this.statsEl()); this._statT = Date.now();
     { /* v0.24: avisos pelo sistema */
       const perm = 'Notification' in window ? Notification.permission : 'denied', on = Store.settings.timerNotify !== false;
       const cb = el('input', { type: 'checkbox', checked: on && perm === 'granted', onchange: () => { Store.settings.timerNotify = cb.checked; Store.saveSettings(); if (cb.checked) { if (perm === 'default') this.askNotify(); else if (perm === 'denied') toast('As notificações estão bloqueadas para o Traço nas configurações do Android (Apps → Traço → Notificações)', 4200); } this._sysKey = null; this.sysSync(); this.renderPanel(); } });
       kids.push(el('label', { class: 'tm-sys' }, cb, el('span', {}, 'Avisar pelas notificações do tablet', el('small', {}, perm === 'denied' ? 'bloqueadas no Android — libere em Apps → Traço → Notificações' : 'tempo na tela de bloqueio e alarme ao terminar'))));
     }
-    kids.push(this.statsEl()); this._statT = Date.now();
-    box.innerHTML = ''; box.append(...kids.filter(Boolean));
+    box.innerHTML = ''; box.append(...kids.filter(Boolean)); this.paintRing();
   },
-  /* totais: hoje, 7 dias (barrinhas) e as notas da semana */
+  /* tempo registrado num dia (sessões + trecho em andamento) */
+  dayMs(t = Date.now()) { const d = new Date(t); d.setHours(0, 0, 0, 0); const a = d.getTime(), b = a + 86400000; let v = 0; for (const x of this.allSess()) v += Math.max(0, Math.min(b, x.e) - Math.max(a, x.s)); return v; },
+  ringFrac(t = Date.now()) { const s = this.st; if (this.hasTarget()) return s.target > 0 ? clamp(1 - this.remaining(t) / s.target, 0, 1) : 0; return clamp(this.dayMs(t) / StudyReport.goalMs(), 0, 1); },
+  paintRing() {
+    const b = this.pop, p = b && b.querySelector('.tm-prog'); if (!p) return;
+    const C = 2 * Math.PI * 92, f = this.ringFrac(); p.setAttribute('stroke-dasharray', `${(C * f).toFixed(1)} ${C.toFixed(1)}`);
+    const g = b.querySelector('.tm-goalbar i'), gt = b.querySelector('.tm-goaltxt'); if (g) { const v = this.dayMs(), goal = StudyReport.goalMs(); g.style.width = Math.min(100, (v / goal) * 100) + '%'; if (gt) gt.textContent = `${this.fmtDur(v)} de ${this.fmtDur(goal)}`; b.querySelector('.tm-goal').classList.toggle('hit', v >= goal); }
+  },
+  /* hoje (barra da meta), 7 dias e matérias da semana */
   statsEl() {
-    const L = this.log, s = this.st, t = Date.now(), pend = this.counts() && s.segStart && !s.segAway ? t - s.segStart : 0, today = this.dayKey(t);
-    const dayTotal = (k) => { const d = L.days[k] || {}; let v = 0; for (const x in d) v += d[x]; return v + (k === today ? pend : 0); };
+    const t = Date.now(), map = StudyReport.dayMap(), goal = StudyReport.goalMs(), today = this.dayMs(t), aw = ((this.log.away || {})[this.dayKey(t)]) || 0;
     const days = []; for (let i = 6; i >= 0; i--) { const d = new Date(t); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); days.push({ k: this.dayKey(d.getTime()), d }); }
-    const vals = days.map((x) => dayTotal(x.k)), max = Math.max(...vals, 1), week = vals.reduce((a, b) => a + b, 0);
-    const per = {}; for (const { k } of days) { const d = L.days[k] || {}; for (const x in d) per[x] = (per[x] || 0) + d[x]; }
-    if (pend) { const k = s.segNote || '_'; per[k] = (per[k] || 0) + pend; }
-    const subj = new Map(); for (const [id, v] of Object.entries(per)) { const sb = subjectOfNote(id), c = subj.get(sb.key) || { ...sb, v: 0 }; c.v += v; subj.set(sb.key, c); } /* v0.35: por matéria */
-    const top = [...subj.values()].sort((a, b) => b.v - a.v).slice(0, 6);
+    const vals = days.map((x) => StudyReport.sum(map[x.k])), max = Math.max(...vals, goal, 1), week = vals.reduce((a, b) => a + b, 0);
+    const subj = new Map(); for (const { k } of days) for (const [id, v] of Object.entries(map[k] || {})) { const sb = subjectOfNote(id), c = subj.get(sb.key) || { ...sb, v: 0 }; c.v += v; subj.set(sb.key, c); }
+    const top = [...subj.values()].sort((a, b) => b.v - a.v).slice(0, 5);
     const WD = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-    const curTitle = (id) => (id === s.segNote && s.segTitle) || L.titles[id] || (typeof Store !== 'undefined' && Store.heads[id] && Store.heads[id].title) || 'Nota apagada';
-    const rep = el('button', { class: 'btn sr-open', onclick: () => { closePop(); StudyReport.open(); } }, 'Ver relatório completo'); /* v0.34 */
-    return el('div', { class: 'tm-stats' }, rep,
-      el('div', { class: 'tm-tot' }, el('span', {}, 'Hoje ', el('b', {}, this.fmtDur(vals[6]))), el('span', {}, '7 dias ', el('b', {}, this.fmtDur(week)))),
-      el('div', { class: 'tm-bars' }, ...days.map((x, i) => el('div', { class: 'tm-bar' + (i === 6 ? ' today' : ''), title: `${x.d.toLocaleDateString('pt-BR')}: ${this.fmtDur(vals[i])}` }, el('i', { style: { height: Math.round((vals[i] / max) * 100) + '%' } }), el('small', {}, WD[x.d.getDay()])))),
-      top.length ? el('div', { class: 'tm-notes' }, el('div', { class: 'tm-h' }, 'Matérias nos últimos 7 dias'), ...top.map((x) => el('div', { class: 'tm-row' }, el('span', { class: 'tm-subj' }, el('i', { class: 'sr-dot', style: { background: x.color } }), x.name), el('b', {}, this.fmtDur(x.v))))) : el('p', { class: 'tm-hint' }, 'O tempo estudado aparece aqui, por dia e por matéria.'));
+    const rep = el('button', { class: 'btn primary sr-open', onclick: () => { closePop(); StudyReport.open(); } }, 'Abrir relatório');
+    return el('div', { class: 'tm-stats' },
+      el('div', { class: 'tm-goal' + (today >= goal ? ' hit' : '') }, el('div', { class: 'tm-tot' }, el('span', {}, 'Hoje'), el('b', { class: 'tm-goaltxt' }, `${this.fmtDur(today)} de ${this.fmtDur(goal)}`)), el('div', { class: 'tm-goalbar' }, el('i', { style: { width: Math.min(100, (today / goal) * 100) + '%' } })),
+        aw >= 60000 ? el('small', { class: 'tm-away' }, `${this.fmtDur(aw)} hoje com o app fora da tela não contaram`) : null),
+      el('div', { class: 'tm-tot' }, el('span', {}, 'Últimos 7 dias'), el('b', {}, this.fmtDur(week))),
+      el('div', { class: 'tm-bars' }, el('div', { class: 'tm-gl', style: { bottom: `calc(14px + (100% - 14px) * ${goal / max})` } }), ...days.map((x, i) => el('div', { class: 'tm-bar' + (i === 6 ? ' today' : '') + (vals[i] >= goal ? ' hit' : ''), title: `${x.d.toLocaleDateString('pt-BR')}: ${this.fmtDur(vals[i])}` }, el('i', { style: { height: Math.round((vals[i] / max) * 100) + '%' } }), el('small', {}, WD[x.d.getDay()])))),
+      top.length ? el('div', { class: 'tm-notes' }, ...top.map((x) => el('div', { class: 'tm-row' }, el('span', { class: 'tm-subj' }, el('i', { class: 'sr-dot', style: { background: x.color } }), x.name), el('b', {}, this.fmtDur(x.v))))) : el('p', { class: 'tm-hint' }, 'O tempo estudado aparece aqui, por dia e por matéria.'),
+      rep);
   },
 };
 
@@ -287,128 +345,3 @@ Object.assign(StudyTimer, {
   },
 });
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.type === 'traco-timer') StudyTimer.onSysAction(e.data.action); });
-
-/* ===== v0.34 — Relatório de estudo =====
-   Lê o histórico do cronômetro (meta 'studyLog': ms por dia e por nota). Períodos: 7 dias, 30 dias (barras por dia) e
-   12 semanas (barras por semana). Meta diária em minutos (S.studyGoal, padrão 60): linha tracejada no gráfico, "dias na meta"
-   e sequência (dias seguidos batendo a meta, contando hoje só se já bateu). Por matéria = pasta de cima da nota (cor da pasta);
-   "Fora das notas" = tempo com o cronômetro rodando fora de uma nota. Tocar numa barra mostra o valor. */
-const StudyReport = {
-  period: '7',
-  goalMs() { return Math.max(5, +Store.settings.studyGoal || 60) * 60000; },
-  dayMap() { /* dia → { nota: ms }, incluindo o trecho em andamento */
-    const T = StudyTimer, L = T.log || { days: {} }, s = T.st || {}, out = {};
-    for (const k in L.days) out[k] = { ...L.days[k] };
-    const pend = T.counts && T.counts() && s.segStart && !s.segAway ? Date.now() - s.segStart : 0;
-    if (pend > 0) { const k = T.dayKey(Date.now()), n = s.segNote || '_'; const d = out[k] || (out[k] = {}); d[n] = (d[n] || 0) + pend; }
-    return out;
-  },
-  /* v0.42.1: ajuste manual — soma (ou tira) minutos numa matéria num dia. Gravado em log.days[dia]['f:<pasta>'] ('_' = fora das notas,
-     'f:~' = sem matéria) e listado em log.manual [{id, d, k, ms, at}] para poder desfazer. */
-  manualAdd(d, k, ms) {
-    const L = StudyTimer.log; if (!ms) return; const day = L.days[d] || (L.days[d] = {});
-    day[k] = (day[k] || 0) + ms; if (Math.abs(day[k]) < 1) delete day[k];
-    if (!Object.keys(day).length) delete L.days[d];
-  },
-  adjust(done) {
-    const T = StudyTimer, L = T.log; L.manual = L.manual || [];
-    const today = T.dayKey(Date.now());
-    const subs = Store.folders.filter((f) => f.subject && !(Store.trash && Store.trash.folders && Store.trash.folders[f.id])).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-    const dIn = el('input', { type: 'date', value: today, max: today, class: 'sr-in' });
-    const sIn = el('select', { class: 'sr-in' }, ...subs.map((f) => el('option', { value: 'f:' + f.id }, f.name)), el('option', { value: 'f:~' }, 'Sem matéria'), el('option', { value: '_' }, 'Fora das notas'));
-    const mIn = el('input', { type: 'number', min: 1, max: 900, step: 5, value: 15, class: 'sr-in sr-min' });
-    let sign = 1; const seg = el('div', { class: 'seg sr-sign' });
-    const mk = (v, t) => el('button', { class: v === sign ? 'on' : '', onclick: () => { sign = v; [...seg.children].forEach((b, i) => b.classList.toggle('on', (i === 0 ? 1 : -1) === v)); } }, t);
-    seg.append(mk(1, 'Adicionar'), mk(-1, 'Tirar'));
-    const list = el('div', { class: 'sr-list sr-manual' });
-    const name = (k) => (k === '_' ? 'Fora das notas' : subjectOfNote(k).name);
-    const fmtD = (d) => { const [y, m, dd] = d.split('-'); return `${dd}/${m}`; };
-    const draw = () => {
-      list.innerHTML = ''; const M = L.manual.slice(-12).reverse();
-      if (!M.length) return list.append(el('p', { class: 'tm-hint' }, 'Nenhum ajuste feito ainda.'));
-      list.append(el('div', { class: 'sr-sec' }, 'Ajustes feitos'), ...M.map((x) => el('div', { class: 'sr-row' }, el('span', { class: 'sr-name' }, `${fmtD(x.d)} · ${name(x.k)}`), el('b', { class: x.ms < 0 ? 'neg' : '' }, (x.ms < 0 ? '−' : '+') + T.fmtDur(Math.abs(x.ms))),
-        el('button', { class: 'btn sr-undo', title: 'Desfazer este ajuste', onclick: () => { this.manualAdd(x.d, x.k, -x.ms); L.manual = L.manual.filter((y) => y.id !== x.id); T.saveLog(); draw(); done && done(); } }, 'Desfazer'))));
-    };
-    draw();
-    const add = () => {
-      const d = dIn.value || today, k = sIn.value, min = clamp(Math.round(+mIn.value || 0), 0, 900); if (!min || d > today) { toast('Escolha um dia até hoje e os minutos.'); return false; }
-      let ms = min * 60000 * sign;
-      if (sign < 0) { /* não tira mais do que a matéria tem naquele dia */ const key = k === '_' ? '_' : subjectOfNote(k).key; let have = 0; for (const [id, v] of Object.entries((StudyReport.dayMap()[d]) || {})) if ((id === '_' ? '_' : subjectOfNote(id).key) === key) have += v; ms = -Math.min(-ms, Math.max(0, have)); if (!ms) { toast('Não há tempo dessa matéria nesse dia.'); return false; } }
-      this.manualAdd(d, k, ms); L.manual.push({ id: uid(), d, k, ms, at: Date.now() }); if (L.manual.length > 200) L.manual.shift(); T.saveLog();
-      toast(`${ms < 0 ? 'Tirado' : 'Adicionado'}: ${T.fmtDur(Math.abs(ms))} em ${name(k)} (${fmtD(d)})`); draw(); done && done(); return false;
-    };
-    const body = el('div', { class: 'sr-adjbox' },
-      el('p', { class: 'tm-hint' }, 'Use quando o relatório não registrou (ou registrou a mais) algum estudo.'),
-      seg, el('label', {}, 'Dia', dIn), el('label', {}, 'Matéria', sIn), el('label', {}, 'Minutos', mIn), list);
-    openModal({ title: 'Ajustar tempo de estudo', body, buttons: [{ label: 'Fechar' }, { label: 'Salvar ajuste', cls: 'primary', action: add }] });
-  },
-  sum(d) { let v = 0; for (const x in d || {}) v += d[x]; return v; },
-  subjectOf(id) { return subjectOfNote(id); }, /* v0.35: pasta-matéria mais próxima (antes: pasta de cima) */
-  open() {
-    const box = el('div', { class: 'sr' });
-    const render = () => {
-      const T = StudyTimer, map = this.dayMap(), goal = this.goalMs(), today = new Date(); today.setHours(12, 0, 0, 0);
-      const dayK = (back) => { const d = new Date(today); d.setDate(d.getDate() - back); return [T.dayKey(d.getTime()), d]; };
-      const nDays = this.period === '7' ? 7 : this.period === '30' ? 30 : 84;
-      const keys = []; for (let i = nDays - 1; i >= 0; i--) keys.push(dayK(i));
-      /* barras: por dia (7/30) ou por semana (12 semanas, começando na segunda) */
-      let bars;
-      if (this.period !== '84') bars = keys.map(([k, d]) => ({ v: this.sum(map[k]), lab: this.period === '7' ? ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][d.getDay()] : d.getDate() % 5 === 0 || d.getDate() === 1 ? String(d.getDate()) : '', tip: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }), goal, ks: [k] }));
-      else { bars = []; for (let w = 0; w < 12; w++) { const part = keys.slice(w * 7, w * 7 + 7); const v = part.reduce((a, [k]) => a + this.sum(map[k]), 0), d0 = part[0][1], d1 = part[part.length - 1][1]; bars.push({ ks: part.map((x) => x[0]), v, lab: w % 2 === 0 ? d0.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '', tip: d0.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + '–' + d1.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), goal: goal * 7 }); } }
-      const aw = (T.log && T.log.away) || {}, awTot = keys.reduce((a, [k]) => a + (aw[k] || 0), 0);
-      const vals = keys.map(([k]) => this.sum(map[k])), total = vals.reduce((a, b) => a + b, 0), studied = vals.filter((v) => v > 0).length;
-      const hit = vals.filter((v) => v >= goal).length;
-      let streak = 0; { let i = 0; if (this.sum(map[dayK(0)[0]]) < goal) i = 1; for (; i < 400; i++) { if (this.sum(map[dayK(i)[0]]) >= goal) streak++; else break; } }
-      const best = keys.reduce((b, [k, d], i) => (vals[i] > b.v ? { v: vals[i], d } : b), { v: 0, d: null });
-      /* tiles */
-      const tile = (lab, val, sub) => el('div', { class: 'sr-tile' }, el('small', {}, lab), el('b', {}, val), sub ? el('span', {}, sub) : null);
-      const tiles = el('div', { class: 'sr-tiles' },
-        tile('Total', T.fmtDur(total), studied ? `em ${studied} ${studied === 1 ? 'dia' : 'dias'}` : 'nada ainda'),
-        tile('Média por dia', T.fmtDur(total / nDays), studied ? `${T.fmtDur(total / studied)} nos dias estudados` : ''),
-        tile('Dias na meta', `${hit} de ${nDays}`, `meta ${T.fmtDur(goal)}/dia`),
-        tile('Sequência', `${streak} ${streak === 1 ? 'dia' : 'dias'}`, best.d ? `melhor dia: ${T.fmtDur(best.v)}` : ''));
-      /* gráfico (uma série: altura = tempo; linha tracejada = meta) */
-      const max = Math.max(...bars.map((b) => b.v), bars[0].goal * 1.1, 1), tipEl = el('div', { class: 'sr-tip' }, 'Toque numa barra para ver o tempo');
-      const gl = el('div', { class: 'sr-goal', style: { bottom: `calc(18px + (100% - 18px) * ${bars[0].goal / max})` } }, el('span', {}, 'meta'));
-      /* v0.39.2: tocar na barra mostra as matérias daquele dia (ou semana) com o tempo de cada uma */
-      const showBar = (b) => {
-        const m = new Map(); for (const k of b.ks || []) for (const [id, v] of Object.entries(map[k] || {})) { const sj = this.subjectOf(id), cur = m.get(sj.key) || { ...sj, v: 0 }; cur.v += v; m.set(sj.key, cur); }
-        const L = [...m.values()].sort((x, y) => y.v - x.v), mx = Math.max(1, ...L.map((x) => x.v));
-        tipEl.innerHTML = ''; tipEl.append(el('b', {}, `${b.tip}: ${T.fmtDur(b.v)}${b.v >= b.goal ? ' ✓ meta' : ''}`));
-        if (L.length) tipEl.append(el('div', { class: 'sr-list sr-daylist' }, ...L.map((x) => el('div', { class: 'sr-row' }, el('span', { class: 'sr-name' }, el('i', { class: 'sr-dot', style: { background: x.color } }), x.name), el('span', { class: 'sr-track' }, el('i', { style: { width: (x.v / mx) * 100 + '%' } })), el('b', {}, T.fmtDur(x.v))))));
-        else tipEl.append(el('div', { class: 'tm-hint' }, 'Nada registrado.'));
-        const a = (b.ks || []).reduce((x, k) => x + (aw[k] || 0), 0); if (a >= 30000) tipEl.append(el('div', { class: 'tm-hint sr-away' }, `Não contado (app fora da tela com o cronômetro rodando): ${T.fmtDur(a)}`));
-      };
-      const plot = el('div', { class: 'sr-plot' + (bars.length > 14 ? ' dense' : '') }, gl, ...bars.map((b) => {
-        const c = el('button', { class: 'sr-col', title: `${b.tip}: ${T.fmtDur(b.v)}`, onclick: () => { [...plot.querySelectorAll('.sr-col.on')].forEach((x) => x.classList.remove('on')); c.classList.add('on'); showBar(b); } },
-          el('i', { class: b.v >= b.goal ? 'hit' : '', style: { height: b.v ? Math.max(2, (b.v / max) * 100) + '%' : '0' } }), el('small', {}, b.lab));
-        return c;
-      }));
-      /* por matéria e por nota */
-      const subj = new Map(), notes = new Map();
-      for (const [k] of keys) for (const [id, v] of Object.entries(map[k] || {})) { const s = this.subjectOf(id), cur = subj.get(s.key) || { ...s, v: 0 }; cur.v += v; subj.set(s.key, cur); notes.set(id, (notes.get(id) || 0) + v); }
-      const sl = [...subj.values()].sort((a, b) => b.v - a.v), smax = Math.max(1, ...sl.map((x) => x.v));
-      const subjBox = el('div', { class: 'sr-list' }, ...sl.map((x) => el('div', { class: 'sr-row' }, el('span', { class: 'sr-name' }, el('i', { class: 'sr-dot', style: { background: x.color } }), x.name), el('span', { class: 'sr-track' }, el('i', { style: { width: (x.v / smax) * 100 + '%' } })), el('b', {}, T.fmtDur(x.v)), el('small', {}, Math.round((x.v / Math.max(1, total)) * 100) + '%'))));
-      const title = (id) => (id === '_' ? 'Fora das notas' : (Store.heads[id] && Store.heads[id].title) || (T.log.titles || {})[id] || 'Nota apagada');
-      const nl = [...notes.entries()].filter(([id, v]) => !id.startsWith('f:') && v > 0).sort((a, b) => b[1] - a[1]).slice(0, 8);
-      const noteBox = el('div', { class: 'sr-list' }, ...nl.map(([id, v]) => el('div', { class: 'sr-row note' + (Store.heads[id] ? ' link' : ''), onclick: () => { if (Store.heads[id]) { closeModalTop(); App.openNote(id); } } }, el('span', { class: 'sr-name' }, title(id)), el('b', {}, T.fmtDur(v)))));
-      /* meta */
-      const goalIn = el('input', { type: 'number', min: 5, max: 900, step: 15, value: Math.round(goal / 60000), class: 'sr-goalin', onchange: () => { Store.settings.studyGoal = clamp(Math.round(+goalIn.value || 60), 5, 900); Store.saveSettings(); render(); } });
-      const per = el('div', { class: 'xp-tabs sr-per' }, ...[['7', '7 dias'], ['30', '30 dias'], ['84', '12 semanas']].map(([k, n]) => el('button', { class: 'xp-tab' + (this.period === k ? ' on' : ''), onclick: () => { this.period = k; render(); } }, n)));
-      box.innerHTML = '';
-      /* v0.42.2: recarregar — fecha o trecho em andamento, relê o histórico gravado e redesenha */
-      const reload = el('button', { class: 'btn sr-reload', title: 'Recarregar informações', onclick: async () => {
-        reload.classList.add('spin');
-        try { if (T.st && T.st.running) T.boundary(Date.now()); await new Promise((r) => setTimeout(r, 120)); const l = await DB.get('meta', 'studyLog'); if (l && l.days) T.log = l; } catch (e) { console.warn('relatório', e); }
-        render(); toast('Relatório atualizado', 1500);
-      } }, iconEl('refresh'), 'Recarregar');
-      box.append(...[el('div', { class: 'sr-top' }, per, reload), tiles, awTot >= 60000 ? el('p', { class: 'tm-hint sr-away' }, `${T.fmtDur(awTot)} com o cronômetro rodando e o app fora da tela (tela apagada ou outro app) — não contou. Toque numa barra para ver o dia.`) : null, el('div', { class: 'sr-sec' }, this.period === '84' ? 'Tempo por semana' : 'Tempo por dia'), plot, tipEl,
-        el('div', { class: 'sr-goalrow' }, el('label', {}, 'Meta diária ', goalIn, ' min'), el('button', { class: 'btn sr-adj', onclick: () => this.adjust(render) }, 'Ajustar tempo')),
-        el('div', { class: 'sr-sec' }, 'Por matéria'), sl.length ? subjBox : el('p', { class: 'tm-hint' }, 'Sem tempo registrado neste período. O tempo conta com o cronômetro rodando e o app aberto.'), !Store.folders.some((f) => f.subject) ? el('p', { class: 'tm-hint' }, 'Dica: marque pastas como matéria (menu ⋯ da pasta → "Marcar como matéria" ou "Transformar as subpastas em matérias").') : null,
-        nl.length ? el('div', { class: 'sr-sec' }, 'Notas mais estudadas') : null, nl.length ? noteBox : null].filter(Boolean));
-    };
-    render();
-    const closeModalTop = () => { const b = box.closest('.modal-back'); if (b) b.remove(); };
-    openModal({ title: 'Relatório de estudo', body: box, wide: true, buttons: [{ label: 'Fechar', cls: 'primary', value: true }] });
-  },
-};
