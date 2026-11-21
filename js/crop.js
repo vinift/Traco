@@ -408,7 +408,32 @@ Object.assign(Editor, {
       const n = this.SEQ[k] ? this.seqNext(k) : 0; for (const e of this.quickEls(k, c, n)) { e.width = Math.max(1, e.width * (sq / 40)); drawElement(ctx, e); }
     };
     const pct = (v) => (v === 0 ? 'no centro' : v < 0 ? Math.abs(v) + '% p/ cima' : v + '% p/ baixo');
-    const sl = (label, key, min, max, def, fmt) => UI.slider(label, min, max, 1, S[key] ?? def, (v) => { S[key] = v; Store.saveSettings(); preview(); }, fmt);
+    /* v0.47.6: ajuste fino — linha com − / número (digitável) / + de 1 em 1 (segurar repete) e texto explicando; as chaves usadas
+       ficam em `qkKeys` para as predefinições */
+    let qkKeys = [];
+    const sl = (label, key, min, max, def, fmt) => {
+      qkKeys.push([key, def]);
+      const cur = () => S[key] ?? def, desc = el('small', { class: 'qk-desc' }, fmt(cur()));
+      const inp = el('input', { type: 'number', class: 'qk-val', min, max, step: 1, value: cur(), inputmode: 'numeric' });
+      const set = (v) => { v = clamp(Math.round(+v || 0), min, max); S[key] = v; Store.saveSettings(); inp.value = v; desc.textContent = fmt(v); preview(); };
+      inp.addEventListener('change', () => set(inp.value));
+      const stepBtn = (d, t) => { const b = el('button', { class: 'qk-step', title: d < 0 ? 'Diminuir' : 'Aumentar' }, t); let to = 0, iv = 0; const stop = () => { clearTimeout(to); clearInterval(iv); };
+        b.addEventListener('pointerdown', (e) => { e.preventDefault(); set(cur() + d); to = setTimeout(() => { iv = setInterval(() => set(cur() + d), 70); }, 420); });
+        for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, stop); return b; };
+      return el('div', { class: 'qk-field' }, el('span', { class: 'qk-flab' }, label), stepBtn(-1, '−'), inp, stepBtn(1, '+'), desc);
+    };
+    /* predefinições: Pequeno/Médio/Grande (só o tamanho principal), Padrão (apaga os ajustes do atalho) e as do usuário (S.quickPresets[tipo]) */
+    const QP = { hyphen: ['hyphenLen', 18, 25, 40], bullet: ['bulletSize', 20, 30, 45], arrow: ['arrowLen', 50, 70, 100], box: ['boxSize', 40, 55, 75], roman: ['romanSize', 35, 50, 70], num: ['romanSize', 35, 50, 70], alpha: ['romanSize', 35, 50, 70] };
+    const presetsRow = (k, redraw) => {
+      const q = QP[k], my = (S.quickPresets = S.quickPresets || {})[k] || [], keys = qkKeys.slice();
+      const chip = (lb, on, fn, title) => el('button', { class: 'qk-chip qk-pre' + (on ? ' on' : ''), title, onclick: fn }, lb);
+      const apply = (v) => { for (const [kk, val] of Object.entries(v)) S[kk] = val; Store.saveSettings(); redraw(); };
+      const out = [chip('P', S[q[0]] === q[1], () => apply({ [q[0]]: q[1] }), 'Pequeno'), chip('M', (S[q[0]] ?? q[2]) === q[2], () => apply({ [q[0]]: q[2] }), 'Médio (padrão)'), chip('G', S[q[0]] === q[3], () => apply({ [q[0]]: q[3] }), 'Grande'),
+        chip('Padrão', false, () => { for (const [kk] of keys) delete S[kk]; Store.saveSettings(); redraw(); }, 'Volta todos os ajustes deste atalho ao padrão')];
+      for (const pr of my) out.push(el('span', { class: 'qk-mine' }, chip(pr.name, false, () => apply(pr.v), 'Aplicar'), el('button', { class: 'qk-del', title: 'Apagar predefinição', onclick: () => { S.quickPresets[k] = my.filter((x) => x !== pr); Store.saveSettings(); redraw(); } }, '✕')));
+      out.push(chip('+ Salvar', false, async () => { const name = await askText('Nome da predefinição', ''); if (!name) return; const v = {}; for (const [kk, d] of keys) v[kk] = S[kk] ?? d; S.quickPresets[k] = [...my, { name: name.slice(0, 18), v }].slice(-8); Store.saveSettings(); redraw(); }, 'Guardar os ajustes atuais com um nome'));
+      return el('div', { class: 'qk-row qk-presets' }, el('span', {}, 'Tamanhos'), ...out);
+    };
     const draw = () => {
       const k = S.quickKind || 'hyphen', chip = (label, on, fn, title) => el('button', { class: 'qk-chip' + (on ? ' on' : ''), title, onclick: fn }, label);
       const KINDS = [['hyphen', '— Hífen'], ['bullet', '○ Tópico'], ['roman', 'IV Romano'], ['num', '1. Número'], ['alpha', 'a) Letra'], ['arrow', '→ Seta'], ['box', '☐ Caixa']];
@@ -427,7 +452,7 @@ Object.assign(Editor, {
       const qc = S.quickColor || null, cols = (UI.groupColors ? UI.groupColors() : []).slice(0, 9);
       kids.push(el('div', { class: 'qk-row qk-cols' }, el('span', {}, 'Cor'), chip('caneta', !qc, () => { S.quickColor = null; Store.saveSettings(); draw(); }, 'Usar a cor da caneta'),
         ...cols.map((cc) => el('button', { class: 'qk-dot' + (qc && qc.toLowerCase() === cc.toLowerCase() ? ' on' : ''), title: cc, style: { background: cc }, onclick: () => { S.quickColor = cc; Store.saveSettings(); draw(); } }))));
-      const adj = el('div', { class: 'qk-adj' });
+      const adj = el('div', { class: 'qk-adj' }); qkKeys = [];
       if (k === 'hyphen') adj.append(sl('Comprimento', 'hyphenLen', 5, 90, 25, (v) => v + '%'), sl('Altura', 'hyphenDrop', -40, 40, 10, pct), sl('Colchete (toque duplo no hífen)', 'bracketDrop', -40, 40, S.hyphenDrop ?? 10, pct));
       else if (k === 'bullet') adj.append(sl('Tamanho', 'bulletSize', 5, 90, 30, (v) => v + '%'), sl('Altura', 'bulletDrop', -40, 40, S.hyphenDrop ?? 10, pct));
       else if (k === 'arrow') adj.append(sl('Comprimento', 'arrowLen', 20, 160, 70, (v) => v + '%'), sl('Altura', 'arrowDrop', -40, 40, S.hyphenDrop ?? 10, pct));
@@ -435,6 +460,7 @@ Object.assign(Editor, {
       if (this.SEQ[k]) { const sq = S.quickSufColor || null; adj.append(el('div', { class: 'qk-row qk-cols' }, el('span', {}, 'Cor do sinal'), el('button', { class: 'qk-chip' + (!sq ? ' on' : ''), title: 'Igual ao número', onclick: () => { S.quickSufColor = null; Store.saveSettings(); draw(); } }, 'igual'),
         ...(UI.groupColors ? UI.groupColors() : []).slice(0, 9).map((cc) => el('button', { class: 'qk-dot' + (sq && sq.toLowerCase() === cc.toLowerCase() ? ' on' : ''), title: cc, style: { background: cc }, onclick: () => { S.quickSufColor = cc; Store.saveSettings(); draw(); } })))); }
       if (this.SEQ[k]) adj.append(sl('Tamanho', 'romanSize', 15, 95, 50, (v) => v + '%'), sl('Altura', 'romanDrop', -40, 40, S.hyphenDrop ?? 10, pct), k === 'roman' ? sl('Espaço entre letras', 'romanGap', 5, 80, 30, (v) => v + '%') : null, sl('Tamanho do sinal (ponto, hífen, parêntese)', 'romanSufSize', 10, 250, 100, (v) => v + '%'));
+      adj.prepend(presetsRow(k, draw));
       kids.push(el('button', { class: 'qk-adjbtn' + (adjOpen ? ' open' : ''), onclick: () => { S.quickAdj = !adjOpen; Store.saveSettings(); draw(); } }, el('span', {}, 'Ajustes'), el('b', {}, '▾')), adjOpen ? adj : null,
         el('small', { class: 'qk-hint' + (pin ? ' pin' : '') }, pin ? 'Fixada: cada toque da caneta coloca um. Toque em ✕ para voltar a escrever.' : 'Toque no quadrado com a caneta'));
       box.innerHTML = ''; box.append(...kids.filter(Boolean)); preview();

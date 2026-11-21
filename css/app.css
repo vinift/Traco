@@ -1363,3 +1363,16 @@ select{border-radius:14px!important}
 .qk-dot{width:24px;height:24px;border-radius:50%;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
 .qk-dot.on{box-shadow:0 0 0 2px var(--accent)}
 .qk-hint.pin{color:#b45309;font-weight:600}
+/* v0.47.6: ajuste fino na telinha do atalho */
+.qk-field{display:grid;grid-template-columns:minmax(0,1fr) 34px 58px 34px;grid-template-rows:auto auto;align-items:center;gap:2px 6px;font-size:13px;color:var(--text)}
+.qk-flab{grid-column:1;grid-row:1 / span 2}
+.qk-desc{grid-column:2 / -1;grid-row:2;text-align:center;color:var(--muted);font-size:11.5px}
+.qk-step{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:18px;line-height:1;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none}
+.qk-step:active{background:var(--accent);color:#fff}
+.qk-val{width:58px;height:34px;box-sizing:border-box;text-align:center;font-size:15px;font-variant-numeric:tabular-nums;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text);padding:0 4px}
+.qk-presets{gap:5px}
+.qk-pre{padding:5px 10px!important;font-size:12.5px!important}
+.qk-mine{display:inline-flex;align-items:center}
+.qk-mine .qk-chip{border-top-right-radius:0;border-bottom-right-radius:0}
+.qk-del{border:1px solid var(--line);border-left:0;background:var(--panel2);color:var(--muted);height:29px;padding:0 7px;border-radius:0 999px 999px 0;cursor:pointer;font-size:11px}
+.qk-adj{gap:10px}

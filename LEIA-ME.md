@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.47.6
+
+- **Ajustes da telinha mais precisos:** no lugar das barras deslizantes, cada ajuste tem botões **− / +** que mudam de 1 em 1 (segurando, repetem), o **número pode ser digitado** e embaixo aparece o que ele significa (ex.: "10% p/ baixo").
+- **Tamanhos prontos:** linha "Tamanhos" com **P**, **M** e **G** (pequeno, médio e grande, para o tamanho principal do atalho) e **Padrão** (volta todos os ajustes daquele atalho ao original).
+- **Suas predefinições:** "+ Salvar" guarda os ajustes atuais com um nome (ex.: "Caderno"). Tocar no nome aplica; o ✕ apaga. Até 8 por tipo de atalho.
+
 ## Novidades da v0.47.5
 
 - O colchete do toque duplo em números romanos (e em números, letras e os outros atalhos) agora sai **igual ao do hífen**: a reta desce do meio do quadrado do atalho e a ponta termina onde terminaria a de um hífen. Antes ela ia até o fim do número e, nos números longos, parava muito à direita.
