@@ -242,97 +242,117 @@ Object.assign(Editor, {
   /* v0.41: hífen rápido — no centro do quadrado da grade (um pouco abaixo do meio), com a cor/espessura/tipo da caneta atual.
      Pauta (só linhas): no meio da faixa entre as linhas, onde a caneta tocou. Folha lisa: onde tocou, com 14 de comprimento.
      Disparo: botão da caneta com a ação 'hyphen' (arma; o próximo toque da ponta coloca — `_hyArm`, vale 8 s) ou toque duplo ('hyphen') */
-  placeHyphen(p) {
-    const w = this.toWorld(p.x, p.y), pi = this.pageIndexAt(w.x, w.y, true), page = this.note.pages[pi]; if (!page) return false;
+  /* v0.46: os atalhos rápidos (hífen, tópico, romano) montam os itens a partir do "quadrado" tocado — `quickCell(p)` — com
+     `quickEls(kind, c, n)`, usado tanto para colocar na folha quanto para a prévia da telinha. c = {s (lado do quadrado),
+     cx/cy (centro; sem grade: o ponto tocado), left (borda esquerda), rows/cols (tem pauta/grade)}. */
+  quickCell(p) {
+    const w = this.toWorld(p.x, p.y), pi = this.pageIndexAt(w.x, w.y, true), page = this.note.pages[pi]; if (!page) return null;
     const l = this.local(pi, w.x, w.y), tpl = page.template || this.note.template, has = tpl && tpl.type !== 'blank';
     const rows = has ? this.gridLines(tpl, page, 1) : null, cols = has ? this.gridLines(tpl, page, 0) : null;
-    const S = Store.settings, kL = clamp((S.hyphenLen ?? 25) / 100, 0.05, 0.95), kD = clamp((S.hyphenDrop ?? 10) / 100, -0.45, 0.45); /* v0.41.2: comprimento e deslocamento nas Configurações (% do quadrado) */
-    let cx = l.x, cy = l.y, len = 56 * kL;
-    if (rows && rows.s > 0) { const k = Math.floor((l.y - rows.o) / rows.s); cy = rows.o + (k + 0.5) * rows.s + rows.s * kD; len = rows.s * kL; }
-    if (cols && cols.s > 0) { const k = Math.floor((l.x - cols.o) / cols.s); cx = cols.o + (k + 0.5) * cols.s; len = cols.s * kL; }
-    const st = Store.settings.tools.pen, h = len / 2, el = { id: uid(), type: 'stroke', tool: 'pen', color: st.color, width: st.width, pen: st.type || 'ball', pts: [r2(cx - h), r2(cy), 0.5, r2(cx), r2(cy), 0.5, r2(cx + h), r2(cy), 0.5] };
-    if (st.type === 'calli') el.nib = st.nib ?? 45; if (st.dash && st.dash !== 'solid') el.dash = st.dash;
-    this.recAdd(page, el); this.opCommit(); return true;
+    const c = { page, s: 0, cx: l.x, cy: l.y, left: null, rows: !!(rows && rows.s > 0), cols: !!(cols && cols.s > 0) };
+    if (c.rows) { const k = Math.floor((l.y - rows.o) / rows.s); c.cy = rows.o + (k + 0.5) * rows.s; c.s = rows.s; }
+    if (c.cols) { const k = Math.floor((l.x - cols.o) / cols.s); c.left = cols.o + k * cols.s; c.cx = c.left + cols.s / 2; c.s = cols.s; }
+    return c;
   },
-  /* v0.44: tópico rápido — bolinha vazia no centro do quadrado tocado (mesmo jeito do hífen). Tamanho = S.bulletSize% do quadrado
-     (padrão 30), deslocamento S.bulletDrop% (padrão = o do hífen). Cor/espessura/tracejado da caneta selecionada. */
-  placeBullet(p) {
-    const w = this.toWorld(p.x, p.y), pi = this.pageIndexAt(w.x, w.y, true), page = this.note.pages[pi]; if (!page) return false;
-    const l = this.local(pi, w.x, w.y), tpl = page.template || this.note.template, has = tpl && tpl.type !== 'blank';
-    const rows = has ? this.gridLines(tpl, page, 1) : null, cols = has ? this.gridLines(tpl, page, 0) : null;
-    const S = Store.settings, kS = clamp((S.bulletSize ?? 30) / 100, 0.05, 0.95), kD = clamp((S.bulletDrop ?? S.hyphenDrop ?? 10) / 100, -0.45, 0.45);
-    let cx = l.x, cy = l.y, d = 14;
-    if (rows && rows.s > 0) { const k = Math.floor((l.y - rows.o) / rows.s); cy = rows.o + (k + 0.5) * rows.s + rows.s * kD; d = rows.s * kS; }
-    if (cols && cols.s > 0) { const k = Math.floor((l.x - cols.o) / cols.s); cx = cols.o + (k + 0.5) * cols.s; d = cols.s * kS; }
-    const st = S.tools.pen, r = d / 2, el = { id: uid(), type: 'shape', kind: 'ellipse', x1: r2(cx - r), y1: r2(cy - r), x2: r2(cx + r), y2: r2(cy + r), color: st.color, width: st.width, fill: null };
-    if (st.dash && st.dash !== 'solid') el.dash = st.dash;
-    this.recAdd(page, el); this.opCommit(); return true;
+  quickOpt() {
+    const S = Store.settings, pc = (v, d, a, b) => clamp((v ?? d) / 100, a, b), hd = S.hyphenDrop ?? 10;
+    return { hL: pc(S.hyphenLen, 25, 0.05, 0.95), hD: pc(S.hyphenDrop, 10, -0.45, 0.45), bS: pc(S.bulletSize, 30, 0.05, 0.95), bD: pc(S.bulletDrop, hd, -0.45, 0.45),
+      rH: pc(S.romanSize, 50, 0.15, 0.95), rD: pc(S.romanDrop, hd, -0.45, 0.45), rSuf: S.romanSuffix ?? '.', rSS: pc(S.romanSufSize, 100, 0.3, 2.5), rGap: pc(S.romanGap, 30, 0.05, 0.8), rSty: S.romanStyle || 'serif' };
   },
-  /* ===== v0.45: número romano rápido (traços com serifa) =====
-     Centralizado no quadrado tocado; mais largo que o quadrado → começa na borda esquerda dele e cresce para a direita.
-     Altura = S.romanSize% do quadrado (padrão 50), centro + S.romanDrop% (padrão = o do hífen). Sinal depois: S.romanSuffix
-     ('' | '.' | '-' | ')'). Contagem por nota em note.romanN (próximo número, 1–89: I V X L). Linhas = shapes 'line' (+ ponto = elipse cheia),
-     todas num passo só do desfazer. */
+  quickEls(kind, c, n) {
+    const o = this.quickOpt(), st = Store.settings.tools.pen, lw = st.width || 2, els = [], s = c.s || 40;
+    if (kind === 'hyphen') { /* v0.41: traço da caneta; lisa → 56·comprimento no ponto */
+      const len = c.s ? c.s * o.hL : 56 * o.hL, cy = c.rows ? c.cy + c.s * o.hD : c.cy, cx = c.cx, h = len / 2;
+      const e = { id: uid(), type: 'stroke', tool: 'pen', color: st.color, width: st.width, pen: st.type || 'ball', pts: [r2(cx - h), r2(cy), 0.5, r2(cx), r2(cy), 0.5, r2(cx + h), r2(cy), 0.5] };
+      if (st.type === 'calli') e.nib = st.nib ?? 45; if (st.dash && st.dash !== 'solid') e.dash = st.dash; return [e];
+    }
+    if (kind === 'bullet') { /* v0.44: bolinha vazia */
+      const d = c.s ? c.s * o.bS : 14, r = d / 2, cy = c.rows ? c.cy + c.s * o.bD : c.cy, cx = c.cx;
+      const e = { id: uid(), type: 'shape', kind: 'ellipse', x1: r2(c.cx - r), y1: r2(cy - r), x2: r2(cx + r), y2: r2(cy + r), color: st.color, width: st.width, fill: null };
+      if (st.dash && st.dash !== 'solid') e.dash = st.dash; return [e];
+    }
+    /* v0.45: número romano com serifas; centralizado no quadrado, mais largo que ele → começa na borda esquerda e cresce para a direita */
+    const H = s * o.rH, gap = o.rGap, txt = this.romanStr(n || 1), suf = o.rSuf, k = o.rSS;
+    const gl = [...txt].map((ch) => this.romanGlyph(ch)); let W = gl.reduce((a, g) => a + g.w, 0) + gap * (gl.length - 1);
+    const sufW = suf === '.' ? 0.22 * k : suf === '-' ? 0.55 * k : suf === ')' ? 0.32 * k : 0, sGap = 0.3; if (suf) W += sGap + sufW;
+    const cy = (c.rows ? c.cy + s * o.rD : c.cy), left = c.left != null ? c.left : c.cx - s / 2;
+    const Wpx = W * H, x0 = Wpx <= s * 0.92 ? c.cx - Wpx / 2 : left + s * 0.04, top = cy - H / 2, X = (u) => r2(x0 + u * H), Y = (v) => r2(top + v * H);
+    const line = (a, b, cc, d) => els.push({ id: uid(), type: 'shape', kind: 'line', x1: X(a), y1: Y(b), x2: X(cc), y2: Y(d), color: st.color, width: lw, fill: null });
+    let u = 0;
+    /* v0.46: estilo — 'serif' (serifa em cada letra), 'bar' (uma barra só em cima e embaixo do número inteiro), 'sans' (sem serifa) */
+    gl.forEach((g, i) => { const m = u + g.w / 2; for (const [a, b, cc, d, isS] of g.L) if (!isS || o.rSty === 'serif') line(m + a, b, m + cc, d); u += g.w + (i < gl.length - 1 ? gap : 0); });
+    if (o.rSty === 'bar') { const pad = 0.04; line(-pad, 0, u + pad, 0); line(-pad, 1, u + pad, 1); }
+    if (suf) {
+      u += sGap;
+      if (suf === '.') { const r = Math.max(lw * 0.75, H * 0.06 * k), dx = X(u + sufW / 2), dy = Y(1) - r; els.push({ id: uid(), type: 'shape', kind: 'ellipse', x1: r2(dx - r), y1: r2(dy - r), x2: r2(dx + r), y2: r2(dy + r), color: st.color, width: lw, fill: st.color }); }
+      else if (suf === '-') line(u, 0.55, u + sufW, 0.55);
+      else if (suf === ')') { const hh = 0.5 * Math.min(1.25, 0.75 + 0.25 * k); els.push({ id: uid(), type: 'shape', kind: 'path', pts: [X(u), Y(0.5 - hh), X(u + sufW * 0.8), Y(0.5), X(u), Y(0.5 + hh)], rr: [0, r2(H * 0.9 * k), 0], color: st.color, width: lw, fill: null }); }
+    }
+    return els;
+  },
+  quickPlace(kind, p) {
+    const c = this.quickCell(p); if (!c) return false; const els = this.quickEls(kind, c, kind === 'roman' ? this.romanNext() : 0);
+    for (const e of els) this.recAdd(c.page, e); this.opCommit(); if (kind === 'roman') this.setRomanNext(this.romanNext() + 1); return true;
+  },
+  /* v0.41 hífen rápido / v0.44 tópico rápido (chamados também pelo toque duplo) */
+  placeHyphen(p) { return this.quickPlace('hyphen', p); },
+  placeBullet(p) { return this.quickPlace('bullet', p); },
+  placeRoman(p) { return this.quickPlace('roman', p); },
+  /* ===== v0.45: número romano (traços com serifa) — contagem por nota em note.romanN (1–89: I V X L) ===== */
   romanStr(n) { const T = [[50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']]; let s = ''; for (const [v, c] of T) while (n >= v) { s += c; n -= v; } return s; },
   romanNext() { return clamp(Math.round((this.note && this.note.romanN) || 1), 1, 89); },
   setRomanNext(n) { if (!this.note) return; this.note.romanN = clamp(Math.round(n), 1, 89); this.markChanged(); },
   /* linhas de cada letra em unidades da altura H (y 0 = topo, 1 = base); serifa = tracinho horizontal de meia largura `sf` */
   romanGlyph(ch) {
     const sf = 0.17, L = [];
-    const serif = (x, y) => L.push([x - sf, y, x + sf, y]);
+    const serif = (x, y) => L.push([x - sf, y, x + sf, y, 1]); /* 5º valor = é serifa */
     if (ch === 'I') { L.push([0, 0, 0, 1]); serif(0, 0); serif(0, 1); return { L, w: 2 * sf }; }
     if (ch === 'V') { const a = 0.34; L.push([-a, 0, 0, 1], [a, 0, 0, 1]); serif(-a, 0); serif(a, 0); return { L, w: 2 * (a + sf) }; }
     if (ch === 'X') { const a = 0.32; L.push([-a, 0, a, 1], [a, 0, -a, 1]); serif(-a, 0); serif(a, 0); serif(-a, 1); serif(a, 1); return { L, w: 2 * (a + sf) }; }
     if (ch === 'L') { const a = 0.22; L.push([-a, 0, -a, 1], [-a, 1, a + 0.1, 1], [a + 0.1, 1, a + 0.1, 0.82]); serif(-a, 0); return { L, w: 2 * a + sf + 0.12 }; }
     return { L, w: 0.4 };
   },
-  placeRoman(p) {
-    const w = this.toWorld(p.x, p.y), pi = this.pageIndexAt(w.x, w.y, true), page = this.note.pages[pi]; if (!page) return false;
-    const l = this.local(pi, w.x, w.y), tpl = page.template || this.note.template, has = tpl && tpl.type !== 'blank';
-    const rows = has ? this.gridLines(tpl, page, 1) : null, cols = has ? this.gridLines(tpl, page, 0) : null;
-    const S = Store.settings, kH = clamp((S.romanSize ?? 50) / 100, 0.15, 0.95), kD = clamp((S.romanDrop ?? S.hyphenDrop ?? 10) / 100, -0.45, 0.45);
-    let s = 40, cy = l.y, cx = l.x, left = l.x - 20;
-    if (rows && rows.s > 0) { s = rows.s; const k = Math.floor((l.y - rows.o) / rows.s); cy = rows.o + (k + 0.5) * rows.s + rows.s * kD; }
-    if (cols && cols.s > 0) { s = cols.s; const k = Math.floor((l.x - cols.o) / cols.s); left = cols.o + k * cols.s; cx = left + s / 2; } else { left = cx - s / 2; }
-    const H = s * kH, gap = 0.3, txt = this.romanStr(this.romanNext()), suf = S.romanSuffix ?? '.';
-    /* largura total (unidades de H) */
-    const gl = [...txt].map((c) => this.romanGlyph(c)); let W = gl.reduce((a, g) => a + g.w, 0) + gap * (gl.length - 1);
-    const sufW = suf === '.' ? 0.22 : suf === '-' ? 0.55 : suf === ')' ? 0.32 : 0; if (suf) W += 0.3 + sufW;
-    const Wpx = W * H, x0 = Wpx <= s * 0.92 ? cx - Wpx / 2 : left + s * 0.04, top = cy - H / 2;
-    const st = S.tools.pen, lw = st.width || 2, els = [], X = (u) => r2(x0 + u * H), Y = (v) => r2(top + v * H);
-    const line = (a, b, c, d) => els.push({ id: uid(), type: 'shape', kind: 'line', x1: X(a), y1: Y(b), x2: X(c), y2: Y(d), color: st.color, width: lw, fill: null });
-    let u = 0;
-    gl.forEach((g, i) => { const c = u + g.w / 2; for (const [a, b, cc, d] of g.L) line(c + a, b, c + cc, d); u += g.w + (i < gl.length - 1 ? gap : 0); });
-    if (suf) {
-      u += 0.3;
-      if (suf === '.') { const r = Math.max(lw * 0.75, H * 0.06), dx = X(u + 0.08), dy = Y(1) - r; els.push({ id: uid(), type: 'shape', kind: 'ellipse', x1: r2(dx - r), y1: r2(dy - r), x2: r2(dx + r), y2: r2(dy + r), color: st.color, width: lw, fill: st.color }); }
-      else if (suf === '-') line(u, 0.55, u + sufW, 0.55);
-      else if (suf === ')') els.push({ id: uid(), type: 'shape', kind: 'path', pts: [X(u), Y(-0.02), X(u + 0.26), Y(0.5), X(u), Y(1.02)], rr: [0, r2(H * 0.9), 0], color: st.color, width: lw, fill: null });
-    }
-    for (const e of els) this.recAdd(page, e); this.opCommit();
-    this.setRomanNext(this.romanNext() + 1); return true;
-  },
-  /* ===== v0.45: telinha do atalho rápido (botão da caneta 'hyphen') — canto inferior direito =====
-     Escolhe hífen / tópico / romano (S.quickKind, salvo), no romano: próximo número (− / + / Recomeçar) e o sinal depois (S.romanSuffix).
-     Enquanto aberta, o próximo toque da ponta da caneta na folha coloca o atalho escolhido. */
+  /* ===== v0.45/v0.46: telinha do atalho rápido (botão da caneta 'hyphen') — canto inferior direito =====
+     Escolhe hífen / tópico / romano (S.quickKind, salvo); prévia ao vivo num pedaço de grade com a caneta atual; ajustes do atalho
+     escolhido (os mesmos das Configurações) em "Ajustes" (S.quickAdj aberto/fechado). Enquanto aberta, o próximo toque da ponta
+     da caneta na folha coloca o atalho. */
   openQuick() {
     this.closeQuick(); const S = Store.settings, box = el('div', { class: 'qk-panel' });
+    const pv = el('canvas', { class: 'qk-prev' }), PW = 220, PH = 64, dpr = Math.min(3, devicePixelRatio || 1); pv.width = PW * dpr; pv.height = PH * dpr; pv.style.width = PW + 'px'; pv.style.height = PH + 'px';
+    const preview = () => {
+      const ctx = pv.getContext('2d'), k = S.quickKind || 'hyphen', sq = 44; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, PW, PH);
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, PW, PH); ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1; const x0 = 18, y0 = (PH - sq) / 2;
+      for (let x = x0 - sq; x < PW; x += sq) { ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, PH); ctx.stroke(); }
+      for (const y of [y0, y0 + sq]) { ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(PW, y + 0.5); ctx.stroke(); }
+      ctx.fillStyle = 'rgba(124,58,237,.08)'; ctx.fillRect(x0, y0, sq, sq);
+      const c = { s: sq, cx: x0 + sq / 2, cy: y0 + sq / 2, left: x0, rows: true, cols: true };
+      const n = k === 'roman' ? this.romanNext() : 0; for (const e of this.quickEls(k, c, n)) { e.width = Math.max(1, e.width * (sq / 40)); drawElement(ctx, e); }
+    };
+    const pct = (v) => (v === 0 ? 'no centro' : v < 0 ? Math.abs(v) + '% p/ cima' : v + '% p/ baixo');
+    const sl = (label, key, min, max, def, fmt) => UI.slider(label, min, max, 1, S[key] ?? def, (v) => { S[key] = v; Store.saveSettings(); preview(); }, fmt);
     const draw = () => {
-      const k = S.quickKind || 'hyphen', chip = (v, label, on, fn) => el('button', { class: 'qk-chip' + (on ? ' on' : ''), onclick: fn }, label);
-      const kinds = el('div', { class: 'qk-row' }, ...[['hyphen', '— Hífen'], ['bullet', '○ Tópico'], ['roman', 'IV Romano']].map(([v, lb]) => chip(v, lb, k === v, () => { S.quickKind = v; Store.saveSettings(); draw(); })));
-      const kids = [el('div', { class: 'qk-head' }, el('b', {}, 'Atalho rápido'), el('button', { class: 'qk-x', title: 'Fechar', onclick: () => this.closeQuick() }, '✕')), kinds];
+      const k = S.quickKind || 'hyphen', chip = (label, on, fn, title) => el('button', { class: 'qk-chip' + (on ? ' on' : ''), title, onclick: fn }, label);
+      const kinds = el('div', { class: 'qk-row qk-kinds' }, ...[['hyphen', '— Hífen'], ['bullet', '○ Tópico'], ['roman', 'IV Romano']].map(([v, lb]) => chip(lb, k === v, () => { S.quickKind = v; Store.saveSettings(); draw(); })));
+      const adjOpen = !!S.quickAdj;
+      const kids = [el('div', { class: 'qk-head' }, el('b', {}, 'Atalho rápido'), el('button', { class: 'qk-x', title: 'Fechar', onclick: () => this.closeQuick() }, '✕')), kinds, pv];
       if (k === 'roman') {
         const n = this.romanNext(), suf = S.romanSuffix ?? '.';
-        kids.push(el('div', { class: 'qk-row qk-num' }, el('span', {}, 'Próximo'), el('button', { class: 'qk-chip', disabled: n <= 1, onclick: () => { this.setRomanNext(n - 1); draw(); } }, '−'), el('b', { class: 'qk-rn' }, this.romanStr(n) + suf), el('button', { class: 'qk-chip', disabled: n >= 89, onclick: () => { this.setRomanNext(n + 1); draw(); } }, '+'), el('button', { class: 'qk-chip', onclick: () => { this.setRomanNext(1); draw(); } }, 'Recomeçar')),
-          el('div', { class: 'qk-row' }, el('span', {}, 'Depois'), ...[['', 'nada'], ['.', 'I.'], ['-', 'I -'], [')', 'I)']].map(([v, lb]) => chip(v, lb, suf === v, () => { S.romanSuffix = v; Store.saveSettings(); draw(); }))));
+        kids.push(el('div', { class: 'qk-row qk-num' }, el('span', {}, 'Próximo'), chip('−', false, () => { this.setRomanNext(n - 1); draw(); }), el('b', { class: 'qk-rn' }, this.romanStr(n)), chip('+', false, () => { this.setRomanNext(n + 1); draw(); }), chip('Recomeçar', false, () => { this.setRomanNext(1); draw(); }, 'Volta para o I')),
+          el('div', { class: 'qk-row' }, el('span', {}, 'Depois'), ...[['', 'nada'], ['.', 'I.'], ['-', 'I -'], [')', 'I)']].map(([v, lb]) => chip(lb, suf === v, () => { S.romanSuffix = v; Store.saveSettings(); draw(); }))),
+          el('div', { class: 'qk-row' }, el('span', {}, 'Estilo'), ...[['serif', 'Serifado', 'Serifa em cada letra'], ['bar', 'Serifa única', 'Uma barra em cima e outra embaixo do número inteiro'], ['sans', 'Sem serifa', 'Só os traços']].map(([v, lb, t]) => chip(lb, (S.romanStyle || 'serif') === v, () => { S.romanStyle = v; Store.saveSettings(); draw(); }, t))));
       }
-      kids.push(el('small', { class: 'qk-hint' }, 'Toque no quadrado com a caneta'));
-      box.innerHTML = ''; box.append(...kids);
+      const adj = el('div', { class: 'qk-adj' });
+      if (k === 'hyphen') adj.append(sl('Comprimento', 'hyphenLen', 5, 90, 25, (v) => v + '%'), sl('Altura', 'hyphenDrop', -40, 40, 10, pct), sl('Colchete (toque duplo no hífen)', 'bracketDrop', -40, 40, S.hyphenDrop ?? 10, pct));
+      else if (k === 'bullet') adj.append(sl('Tamanho', 'bulletSize', 5, 90, 30, (v) => v + '%'), sl('Altura', 'bulletDrop', -40, 40, S.hyphenDrop ?? 10, pct));
+      else adj.append(sl('Tamanho do número', 'romanSize', 15, 95, 50, (v) => v + '%'), sl('Altura', 'romanDrop', -40, 40, S.hyphenDrop ?? 10, pct), sl('Espaço entre letras', 'romanGap', 5, 80, 30, (v) => v + '%'), sl('Tamanho do sinal (ponto, hífen, parêntese)', 'romanSufSize', 30, 250, 100, (v) => v + '%'));
+      kids.push(el('button', { class: 'qk-adjbtn' + (adjOpen ? ' open' : ''), onclick: () => { S.quickAdj = !adjOpen; Store.saveSettings(); draw(); } }, el('span', {}, 'Ajustes'), el('b', {}, '▾')), adjOpen ? adj : null,
+        el('small', { class: 'qk-hint' }, 'Toque no quadrado com a caneta · cor e espessura da caneta atual'));
+      box.innerHTML = ''; box.append(...kids.filter(Boolean)); preview();
     };
     draw(); $('#editor').append(box); this._qk = box; this._hyArm = { t: performance.now(), panel: true };
   },
   closeQuick() { if (this._qk) { this._qk.remove(); this._qk = null; } if (this._hyArm && this._hyArm.panel) this._hyArm = null; },
-  placeQuick(p) { const k = Store.settings.quickKind || 'hyphen'; this.closeQuick(); return k === 'roman' ? this.placeRoman(p) : k === 'bullet' ? this.placeBullet(p) : this.placeHyphen(p); },
+  placeQuick(p) { const k = Store.settings.quickKind || 'hyphen'; this.closeQuick(); return this.quickPlace(k, p); },
   penTripleFire(base, was, pos) {
     if (!this.note) return;
     if (this._penDot) { clearTimeout(this._penDot.timer); this._penDot = null; } // pontinho ainda não gravado: descarta

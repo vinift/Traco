@@ -1337,3 +1337,19 @@ select{border-radius:14px!important}
 .qk-chip[disabled]{opacity:.35}
 .qk-rn{font-family:Georgia,'Times New Roman',serif;font-size:20px;color:var(--text);min-width:64px;text-align:center}
 .qk-hint{color:var(--muted);font-size:12px}
+/* v0.46: telinha do atalho rápido com prévia e ajustes */
+.qk-panel{width:320px;max-width:calc(100vw - 32px);max-height:calc(var(--appH,100vh) - 120px);overflow:auto}
+.qk-kinds .qk-chip{flex:1;text-align:center;padding:7px 6px}
+.qk-prev{display:block;border-radius:12px;border:1px solid var(--line);align-self:center}
+.qk-num .qk-chip{min-width:36px}
+.qk-adjbtn{display:flex;align-items:center;justify-content:space-between;border:0;background:var(--panel2);border-radius:12px;padding:8px 12px;font:inherit;font-size:13.5px;color:var(--text);cursor:pointer}
+.qk-adjbtn b{color:var(--muted);transition:transform .15s}
+.qk-adjbtn.open b{transform:rotate(180deg)}
+.qk-adj{display:flex;flex-direction:column;gap:6px}
+.qk-adj .grp{display:grid!important;grid-template-columns:1fr auto;gap:2px 8px!important;font-size:12.5px;color:var(--muted)}
+.qk-adj .grp input[type=range]{grid-column:1 / -1;grid-row:2;width:100%}
+.qk-adj .grp .val{color:var(--text);font-variant-numeric:tabular-nums}
+.qk-panel{width:372px}
+.qk-panel .qk-chip{padding:6px 11px;font-size:13.5px}
+.qk-row>span{min-width:52px}
+.qk-num .qk-rn{min-width:54px}

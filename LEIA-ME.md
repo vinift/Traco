@@ -153,6 +153,16 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.46.0
+
+- **Telinha do atalho rápido melhorada:**
+  - **Prévia ao vivo:** um pedacinho de grade mostra exatamente o que vai sair (hífen, bolinha ou número), com a cor e a espessura da caneta atual.
+  - **Ajustes** (toque para abrir/fechar; fica lembrado): os mesmos das Configurações, mas só os do atalho escolhido.
+    - Hífen: comprimento, altura e o colchete do hífen.
+    - Tópico: tamanho e altura.
+    - Romano: tamanho do número, altura, espaço entre letras e **tamanho do sinal** (ponto, hífen ou parêntese depois do número).
+  - **Estilo do número romano:** **Serifado** (serifa em cada letra), **Serifa única** (uma barra em cima e outra embaixo do número inteiro, estilo Ⅲ) ou **Sem serifa**. Fica salvo.
+
 ## Novidades da v0.45.0
 
 - **Atalho rápido com telinha:** o botão da caneta que fazia o hífen agora abre uma telinha no canto inferior direito. Escolha **Hífen**, **Tópico** ou **Romano** e toque no quadrado com a caneta. A escolha fica salva para as próximas vezes. Apertar o botão de novo (ou o ✕) fecha a telinha.
