@@ -1405,3 +1405,6 @@ select{border-radius:14px!important}
 .rp-pause small{color:var(--muted);font-size:12px}
 .tm-pausebtn{align-self:flex-start;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
 .tm-pausebtn.on{border-style:solid;background:var(--accent-soft);color:var(--accent)}
+/* v0.50.1: sem piscar a tela inicial ao abrir/trocar páginas inteiras */
+body.sp-open #library{visibility:hidden}
+.settings-page{isolation:isolate;contain:layout paint;transform:translateZ(0);backface-visibility:hidden}

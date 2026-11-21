@@ -293,3 +293,13 @@ const NoteClock = {
     paint();
   },
 };
+
+/* v0.50.1: página inteira aberta (.settings-page: relatório, Configurações, caderno de caligrafia) → esconde a tela inicial embaixo.
+   No Android a tela inicial (miniaturas, cartões) "vazava" por um quadro ao abrir/redesenhar a página — sem nada visível embaixo, não pisca. */
+const SpCover = {
+  init() {
+    const upd = () => document.body.classList.toggle('sp-open', !!document.querySelector('body > .settings-page'));
+    new MutationObserver(upd).observe(document.body, { childList: true }); upd();
+  },
+};
+SpCover.init();

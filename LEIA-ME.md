@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.50.1
+
+- **Meta de sábado e de domingo separadas:** no relatório (Visão geral), embaixo do gráfico, agora há "Meta seg–sex", "Sábado" e "Domingo". Vazio = igual à de segunda a sexta; 0 = descanso (não quebra a sequência). Quem já tinha a meta de fim de semana continua com ela nos dois dias.
+- **Sem piscar a tela inicial:** ao abrir o relatório, as Configurações ou o caderno de caligrafia, e ao trocar de aba/período neles, a tela inicial ficava aparecendo por um instante. Agora ela fica escondida enquanto essas páginas estão abertas.
+
 ## Novidades da v0.50.0
 
 - **Meta diferente no fim de semana:** no relatório (Visão geral, embaixo do gráfico) agora há **"Meta seg–sex"** e **"Sáb e dom"**. Deixe "Sáb e dom" vazio para usar a mesma meta, ou ponha **0** para o fim de semana ser descanso.

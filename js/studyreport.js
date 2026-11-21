@@ -6,12 +6,14 @@
    Sessões (lista editável: matéria, horário, excluir, adicionar) e Notas. Registros antigos (antes da v0.43) não têm horário (lg). */
 const StudyReport = {
   unit: 'week', anchor: null, tab: 'geral', sel: null, openSubj: null,
-  /* v0.50: meta de segunda a sexta (S.studyGoal, mín. 5) e de sábado/domingo (S.studyGoalWE; vazio = igual; 0 = descanso).
+  /* v0.50: meta de segunda a sexta (S.studyGoal, mín. 5) e de sábado (S.studyGoalWE) e domingo (S.studyGoalSun, v0.50.1); vazio = igual; 0 = descanso.
      t = instante (ms) ou chave 'AAAA-MM-DD'; sem t = hoje */
   goalMs(t = Date.now()) {
     const S = Store.settings, d = typeof t === 'string' ? new Date(t + 'T12:00') : new Date(t), wd = Math.max(5, +S.studyGoal || 60) * 60000;
     if ((S.pauseDays || []).includes(StudyTimer.dayKey(d.getTime()))) return 0; /* v0.50: dia de pausa (feriado etc.) = descanso */
-    if ((d.getDay() === 0 || d.getDay() === 6) && S.studyGoalWE != null && S.studyGoalWE !== '') return Math.max(0, +S.studyGoalWE) * 60000;
+    /* v0.50.1: sábado (S.studyGoalWE) e domingo (S.studyGoalSun) separados; domingo nunca definido (undefined) segue o sábado (como na v0.50.0) */
+    const g = d.getDay() === 6 ? S.studyGoalWE : d.getDay() === 0 ? (S.studyGoalSun === undefined ? S.studyGoalWE : S.studyGoalSun) : null;
+    if (g != null && g !== '') return Math.max(0, +g) * 60000;
     return wd;
   },
   /* 1 = bateu a meta (ou estudou num dia de descanso), 0 = descanso sem estudo (não quebra nem conta), −1 = não bateu */
@@ -125,12 +127,13 @@ const StudyReport = {
         b.day && b.g !== gl && b.g > 0 ? el('i', { class: 'rp-gtick', style: { bottom: `calc(${(b.g / max) * 100}% - 1px)` } }) : null, el('div', { class: 'rp-stack', style: { height: b.v ? Math.max(1.5, (b.v / max) * 100) + '%' : '0' } }, ...b.parts.map((p) => el('i', { style: { flex: String(p.v), background: p.color } }))), el('small', {}, b.lab))));
     const side = el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Matérias no período'), list.length ? this.subjRows(this.bySubj(list), total) : el('p', { class: 'tm-hint' }, 'Sem tempo registrado. O tempo conta com o cronômetro rodando e o app na tela.'));
     const S = Store.settings, goalIn = el('input', { type: 'number', min: 5, max: 900, step: 15, value: Math.round(Math.max(5, +S.studyGoal || 60)), class: 'sr-goalin', onchange: () => { S.studyGoal = clamp(Math.round(+goalIn.value || 60), 5, 900); Store.saveSettings(); render(); } });
-    const weIn = el('input', { type: 'number', min: 0, max: 900, step: 15, value: S.studyGoalWE != null && S.studyGoalWE !== '' ? S.studyGoalWE : '', placeholder: 'igual', class: 'sr-goalin', onchange: () => { const v = weIn.value.trim(); S.studyGoalWE = v === '' ? null : clamp(Math.round(+v || 0), 0, 900); Store.saveSettings(); render(); } });
+    const dayIn = (key) => { const v = S[key] === undefined && key === 'studyGoalSun' ? S.studyGoalWE : S[key], i = el('input', { type: 'number', min: 0, max: 900, step: 15, value: v != null && v !== '' ? v : '', placeholder: 'igual', class: 'sr-goalin', onchange: () => { const t = i.value.trim(); S[key] = t === '' ? null : clamp(Math.round(+t || 0), 0, 900); Store.saveSettings(); render(); } }); return i; };
+    const satIn = dayIn('studyGoalWE'), sunIn = dayIn('studyGoalSun');
     const hint = !Store.folders.some((f) => f.subject) ? el('p', { class: 'tm-hint' }, 'Dica: marque pastas como matéria (menu ⋯ da pasta → "Marcar como matéria") para ver o tempo por matéria.') : null;
     const pauseRow = this.unit === 'day' ? el('div', { class: 'rp-pause' }, el('button', { class: 'btn' + (this.isPause(r.a + 43200000) ? ' primary' : ''), onclick: () => { const on = this.togglePause(r.a + 43200000); toast(on ? 'Dia de pausa: não quebra a sequência' : 'Dia de pausa removido', 1800); render(); } }, this.isPause(r.a + 43200000) ? '⏸ Dia de pausa (tocar para tirar)' : '⏸ Marcar como dia de pausa'), el('small', {}, 'Feriado, viagem… o dia não quebra a sequência; se estudar, conta.')) : null;
     const out = el('div', { class: 'rp-geral' }, tiles, pauseRow,
       el('div', { class: 'rp-grid' }, el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, this.unit === 'day' ? 'Tempo por hora' : this.unit === 'year' ? 'Tempo por mês' : 'Tempo por dia', el('span', { class: 'rp-hs' }, 'toque numa barra')), plot, detail,
-        el('div', { class: 'rp-goalrow' }, el('label', {}, 'Meta seg–sex', goalIn, 'min'), el('label', {}, 'Sáb e dom', weIn, 'min'), el('small', {}, '0 = descanso (não quebra a sequência)'))), side), hint);
+        el('div', { class: 'rp-goalrow' }, el('label', {}, 'Meta seg–sex', goalIn, 'min'), el('label', {}, 'Sábado', satIn, 'min'), el('label', {}, 'Domingo', sunIn, 'min'), el('small', {}, 'vazio = igual a seg–sex · 0 = descanso (não quebra a sequência)'))), side), hint);
     const ci = B.findIndex((b) => now >= b.a && now < b.b), si = this.sel != null && B[this.sel] ? this.sel : ci >= 0 ? ci : B.length - 1;
     if (B[si]) showB(B[si], si); /* v0.43.1: na hora (antes num setTimeout → a tela mudava depois de aparecer) */
     return out;
@@ -138,7 +141,11 @@ const StudyReport = {
   /* lista de matérias com barra; tocar abre as notas daquela matéria no período */
   isPause(t) { return (Store.settings.pauseDays || []).includes(StudyTimer.dayKey(typeof t === 'string' ? new Date(t + 'T12:00').getTime() : t)); },
   togglePause(t) { const S = Store.settings, k = StudyTimer.dayKey(typeof t === 'string' ? new Date(t + 'T12:00').getTime() : t), had = (S.pauseDays || []).includes(k); S.pauseDays = (S.pauseDays || []).filter((x) => x !== k); if (!had) S.pauseDays = [...S.pauseDays, k].sort().slice(-120); Store.saveSettings(); return !had; },
-  goalTxt() { const S = Store.settings, wd = Math.max(5, +S.studyGoal || 60) * 60000, we = S.studyGoalWE == null || S.studyGoalWE === '' ? null : +S.studyGoalWE * 60000, f = StudyTimer.fmtDur.bind(StudyTimer); return we == null ? `meta ${f(wd)}/dia` : `meta ${f(wd)} seg–sex · ${we ? f(we) : 'descanso'} fim de semana`; },
+  goalTxt() {
+    const S = Store.settings, f = StudyTimer.fmtDur.bind(StudyTimer), wd = Math.max(5, +S.studyGoal || 60) * 60000, sat = this.goalMs('2024-01-06'), sun = this.goalMs('2024-01-07'), g = (v) => v ? f(v) : 'descanso';
+    if (sat === wd && sun === wd) return `meta ${f(wd)}/dia`;
+    return sat === sun ? `meta ${f(wd)} seg–sex · ${g(sat)} fim de semana` : `meta ${f(wd)} seg–sex · sáb ${g(sat)} · dom ${g(sun)}`;
+  },
   subjRows(parts, total) {
     const T = StudyTimer, mx = Math.max(1, ...parts.map((p) => p.v));
     return el('div', { class: 'rp-list' }, ...parts.map((p) => el('div', { class: 'rp-row' }, el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: p.color } }), p.name), el('span', { class: 'rp-track' }, el('i', { style: { width: (p.v / mx) * 100 + '%', background: p.color } })), el('b', {}, T.fmtDur(p.v)), el('small', {}, Math.round((p.v / Math.max(1, total)) * 100) + '%'))));
