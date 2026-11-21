@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.43.1
+
+- **Verificar atualização** saiu de baixo da barra lateral e agora fica no topo da tela inicial, ao lado do botão da barra lateral, como o Drive e a busca (com a versão atual). Também está no menu **⋯ da nota**: atualiza e volta na mesma nota e página.
+- A atualização agora recarrega **uma vez só** (antes a tela piscava duas vezes).
+- **Relatório:** não pisca mais ao abrir. Só o tempo de **matérias** entra nos gráficos e números. O tempo fora das notas ou em notas sem matéria continua na aba Sessões, apagado e marcado "não conta"; mude a matéria da sessão para ele contar. O painel do cronômetro avisa quando o tempo está indo para "Sem matéria".
+- **Painel do cronômetro:** agora em duas colunas (controles à esquerda, números à direita) e sempre cabe na altura da tela. Em telas estreitas, rola por dentro.
+
 ## Novidades da v0.43.0 — relatório e cronômetro de estudo refeitos
 
 **Relatório de estudo** (agora em tela inteira):

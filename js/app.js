@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.43.0',
+  version: '0.43.1',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -25,7 +25,7 @@ const App = {
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
       const hadController = !!navigator.serviceWorker.controller; let reloaded = false;
       navigator.serviceWorker.addEventListener('controllerchange', async () => { // versão nova instalada: recarrega uma vez
-        if (!hadController || reloaded) return; reloaded = true;
+        if (!hadController || reloaded || App._updGo) return; reloaded = true; /* v0.43.1: a verificação manual já recarrega (antes recarregava 2×) */
         if (Editor.note) await Editor.saveNow(); App.keepPlace(); location.reload();
       });
       navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch((e) => console.warn('SW', e));
@@ -57,11 +57,12 @@ const App = {
       const m = (await r.text()).match(/version:\s*'([^']+)'/), remote = m && m[1];
       if (!remote) throw new Error('versão não encontrada');
       if (cmpVersion(remote, this.version) <= 0) { toast(`Você já está na versão mais recente (${this.version})`, 2600); return; }
-      toast(`Atualizando para a versão ${remote}…`, 4000);
-      if (Editor.note) await Editor.saveNow();
+      toast(`Atualizando para a versão ${remote}…`, 4000); this._updGo = true;
+      if (Editor.note) { await Editor.saveNow(); await Editor.saveView(); } /* reabre na mesma nota e página (reopenLast + meta 'views') */
+      /* v0.43.1: espera o service worker novo assumir ANTES de recarregar — senão a página nova abria na versão velha e recarregava de novo (piscava 2×) */
       const reg = 'serviceWorker' in navigator && (await navigator.serviceWorker.getRegistration());
-      if (reg) { try { await reg.update(); } catch (_) {} }
-      this.keepPlace(); setTimeout(() => location.replace(location.pathname + '?atualizar=' + Date.now()), 600);
+      if (reg) { try { await reg.update(); const w = reg.installing || reg.waiting; if (w) await new Promise((res) => { const t = setTimeout(res, 10000); const chk = () => { if (w.state === 'activated' || w.state === 'redundant') { clearTimeout(t); res(); } }; w.addEventListener('statechange', chk); chk(); }); } catch (_) {} }
+      this.keepPlace(); location.replace(location.pathname + '?atualizar=' + Date.now());
     } catch (e) { toast('Não consegui verificar: ' + e.message, 3000); }
     finally { btn && btn.classList.remove('spin'); }
   },

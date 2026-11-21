@@ -10,9 +10,11 @@ const StudyReport = {
   sum(d) { let v = 0; for (const x in d || {}) v += d[x]; return v; },
   subjectOf(id) { return subjectOfNote(id); },
   /* dia → { chave: ms } (chave = nota, 'f:<pasta>' se a matéria foi escolhida, '_' fora das notas) — usado também pela tela inicial */
+  /* v0.43.1: só o tempo de MATÉRIAS entra no relatório (fora das notas, sem matéria e notas apagadas ficam de fora) */
+  countable(x) { const k = this.subj(x).key; return k !== '_' && k !== '~' && k !== '?'; },
   dayMap() {
     const T = StudyTimer, out = {};
-    for (const x of T.allSess()) this.split(x, x.s, x.e, (a, b) => { const k = T.dayKey(a), d = out[k] || (out[k] = {}), key = T.sessKey(x); d[key] = (d[key] || 0) + (b - a); });
+    for (const x of T.allSess()) if (this.countable(x)) this.split(x, x.s, x.e, (a, b) => { const k = T.dayKey(a), d = out[k] || (out[k] = {}), key = T.sessKey(x); d[key] = (d[key] || 0) + (b - a); });
     return out;
   },
   /* corta [a, b) na meia-noite */
@@ -41,7 +43,7 @@ const StudyReport = {
     return out;
   },
   /* sessões que tocam [a, b) com o tempo cortado */
-  within(a, b) { const out = []; for (const x of StudyTimer.allSess()) { const v = Math.min(b, x.e) - Math.max(a, x.s); if (v > 0) out.push([x, v]); } return out; },
+  within(a, b, all) { const out = []; for (const x of StudyTimer.allSess()) { if (!all && !this.countable(x)) continue; const v = Math.min(b, x.e) - Math.max(a, x.s); if (v > 0) out.push([x, v]); } return out; },
   bySubj(list) { const m = new Map(); for (const [x, v] of list) { const s = this.subj(x), c = m.get(s.key) || { ...s, v: 0, n: 0 }; c.v += v; c.n++; m.set(s.key, c); } return [...m.values()].sort((p, q) => q.v - p.v); },
   /* sequência atual e melhor (dias seguidos na meta) */
   streaks(map) {
@@ -119,7 +121,7 @@ const StudyReport = {
       el('div', { class: 'rp-grid' }, el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, this.unit === 'day' ? 'Tempo por hora' : this.unit === 'year' ? 'Tempo por mês' : 'Tempo por dia', el('span', { class: 'rp-hs' }, 'toque numa barra')), plot, detail,
         el('label', { class: 'rp-goalrow' }, 'Meta diária', goalIn, 'min')), side), hint);
     const ci = B.findIndex((b) => now >= b.a && now < b.b), si = this.sel != null && B[this.sel] ? this.sel : ci >= 0 ? ci : B.length - 1;
-    if (B[si]) setTimeout(() => showB(B[si], si), 0);
+    if (B[si]) showB(B[si], si); /* v0.43.1: na hora (antes num setTimeout → a tela mudava depois de aparecer) */
     return out;
   },
   /* lista de matérias com barra; tocar abre as notas daquela matéria no período */
@@ -195,18 +197,18 @@ const StudyReport = {
 
   /* ---------- Sessões (editar / excluir / adicionar) ---------- */
   viewSess(r, render) {
-    const T = StudyTimer, list = this.within(r.a, r.b).map(([x]) => x).sort((p, q) => q.s - p.s), groups = new Map();
+    const T = StudyTimer, list = this.within(r.a, r.b, true).map(([x]) => x).sort((p, q) => q.s - p.s), groups = new Map();
     for (const x of list) { const k = T.dayKey(x.s); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); }
     const hm = (t) => new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const add = el('button', { class: 'btn primary', onclick: () => this.editSess(null, render, r) }, '+ Adicionar sessão');
-    const out = el('div', { class: 'rp-sess' }, el('div', { class: 'rp-shead' }, el('p', { class: 'tm-hint' }, 'Toque numa sessão para mudar a matéria, o horário ou excluir. Use "Adicionar" para um estudo que não foi registrado.'), add));
+    const out = el('div', { class: 'rp-sess' }, el('div', { class: 'rp-shead' }, el('p', { class: 'tm-hint' }, 'Toque numa sessão para mudar a matéria, o horário ou excluir. Use "Adicionar" para um estudo que não foi registrado. Só o tempo de matérias entra no relatório: sessões sem matéria aparecem apagadas — escolha uma matéria para elas contarem.'), add));
     if (!list.length) out.append(el('p', { class: 'tm-hint rp-empty' }, 'Nenhuma sessão neste período.'));
     for (const [k, xs] of groups) {
-      const d = new Date(k + 'T12:00'), tot = xs.reduce((a, x) => a + (x.e - x.s), 0);
+      const d = new Date(k + 'T12:00'), tot = xs.filter((x) => this.countable(x)).reduce((a, x) => a + (x.e - x.s), 0);
       out.append(el('div', { class: 'rp-sday' }, el('div', { class: 'rp-h' }, ((t) => t.charAt(0).toUpperCase() + t.slice(1))(d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })), el('span', { class: 'rp-hs' }, T.fmtDur(tot))),
-        ...xs.map((x) => { const s = this.subj(x); return el('button', { class: 'rp-srow' + (x.live ? ' live' : ''), disabled: !!x.live, onclick: () => this.editSess(x, render, r) },
+        ...xs.map((x) => { const s = this.subj(x); return el('button', { class: 'rp-srow' + (x.live ? ' live' : '') + (this.countable(x) ? '' : ' off'), disabled: !!x.live, onclick: () => this.editSess(x, render, r) },
           el('span', { class: 'rp-stime' }, x.lg ? 'sem horário' : `${hm(x.s)}–${x.live ? 'agora' : hm(x.e)}`), el('b', {}, T.fmtDur(x.e - x.s)),
-          el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: s.color } }), s.name), el('span', { class: 'rp-snote' }, x.n ? this.noteTitle(x.n) : x.m ? 'adicionada à mão' : x.lg ? 'registro antigo' : '—')); })));
+          el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: s.color } }), s.name), el('span', { class: 'rp-snote' }, (this.countable(x) ? '' : 'não conta (sem matéria) · ') + (x.n ? this.noteTitle(x.n) : x.m ? 'adicionada à mão' : x.lg ? 'registro antigo' : '—'))); })));
     }
     return out;
   },

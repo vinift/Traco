@@ -212,7 +212,15 @@ const StudyTimer = {
   },
 
   /* ---------- painel ---------- */
-  open(anchor) { const box = el('div', { class: 'tm-pop' }); this.pop = box; this.renderPanel(true); openPop(anchor, box, { onClose: () => { if (this.pop === box) this.pop = null; } }); this.pop = box; },
+  open(anchor) { const box = el('div', { class: 'tm-pop' }); this.pop = box; this.renderPanel(true); openPop(anchor, box, { onClose: () => { if (this.pop === box) this.pop = null; } }); this.pop = box; this.fitPop(); },
+  /* mantém o painel dentro da tela (largura e altura) */
+  fitPop() {
+    const box = this.pop, pop = box && box.closest('.pop'); if (!pop) return;
+    const H = innerHeight, W = innerWidth; let r = pop.getBoundingClientRect();
+    if (r.bottom > H - 8) { pop.style.top = Math.max(8, H - 8 - r.height) + 'px'; r = pop.getBoundingClientRect(); }
+    box.style.maxHeight = Math.max(200, H - r.top - 36) + 'px'; /* 36 = padding do .pop + folga */
+    if (r.right > W - 8 || r.left < 8) pop.style.left = clamp(r.left, 8, Math.max(8, W - r.width - 8)) + 'px';
+  },
   /* v0.43: painel com anel grande, matéria da sessão e meta do dia */
   renderPanel(force) {
     const box = this.pop; if (!box || (!force && !box.isConnected)) return;
@@ -237,9 +245,10 @@ const StudyTimer = {
         el('button', { class: 'tm-chip' + (s.subj === '~' ? ' on' : ''), onclick: () => pick('~') }, 'Sem matéria'),
         subs.length ? null : el('p', { class: 'tm-hint' }, 'Marque pastas como matéria (menu ⋯ da pasta) para escolher aqui.'));
     }
+    const ck = cs.key, noSubj = ck === '_' || ck === '~' || ck === '?';
     const kids = [
       el('div', { class: 'tm-tabs' }, tab('stopwatch', 'Cronômetro'), tab('countdown', 'Temporizador'), tab('pomodoro', 'Pomodoro')),
-      ring, subjBtn, subjList,
+      ring, subjBtn, subjList, noSubj ? el('p', { class: 'tm-hint tm-away' }, 'Sem matéria: este tempo não entra no relatório. Escolha uma matéria acima.') : null,
       el('div', { class: 'tm-ctrl' },
         s.running ? btn('Pausar', () => this.pause()) : btn(s.acc > 0 ? 'Continuar' : 'Iniciar', () => this.start(), 'primary'),
         !this.idle() ? btn(s.mode === 'pomodoro' ? 'Parar' : 'Zerar', () => this.reset()) : null,
@@ -254,16 +263,17 @@ const StudyTimer = {
       kids.push(el('div', { class: 'tm-pomo' }, f('Foco', 'focus', 'min'), f('Pausa', 'short', 'min'), f('Pausa longa', 'long', 'min'), f('Longa a cada', 'every', 'focos')));
       kids.push(el('p', { class: 'tm-hint' }, 'A pausa começa sozinha quando o foco acaba; o próximo foco espera você tocar em Iniciar. As pausas não entram no tempo de estudo.'));
     }
-    kids.push(this.statsEl()); this._statT = Date.now();
+    const colA = kids.splice(0), colB = [this.statsEl()]; this._statT = Date.now();
     { /* v0.24: avisos pelo sistema */
       const perm = 'Notification' in window ? Notification.permission : 'denied', on = Store.settings.timerNotify !== false;
       const cb = el('input', { type: 'checkbox', checked: on && perm === 'granted', onchange: () => { Store.settings.timerNotify = cb.checked; Store.saveSettings(); if (cb.checked) { if (perm === 'default') this.askNotify(); else if (perm === 'denied') toast('As notificações estão bloqueadas para o Traço nas configurações do Android (Apps → Traço → Notificações)', 4200); } this._sysKey = null; this.sysSync(); this.renderPanel(); } });
-      kids.push(el('label', { class: 'tm-sys' }, cb, el('span', {}, 'Avisar pelas notificações do tablet', el('small', {}, perm === 'denied' ? 'bloqueadas no Android — libere em Apps → Traço → Notificações' : 'tempo na tela de bloqueio e alarme ao terminar'))));
+      colB.push(el('label', { class: 'tm-sys' }, cb, el('span', {}, 'Avisar pelas notificações do tablet', el('small', {}, perm === 'denied' ? 'bloqueadas no Android — libere em Apps → Traço → Notificações' : 'tempo na tela de bloqueio e alarme ao terminar'))));
     }
-    box.innerHTML = ''; box.append(...kids.filter(Boolean)); this.paintRing();
+    /* v0.43.1: duas colunas (controles | números) e altura limitada à tela — antes a parte de baixo saía da tela */
+    box.innerHTML = ''; box.append(el('div', { class: 'tm-colA' }, ...colA.filter(Boolean)), el('div', { class: 'tm-colB' }, ...colB.filter(Boolean))); this.paintRing(); this.fitPop();
   },
   /* tempo registrado num dia (sessões + trecho em andamento) */
-  dayMs(t = Date.now()) { const d = new Date(t); d.setHours(0, 0, 0, 0); const a = d.getTime(), b = a + 86400000; let v = 0; for (const x of this.allSess()) v += Math.max(0, Math.min(b, x.e) - Math.max(a, x.s)); return v; },
+  dayMs(t = Date.now()) { const d = new Date(t); d.setHours(0, 0, 0, 0); const a = d.getTime(), b = a + 86400000; let v = 0; for (const x of this.allSess()) if (StudyReport.countable(x)) v += Math.max(0, Math.min(b, x.e) - Math.max(a, x.s)); return v; },
   ringFrac(t = Date.now()) { const s = this.st; if (this.hasTarget()) return s.target > 0 ? clamp(1 - this.remaining(t) / s.target, 0, 1) : 0; return clamp(this.dayMs(t) / StudyReport.goalMs(), 0, 1); },
   paintRing() {
     const b = this.pop, p = b && b.querySelector('.tm-prog'); if (!p) return;

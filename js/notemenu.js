@@ -151,6 +151,7 @@ const NoteMenu = {
         item('search', 'Zoom', () => zoomMenu(anchor), Math.round(Editor.cam.z * 100) + '%'),
         item('settings', 'Definições', () => openSettings()),
         item('tune', 'Detalhes', () => noteDetails(note)),
+        item('refresh', 'Verificar atualização', () => App.checkUpdate(null), 'volta nesta mesma página · v' + App.version),
         el('div', { class: 'nm-sep' }),
         item('trash', 'Excluir nota', async () => { if (!(await confirmBox('Excluir nota', `Mandar "${note.title}" para a Lixeira? (30 dias para restaurar)`, 'Excluir', true))) return; const id = note.id; await App.closeNote(); await Store.trashNote(id); Library.render(); toast('Nota na Lixeira', 2000); }, null, 'danger')));
     openPop(anchor, box);

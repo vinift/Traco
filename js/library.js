@@ -32,7 +32,7 @@ const Library = {
     try { localStorage.setItem('traco-lib-place', JSON.stringify({ folder: this.folder, view: this.view, t: Date.now() })); } catch (_) {} /* v0.29: lembra a pasta/visão sempre (o app volta para ela ao reabrir) */
     const S = this.S, q = this.query.trim();
     HomeTop.render(this.view === 'home' && !this.folder && !q); /* v0.37: data + frase do dia + Continuar + painel de estudo (no lugar do "Olá") */
-    const ver = $('#libVersion'); if (ver) ver.textContent = 'Versão ' + App.version;
+    const ver = $('#libVersion'); if (ver) ver.textContent = 'Versão ' + App.version; const uv = $('#updVer'); if (uv) uv.textContent = 'v' + App.version;
     $('#library').classList.toggle('side-closed', !!S.sideClosed);
     $$('.side-item[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === this.view && !q && (this.view !== 'home' || !this.folder)));
     // pastas na barra lateral

@@ -1314,3 +1314,15 @@ select{border-radius:14px!important}
 .rp-warn{color:var(--danger)!important}
 @media (max-width:900px){.rp-grid{grid-template-columns:minmax(0,1fr)}.rp-label{min-width:120px}.rp-srow{grid-template-columns:90px 60px minmax(0,1fr)}.rp-snote{display:none}}
 @media (max-width:600px){.rp-body{padding:14px}.rp-tabs{padding:6px 14px 0}}
+/* v0.43.1: "Verificar atualização" no topo da tela inicial (pílula como o Drive) */
+.upd-pill{border:0;font:inherit;font-size:13px;color:var(--text)}
+.upd-pill small{color:var(--muted);font-size:11.5px}
+.upd-pill.spin svg.ic{animation:updspin .8s linear infinite}
+.lib:not(.side-closed) .hero-tools .upd-pill{margin-left:0}
+/* v0.43.1: painel do cronômetro em duas colunas, sem passar da altura da tela */
+.tm-pop{display:grid;grid-template-columns:minmax(0,330px) minmax(0,300px);gap:20px;width:auto;max-width:94vw;overflow:auto;align-items:start}
+.tm-colA,.tm-colB{display:flex;flex-direction:column;gap:12px;min-width:0}
+.tm-colB .tm-stats{border-top:0;padding-top:0}
+.tm-ring{width:190px;height:190px}
+@media (max-width:720px){.tm-pop{grid-template-columns:minmax(0,1fr);width:min(360px,92vw)}.tm-colB .tm-stats{border-top:1px solid var(--line);padding-top:10px}}
+.rp-srow.off{opacity:.55}
