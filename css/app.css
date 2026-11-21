@@ -1408,3 +1408,18 @@ select{border-radius:14px!important}
 /* v0.50.1: sem piscar a tela inicial ao abrir/trocar páginas inteiras */
 body.sp-open #library{visibility:hidden}
 .settings-page{isolation:isolate;contain:layout paint;transform:translateZ(0);backface-visibility:hidden}
+/* v0.51: Configurações em abas que expandem */
+.sp-content > .set-sec{padding:0;overflow:hidden}
+.set-head{display:flex;align-items:center;gap:12px;width:100%;border:0;background:transparent;color:var(--text);text-align:left;padding:16px 18px;cursor:pointer;font:inherit}
+.sp-content .set-sec .set-head h3{margin:0;flex:none;font-size:17px}
+.set-sum{flex:1;min-width:0;color:var(--muted);font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+.set-chev{width:20px;height:20px;color:var(--muted);flex:none;transition:transform .18s}
+.set-sec.open .set-chev{transform:rotate(90deg);color:var(--accent)}
+.set-sec.open .set-sum{visibility:hidden}
+.set-body{display:none;padding:0 20px 18px}
+.set-sec.open > .set-body,.sp-content.searching .set-sec:not(.sp-hide) > .set-body{display:block}
+.sp-content.searching .set-sum{visibility:hidden}
+.set-sub{margin:18px 0 6px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--accent)}
+.set-body > .set-sub:first-child{margin-top:4px}
+.set-head:active{background:var(--accent-soft)}
+@media (max-width:760px){ .set-sum{display:none} }

@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.51.0
+
+- **Configurações em abas que expandem:** as opções agora estão em 7 grupos: Caneta e escrita · Formas e alinhamento · Botões da caneta · Tela e zoom · Leitura da escrita (OCR) · Backup e dados · Avançado. Fechada, cada aba mostra um resumo do que está ligado (ex.: "Palma 40 px · pressão 60%"). Tocar abre só aquela aba. A lista da esquerda abre a aba direto, e a busca abre sozinha as abas que têm o que você procurou.
+- **Menos repetição:** saíram das Configurações o que já existe na nota. Os tamanhos dos atalhos rápidos (hífen, romano, bolinha, colchete) ficam na telinha do atalho → Ajustes. "Escrever com o dedo" fica no botão de mão da barra. O campo de nome saiu, porque o nome não aparece mais. Textos de ajuda antigos foram corrigidos.
+
 ## Novidades da v0.50.1
 
 - **Meta de sábado e de domingo separadas:** no relatório (Visão geral), embaixo do gráfico, agora há "Meta seg–sex", "Sábado" e "Domingo". Vazio = igual à de segunda a sexta; 0 = descanso (não quebra a sequência). Quem já tinha a meta de fim de semana continua com ela nos dois dias.

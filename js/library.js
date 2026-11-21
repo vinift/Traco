@@ -353,8 +353,7 @@ async function openSettings(focus) {
       }),
       Drive.hasAuth() ? B('Desconectar', 'ghost danger', () => { Drive.disconnect(); toast('Drive desconectado'); }) : null));
   body.append(driveSec);
-  const nameI = el('input', { type: 'text', value: S.userName || '', placeholder: 'Seu nome' }); nameI.addEventListener('change', () => { S.userName = nameI.value.trim(); Store.saveSettings(); Library.render(); });
-  body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Você'), el('div', { class: 'field' }, el('label', {}, 'Nome exibido na saudação da tela inicial'), nameI)));
+  /* v0.51: a seção "Você" (S.userName) saiu — o nome não aparece mais desde a v0.37 */
   // --- Escrita
   const chk = (label, key, after) => UI.check(label, S[key], (v) => { S[key] = v; Store.saveSettings(); after && after(v); });
   const th = el('select', {}, el('option', { value: 'auto' }, 'Automático'), el('option', { value: 'light' }, 'Claro'), el('option', { value: 'dark' }, 'Escuro')); th.value = S.theme || 'auto'; th.addEventListener('change', () => { S.theme = th.value; Store.saveSettings(); App.applyTheme(); });
@@ -364,7 +363,7 @@ async function openSettings(focus) {
     el('div', { class: 'field' }, el('label', {}, 'Tamanho das barras do editor (mais estreitas deixam mais espaço para escrever)'), bar),
     UI.check('Esconder as barras do topo enquanto escrevo com a caneta', S.hideWhileWriting !== false, (v) => { S.hideWhileWriting = v; Store.saveSettings(); }),
     UI.slider('Barras voltam depois de parar de escrever', 1, 15, 0.5, +S.writeHideSec || 2.5, (v) => { S.writeHideSec = v; Store.saveSettings(); }, (v) => String(v).replace('.', ',') + ' s'),
-    el('p', { class: 'muted' }, 'Tela cheia: botão ⛶ no topo do editor esconde as barras do topo (ferramentas, cores e espessuras continuam). Para sair, toque no botão discreto no canto superior direito.'),
+    el('p', { class: 'muted' }, 'Tela cheia: toque duplo com o dedo numa área vazia da nota. Para trazer as barras de volta, toque no topo da tela.'),
     el('div', { class: 'field' }, el('label', {}, 'Tema do app'), th)));
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Ajustes automáticos'),
     el('p', {}, 'Ao mover, redimensionar ou girar formas, textos, post-its, imagens e tabelas, o app ajuda a alinhar e mostra uma linha-guia rosa.'),
@@ -393,11 +392,8 @@ async function openSettings(focus) {
       (() => { /* v0.28: calibrar o tamanho da palma */ const info = el('small', { class: 'muted' }, ''); const upd = () => { info.textContent = Palm.last ? `Seu último toque: ${Palm.last} px` : 'Toque na tela para ver o tamanho do seu toque'; };
         upd(); const iv = setInterval(() => { if (!info.isConnected) return clearInterval(iv); upd(); }, 500);
         return el('div', {}, UI.slider('Toque considerado palma a partir de', 20, 90, 2, +S.palmSize || 40, (v) => { S.palmSize = v; Store.saveSettings(); }, (v) => v + ' px'), info); })(),
-      chk('Escrever com o dedo (o mesmo que o botão de mão no editor)', 'fingerDraws'),
       chk('Rabiscar para apagar (zigue-zague com a caneta por cima do que quer apagar)', 'scribbleErase'),
       UI.slider('Sensibilidade à pressão', 0, 1, 0.05, S.pressureSens ?? 0.6, (v) => { S.pressureSens = v; S.pressure = v > 0; Store.saveSettings(); }, (v) => (v === 0 ? 'sem' : Math.round(v * 100) + '%')),
-      chk('Reconhecer formas ao segurar a caneta parada no fim do traço', 'shapeHold'),
-      chk('Conectar as formas do segurar às outras (pontas e colchetes na mesma vertical)', 'shapeConnect'),
       (() => { /* v0.23: mão que escreve → onde valem os toques de 2/3 dedos (desfazer/refazer) */
         const sel = el('select', { onchange: () => { S.hand = sel.value; Store.saveSettings(); } }, el('option', { value: 'right' }, 'Destro (vale só na metade esquerda)'), el('option', { value: 'left' }, 'Canhoto (vale só na metade direita)'), el('option', { value: 'none' }, 'Tela toda'));
         sel.value = S.hand || 'right';
@@ -407,8 +403,10 @@ async function openSettings(focus) {
       el('p', { class: 'muted' }, 'Arredonda as curvas e tira o tremido sem apagar os cantos das letras. Para arrumar algo já escrito: laço → botão ✨ "Melhorar escrita" (também iguala o tamanho e a altura das palavras).'),
       el('div', { class: 'field' }, el('button', { class: 'btn', onclick: () => caligraphyNotebook() }, '✍ Caderno de caligrafia…'), el('p', { class: 'muted' }, 'Escreva cada letra do seu jeito mais bonito; o ✨ "Melhorar escrita" do laço aproxima as suas letras destas.')),
       UI.check('Modo de baixa latência para a caneta (a tinta aparece mais rápido; reabra o app depois de mudar)', S.lowLatency === true, (v) => { S.lowLatency = v; Store.saveSettings(); toast('Reabra o app para aplicar'); }),
-      el('p', { class: 'muted' }, 'Estabilização do traço (0 a 10): fica no painel de cada caneta — cada tipo guarda o seu nível.'),
       )));
+  body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Formas ao segurar'), el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
+    chk('Reconhecer formas ao segurar a caneta parada no fim do traço', 'shapeHold'),
+    chk('Conectar as formas do segurar às outras (pontas e colchetes na mesma vertical)', 'shapeConnect'))));
   body.append(penMapSection());
   S.ocr = S.ocr || { enabled: true, lang: 'pt_BR' };
   const ocrLang = el('select', {}, ...[['pt_BR', 'Português (Brasil)'], ['pt_PT', 'Português (Portugal)'], ['en', 'Inglês'], ['es', 'Espanhol'], ['fr', 'Francês'], ['it', 'Italiano'], ['de', 'Alemão'], ['la', 'Latim']].map(([v, n]) => el('option', { value: v }, n)));
@@ -473,9 +471,27 @@ async function openSettings(focus) {
       B('Copiar relatório', '', async () => { try { await navigator.clipboard.writeText(diagText()); toast('Relatório copiado'); } catch (_) { openModal({ title: 'Relatório', wide: true, body: el('textarea', { style: { width: '100%', height: '300px' } }, diagText()), buttons: [{ label: 'Fechar', cls: 'primary' }] }); } }),
       B('Limpar', 'ghost', () => { localStorage.removeItem(ERRLOG_KEY); renderErr(); }))));
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Sobre'), el('p', {}, `Traço Notas · versão ${App.version}`), el('p', {}, 'Caderno digital feito sob medida: escrita com caneta, PDFs, tabelas, importação do Notewise e backup no seu Google Drive. As notas ficam guardadas no aparelho.')));
+  /* v0.51: 7 grupos em abas que expandem; o resumo aparece com a aba fechada */
+  const old = new Map([...body.querySelectorAll(':scope > .set-sec')].map((x) => [x.querySelector('h3').textContent, x]));
+  const grp = (title, parts, sum) => {
+    const g = el('div', { class: 'set-sec' }, el('h3', {}, title)); g._sum = sum;
+    for (const [t, sub] of parts) { const x = old.get(t); if (!x) continue; x.querySelector(':scope > h3').remove(); if (sub) g.append(el('h4', { class: 'set-sub' }, sub)); g.append(...x.childNodes); }
+    return g;
+  };
+  const SNAPS = ['snapPage', 'snapObjects', 'snapAngle', 'snapRatio', 'angleSnap', 'vertexSnap'];
+  const groups = [
+    grp('Caneta e escrita', [['Escrita e caneta']], () => `Palma ${S.palmGuard ? (+S.palmSize || 40) + ' px' : 'desligada'} · pressão ${S.pressureSens === 0 ? 'sem' : Math.round((S.pressureSens ?? 0.6) * 100) + '%'} · melhorar escrita ${autoBeautifyLevel() || 'desligado'}`),
+    grp('Formas e alinhamento', [['Formas ao segurar', 'Segurar a caneta no fim do traço'], ['Ajustes automáticos', 'Guias ao mover, redimensionar e girar']], () => `Formas ao segurar ${S.shapeHold !== false ? 'ligadas' : 'desligadas'} · ${SNAPS.filter((k) => S[k] !== false).length} de ${SNAPS.length} guias`),
+    grp('Botões da caneta', [['Botões da caneta (Focus Pen)']], () => { const n = Object.keys(S.penMap || {}).length, d = typeof PEN_DOUBLE_ACTIONS !== 'undefined' && PEN_DOUBLE_ACTIONS.find(([k]) => k === (S.penDouble || 'lassoToggle')); return `${n ? n + (n > 1 ? ' botões configurados' : ' botão configurado') : 'nenhum botão configurado'} · toque duplo: ${S.penTriple === false || S.penDouble === 'none' ? 'desligado' : d ? d[1] : 'padrão'}`; }),
+    grp('Tela e zoom', [['Aparência e barras', 'Aparência e barras'], ['Zoom', 'Zoom']], () => `Barras ${{ normal: 'normais', compact: 'compactas', mini: 'bem compactas' }[S.barSize || 'compact'] || 'compactas'} · tema ${{ auto: 'automático', light: 'claro', dark: 'escuro' }[S.theme || 'auto']} · zoom ${+S.zoomMin || 20}–${+S.zoomMax || 800}%`),
+    grp('Leitura da escrita (OCR)', [['Leitura da escrita à mão (OCR)']], () => `Leitura automática ${S.ocr.enabled !== false ? 'ligada' : 'desligada'} · ${ocrLang.selectedOptions[0] ? ocrLang.selectedOptions[0].textContent : ''}`),
+    grp('Backup e dados', [['Backup automático no Google Drive', 'Google Drive'], ['Cópia local', 'Cópia local'], ['Modelo padrão para novas notas', 'Modelo padrão para novas notas']], () => !Drive.configured() ? 'Drive desligado' : (Drive.hasAuth() ? 'Drive conectado' : 'Drive precisa conectar') + (D.lastSync ? ' · último backup ' + new Date(D.lastSync).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '')),
+    grp('Avançado', [['Ferramentas próprias (plugins)', 'Ferramentas próprias (plugins)'], ['Diagnóstico', 'Diagnóstico'], ['Sobre', 'Sobre']], () => { const n = readErrors().length; return `${S.plugins.length} plugin${S.plugins.length === 1 ? '' : 's'} · ${n ? n + ' erro' + (n > 1 ? 's' : '') + ' registrado' + (n > 1 ? 's' : '') : 'sem erros'} · versão ${App.version}`; }),
+  ];
+  body.innerHTML = ''; body.append(...groups);
   return settingsPage(body, focus, () => { saveDrive(); applyBarSize(); if (Editor.note) { UI.buildToolbar(); UI.renderOptions(); Editor.requestRender(); } });
 }
-const SET_ORDER = [['Você', 'home'], ['Aparência e barras', 'palette'], ['Escrita e caneta', 'pen'], ['Ajustes automáticos', 'fit'], ['Zoom', 'search'], ['Botões da caneta (Focus Pen)', 'hand'], ['Leitura da escrita à mão (OCR)', 'ocr'], ['Backup automático no Google Drive', 'cloud'], ['Modelo padrão para novas notas', 'grid'], ['Ferramentas próprias (plugins)', 'plug'], ['Cópia local', 'download'], ['Diagnóstico', 'tune'], ['Sobre', 'star']];
+const SET_ORDER = [['Caneta e escrita', 'pen'], ['Formas e alinhamento', 'fit'], ['Botões da caneta', 'hand'], ['Tela e zoom', 'palette'], ['Leitura da escrita (OCR)', 'ocr'], ['Backup e dados', 'cloud'], ['Avançado', 'tune']];
 function settingsPage(body, focus, onClose) {
   return new Promise((resolve) => {
     const secs = [...body.querySelectorAll(':scope > .set-sec')];
@@ -484,37 +500,46 @@ function settingsPage(body, focus, onClose) {
     const ordered = SET_ORDER.filter(([t]) => byTitle.has(t)).concat(secs.map((x) => [x.querySelector('h3').textContent, 'settings']).filter(([t]) => !SET_ORDER.some(([o]) => o === t)));
     for (const [t, ic] of ordered) {
       const sec = byTitle.get(t); sec.id = 'sec-' + uid(); const h = sec.querySelector('h3'); h.prepend(iconEl(ic)); content.append(sec);
-      const b = el('button', { class: 'sp-item', onclick: () => { content.scrollTo({ top: sec.offsetTop - 12, behavior: 'smooth' }); } }, iconEl(ic), el('span', {}, t.replace(' (Focus Pen)', '').replace(' (OCR)', '').replace('Backup automático no ', '').replace(' para novas notas', '').replace(' (plugins)', '')));
+      /* v0.51: aba que expande — cabeçalho (título + resumo + seta) e corpo; só uma aberta por vez */
+      const sum = el('span', { class: 'set-sum' }), chev = iconEl('chevRight'); chev.classList.add('set-chev');
+      const head = el('button', { class: 'set-head', type: 'button', onclick: () => toggle(sec) }, h, sum, chev);
+      const bodyW = el('div', { class: 'set-body' }, ...[...sec.childNodes]); sec.append(head, bodyW); sec._sumEl = sum;
+      const b = el('button', { class: 'sp-item', onclick: () => toggle(sec, true) }, iconEl(ic), el('span', {}, t.replace(' (Focus Pen)', '').replace(' (OCR)', '').replace('Backup automático no ', '').replace(' para novas notas', '').replace(' (plugins)', '')));
       b.dataset.sec = sec.id; nav.append(b);
+    }
+    const sums = () => { for (const x of secs) if (x._sumEl) { let t = ''; try { t = x._sum ? x._sum() : ''; } catch (_) {} x._sumEl.textContent = t; } };
+    const mark = () => $$('.sp-item', nav).forEach((b) => b.classList.toggle('on', !!document.getElementById(b.dataset.sec)?.classList.contains('open')));
+    function toggle(sec, force) {
+      const open = force || !sec.classList.contains('open');
+      if (content.classList.contains('searching')) { search.value = ''; search.dispatchEvent(new Event('input')); }
+      for (const x of secs) x.classList.toggle('open', open && x === sec);
+      sums(); mark();
+      if (open) { const r = sec.getBoundingClientRect(), c = content.getBoundingClientRect(); if (r.top < c.top || r.bottom > c.bottom) content.scrollTo({ top: Math.max(0, content.scrollTop + r.top - c.top - 12) }); }
     }
     const close = () => { page.remove(); onClose && onClose(); resolve(); };
     const back = el('button', { class: 'cbtn round', title: 'Voltar', onclick: close }); back.innerHTML = icon('arrowLeft');
     const ITEM = '.chk,.field,.grp,.sl-row,.slider-row,.pen-map-row,.plugin-row,.seg,p,button,label,select,input';
-    const spItems = (node) => { const out = []; for (const c of node.children) { if (c.tagName === 'H3') continue; if (!c.matches(ITEM) && c.children.length > 1) out.push(...spItems(c)); else out.push(c); } return out; }; /* opções "folha" (desce nos blocos que só agrupam) */
+    const spItems = (node) => { const out = []; for (const c of node.children) { if (c.tagName === 'H3' || c.tagName === 'H4') continue; if (!c.matches(ITEM) && c.children.length > 1) out.push(...spItems(c)); else out.push(c); } return out; }; /* opções "folha" (desce nos blocos que só agrupam) */
     /* v0.36: busca nas configurações — mostra só os itens (e seções) com o texto procurado, sem acento/maiúscula */
     const nrm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const empty = el('p', { class: 'sp-empty hidden' }, 'Nada encontrado nas configurações.');
     const search = el('input', { class: 'sp-search', type: 'search', placeholder: 'Buscar uma opção…', oninput: () => {
       const q = nrm(search.value.trim()); let any = false;
       for (const sec of secs) {
-        const kids = spItems(sec), titleHit = q && nrm(sec.querySelector('h3').textContent).includes(q); let hits = 0;
+        const kids = spItems(sec.querySelector('.set-body') || sec), titleHit = q && nrm(sec.querySelector('h3').textContent).includes(q); let hits = 0;
         for (const c of kids) { const ok = !q || titleHit || nrm(c.textContent).includes(q) || [...c.querySelectorAll('option')].some((o) => nrm(o.textContent).includes(q)); c.classList.toggle('sp-hide', !ok); if (ok) hits++; }
         sec.classList.toggle('sp-hide', !!q && !hits); if (hits) any = true;
         const b = nav.querySelector(`[data-sec="${sec.id}"]`); if (b) b.classList.toggle('sp-dim', !!q && !hits);
       }
-      empty.classList.toggle('hidden', !q || any); content.scrollTop = 0;
+      empty.classList.toggle('hidden', !q || any); content.classList.toggle('searching', !!q); content.scrollTop = 0; /* v0.51: buscando, as abas com resultado ficam abertas */
     } });
     const page = el('div', { class: 'settings-page' },
       el('header', { class: 'sp-head' }, back, el('h1', {}, 'Configurações'), el('span', { class: 'sp-ver' }, 'v' + App.version)),
       el('div', { class: 'sp-body' }, el('div', { class: 'sp-side' }, search, nav), el('div', { class: 'sp-main' }, empty, content)));
-    content.addEventListener('scroll', () => { // destaca a seção visível
-      let cur = null; for (const sec of content.children) if (sec.offsetTop - content.scrollTop < 140) cur = sec.id;
-      $$('.sp-item', nav).forEach((b) => b.classList.toggle('on', b.dataset.sec === cur));
-    });
     document.body.append(page);
     setTimeout(() => {
-      content.dispatchEvent(new Event('scroll'));
-      if (focus === 'drive') { const d = [...content.children].find((x) => x.querySelector('h3').textContent.includes('Google Drive')); if (d) content.scrollTo({ top: d.offsetTop - 12 }); }
+      sums();
+      if (focus === 'drive') { const d = secs.find((x) => x.querySelector('h3').textContent.includes('Backup')); if (d) toggle(d, true); }
     }, 30);
   });
 }
@@ -597,19 +622,8 @@ function penMapSection() {
     }
   };
   render();
-  /* v0.41.2: tamanho e posição do hífen rápido (em % do quadrado da grade) */
-  sec.append(el('div', { class: 'field', style: { marginTop: '10px' } }, el('label', {}, 'Hífen rápido'),
-    UI.slider('Comprimento', 5, 90, 1, S.hyphenLen ?? 25, (v) => { S.hyphenLen = v; Store.saveSettings(); }, (v) => v + '% do quadrado'),
-    UI.slider('Deslocamento para baixo do centro', -40, 40, 1, S.hyphenDrop ?? 10, (v) => { S.hyphenDrop = v; Store.saveSettings(); }, (v) => (v === 0 ? 'no centro' : v < 0 ? Math.abs(v) + '% para cima' : v + '% para baixo')),
-    UI.slider('Colchete do hífen (toque duplo no hífen): fim abaixo do centro do quadrado', -40, 40, 1, S.bracketDrop ?? S.hyphenDrop ?? 10, (v) => { S.bracketDrop = v; Store.saveSettings(); }, (v) => (v === 0 ? 'no centro' : v < 0 ? Math.abs(v) + '% para cima' : v + '% para baixo'))));
-  /* v0.45: número romano rápido */
-  sec.append(el('div', { class: 'field', style: { marginTop: '10px' } }, el('label', {}, 'Número romano rápido'),
-    UI.slider('Altura', 15, 95, 1, S.romanSize ?? 50, (v) => { S.romanSize = v; Store.saveSettings(); }, (v) => v + '% do quadrado'),
-    UI.slider('Deslocamento para baixo do centro', -40, 40, 1, S.romanDrop ?? S.hyphenDrop ?? 10, (v) => { S.romanDrop = v; Store.saveSettings(); }, (v) => (v === 0 ? 'no centro' : v < 0 ? Math.abs(v) + '% para cima' : v + '% para baixo'))));
-  /* v0.44: tópico rápido (bolinha vazia) */
-  sec.append(el('div', { class: 'field', style: { marginTop: '10px' } }, el('label', {}, 'Tópico rápido (bolinha)'),
-    UI.slider('Tamanho', 5, 90, 1, S.bulletSize ?? 30, (v) => { S.bulletSize = v; Store.saveSettings(); }, (v) => v + '% do quadrado'),
-    UI.slider('Deslocamento para baixo do centro', -40, 40, 1, S.bulletDrop ?? S.hyphenDrop ?? 10, (v) => { S.bulletDrop = v; Store.saveSettings(); }, (v) => (v === 0 ? 'no centro' : v < 0 ? Math.abs(v) + '% para cima' : v + '% para baixo'))));
+  /* v0.51: tamanhos dos atalhos rápidos (hífen, romano, bolinha…) ficam só na telinha do atalho → Ajustes */
+  sec.append(el('p', { class: 'muted', style: { marginTop: '10px' } }, 'Tamanho e posição dos atalhos rápidos (hífen, tópico, números, colchete): na telinha do atalho → Ajustes.'));
   return sec;
 }
 
