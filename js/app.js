@@ -3,10 +3,11 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.47.0',
+  version: '0.47.1',
   async init() {
     hydrateIcons();
     await Store.init();
+    { const M = Store.settings.penMap || {}; let ch = false; for (const k in M) if (M[k] === 'bullet') { M[k] = 'hyphenDirect'; ch = true; } if (ch) Store.saveSettings(); } /* v0.47.1: o botão "só tópico" virou hífen direto */
     Store.purgeOldTrash().catch((e) => console.warn('lixeira', e)); // apaga de vez o que está na lixeira há mais de 30 dias
     this.applyTheme();
     StableVH.init(); SafeArea.init(); SystemBar.init(); Editor.init(); Editor.initScroll(); Nav.init(); Palm.init(); ZoomGuard.init(); NoteClock.start(); StudyTimer.init().catch((e) => console.warn('cronômetro', e));

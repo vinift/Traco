@@ -1037,7 +1037,7 @@ const Editor = {
   /* --- Botões da caneta --- */
   penSigs(buttons) { const out = []; for (const bit of [2, 4, 8, 16, 32]) if (buttons & bit) out.push('pen:' + bit); return out; },
   penHoldTool(buttons) { const M = Store.settings.penMap || {}; for (const sg of this.penSigs(buttons)) { const a = M[sg]; if (a === 'eraser' || a === 'lasso' || a === 'highlighter') return a; } return null; },
-  penClickHeld(e) { const M = Store.settings.penMap || {}; return this.penSigs(e.buttons).some((sg) => ['undo', 'redo', 'toggle', 'read', 'hyphen', 'bullet'].includes(M[sg])); },
+  penClickHeld(e) { const M = Store.settings.penMap || {}; return this.penSigs(e.buttons).some((sg) => ['undo', 'redo', 'toggle', 'read', 'hyphen', 'hyphenDirect'].includes(M[sg])); },
   penButtons(e) {
     if (e.pointerType !== 'pen') return;
     const b = e.type === 'pointerup' ? e.buttons & ~1 : e.buttons & ~1;
@@ -1055,7 +1055,7 @@ const Editor = {
     else if (a === 'toggle') { this._lastSig = now; const t = this.tool === 'eraser' ? (this._prevTool || 'pen') : 'eraser'; if (t === 'eraser') this._prevTool = this.tool; UI.setTool(t, true); }
     else if (a === 'read') { this._lastSig = now; this.setReadOnly(!this.readOnly); }
     else if (a === 'hyphen') { this._lastSig = now; if (this._qk) this.closeQuick(); else this.openQuick(); } /* v0.45: telinha do atalho rápido (hífen / tópico / romano) */
-    else if (a === 'bullet') { this._lastSig = now; const nm = a === 'bullet' ? 'Tópico' : 'Hífen'; if (this._hyArm && this._hyArm.kind === a) { this._hyArm = null; toast(nm + ' cancelado', 800); } else { this._hyArm = { t: now, kind: a }; toast(nm + ': toque no quadrado com a caneta', 1400); } } /* v0.41; v0.44: tópico (bolinha) */
+    else if (a === 'hyphenDirect') { this._lastSig = now; if (this._hyArm && this._hyArm.kind === 'hyphen' && !this._hyArm.panel) { this._hyArm = null; toast('Hífen cancelado', 800); } else { if (this._qk) this.closeQuick(); this._hyArm = { t: now, kind: 'hyphen' }; toast('Hífen: toque no quadrado com a caneta', 1400); } } /* v0.47.1: hífen direto, sem telinha (antes 'bullet' = tópico) */
   },
   setReadOnly(v) {
     this.readOnly = v; this.commitText(); this.sel = null; $('#editor').classList.toggle('reading', v);

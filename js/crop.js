@@ -263,7 +263,7 @@ Object.assign(Editor, {
   quickEls(kind, c, n) {
     const o = this.quickOpt(), st = { ...Store.settings.tools.pen }, els = [], s = c.s || 40;
     if (Store.settings.quickColor) st.color = Store.settings.quickColor; /* v0.47: cor só do atalho (null = cor da caneta) */
-    const lw = st.width || 2;
+    const lw = st.width || 2, sc = Store.settings.quickSufColor || st.color; /* v0.47.1: cor só do sinal (ponto/hífen/parêntese) */
     if (kind === 'arrow') { /* v0.47: seta → centralizada no quadrado */
       const len = s * o.aL, cy = c.rows ? c.cy + s * o.aD : c.cy;
       return [{ id: uid(), type: 'shape', kind: 'arrow', x1: r2(c.cx - len / 2), y1: r2(cy), x2: r2(c.cx + len / 2), y2: r2(cy), color: st.color, width: lw, fill: null }];
@@ -272,7 +272,7 @@ Object.assign(Editor, {
       const d = s * o.xS, cy = c.rows ? c.cy + s * o.xD : c.cy;
       return [{ id: uid(), type: 'shape', kind: 'rect', x1: r2(c.cx - d / 2), y1: r2(cy - d / 2), x2: r2(c.cx + d / 2), y2: r2(cy + d / 2), color: st.color, width: lw, fill: null }];
     }
-    if (kind === 'num' || kind === 'alpha') return this.seqEls(kind, c, n, st, o);
+    if (kind === 'num' || kind === 'alpha') return this.seqEls(kind, c, n, st, o, sc);
     if (kind === 'hyphen') { /* v0.41: traço da caneta; lisa → 56·comprimento no ponto */
       const len = c.s ? c.s * o.hL : 56 * o.hL, cy = c.rows ? c.cy + c.s * o.hD : c.cy, cx = c.cx, h = len / 2;
       const e = { id: uid(), type: 'stroke', tool: 'pen', color: st.color, width: st.width, pen: st.type || 'ball', pts: [r2(cx - h), r2(cy), 0.5, r2(cx), r2(cy), 0.5, r2(cx + h), r2(cy), 0.5] };
@@ -296,9 +296,9 @@ Object.assign(Editor, {
     if (o.rSty === 'bar') { const pad = 0.04; line(-pad, 0, u + pad, 0); line(-pad, 1, u + pad, 1); }
     if (suf) {
       u += sGap;
-      if (suf === '.') { const r = Math.max(lw * 0.75, H * 0.06 * k), dx = X(u + sufW / 2), dy = Y(1) - r; els.push({ id: uid(), type: 'shape', kind: 'ellipse', x1: r2(dx - r), y1: r2(dy - r), x2: r2(dx + r), y2: r2(dy + r), color: st.color, width: lw, fill: st.color }); }
-      else if (suf === '-') line(u, 0.55, u + sufW, 0.55);
-      else if (suf === ')') { const hh = 0.5 * Math.min(1.25, 0.75 + 0.25 * k); els.push({ id: uid(), type: 'shape', kind: 'path', pts: [X(u), Y(0.5 - hh), X(u + sufW * 0.8), Y(0.5), X(u), Y(0.5 + hh)], rr: [0, r2(H * 0.9 * k), 0], color: st.color, width: lw, fill: null }); }
+      if (suf === '.') { const r = Math.max(lw * 0.75, H * 0.06 * k), dx = X(u + sufW / 2), dy = Y(1) - r; els.push({ id: uid(), type: 'shape', kind: 'ellipse', x1: r2(dx - r), y1: r2(dy - r), x2: r2(dx + r), y2: r2(dy + r), color: sc, width: lw, fill: sc }); }
+      else if (suf === '-') { line(u, 0.55, u + sufW, 0.55); els[els.length - 1].color = sc; }
+      else if (suf === ')') { const hh = 0.5 * Math.min(1.25, 0.75 + 0.25 * k); els.push({ id: uid(), type: 'shape', kind: 'path', pts: [X(u), Y(0.5 - hh), X(u + sufW * 0.8), Y(0.5), X(u), Y(0.5 + hh)], rr: [0, r2(H * 0.9 * k), 0], color: sc, width: lw, fill: null }); }
     }
     return els;
   },
@@ -346,7 +346,7 @@ Object.assign(Editor, {
     return { P: P.map((L) => L.map(([x, y]) => [x - x0, y])), w: x1 - x0 };
   },
   /* v0.47: números e letras em sequência — mesmo posicionamento do romano (centralizado; largo → começa na borda e cresce p/ direita) */
-  seqEls(kind, c, n, st, o) {
+  seqEls(kind, c, n, st, o, sc = st.color) {
     const s = c.s || 40, H = s * o.rH, gap = 0.14, txt = this.seqStr(kind, n || 1), suf = this.seqSuffix(kind), k = o.rSS, els = [], lw = st.width || 2;
     const gl = [...txt].map((ch) => this.strokeGlyph(ch)); let W = gl.reduce((a, g) => a + g.w, 0) + gap * (gl.length - 1);
     const sufW = suf === '.' ? 0.22 * k : suf === '-' ? 0.55 * k : suf === ')' ? 0.3 * k : 0, sGap = suf === ')' ? 0.16 : 0.22; if (suf) W += sGap + sufW;
@@ -357,9 +357,9 @@ Object.assign(Editor, {
     gl.forEach((g, i) => { for (const L of g.P) stroke(L.map(([x, y]) => [u + x, y])); u += g.w + (i < gl.length - 1 ? gap : 0); });
     if (suf) {
       u += sGap;
-      if (suf === '.') { const r = Math.max(lw * 0.75, H * 0.06 * k), dx = X(u + sufW / 2), dy = Y(1) - r; els.push({ id: uid(), type: 'shape', kind: 'ellipse', x1: r2(dx - r), y1: r2(dy - r), x2: r2(dx + r), y2: r2(dy + r), color: st.color, width: lw, fill: st.color }); }
-      else if (suf === '-') stroke([[u, 0.62], [u + sufW, 0.62]]);
-      else if (suf === ')') { const hh = 0.52 * Math.min(1.25, 0.8 + 0.2 * k); stroke(Array.from({ length: 15 }, (_, i) => { const a = -Math.PI / 2 + (Math.PI * i) / 14; return [u + sufW * 0.75 * Math.cos(a), 0.52 + hh * Math.sin(a)]; })); }
+      if (suf === '.') { const r = Math.max(lw * 0.75, H * 0.06 * k), dx = X(u + sufW / 2), dy = Y(1) - r; els.push({ id: uid(), type: 'shape', kind: 'ellipse', x1: r2(dx - r), y1: r2(dy - r), x2: r2(dx + r), y2: r2(dy + r), color: sc, width: lw, fill: sc }); }
+      else if (suf === '-') { stroke([[u, 0.62], [u + sufW, 0.62]]); els[els.length - 1].color = sc; }
+      else if (suf === ')') { const hh = 0.52 * Math.min(1.25, 0.8 + 0.2 * k); stroke(Array.from({ length: 15 }, (_, i) => { const a = -Math.PI / 2 + (Math.PI * i) / 14; return [u + sufW * 0.75 * Math.cos(a), 0.52 + hh * Math.sin(a)]; })); els[els.length - 1].color = sc; }
     }
     return els;
   },
@@ -413,7 +413,9 @@ Object.assign(Editor, {
       else if (k === 'bullet') adj.append(sl('Tamanho', 'bulletSize', 5, 90, 30, (v) => v + '%'), sl('Altura', 'bulletDrop', -40, 40, S.hyphenDrop ?? 10, pct));
       else if (k === 'arrow') adj.append(sl('Comprimento', 'arrowLen', 20, 160, 70, (v) => v + '%'), sl('Altura', 'arrowDrop', -40, 40, S.hyphenDrop ?? 10, pct));
       else if (k === 'box') adj.append(sl('Tamanho', 'boxSize', 15, 95, 55, (v) => v + '%'), sl('Altura', 'boxDrop', -40, 40, S.hyphenDrop ?? 10, pct));
-      else adj.append(sl('Tamanho', 'romanSize', 15, 95, 50, (v) => v + '%'), sl('Altura', 'romanDrop', -40, 40, S.hyphenDrop ?? 10, pct), k === 'roman' ? sl('Espaço entre letras', 'romanGap', 5, 80, 30, (v) => v + '%') : null, sl('Tamanho do sinal (ponto, hífen, parêntese)', 'romanSufSize', 30, 250, 100, (v) => v + '%'));
+      if (this.SEQ[k]) { const sq = S.quickSufColor || null; adj.append(el('div', { class: 'qk-row qk-cols' }, el('span', {}, 'Cor do sinal'), el('button', { class: 'qk-chip' + (!sq ? ' on' : ''), title: 'Igual ao número', onclick: () => { S.quickSufColor = null; Store.saveSettings(); draw(); } }, 'igual'),
+        ...(UI.groupColors ? UI.groupColors() : []).slice(0, 9).map((cc) => el('button', { class: 'qk-dot' + (sq && sq.toLowerCase() === cc.toLowerCase() ? ' on' : ''), title: cc, style: { background: cc }, onclick: () => { S.quickSufColor = cc; Store.saveSettings(); draw(); } })))); }
+      if (this.SEQ[k]) adj.append(sl('Tamanho', 'romanSize', 15, 95, 50, (v) => v + '%'), sl('Altura', 'romanDrop', -40, 40, S.hyphenDrop ?? 10, pct), k === 'roman' ? sl('Espaço entre letras', 'romanGap', 5, 80, 30, (v) => v + '%') : null, sl('Tamanho do sinal (ponto, hífen, parêntese)', 'romanSufSize', 30, 250, 100, (v) => v + '%'));
       kids.push(el('button', { class: 'qk-adjbtn' + (adjOpen ? ' open' : ''), onclick: () => { S.quickAdj = !adjOpen; Store.saveSettings(); draw(); } }, el('span', {}, 'Ajustes'), el('b', {}, '▾')), adjOpen ? adj : null,
         el('small', { class: 'qk-hint' + (pin ? ' pin' : '') }, pin ? 'Fixada: cada toque da caneta coloca um. Toque em ✕ para voltar a escrever.' : 'Toque no quadrado com a caneta'));
       box.innerHTML = ''; box.append(...kids.filter(Boolean)); preview();

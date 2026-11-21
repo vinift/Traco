@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.47.1
+
+- O botão da caneta que fazia **só o tópico** agora faz o **hífen direto**, como era antes: aperte e toque no quadrado, sem telinha. Quem já tinha um botão com o tópico passa a ter o hífen direto sozinho. O tópico continua na telinha do atalho rápido e no toque duplo.
+- **Cor só do sinal:** em Ajustes de Número, Letra e Romano, "Cor do sinal" deixa o ponto, o hífen ou o parêntese de outra cor ("igual" = mesma cor do número).
+
 ## Novidades da v0.47.0
 
 - **Mais atalhos na telinha:**
