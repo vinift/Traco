@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '0.47.6',
+  version: '0.48.0',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -127,7 +127,7 @@ const App = {
       '-',
       ...ZOOM_STEPS.filter((z) => { const [a, b] = Editor.zoomLimits(); return z >= a - 1e-6 && z <= b + 1e-6; }).map((z) => ({ label: (Math.abs(Editor.cam.z - z) < 0.005 ? '✓ ' : '') + Math.round(z * 100) + '%', icon: 'search', run: () => Editor.zoomTo(z) })),
     ]));
-    on(['hudPage'], () => pagesPanel());
+    on(['hudPage'], (e) => GoPage.open(e.currentTarget)); /* v0.48: ir para página rápido (o painel de páginas fica em "Todas as páginas…") */
     window.addEventListener('pagehide', () => { if (Editor.note) Editor.saveNow(); });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && Editor.note) Editor.saveNow(); });
   },

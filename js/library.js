@@ -557,7 +557,7 @@ async function importAll() {
 }
 
 /* ===== Botões da caneta: mapear como em jogos ("pressione o botão") ===== */
-const PEN_ACTIONS = [['hyphen', 'Atalho rápido: hífen, tópico ou número romano (aperte, escolha e toque no quadrado)', 'clique'], ['hyphenDirect', 'Hífen direto no quadrado (aperte e toque, sem telinha)', 'clique'], ['undo', 'Desfazer', 'clique'], ['redo', 'Refazer', 'clique'], ['toggle', 'Alternar caneta ↔ borracha', 'clique'], ['read', 'Modo leitura liga/desliga', 'clique'], ['eraser', 'Borracha enquanto segura', 'segurar'], ['lasso', 'Laço enquanto segura', 'segurar'], ['highlighter', 'Marca-texto enquanto segura', 'segurar']];
+const PEN_ACTIONS = [['hyphen', 'Atalho rápido: hífen, tópico ou número romano (aperte, escolha e toque no quadrado)', 'clique'], ['hyphenDirect', 'Hífen direto no quadrado (aperte e toque, sem telinha)', 'clique'], ['gotoPage', 'Ir para página (teclado numérico)', 'clique'], ['undo', 'Desfazer', 'clique'], ['redo', 'Refazer', 'clique'], ['toggle', 'Alternar caneta ↔ borracha', 'clique'], ['read', 'Modo leitura liga/desliga', 'clique'], ['eraser', 'Borracha enquanto segura', 'segurar'], ['lasso', 'Laço enquanto segura', 'segurar'], ['highlighter', 'Marca-texto enquanto segura', 'segurar']];
 function sigLabel(sg) {
   return { 'pen:2': 'Botão lateral 1', 'pen:4': 'Botão lateral 2', 'pen:8': 'Botão extra', 'pen:16': 'Botão extra 2', 'pen:32': 'Ponta/botão borracha', 'pen:ctx': 'Clique do botão (menu)' }[sg] || (sg.startsWith('key:') ? 'Tecla ' + sg.slice(4) : sg);
 }

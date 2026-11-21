@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.48.0
+
+- **Ir para página rápido:** toque no contador de páginas do topo (ex.: "1 / 25") e aparece um teclado numérico grande.
+  - Digite o número: se ele não pode mais crescer (ex.: "7" numa nota de 25 páginas), vai **sozinho**; senão toque em **Ir**.
+  - Botões de **primeira**, **anterior**, **próxima** e **última**, e as **páginas marcadas** para tocar direto.
+  - "Todas as páginas…" abre a tela de páginas de antes.
+  - Também em ⋯ → "Vá para página" e como ação de um botão da caneta ("Ir para página"). Num teclado físico, os números e o Enter também funcionam.
+
 ## Novidades da v0.47.6
 
 - **Ajustes da telinha mais precisos:** no lugar das barras deslizantes, cada ajuste tem botões **− / +** que mudam de 1 em 1 (segurando, repetem), o **número pode ser digitado** e embaixo aparece o que ele significa (ex.: "10% p/ baixo").

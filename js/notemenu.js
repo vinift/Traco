@@ -145,7 +145,7 @@ const NoteMenu = {
       el('div', { class: 'nm-list' },
         item('folder', 'Mover para', async () => { const d = await Library.folderPicker('Mover nota', new Set(), note.folderId); if (d === undefined) return; note.folderId = d; Editor.markChanged(); toast('Nota movida', 1200); }, folder || 'Início'),
         note.mode === 'infinite' ? item('home', 'Voltar ao centro', () => Editor.goHome(), 'volta ao ponto onde a tela começa') : null,
-        note.mode !== 'infinite' ? item('pages', 'Vá para página', async () => { const v = await askText('Ir para a página (1–' + note.pages.length + ')', String(Editor.currentPageIndex() + 1)); const k = parseInt(v, 10); if (k >= 1 && k <= note.pages.length) Editor.goToPage(k - 1); }, 'página ' + (Editor.currentPageIndex() + 1) + ' de ' + note.pages.length) : null,
+        note.mode !== 'infinite' ? item('pages', 'Vá para página', () => GoPage.open(anchor), 'página ' + (Editor.currentPageIndex() + 1) + ' de ' + note.pages.length) : null,
         item('list', 'Sumário', () => Outline.open(anchor), 'marcadores e índice do PDF'),
         item('grid', 'Alterar modelo', () => templateModal()),
         item('search', 'Zoom', () => zoomMenu(anchor), Math.round(Editor.cam.z * 100) + '%'),
@@ -170,3 +170,33 @@ function noteDetails(note) {
   const row = (a, b) => el('div', { class: 'nm-det' }, el('span', {}, a), el('b', {}, b));
   openModal({ title: 'Detalhes', body: el('div', {}, row('Título', note.title || '—'), row('Páginas', String(note.pages.length)), row('Itens (traços, textos…)', String(els)), row('PDFs importados', String(new Set(note.pages.filter((p) => p.pdf).map((p) => p.pdf.blobId)).size)), row('Criada', dt(note.created)), row('Modificada', dt(note.updated))), buttons: [{ label: 'Fechar', cls: 'primary', value: true }] });
 }
+
+/* ===== v0.48: ir para página rápido =====
+   Toque no contador "1 / N" do topo (ou ⋯ → Vá para página, ou botão da caneta 'gotoPage'): teclado numérico grande.
+   Vai sozinho quando o número digitado não pode mais crescer (ex.: "5" numa nota de 12 páginas); senão toque em Ir (ou Enter).
+   Também: primeira / anterior / próxima / última, páginas marcadas e "Todas as páginas" (o painel de antes). */
+const GoPage = {
+  open(anchor) {
+    const note = Editor.note; if (!note || note.mode === 'infinite') return toast('Notas em tela infinita não têm páginas', 1600);
+    const N = note.pages.length, cur = Editor.currentPageIndex() + 1; let typed = '';
+    const box = el('div', { class: 'gp-pop' }), disp = el('div', { class: 'gp-disp' }), hint = el('small', { class: 'gp-hint' });
+    const close = () => { removeEventListener('keydown', onKey, true); closePop(); };
+    const go = (k) => { k = clamp(k, 1, N); close(); Editor.goToPage(k - 1); toast('Página ' + k + ' de ' + N, 900); };
+    const show = () => { disp.textContent = typed || String(cur); disp.classList.toggle('ph', !typed); const k = +typed; hint.textContent = typed ? (k >= 1 && k <= N ? (k * 10 <= N ? 'toque em Ir ou continue digitando' : '') : 'não existe (1–' + N + ')') : 'digite o número · ' + N + (N === 1 ? ' página' : ' páginas'); };
+    const digit = (d) => { if (typed.length >= String(N).length && typed) return; typed = (typed + d).replace(/^0+/, ''); show(); const k = +typed; if (k >= 1 && k <= N && k * 10 > N) setTimeout(() => go(k), 120); };
+    const back = () => { typed = typed.slice(0, -1); show(); };
+    const ok = () => { const k = +typed; if (k >= 1 && k <= N) go(k); else if (!typed) close(); };
+    const key = (lb, fn, cls = '') => el('button', { class: 'gp-key ' + cls, onclick: fn }, lb);
+    const pad = el('div', { class: 'gp-pad' }, ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => key(String(d), () => digit(String(d)))), key('⌫', back, 'gp-fn'), key('0', () => digit('0')), key('Ir', ok, 'gp-ok'));
+    const nav = el('div', { class: 'gp-nav' }, key('⇤', () => go(1), 'gp-fn'), key('‹', () => go(cur - 1), 'gp-fn'), key('›', () => go(cur + 1), 'gp-fn'), key('⇥', () => go(N), 'gp-fn'));
+    nav.children[0].title = 'Primeira'; nav.children[1].title = 'Anterior'; nav.children[2].title = 'Próxima'; nav.children[3].title = 'Última';
+    const marks = note.pages.map((p, i) => (p.bookmark ? i + 1 : 0)).filter(Boolean);
+    box.append(el('div', { class: 'gp-head' }, el('b', {}, 'Ir para a página'), el('span', {}, 'atual: ' + cur + ' de ' + N)), disp, hint, pad, nav,
+      marks.length ? el('div', { class: 'gp-marks' }, el('small', {}, 'Marcadas'), ...marks.slice(0, 24).map((k) => el('button', { class: 'gp-mark' + (k === cur ? ' on' : ''), onclick: () => go(k) }, String(k)))) : null,
+      el('button', { class: 'btn ghost gp-all', onclick: () => { close(); pagesPanel(); } }, 'Todas as páginas…'));
+    const onKey = (e) => { if (!box.isConnected) return removeEventListener('keydown', onKey, true); if (/^[0-9]$/.test(e.key)) digit(e.key); else if (e.key === 'Backspace') back(); else if (e.key === 'Enter') ok(); else if (e.key === 'Escape') close(); else return; e.preventDefault(); e.stopPropagation(); };
+    addEventListener('keydown', onKey, true);
+    let a = anchor || $('#hudPage'); const r = a && a.getBoundingClientRect(); if (!r || !r.width) a = { getBoundingClientRect: () => ({ left: innerWidth / 2 - 1, right: innerWidth / 2 + 1, top: 60, bottom: 62, width: 2, height: 2 }) }; /* escondido (escrevendo/tela cheia): abre no alto, no meio */
+    show(); openPop(a, box);
+  },
+};

@@ -319,6 +319,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v0.47.6 — telinha do atalho: `sl()` virou linha `.qk-field` (− / `input.qk-val` digitável / +, passo 1, segurar repete a cada 70 ms depois de 420 ms, `.qk-desc` com o texto do `fmt`); as chaves usadas vão para `qkKeys`. `presetsRow(k, draw)`: P/M/G de `QP[k]` (só a chave principal: hyphenLen 18/25/40, bulletSize 20/30/45, arrowLen 50/70/100, boxSize 40/55/75, romanSize 35/50/70), "Padrão" apaga as `qkKeys` de `S`, predefinições do usuário em `S.quickPresets[k]` [{name, v}] (até 8, ✕ apaga, "+ Salvar" com `askText`). Teste: + → 51, −2 → 49, segurar + 1 s → 58, digitar 37, G → 70, salvar "Caderno", Padrão → apagado, Caderno → 70 com os 4 valores do romano.
 
+- v0.48.0 — ir para página rápido: `GoPage.open(anchor)` (fim de notemenu.js; `.gp-pop` via `openPop`): teclado 0–9/⌫/Ir, vai sozinho quando k ≤ N e k·10 > N (120 ms), Enter/Backspace/Esc/dígitos do teclado físico (ouvinte em captura, removido ao fechar), ⇤ ‹ › ⇥, chips das páginas com `bookmark`, "Todas as páginas…" → `pagesPanel()`. `#hudPage` agora abre o `GoPage` (antes `pagesPanel`); "Vá para página" do `NoteMenu` também (antes `askText`); ação de botão 'gotoPage' em `PEN_ACTIONS`/`penClickHeld`/`firePenSig` (abre no alto, no meio, se o `#hudPage` estiver escondido). Teste (25 páginas): 7 → 7 na hora; 1 espera, 19 → 19; 2 + Ir → 2; teclado "23" → 23; ⇤ → 1; ⇥ → 25; marcada 18 → 18; Todas as páginas abre o PageManager.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).
