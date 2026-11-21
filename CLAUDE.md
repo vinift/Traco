@@ -311,6 +311,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v0.47.2 — colchete por toque duplo em qualquer atalho: `quickPlace` marca todas as peças com `e.qg` (id do grupo); `bracketChain` ganhou `under(x1, x2, y1, y2, e)` (mesma conta do colchete do hífen da v0.41.4–6, com `top ≥ fundo + 0,12·s` e `end ≥ top + 0,6·s` para atalhos altos) e, antes do teste do hífen desenhado à mão, procura um elemento com `qg` na área tocada (+18 px de tela) e junta as peças do mesmo `qg` a até 3 quadrados (cópias coladas longe têm o mesmo `qg`). Atalhos colocados antes da v0.47.2 não têm `qg` (só o hífen continua funcionando por forma). Teste (grade 40): hífen, tópico, I., 1., a), seta e caixa → 7 colchetes de y 169 a 224, ponta até o fim de cada atalho (seta 660→685), ferramenta 'pen'.
 
+- v0.47.3 — colchetes do toque duplo (`bracketChain`: continuação de colchete e `under` de atalho/hífen) com a cor de `tools.pen.color` (antes `e.color` do item tocado). Continuação mantém a espessura do colchete tocado; `under` usa a espessura da caneta (v0.41.5). Teste: atalhos com `quickColor` #dc2626 e caneta #2563eb → 7 colchetes #2563eb.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

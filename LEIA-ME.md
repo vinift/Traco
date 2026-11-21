@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.47.3
+
+- Os colchetes criados pelo toque duplo da caneta (embaixo de um atalho, de um hífen ou continuando outro colchete) agora saem com a **cor da caneta selecionada**, e não com a cor do que foi tocado.
+
 ## Novidades da v0.47.2
 
 - **Toque duplo em qualquer atalho rápido cria o colchete embaixo dele**, como já acontecia com o hífen: número, letra, romano, tópico, seta e caixa. O colchete sai no meio do atalho, com a ponta até o fim dele (por exemplo, até o ponto do "1."), com a espessura da caneta selecionada e sem trocar de ferramenta. Vale para os atalhos colocados a partir desta versão.

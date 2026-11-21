@@ -217,7 +217,7 @@ Object.assign(Editor, {
       const b = elBBox(e); if (l.x < b.x - m || l.x > b.x + b.w + m || l.y < b.y - m || l.y > b.y + b.h + m) continue;
       const k = bracketBottom(e); if (!k) continue;
       const rg = this.ruledFor(page), step = rg && rg.s > 0 ? 2 * rg.s : Math.max(20, k.len), y2 = k.y + step;
-      const n = { id: uid(), type: 'shape', kind: 'path', pts: [k.x, k.y - k.r, k.x, y2, k.x + k.tip, y2].map(r2), rr: [0, r2(k.r), 0], color: e.color, width: e.width, fill: null };
+      const n = { id: uid(), type: 'shape', kind: 'path', pts: [k.x, k.y - k.r, k.x, y2, k.x + k.tip, y2].map(r2), rr: [0, r2(k.r), 0], color: (Store.settings.tools.pen || {}).color || e.color, width: e.width, fill: null }; /* v0.47.3: cor da caneta selecionada */
       if (e.dash) n.dash = e.dash; if (e.opacity != null) n.opacity = e.opacity;
       this.recAdd(page, n); this.opCommit(); toast('Colchete continuado', 900); return true;
     }
@@ -229,7 +229,7 @@ Object.assign(Editor, {
     const under = (x1, x2, y1, y2, e) => {
       const s = rg && rg.s > 0 ? rg.s : (x2 - x1) * 4, hy = (y1 + y2) / 2, cx = (x1 + x2) / 2, o = rg && rg.s > 0 ? rg.o : hy - s * 0.6, k = Math.floor((hy - o) / s);
       const S = Store.settings, kE = clamp((S.bracketDrop ?? S.hyphenDrop ?? 10) / 100, -0.45, 0.45), top = Math.max(o + (k + 1) * s + s * 0.22, y2 + s * 0.12), end = Math.max(o + (k + 2.5) * s + s * kE, top + s * 0.6), tip = x2 - cx, r = Math.min(s * 0.18, tip * 0.9);
-      const n = { id: uid(), type: 'shape', kind: 'path', pts: [cx, top, cx, end, x2, end].map(r2), rr: [0, r2(r), 0], color: e.color, width: (Store.settings.tools.pen || {}).width || e.width, fill: null };
+      const n = { id: uid(), type: 'shape', kind: 'path', pts: [cx, top, cx, end, x2, end].map(r2), rr: [0, r2(r), 0], color: (Store.settings.tools.pen || {}).color || e.color, width: (Store.settings.tools.pen || {}).width || e.width, fill: null }; /* v0.47.3: cor e espessura da caneta selecionada */
       if (e.dash && e.dash !== 'solid') n.dash = e.dash;
       this.recAdd(page, n); this.opCommit(); toast('Colchete', 800); return true;
     };
