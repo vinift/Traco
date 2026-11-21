@@ -271,7 +271,7 @@ Object.assign(Editor, {
   quickOpt() {
     const S = Store.settings, pc = (v, d, a, b) => clamp((v ?? d) / 100, a, b), hd = S.hyphenDrop ?? 10;
     return { hL: pc(S.hyphenLen, 25, 0.05, 0.95), hD: pc(S.hyphenDrop, 10, -0.45, 0.45), bS: pc(S.bulletSize, 30, 0.05, 0.95), bD: pc(S.bulletDrop, hd, -0.45, 0.45),
-      rH: pc(S.romanSize, 50, 0.15, 0.95), rD: pc(S.romanDrop, hd, -0.45, 0.45), rSuf: S.romanSuffix ?? '.', rSS: pc(S.romanSufSize, 100, 0.3, 2.5), rGap: pc(S.romanGap, 30, 0.05, 0.8), rSty: S.romanStyle || 'serif',
+      rH: pc(S.romanSize, 50, 0.15, 0.95), rD: pc(S.romanDrop, hd, -0.45, 0.45), rSuf: S.romanSuffix ?? '.', rSS: pc(S.romanSufSize, 100, 0.1, 2.5), rGap: pc(S.romanGap, 30, 0.05, 0.8), rSty: S.romanStyle || 'serif',
       aL: pc(S.arrowLen, 70, 0.2, 1.6), aD: pc(S.arrowDrop, hd, -0.45, 0.45), xS: pc(S.boxSize, 55, 0.15, 0.95), xD: pc(S.boxDrop, hd, -0.45, 0.45) };
   },
   quickEls(kind, c, n) {
@@ -302,7 +302,7 @@ Object.assign(Editor, {
     const gl = [...txt].map((ch) => this.romanGlyph(ch)); let W = gl.reduce((a, g) => a + g.w, 0) + gap * (gl.length - 1);
     const sufW = suf === '.' ? 0.22 * k : suf === '-' ? 0.55 * k : suf === ')' ? 0.32 * k : 0, sGap = 0.3; if (suf) W += sGap + sufW;
     const cy = (c.rows ? c.cy + s * o.rD : c.cy), left = c.left != null ? c.left : c.cx - s / 2;
-    const Wpx = W * H, x0 = Wpx <= s * 0.92 ? c.cx - Wpx / 2 : left + s * 0.04, top = cy - H / 2, X = (u) => r2(x0 + u * H), Y = (v) => r2(top + v * H);
+    const Wpx = W * H, x0 = Wpx <= s * 0.92 && Store.settings.seqAlign !== 'left' ? c.cx - Wpx / 2 : left + s * 0.04 /* v0.47.4: S.seqAlign 'left' = sempre a partir da borda esquerda do quadrado */, top = cy - H / 2, X = (u) => r2(x0 + u * H), Y = (v) => r2(top + v * H);
     const line = (a, b, cc, d) => els.push({ id: uid(), type: 'shape', kind: 'line', x1: X(a), y1: Y(b), x2: X(cc), y2: Y(d), color: st.color, width: lw, fill: null });
     let u = 0;
     /* v0.46: estilo — 'serif' (serifa em cada letra), 'bar' (uma barra só em cima e embaixo do número inteiro), 'sans' (sem serifa) */
@@ -310,7 +310,7 @@ Object.assign(Editor, {
     if (o.rSty === 'bar') { const pad = 0.04; line(-pad, 0, u + pad, 0); line(-pad, 1, u + pad, 1); }
     if (suf) {
       u += sGap;
-      if (suf === '.') { const r = Math.max(lw * 0.75, H * 0.06 * k), dx = X(u + sufW / 2), dy = Y(1) - r; els.push({ id: uid(), type: 'shape', kind: 'ellipse', x1: r2(dx - r), y1: r2(dy - r), x2: r2(dx + r), y2: r2(dy + r), color: sc, width: lw, fill: sc }); }
+      if (suf === '.') { /* v0.47.4: sem piso pela espessura da caneta — o contorno acompanha o raio, senão o ponto não diminuía */ const D = Math.max(0.5, (2 * Math.max(lw * 0.75, H * 0.06) + lw) * k), R = D / 2, ow = Math.min(lw, D * 0.4), dx = X(u + sufW / 2), dy = Y(1) - R; /* D = diâmetro visível; em 100% igual ao de antes */ els.push({ id: uid(), type: 'shape', kind: 'ellipse', x1: r2(dx - R + ow / 2), y1: r2(dy - R + ow / 2), x2: r2(dx + R - ow / 2), y2: r2(dy + R - ow / 2), color: sc, width: r2(ow), fill: sc }); }
       else if (suf === '-') { line(u, 0.55, u + sufW, 0.55); els[els.length - 1].color = sc; }
       else if (suf === ')') { const hh = 0.5 * Math.min(1.25, 0.75 + 0.25 * k); els.push({ id: uid(), type: 'shape', kind: 'path', pts: [X(u), Y(0.5 - hh), X(u + sufW * 0.8), Y(0.5), X(u), Y(0.5 + hh)], rr: [0, r2(H * 0.9 * k), 0], color: sc, width: lw, fill: null }); }
     }
@@ -365,13 +365,13 @@ Object.assign(Editor, {
     const gl = [...txt].map((ch) => this.strokeGlyph(ch)); let W = gl.reduce((a, g) => a + g.w, 0) + gap * (gl.length - 1);
     const sufW = suf === '.' ? 0.22 * k : suf === '-' ? 0.55 * k : suf === ')' ? 0.3 * k : 0, sGap = suf === ')' ? 0.16 : 0.22; if (suf) W += sGap + sufW;
     const cy = c.rows ? c.cy + s * o.rD : c.cy, left = c.left != null ? c.left : c.cx - s / 2;
-    const Wpx = W * H, x0 = Wpx <= s * 0.92 ? c.cx - Wpx / 2 : left + s * 0.04, top = cy - H / 2, X = (u) => r2(x0 + u * H), Y = (v) => r2(top + v * H);
+    const Wpx = W * H, x0 = Wpx <= s * 0.92 && Store.settings.seqAlign !== 'left' ? c.cx - Wpx / 2 : left + s * 0.04 /* v0.47.4: S.seqAlign 'left' = sempre a partir da borda esquerda do quadrado */, top = cy - H / 2, X = (u) => r2(x0 + u * H), Y = (v) => r2(top + v * H);
     const stroke = (pts) => { const e = { id: uid(), type: 'stroke', tool: 'pen', color: st.color, width: lw, pen: st.type === 'calli' ? 'ball' : st.type || 'ball', pts: [] }; for (const [x, y] of pts) e.pts.push(X(x), Y(y), 0.5); els.push(e); };
     let u = 0;
     gl.forEach((g, i) => { for (const L of g.P) stroke(L.map(([x, y]) => [u + x, y])); u += g.w + (i < gl.length - 1 ? gap : 0); });
     if (suf) {
       u += sGap;
-      if (suf === '.') { const r = Math.max(lw * 0.75, H * 0.06 * k), dx = X(u + sufW / 2), dy = Y(1) - r; els.push({ id: uid(), type: 'shape', kind: 'ellipse', x1: r2(dx - r), y1: r2(dy - r), x2: r2(dx + r), y2: r2(dy + r), color: sc, width: lw, fill: sc }); }
+      if (suf === '.') { /* v0.47.4: sem piso pela espessura da caneta — o contorno acompanha o raio, senão o ponto não diminuía */ const D = Math.max(0.5, (2 * Math.max(lw * 0.75, H * 0.06) + lw) * k), R = D / 2, ow = Math.min(lw, D * 0.4), dx = X(u + sufW / 2), dy = Y(1) - R; /* D = diâmetro visível; em 100% igual ao de antes */ els.push({ id: uid(), type: 'shape', kind: 'ellipse', x1: r2(dx - R + ow / 2), y1: r2(dy - R + ow / 2), x2: r2(dx + R - ow / 2), y2: r2(dy + R - ow / 2), color: sc, width: r2(ow), fill: sc }); }
       else if (suf === '-') { stroke([[u, 0.62], [u + sufW, 0.62]]); els[els.length - 1].color = sc; }
       else if (suf === ')') { const hh = 0.52 * Math.min(1.25, 0.8 + 0.2 * k); stroke(Array.from({ length: 15 }, (_, i) => { const a = -Math.PI / 2 + (Math.PI * i) / 14; return [u + sufW * 0.75 * Math.cos(a), 0.52 + hh * Math.sin(a)]; })); els[els.length - 1].color = sc; }
     }
@@ -416,6 +416,7 @@ Object.assign(Editor, {
         const n = this.seqNext(k), max = this.SEQ[k][1], suf = this.seqSuffix(k), ex = this.seqStr(k, 1);
         kids.push(el('div', { class: 'qk-row qk-num' }, el('span', {}, 'Próximo'), chip('−', false, () => { this.setSeqNext(k, n - 1); draw(); }), el('b', { class: 'qk-rn' }, this.seqStr(k, n)), chip('+', false, () => { this.setSeqNext(k, Math.min(max, n + 1)); draw(); }), chip('Recomeçar', false, () => { this.setSeqNext(k, 1); draw(); }, 'Volta para o primeiro')),
           el('div', { class: 'qk-row' }, el('span', {}, 'Depois'), ...[['', 'nada'], ['.', ex + '.'], ['-', ex + ' -'], [')', ex + ')']].map(([v, lb]) => chip(lb, suf === v, () => { S[this.SEQ[k][2]] = v; Store.saveSettings(); draw(); }))));
+        kids.push(el('div', { class: 'qk-row' }, el('span', {}, 'Posição'), ...[['center', 'Centralizado', 'No meio do quadrado (largo demais → começa na borda e cresce p/ direita)'], ['left', 'À esquerda', 'Começa na borda esquerda do quadrado']].map(([v, lb, t]) => chip(lb, (S.seqAlign || 'center') === v, () => { S.seqAlign = v; Store.saveSettings(); draw(); }, t))));
         if (k === 'roman') kids.push(el('div', { class: 'qk-row' }, el('span', {}, 'Estilo'), ...[['serif', 'Serifado', 'Serifa em cada letra'], ['bar', 'Serifa única', 'Uma barra em cima e outra embaixo do número inteiro'], ['sans', 'Sem serifa', 'Só os traços']].map(([v, lb, t]) => chip(lb, (S.romanStyle || 'serif') === v, () => { S.romanStyle = v; Store.saveSettings(); draw(); }, t))));
       }
       /* v0.47: cor só do atalho */
@@ -429,7 +430,7 @@ Object.assign(Editor, {
       else if (k === 'box') adj.append(sl('Tamanho', 'boxSize', 15, 95, 55, (v) => v + '%'), sl('Altura', 'boxDrop', -40, 40, S.hyphenDrop ?? 10, pct));
       if (this.SEQ[k]) { const sq = S.quickSufColor || null; adj.append(el('div', { class: 'qk-row qk-cols' }, el('span', {}, 'Cor do sinal'), el('button', { class: 'qk-chip' + (!sq ? ' on' : ''), title: 'Igual ao número', onclick: () => { S.quickSufColor = null; Store.saveSettings(); draw(); } }, 'igual'),
         ...(UI.groupColors ? UI.groupColors() : []).slice(0, 9).map((cc) => el('button', { class: 'qk-dot' + (sq && sq.toLowerCase() === cc.toLowerCase() ? ' on' : ''), title: cc, style: { background: cc }, onclick: () => { S.quickSufColor = cc; Store.saveSettings(); draw(); } })))); }
-      if (this.SEQ[k]) adj.append(sl('Tamanho', 'romanSize', 15, 95, 50, (v) => v + '%'), sl('Altura', 'romanDrop', -40, 40, S.hyphenDrop ?? 10, pct), k === 'roman' ? sl('Espaço entre letras', 'romanGap', 5, 80, 30, (v) => v + '%') : null, sl('Tamanho do sinal (ponto, hífen, parêntese)', 'romanSufSize', 30, 250, 100, (v) => v + '%'));
+      if (this.SEQ[k]) adj.append(sl('Tamanho', 'romanSize', 15, 95, 50, (v) => v + '%'), sl('Altura', 'romanDrop', -40, 40, S.hyphenDrop ?? 10, pct), k === 'roman' ? sl('Espaço entre letras', 'romanGap', 5, 80, 30, (v) => v + '%') : null, sl('Tamanho do sinal (ponto, hífen, parêntese)', 'romanSufSize', 10, 250, 100, (v) => v + '%'));
       kids.push(el('button', { class: 'qk-adjbtn' + (adjOpen ? ' open' : ''), onclick: () => { S.quickAdj = !adjOpen; Store.saveSettings(); draw(); } }, el('span', {}, 'Ajustes'), el('b', {}, '▾')), adjOpen ? adj : null,
         el('small', { class: 'qk-hint' + (pin ? ' pin' : '') }, pin ? 'Fixada: cada toque da caneta coloca um. Toque em ✕ para voltar a escrever.' : 'Toque no quadrado com a caneta'));
       box.innerHTML = ''; box.append(...kids.filter(Boolean)); preview();
