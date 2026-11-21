@@ -225,17 +225,31 @@ Object.assign(Editor, {
        linha do hífen (topo do quadrado seguinte + 22%), descendo até o CENTRO do quadrado duas linhas abaixo; ponta até o fim do hífen,
        curva de 18% do quadrado. Hífen = traço/linha curto quase horizontal (≤ 1,3 quadrado; altura ≤ max(1,5·espessura, 25% do comprimento)) */
     const rg = this.ruledFor(page);
+    /* colchete embaixo de [x1, x2] × [y1, y2] (reta no meio, ponta até x2) */
+    const under = (x1, x2, y1, y2, e) => {
+      const s = rg && rg.s > 0 ? rg.s : (x2 - x1) * 4, hy = (y1 + y2) / 2, cx = (x1 + x2) / 2, o = rg && rg.s > 0 ? rg.o : hy - s * 0.6, k = Math.floor((hy - o) / s);
+      const S = Store.settings, kE = clamp((S.bracketDrop ?? S.hyphenDrop ?? 10) / 100, -0.45, 0.45), top = Math.max(o + (k + 1) * s + s * 0.22, y2 + s * 0.12), end = Math.max(o + (k + 2.5) * s + s * kE, top + s * 0.6), tip = x2 - cx, r = Math.min(s * 0.18, tip * 0.9);
+      const n = { id: uid(), type: 'shape', kind: 'path', pts: [cx, top, cx, end, x2, end].map(r2), rr: [0, r2(r), 0], color: e.color, width: (Store.settings.tools.pen || {}).width || e.width, fill: null };
+      if (e.dash && e.dash !== 'solid') n.dash = e.dash;
+      this.recAdd(page, n); this.opCommit(); toast('Colchete', 800); return true;
+    };
+    /* v0.47.2: toque duplo em QUALQUER atalho rápido (número, letra, romano, tópico, seta, caixa — marcados com `qg` no quickPlace) →
+       colchete embaixo do atalho inteiro (todas as peças do grupo), como no hífen */
+    for (let i = page.elements.length - 1; i >= 0; i--) {
+      const e = page.elements[i]; if (!e.qg || e.lock) continue;
+      const b = elBBox(e); if (l.x < b.x - m || l.x > b.x + b.w + m || l.y < b.y - m || l.y > b.y + b.h + m) continue;
+      let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity, first = null;
+      const near = (rg && rg.s > 0 ? rg.s : 40) * 3; /* cópias coladas longe têm o mesmo qg: só as peças perto da tocada */
+      for (const q of page.elements) if (q.qg === e.qg) { const bb = elBBox(q); if (Math.abs(bb.x + bb.w / 2 - (b.x + b.w / 2)) > near || Math.abs(bb.y + bb.h / 2 - (b.y + b.h / 2)) > near) continue; x1 = Math.min(x1, bb.x); y1 = Math.min(y1, bb.y); x2 = Math.max(x2, bb.x + bb.w); y2 = Math.max(y2, bb.y + bb.h); first = first || q; }
+      return under(x1, x2, y1, y2, first);
+    }
     for (let i = page.elements.length - 1; i >= 0; i--) {
       const e = page.elements[i]; if (e.lock || !(e.type === 'stroke' && e.tool === 'pen') && !(e.type === 'shape' && e.kind === 'line')) continue;
       let x1, x2, y1, y2; if (e.type === 'shape') { x1 = Math.min(e.x1, e.x2); x2 = Math.max(e.x1, e.x2); y1 = Math.min(e.y1, e.y2); y2 = Math.max(e.y1, e.y2); }
       else { x1 = y1 = Infinity; x2 = y2 = -Infinity; for (let k = 0; k < e.pts.length; k += 3) { x1 = Math.min(x1, e.pts[k]); x2 = Math.max(x2, e.pts[k]); y1 = Math.min(y1, e.pts[k + 1]); y2 = Math.max(y2, e.pts[k + 1]); } }
       const L = x2 - x1, H = y2 - y1, s = rg && rg.s > 0 ? rg.s : L * 4; if (L < 2 || L > s * 1.3 || H > Math.max((e.width || 1) * 1.5, L * 0.25)) continue;
       if (l.x < x1 - m || l.x > x2 + m || l.y < y1 - m || l.y > y2 + m) continue;
-      const hy = (y1 + y2) / 2, cx = (x1 + x2) / 2, o = rg && rg.s > 0 ? rg.o : hy - s * 0.6, k = Math.floor((hy - o) / s);
-      const S = Store.settings, kE = clamp((S.bracketDrop ?? S.hyphenDrop ?? 10) / 100, -0.45, 0.45) /* v0.41.6: fim abaixo do centro, como o hífen (configurável) */, top = o + (k + 1) * s + s * 0.22, end = o + (k + 2.5) * s + s * kE, tip = x2 - cx, r = Math.min(s * 0.18, tip * 0.9);
-      const n = { id: uid(), type: 'shape', kind: 'path', pts: [cx, top, cx, end, x2, end].map(r2), rr: [0, r2(r), 0], color: e.color, width: (Store.settings.tools.pen || {}).width || e.width, fill: null }; /* v0.41.5: espessura = a selecionada na caneta */
-      if (e.dash && e.dash !== 'solid') n.dash = e.dash;
-      this.recAdd(page, n); this.opCommit(); toast('Colchete', 800); return true;
+      return under(x1, x2, y1, y2, e); /* v0.41.4–6: hífen comum (desenhado à mão) */
     }
     return false;
   },
@@ -304,7 +318,7 @@ Object.assign(Editor, {
   },
   quickPlace(kind, p) {
     const c = this.quickCell(p); if (!c) return false; const seq = !!this.SEQ[kind], els = this.quickEls(kind, c, seq ? this.seqNext(kind) : 0);
-    for (const e of els) this.recAdd(c.page, e); this.opCommit(); if (seq) this.setSeqNext(kind, this.seqNext(kind) + 1); return true;
+    const g = uid(); for (const e of els) { e.qg = g; this.recAdd(c.page, e); } this.opCommit(); if (seq) this.setSeqNext(kind, this.seqNext(kind) + 1); return true;
   },
   /* v0.41 hífen rápido / v0.44 tópico rápido (chamados também pelo toque duplo) */
   placeHyphen(p) { return this.quickPlace('hyphen', p); },

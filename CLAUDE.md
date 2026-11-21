@@ -309,6 +309,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v0.47.1 — ação de botão 'bullet' trocada por 'hyphenDirect' (hífen direto, arma `_hyArm = {kind: 'hyphen'}` por 8 s sem telinha, como na v0.41; `App.init` migra `penMap` 'bullet' → 'hyphenDirect'; `penClickHeld` atualizado). `S.quickSufColor` (null = cor do número) → `sc` em `quickEls`/`seqEls` aplicado no ponto/hífen/parêntese do romano, número e letra; chips "Cor do sinal" em Ajustes só para `SEQ` (corrigido na mesma rodada: o `else` dos sliders do romano passou a `if (this.SEQ[k])` — senão apareciam em todos). Teste: botão bit 2 → sem telinha, hífen 215–225 em y 144; número preto com ponto #dc2626; Ajustes da seta só Comprimento/Altura; 'bullet' salvo → 'hyphenDirect' depois de recarregar.
 
+- v0.47.2 — colchete por toque duplo em qualquer atalho: `quickPlace` marca todas as peças com `e.qg` (id do grupo); `bracketChain` ganhou `under(x1, x2, y1, y2, e)` (mesma conta do colchete do hífen da v0.41.4–6, com `top ≥ fundo + 0,12·s` e `end ≥ top + 0,6·s` para atalhos altos) e, antes do teste do hífen desenhado à mão, procura um elemento com `qg` na área tocada (+18 px de tela) e junta as peças do mesmo `qg` a até 3 quadrados (cópias coladas longe têm o mesmo `qg`). Atalhos colocados antes da v0.47.2 não têm `qg` (só o hífen continua funcionando por forma). Teste (grade 40): hífen, tópico, I., 1., a), seta e caixa → 7 colchetes de y 169 a 224, ponta até o fim de cada atalho (seta 660→685), ferramenta 'pen'.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).
