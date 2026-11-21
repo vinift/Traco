@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.49.0
+
+- **Selecionar palavras com o dedo (com a caneta ativa):** segure o dedo parado **0,4 s** em cima de uma palavra escrita. Ela é selecionada e o tablet vibra de leve. Sem soltar, **arraste por cima** de outras palavras: cada palavra que a faixa tocar entra na seleção, inclusive em outras linhas.
+  - Ao soltar, aparece a **barra da seleção normal** (cor, espessura, copiar, ✨, excluir…).
+  - A **caneta continua ativa**: encostar a caneta na seleção move as palavras; encostar fora desfaz a seleção e você volta a escrever.
+  - Só pega **tinta da caneta** (formas, marca-texto, imagens e texto digitado ficam de fora).
+  - Mexer o dedo antes de 0,4 s continua **rolando a página** como sempre; segurar num lugar sem escrita não faz nada.
+
 ## Novidades da v0.48.1
 
 - O ícone de "sincronizando" do Google Drive agora gira continuamente. Antes ele voltava ao começo a cada atualização da porcentagem e parecia ir e voltar.

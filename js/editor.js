@@ -544,6 +544,8 @@ const Editor = {
     const f = this.pointers.get(this.touchIds()[0]); const g = this.gesture = { t0: performance.now(), moved: false, max: 0, p0: f ? { x: f.x, y: f.y } : null }; this.rebaseGesture();
     g.atEnd = !!(this.note && this.note.mode !== 'infinite' && !this._inertia && this.cam.y >= this.camMaxBase() - 4 / this.cam.z); // já parado no fim da nota
     /* v0.22: com o laço, segurar o dedo parado abre o painel de colar da biblioteca */
+    /* v0.49: com a caneta, segurar o dedo parado 0,4 s numa palavra seleciona a palavra; arrastando, a faixa junta as palavras tocadas */
+    if (this.tool === 'pen' && !this.readOnly && !this.crop && !this.textEl && g.p0 && g.n === 1) g.holdT = setTimeout(() => { if (this.gesture === g && !g.moved && g.n === 1 && g.max === 1) this.wordSelStart(g); }, 400);
     if (this.tool === 'lasso' && !this.readOnly && !this.crop && g.p0 && g.n === 1) g.holdT = setTimeout(() => { if (this.gesture === g && !g.moved && g.n === 1 && g.max === 1) { g.held = true; this.lassoHoldPaste(g.p0); } }, 550);
   },
   rebaseGesture() {
@@ -557,6 +559,7 @@ const Editor = {
   },
   moveGesture() {
     const g = this.gesture, ids = this.touchIds(); if (!ids.length) return;
+    if (g.wsel) { const q = this.pointers.get(ids[0]); if (q) this.wordSelMove(g, q); return; } /* v0.49: faixa de seleção de palavras */
     if (ids.length !== g.n) this.rebaseGesture();
     const P = ids.map((id) => this.pointers.get(id));
     for (const p of P) if (Math.hypot(p.x - p.sx, p.y - p.sy) > 10) { g.moved = true; clearTimeout(g.holdT); }
@@ -580,7 +583,7 @@ const Editor = {
     this.clampCam(); this._pinching = false; this.requestRender(); if (P.length >= 2) Instruments.redraw();
   },
   endGesture() {
-    const g = this.gesture; this.gesture = null; if (!g) return; clearTimeout(g.holdT); if (g.held) return;
+    const g = this.gesture; this.gesture = null; if (!g) return; clearTimeout(g.holdT); if (g.wsel) return this.wordSelEnd(g); if (g.held) return;
     if (this.pull) this.releasePull();
     else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v' || !this.hScrollable());
     const dt = performance.now() - g.t0;
@@ -596,6 +599,7 @@ const Editor = {
     this.commitText();
     let tool = this.tool;
     if (e.pointerType === 'pen') { const h = this.penHoldTool(e.buttons); if (h) tool = h; }
+    if (this._wordSel && this.sel && tool === 'pen') { if (this.selHit(p)) tool = 'lasso'; else { this.sel = null; this._wordSel = false; this.requestRender(); } } /* v0.49: seleção de palavras com a caneta ativa — caneta na seleção move; fora, desfaz e escreve */
     const w = this.toWorld(p.x, p.y);
     const base = { pid: e.pointerId, ptype: e.pointerType, tool, sx: p.x, sy: p.y };
     if (tool === 'pen' || tool === 'highlighter') return this.startDraw(base, e, p, w);

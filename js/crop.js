@@ -471,6 +471,38 @@ Object.assign(Editor, {
   closeQuick() { if (this._qk) { this._qk.remove(); this._qk = null; } this._qkPin = false; if (this._hyArm && this._hyArm.panel) this._hyArm = null; },
   /* v0.47: fixada (_qkPin, botão 📌 — vale só enquanto a telinha está aberta) → continua aberta e armada depois de colocar */
   placeQuick(p) { const k = Store.settings.quickKind || 'hyphen'; if (!this._qkPin) { this.closeQuick(); return this.quickPlace(k, p); } const ok = this.quickPlace(k, p); this._hyArm = { t: performance.now(), panel: true }; if (this._qkDraw) this._qkDraw(); return ok; },
+  /* ===== v0.49: seleção rápida de palavras com o dedo (ferramenta caneta) =====
+     Palavras = linhas de `OCR.groupLines` (só tinta da caneta, sem itens travados) quebradas onde o vão horizontal passa de
+     0,42 × altura típica da letra da linha. `wordsOf(page)` guarda em cache por página (muda quando muda a lista de elementos). */
+  wordsOf(page) {
+    const els = page.elements, sig = els.length + ':' + (els.length ? els[els.length - 1].id : ''); this._wc = this._wc || new WeakMap();
+    const c = this._wc.get(page); if (c && c.sig === sig) return c.words;
+    const words = [];
+    for (const L of OCR.groupLines(els.filter((e) => e.type === 'stroke' && e.tool === 'pen' && !e.lock))) {
+      const hs = L.items.map((o) => o.b.h).filter((h) => h > L.h * 0.3).sort((a, b) => a - b), hm = hs[hs.length >> 1] || L.h, thr = Math.max(hm * 0.42, 2);
+      let cur = null, maxX = -Infinity;
+      for (const o of L.items) {
+        if (!cur || o.b.x - maxX > thr) { cur = { ids: [], x1: Infinity, y1: Infinity, x2: -Infinity, y2: -Infinity, hm }; words.push(cur); }
+        cur.ids.push(o.e.id); cur.x1 = Math.min(cur.x1, o.b.x); cur.y1 = Math.min(cur.y1, o.b.y); cur.x2 = Math.max(cur.x2, o.b.x + o.b.w); cur.y2 = Math.max(cur.y2, o.b.y + o.b.h); maxX = Math.max(maxX, o.b.x + o.b.w);
+      }
+    }
+    this._wc.set(page, { sig, words }); return words;
+  },
+  wordAt(words, l, pad) { let best = null, bd = Infinity; for (const w of words) { const p = Math.max(pad, w.hm * 0.2); if (l.x < w.x1 - p || l.x > w.x2 + p || l.y < w.y1 - p || l.y > w.y2 + p) continue; const d = Math.hypot(l.x - (w.x1 + w.x2) / 2, l.y - (w.y1 + w.y2) / 2); if (d < bd) { bd = d; best = w; } } return best; },
+  wordSelStart(g) {
+    const W = this.toWorld(g.p0.x, g.p0.y), pi = this.pageIndexAt(W.x, W.y, true), page = this.note && this.note.pages[pi]; if (!page) return;
+    const l = this.local(pi, W.x, W.y), words = this.wordsOf(page), w = this.wordAt(words, l, 6 / this.cam.z); if (!w) return; /* sem palavra embaixo: continua rolando como sempre */
+    g.held = true; g.wsel = { pi, page, words, ids: new Set(w.ids), last: l };
+    this.sel = { pageId: page.id, ids: g.wsel.ids }; this._wordSel = true;
+    if (navigator.vibrate) navigator.vibrate(15); this.requestRender();
+  },
+  wordSelMove(g, q) {
+    const s = g.wsel, W = this.toWorld(q.x, q.y), l = this.local(s.pi, W.x, W.y), a = s.last, d = Math.hypot(l.x - a.x, l.y - a.y), step = 4 / this.cam.z, n = Math.max(1, Math.ceil(d / step)), pad = 3 / this.cam.z;
+    let added = false;
+    for (let i = 1; i <= n; i++) { const pt = { x: a.x + ((l.x - a.x) * i) / n, y: a.y + ((l.y - a.y) * i) / n }, w = this.wordAt(s.words, pt, pad); if (w && w.ids.some((id) => !s.ids.has(id))) { for (const id of w.ids) s.ids.add(id); added = true; } }
+    s.last = l; if (added) { if (navigator.vibrate) navigator.vibrate(6); this.requestRender(); }
+  },
+  wordSelEnd(g) { if (!g.wsel.ids.size) { this.sel = null; return this.requestRender(); } this.sel = { pageId: g.wsel.page.id, ids: g.wsel.ids }; UI.buildSelBar(); this.requestRender(); },
   penTripleFire(base, was, pos) {
     if (!this.note) return;
     if (this._penDot) { clearTimeout(this._penDot.timer); this._penDot = null; } // pontinho ainda não gravado: descarta
