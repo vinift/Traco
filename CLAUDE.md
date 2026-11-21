@@ -315,6 +315,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v0.47.4 — ponto do sinal (romano e `seqEls`): diâmetro visível D = (2·max(0,75·lw, 0,06·H) + lw)·k (em k = 1 igual ao anterior), contorno `ow = min(lw, 0,4·D)` e elipse encolhida em ow/2 (antes `r ≥ 0,75·lw` + contorno lw → não diminuía); `romanSufSize` mínimo 10% (antes 30). `S.seqAlign` 'center' (padrão) | 'left' (x0 = borda esquerda + 4%) nos dois cálculos de `x0`; linha "Posição" na telinha para `SEQ`. Teste (grade 40, caneta 2,5): ponto 100% → 6,25 (igual), 60% → 3,75, 30% → 1,87, 10% → 0,63; centralizado começa em ~209–211, à esquerda em ~200.
 
+- v0.47.5 — colchete do toque duplo em atalho (`qg`): em vez de `under(x1, x2)` da caixa do grupo, usa um hífen imaginário no quadrado do atalho — coluna da grade que contém `x1 + min(0,1·s, largura/2)` (centralizado ou à esquerda caem no mesmo quadrado), `cx` = meio dela, ponta `cx ± s·hL/2` (`quickOpt().hL`); sem grade: centro da caixa. Teste (grade 40): hífen, I., XXXVIII. e 12. → os 4 colchetes x, y 169 → 224, ponta x + 5 (igual ao do hífen).
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

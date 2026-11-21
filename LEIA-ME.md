@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.47.5
+
+- O colchete do toque duplo em números romanos (e em números, letras e os outros atalhos) agora sai **igual ao do hífen**: a reta desce do meio do quadrado do atalho e a ponta termina onde terminaria a de um hífen. Antes ela ia até o fim do número e, nos números longos, parava muito à direita.
+
 ## Novidades da v0.47.4
 
 - **Ponto dos números menor:** o "Tamanho do sinal" (Ajustes de Número, Letra e Romano) agora vai até 10%. O ponto diminui de verdade: antes ele parava num tamanho mínimo ligado à espessura da caneta. Em 100% fica igual a antes.

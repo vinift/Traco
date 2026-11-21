@@ -241,7 +241,11 @@ Object.assign(Editor, {
       let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity, first = null;
       const near = (rg && rg.s > 0 ? rg.s : 40) * 3; /* cópias coladas longe têm o mesmo qg: só as peças perto da tocada */
       for (const q of page.elements) if (q.qg === e.qg) { const bb = elBBox(q); if (Math.abs(bb.x + bb.w / 2 - (b.x + b.w / 2)) > near || Math.abs(bb.y + bb.h / 2 - (b.y + b.h / 2)) > near) continue; x1 = Math.min(x1, bb.x); y1 = Math.min(y1, bb.y); x2 = Math.max(x2, bb.x + bb.w); y2 = Math.max(y2, bb.y + bb.h); first = first || q; }
-      return under(x1, x2, y1, y2, first);
+      /* v0.47.5: colchete como se fosse um HÍFEN no quadrado do atalho (reta no meio do quadrado, ponta do tamanho do hífen) — antes ia até o
+         fim do atalho e, nos romanos/números longos, a ponta ia longe para a direita */
+      { const tpl = page.template || this.note.template, cols = tpl && tpl.type !== 'blank' ? this.gridLines(tpl, page, 0) : null, o = this.quickOpt();
+        const s = cols && cols.s > 0 ? cols.s : rg && rg.s > 0 ? rg.s : 40, cx = cols && cols.s > 0 ? cols.o + (Math.floor((x1 + Math.min(s * 0.1, (x2 - x1) / 2) - cols.o) / s) + 0.5) * s : (x1 + x2) / 2, h = (s * o.hL) / 2;
+        return under(cx - h, cx + h, y1, y2, first); }
     }
     for (let i = page.elements.length - 1; i >= 0; i--) {
       const e = page.elements[i]; if (e.lock || !(e.type === 'stroke' && e.tool === 'pen') && !(e.type === 'shape' && e.kind === 'line')) continue;
