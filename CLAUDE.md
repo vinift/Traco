@@ -321,6 +321,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v0.48.0 — ir para página rápido: `GoPage.open(anchor)` (fim de notemenu.js; `.gp-pop` via `openPop`): teclado 0–9/⌫/Ir, vai sozinho quando k ≤ N e k·10 > N (120 ms), Enter/Backspace/Esc/dígitos do teclado físico (ouvinte em captura, removido ao fechar), ⇤ ‹ › ⇥, chips das páginas com `bookmark`, "Todas as páginas…" → `pagesPanel()`. `#hudPage` agora abre o `GoPage` (antes `pagesPanel`); "Vá para página" do `NoteMenu` também (antes `askText`); ação de botão 'gotoPage' em `PEN_ACTIONS`/`penClickHeld`/`firePenSig` (abre no alto, no meio, se o `#hudPage` estiver escondido). Teste (25 páginas): 7 → 7 na hora; 1 espera, 19 → 19; 2 + Ir → 2; teclado "23" → 23; ⇤ → 1; ⇥ → 25; marcada 18 → 18; Todas as páginas abre o PageManager.
 
+- v0.48.1 — ícone girando da pílula do Drive: `Drive.setStatus` recria o `innerHTML` a cada atualização do progresso e a animação `updspin` recomeçava (parecia voltar); agora, em 'busy', o svg novo recebe `animation-delay: −(performance.now() % 1200) ms` e continua na mesma fase. Teste: progresso 10×/s, ângulo a cada 100 ms 58 → 83 → 114 → … → 356 → 26 (≈30°/100 ms contínuo).
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

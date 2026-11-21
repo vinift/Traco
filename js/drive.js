@@ -22,6 +22,7 @@ const Drive = {
       const txt = pg ? (pg.label ? `${step} · ${pg.label}` : `Enviando ${step}`) : labels[state];
       p.innerHTML = icon(state === 'off' ? 'cloudOff' : state === 'ok' ? 'check' : state === 'busy' ? 'refresh' : 'cloud') + `<span class="txt">${esc(txt)}</span>` + (pg ? `<span class="pct">${sub != null ? sub : pct}%</span><i class="sbar"><i style="width:${pct}%"></i></i>` : '');
       p.classList.toggle('prog', !!pg);
+      if (state === 'busy') { const ic = p.querySelector('svg'); if (ic) ic.style.animationDelay = -(performance.now() % 1200) + 'ms'; } /* v0.48.1: o ícone é recriado a cada atualização do progresso — continua o giro de onde estava (antes recomeçava e parecia voltar) */
       p.title = (pg ? txt + ` (${pct}%)` + (pg.label ? '\n' + pg.label : '') : labels[state]) + (msg ? ' — ' + msg : '') + (this.cfg.lastSync ? '\nÚltimo backup: ' + new Date(this.cfg.lastSync).toLocaleString('pt-BR') : '');
     }
   },

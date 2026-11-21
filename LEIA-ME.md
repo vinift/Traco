@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.48.1
+
+- O ícone de "sincronizando" do Google Drive agora gira continuamente. Antes ele voltava ao começo a cada atualização da porcentagem e parecia ir e voltar.
+
 ## Novidades da v0.48.0
 
 - **Ir para página rápido:** toque no contador de páginas do topo (ex.: "1 / 25") e aparece um teclado numérico grande.
