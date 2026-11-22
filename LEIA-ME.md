@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.52.1
+
+- **Trocar de cor sem piscar:** tocar numa cor da barra agora só move a marcação. Antes as barras inteiras eram refeitas a cada toque, e a tela piscava no tablet.
+
 ## Novidades da v0.52.0
 
 - **Barras deslizantes novas em todo o app:** as barras agora são caixas maiores, com os cantos arredondados, que enchem de roxo até o valor, com marquinhas dividindo em 5 partes. Nas Configurações o valor fica escrito dentro da barra. Tocar em qualquer ponto ou arrastar muda o valor.

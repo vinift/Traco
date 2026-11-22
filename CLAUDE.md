@@ -333,6 +333,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v0.52.0 — barras deslizantes "que enchem" (esboço do usuário; escolhida a opção sem bolinha grande, cantos arredondados): CSS global `input[type=range]:not(.cpk-alpha)` (fim do app.css; 40 px, 44 nas Configurações, 32 em `.ed-options`/`.cpk-row`; borda accent, raio 14; fundo = marquinhas a cada 20% + `linear-gradient` accent até `--rf` = 4 px + (100% − 8 px)·`--p`; thumb fino branco de 8 px). `--p` (0–1) vem do `RangeFill` (fim de navigation.js — NÃO em util.js, que o service worker importa): `input` em captura, MutationObserver (subtree) para os novos e setter de `HTMLInputElement.prototype.value` para mudanças pelo código (±, Padrão). `UI.slider` põe o valor dentro: `.rng-wrap` (input + `.rng-val` absoluto à direita). A barra de transparência do seletor de cor (`.cpk-alpha`) ficou como era (fundo é a própria cor).
 
+- v0.52.1 — tocar numa cor (`colorDots` → `makeSortable` tap) não chama mais `this.refresh()` (refazia `#rail`, `#subrail` e `#hbar` com innerHTML — piscava no tablet; no Chromium o screencast só mostrava a troca da marcação): troca `.sel` nos `.cdot` do `box` e refaz só o painel se aberto. Degradê, "+" e o `colorSection` do painel continuam com `refresh()`. Teste: os nós de rail/subrail/hbar continuam os mesmos depois do toque, traço sai com a cor nova.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

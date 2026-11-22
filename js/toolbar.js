@@ -327,7 +327,8 @@ const UI = {
     makeSortable(box, '.cdot', list, () => { this.save(); this.renderOptions(); }, {
       tap: (i) => { if (this.editMode) return;
         if (Fades.isKey(list[i])) { const id = Fades.idOf(list[i]); if (!Fades.get(id)) return; if (Fades.active(st) && st.fade === id) { Fades.edit(id, () => this.renderOptions()).then((r) => { if (r === 'del') { list.splice(list.indexOf('fade:' + id), 1); delete Fades.all()[id]; st.fade = null; } this.save(); this.renderOptions(); }); return; } Fades.select(st, id); this.save(); this.refresh(); return; }
-        st.color = list[i]; st.fade = null; /* v0.38.2: cor normal desliga o degradê (mesmo sendo igual à 1ª cor dele) */ this.save(); if (t === 'text') this.applyTextStyle({ color: list[i] }); this.refresh(); },
+        st.color = list[i]; st.fade = null; /* v0.38.2: cor normal desliga o degradê (mesmo sendo igual à 1ª cor dele) */ this.save(); if (t === 'text') this.applyTextStyle({ color: list[i] });
+        /* v0.52.1: só troca a marcação (antes refazia rail, subrail e hbar inteiros a cada toque → piscava no tablet) */ box.querySelectorAll('.cdot').forEach((x) => x.classList.toggle('sel', +x.dataset.i === i)); if (this.panelOpen) this.buildPanel(); },
       long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) toast('Toque no × para remover', 1500); },
     });
     const add = el('button', { class: 'cbtn addb', title: 'Adicionar cor' }); add.innerHTML = icon('plus');
