@@ -281,9 +281,12 @@ Object.assign(Editor, {
   /* v0.53: cor salva POR TIPO de atalho (S.quickColors / S.quickSufColors = {tipo: cor|null}); tipo sem entrada usa a cor geral antiga (S.quickColor / S.quickSufColor) */
   qkColor(kind, suf) { const S = Store.settings, m = S[suf ? 'quickSufColors' : 'quickColors'] || {}; return (kind in m ? m[kind] : S[suf ? 'quickSufColor' : 'quickColor']) || null; },
   setQkColor(kind, c, suf) { const S = Store.settings, key = suf ? 'quickSufColors' : 'quickColors'; S[key] = { ...(S[key] || {}), [kind]: c || null }; Store.saveSettings(); },
+  /* v0.55: espessura salva POR TIPO de atalho (S.quickWidths = {tipo: px|null}; null/sem entrada = espessura da caneta) */
+  qkWidth(kind) { const m = Store.settings.quickWidths || {}; return +m[kind] > 0 ? +m[kind] : null; },
+  setQkWidth(kind, w) { const S = Store.settings; S.quickWidths = { ...(S.quickWidths || {}), [kind]: w || null }; Store.saveSettings(); },
   quickEls(kind, c, n) {
     const o = this.quickOpt(), st = { ...Store.settings.tools.pen }, els = [], s = c.s || 40;
-    const qc0 = this.qkColor(kind); if (qc0) st.color = qc0; /* v0.47: cor só do atalho (null = cor da caneta); v0.53: uma por tipo */
+    const qc0 = this.qkColor(kind); if (qc0) st.color = qc0; const qw0 = this.qkWidth(kind); if (qw0) st.width = qw0; /* v0.55: espessura por tipo (null = a da caneta) */ /* v0.47: cor só do atalho (null = cor da caneta); v0.53: uma por tipo */
     const lw = st.width || 2, sc = this.qkColor(kind, true) || st.color; /* v0.47.1: cor só do sinal (ponto/hífen/parêntese) */
     if (kind === 'arrow') { /* v0.47: seta → centralizada no quadrado */
       const len = s * o.aL, cy = c.rows ? c.cy + s * o.aD : c.cy;
@@ -455,6 +458,11 @@ Object.assign(Editor, {
       const qc = this.qkColor(k), cols = (UI.groupColors ? UI.groupColors() : []).slice(0, 9);
       kids.push(el('div', { class: 'qk-row qk-cols' }, el('span', {}, 'Cor'), chip('caneta', !qc, () => { this.setQkColor(k, null); draw(); }, 'Usar a cor da caneta'),
         ...cols.map((cc) => el('button', { class: 'qk-dot' + (qc && qc.toLowerCase() === cc.toLowerCase() ? ' on' : ''), title: cc, style: { background: cc }, onclick: () => { this.setQkColor(k, cc); draw(); } }))));
+      /* v0.55: espessura só do atalho (por tipo) — "caneta" + espessuras do grupo da caneta */
+      const qw = this.qkWidth(k), ws = [...new Set((UI.widthList ? UI.widthList('pen') : []).map(Number).filter((x) => x > 0))].sort((a, b) => a - b).slice(0, 12);
+      if (qw && !ws.some((x) => Math.abs(x - qw) < 0.01)) ws.push(qw);
+      kids.push(el('div', { class: 'qk-row qk-ws' }, el('span', {}, 'Espessura'), chip('caneta', !qw, () => { this.setQkWidth(k, null); draw(); }, 'Usar a espessura da caneta'),
+        ...ws.map((w) => { const b = chip('', !!qw && Math.abs(qw - w) < 0.01, () => { this.setQkWidth(k, w); draw(); }, String(w).replace('.', ',') + ' px'); b.classList.add('qk-w'); b.append(el('i', { style: { height: Math.max(1, Math.min(8, w)) + 'px' } }), el('small', {}, String(Math.round(w * 10) / 10).replace('.', ','))); return b; })));
       const adj = el('div', { class: 'qk-adj' }); qkKeys = [];
       if (k === 'hyphen') adj.append(sl('Comprimento', 'hyphenLen', 5, 90, 25, (v) => v + '%'), sl('Altura', 'hyphenDrop', -40, 40, 10, pct), sl('Colchete (toque duplo no hífen)', 'bracketDrop', -40, 40, S.hyphenDrop ?? 10, pct));
       else if (k === 'bullet') adj.append(sl('Tamanho', 'bulletSize', 5, 90, 30, (v) => v + '%'), sl('Altura', 'bulletDrop', -40, 40, S.hyphenDrop ?? 10, pct));

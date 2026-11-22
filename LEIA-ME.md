@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.55.0
+
+- **Espessura própria para cada atalho rápido:** na telinha do atalho, abaixo da "Cor", há agora a linha "Espessura". "caneta" usa a espessura que estiver na caneta; as outras opções são as espessuras do seu grupo. Fica salva para cada tipo: por exemplo, número romano mais grosso e hífen com a espessura da caneta.
+
 ## Novidades da v0.54.0
 
 - **Relatar problema visual:** quando notar algo estranho (barra sumindo, piscando, travada), toque com **4 dedos** na nota ou use ⋯ → "Relatar problema visual". O app guarda os últimos 30 segundos do que aconteceu (gestos de zoom e rolagem, quadros lentos, quais barras estavam visíveis, memória de desenho) e o estado da tela. Você escreve uma frase sobre o que viu e salva.
