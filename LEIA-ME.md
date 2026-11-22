@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.53.1
+
+- **Mover sem pular para outra altura:** arrastando uma forma, texto ou imagem para o lado, ela mantém a altura. Só gruda na pauta, na grade ou em outro objeto na vertical depois que você arrasta de verdade para cima ou para baixo (e o mesmo vale ao contrário).
+- **Alinhamento mais suave:** o "grudar" agora só puxa quando o item já está bem perto da linha (5 px na tela, antes 9).
+
 ## Novidades da v0.53.0
 
 - **Cor própria para cada atalho rápido:** na telinha do atalho, a "Cor" (e a "Cor do sinal" dos números) agora fica salva para cada tipo. Por exemplo: hífen na cor da caneta, número romano em vermelho, números em azul. A cor que você tinha escolhido antes continua valendo para os tipos em que você ainda não mexeu.

@@ -154,20 +154,21 @@ Object.assign(Editor, {
   },
   /* mover / redimensionar / girar a seleção, com ajustes */
   moveSel(p) {
-    const a = this.action, z = this.cam.z, tol = 9 / z;
+    const a = this.action, z = this.cam.z, tol = 5 / z; /* v0.53.1: atração mais fraca (antes 9 px de tela) */
     if (!a.prep) this.prepSel(a);
     const b = a.b0;
     if (a.kind === 'move') {
       let dx = (p.x - a.start.x) / z, dy = (p.y - a.start.y) / z;
-      const near0 = Math.hypot(dx, dy) * z < 14; /* v0.25.1: movimento pequeno não gruda (a grade puxava de volta para o lugar de origem) */
-      const sx = near0 ? null : this.snap1([b.x + dx, b.x + b.w / 2 + dx, b.x + b.w + dx], a.tx, a.grid && this.gridLines(a.grid, a.page, 0), tol);
-      let sy = near0 ? null : this.snap1([b.y + dy, b.y + b.h / 2 + dy, b.y + b.h + dy], a.ty, a.grid && this.gridLines(a.grid, a.page, 1), tol);
+      /* v0.25.1: movimento pequeno não gruda; v0.53.1: POR EIXO — arrastando para o lado, a altura só gruda depois de 14 px na vertical (e vice-versa) */
+      const nearX = Math.abs(dx) * z < 14, nearY = Math.abs(dy) * z < 14;
+      const sx = nearX ? null : this.snap1([b.x + dx, b.x + b.w / 2 + dx, b.x + b.w + dx], a.tx, a.grid && this.gridLines(a.grid, a.page, 0), tol);
+      let sy = nearY ? null : this.snap1([b.y + dy, b.y + b.h / 2 + dy, b.y + b.h + dy], a.ty, a.grid && this.gridLines(a.grid, a.page, 1), tol);
       if (sx) dx += sx.d; if (sy) dy += sy.d;
       const t1 = a.el1;
       if (t1 && t1.type === 'text' && !a.noSnap && !a.penFree) { // texto: base da 1ª linha gruda na pauta; com "alinhar às linhas" sempre fica sobre elas
         const g = this.ruledFor(a.page), L = layoutText(t1), pad = t1.sticky ? STICKY_PAD : 0;
         if (g && t1.ruled) { const k = Math.round((b.y + dy - g.o) / g.s); dy = g.o + k * g.s - b.y; }
-        else if (g && this.snapOn('snapPage') && !near0) { const base = b.y + pad + L.lines[0].base + dy, k = Math.round((base - g.o) / g.s), d = g.o + k * g.s - base; if (Math.abs(d) < tol) { dy += d; sy = { d, at: g.o + k * g.s }; } }
+        else if (g && this.snapOn('snapPage') && !nearY) { const base = b.y + pad + L.lines[0].base + dy, k = Math.round((base - g.o) / g.s), d = g.o + k * g.s - base; if (Math.abs(d) < tol) { dy += d; sy = { d, at: g.o + k * g.s }; } }
       }
       this.setGuides(a, sx, sy); this.ratioLabel = a.noSnap ? 'livre' : null;
       this.selTf = { ox: b.x, oy: b.y, sx: 1, sy: 1, dx, dy };
