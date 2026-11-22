@@ -278,10 +278,13 @@ Object.assign(Editor, {
       rH: pc(S.romanSize, 50, 0.15, 0.95), rD: pc(S.romanDrop, hd, -0.45, 0.45), rSuf: S.romanSuffix ?? '.', rSS: pc(S.romanSufSize, 100, 0.1, 2.5), rGap: pc(S.romanGap, 30, 0.05, 0.8), rSty: S.romanStyle || 'serif',
       aL: pc(S.arrowLen, 70, 0.2, 1.6), aD: pc(S.arrowDrop, hd, -0.45, 0.45), xS: pc(S.boxSize, 55, 0.15, 0.95), xD: pc(S.boxDrop, hd, -0.45, 0.45) };
   },
+  /* v0.53: cor salva POR TIPO de atalho (S.quickColors / S.quickSufColors = {tipo: cor|null}); tipo sem entrada usa a cor geral antiga (S.quickColor / S.quickSufColor) */
+  qkColor(kind, suf) { const S = Store.settings, m = S[suf ? 'quickSufColors' : 'quickColors'] || {}; return (kind in m ? m[kind] : S[suf ? 'quickSufColor' : 'quickColor']) || null; },
+  setQkColor(kind, c, suf) { const S = Store.settings, key = suf ? 'quickSufColors' : 'quickColors'; S[key] = { ...(S[key] || {}), [kind]: c || null }; Store.saveSettings(); },
   quickEls(kind, c, n) {
     const o = this.quickOpt(), st = { ...Store.settings.tools.pen }, els = [], s = c.s || 40;
-    if (Store.settings.quickColor) st.color = Store.settings.quickColor; /* v0.47: cor só do atalho (null = cor da caneta) */
-    const lw = st.width || 2, sc = Store.settings.quickSufColor || st.color; /* v0.47.1: cor só do sinal (ponto/hífen/parêntese) */
+    const qc0 = this.qkColor(kind); if (qc0) st.color = qc0; /* v0.47: cor só do atalho (null = cor da caneta); v0.53: uma por tipo */
+    const lw = st.width || 2, sc = this.qkColor(kind, true) || st.color; /* v0.47.1: cor só do sinal (ponto/hífen/parêntese) */
     if (kind === 'arrow') { /* v0.47: seta → centralizada no quadrado */
       const len = s * o.aL, cy = c.rows ? c.cy + s * o.aD : c.cy;
       return [{ id: uid(), type: 'shape', kind: 'arrow', x1: r2(c.cx - len / 2), y1: r2(cy), x2: r2(c.cx + len / 2), y2: r2(cy), color: st.color, width: lw, fill: null }];
@@ -449,16 +452,16 @@ Object.assign(Editor, {
         if (k === 'roman') kids.push(el('div', { class: 'qk-row' }, el('span', {}, 'Estilo'), ...[['serif', 'Serifado', 'Serifa em cada letra'], ['bar', 'Serifa única', 'Uma barra em cima e outra embaixo do número inteiro'], ['sans', 'Sem serifa', 'Só os traços']].map(([v, lb, t]) => chip(lb, (S.romanStyle || 'serif') === v, () => { S.romanStyle = v; Store.saveSettings(); draw(); }, t))));
       }
       /* v0.47: cor só do atalho */
-      const qc = S.quickColor || null, cols = (UI.groupColors ? UI.groupColors() : []).slice(0, 9);
-      kids.push(el('div', { class: 'qk-row qk-cols' }, el('span', {}, 'Cor'), chip('caneta', !qc, () => { S.quickColor = null; Store.saveSettings(); draw(); }, 'Usar a cor da caneta'),
-        ...cols.map((cc) => el('button', { class: 'qk-dot' + (qc && qc.toLowerCase() === cc.toLowerCase() ? ' on' : ''), title: cc, style: { background: cc }, onclick: () => { S.quickColor = cc; Store.saveSettings(); draw(); } }))));
+      const qc = this.qkColor(k), cols = (UI.groupColors ? UI.groupColors() : []).slice(0, 9);
+      kids.push(el('div', { class: 'qk-row qk-cols' }, el('span', {}, 'Cor'), chip('caneta', !qc, () => { this.setQkColor(k, null); draw(); }, 'Usar a cor da caneta'),
+        ...cols.map((cc) => el('button', { class: 'qk-dot' + (qc && qc.toLowerCase() === cc.toLowerCase() ? ' on' : ''), title: cc, style: { background: cc }, onclick: () => { this.setQkColor(k, cc); draw(); } }))));
       const adj = el('div', { class: 'qk-adj' }); qkKeys = [];
       if (k === 'hyphen') adj.append(sl('Comprimento', 'hyphenLen', 5, 90, 25, (v) => v + '%'), sl('Altura', 'hyphenDrop', -40, 40, 10, pct), sl('Colchete (toque duplo no hífen)', 'bracketDrop', -40, 40, S.hyphenDrop ?? 10, pct));
       else if (k === 'bullet') adj.append(sl('Tamanho', 'bulletSize', 5, 90, 30, (v) => v + '%'), sl('Altura', 'bulletDrop', -40, 40, S.hyphenDrop ?? 10, pct));
       else if (k === 'arrow') adj.append(sl('Comprimento', 'arrowLen', 20, 160, 70, (v) => v + '%'), sl('Altura', 'arrowDrop', -40, 40, S.hyphenDrop ?? 10, pct));
       else if (k === 'box') adj.append(sl('Tamanho', 'boxSize', 15, 95, 55, (v) => v + '%'), sl('Altura', 'boxDrop', -40, 40, S.hyphenDrop ?? 10, pct));
-      if (this.SEQ[k]) { const sq = S.quickSufColor || null; adj.append(el('div', { class: 'qk-row qk-cols' }, el('span', {}, 'Cor do sinal'), el('button', { class: 'qk-chip' + (!sq ? ' on' : ''), title: 'Igual ao número', onclick: () => { S.quickSufColor = null; Store.saveSettings(); draw(); } }, 'igual'),
-        ...(UI.groupColors ? UI.groupColors() : []).slice(0, 9).map((cc) => el('button', { class: 'qk-dot' + (sq && sq.toLowerCase() === cc.toLowerCase() ? ' on' : ''), title: cc, style: { background: cc }, onclick: () => { S.quickSufColor = cc; Store.saveSettings(); draw(); } })))); }
+      if (this.SEQ[k]) { const sq = this.qkColor(k, true); adj.append(el('div', { class: 'qk-row qk-cols' }, el('span', {}, 'Cor do sinal'), el('button', { class: 'qk-chip' + (!sq ? ' on' : ''), title: 'Igual ao número', onclick: () => { this.setQkColor(k, null, true); draw(); } }, 'igual'),
+        ...(UI.groupColors ? UI.groupColors() : []).slice(0, 9).map((cc) => el('button', { class: 'qk-dot' + (sq && sq.toLowerCase() === cc.toLowerCase() ? ' on' : ''), title: cc, style: { background: cc }, onclick: () => { this.setQkColor(k, cc, true); draw(); } })))); }
       if (this.SEQ[k]) adj.append(sl('Tamanho', 'romanSize', 15, 95, 50, (v) => v + '%'), sl('Altura', 'romanDrop', -40, 40, S.hyphenDrop ?? 10, pct), k === 'roman' ? sl('Espaço entre letras', 'romanGap', 5, 80, 30, (v) => v + '%') : null, sl('Tamanho do sinal (ponto, hífen, parêntese)', 'romanSufSize', 10, 250, 100, (v) => v + '%'));
       adj.prepend(presetsRow(k, draw));
       kids.push(el('button', { class: 'qk-adjbtn' + (adjOpen ? ' open' : ''), onclick: () => { S.quickAdj = !adjOpen; Store.saveSettings(); draw(); } }, el('span', {}, 'Ajustes'), el('b', {}, '▾')), adjOpen ? adj : null,

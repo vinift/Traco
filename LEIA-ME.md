@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.53.0
+
+- **Cor própria para cada atalho rápido:** na telinha do atalho, a "Cor" (e a "Cor do sinal" dos números) agora fica salva para cada tipo. Por exemplo: hífen na cor da caneta, número romano em vermelho, números em azul. A cor que você tinha escolhido antes continua valendo para os tipos em que você ainda não mexeu.
+
 ## Novidades da v0.52.1
 
 - **Trocar de cor sem piscar:** tocar numa cor da barra agora só move a marcação. Antes as barras inteiras eram refeitas a cada toque, e a tela piscava no tablet.
