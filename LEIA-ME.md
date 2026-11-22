@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.56.1
+
+- **"Todas as páginas" rápido em notas grandes e PDFs:** a tela de páginas não gera mais a miniatura de todas as páginas de uma vez. Ela abre já na página em que você está e só desenha as miniaturas que aparecem na tela, uma de cada vez, conforme você rola. Ao marcar ou selecionar uma página, a tela não volta mais para o topo.
+
 ## Novidades da v0.56.0
 
 - **Ajustes do colchete na telinha do atalho:** nova seção "Colchete (toque duplo)", que vale para o colchete que sai com toque duplo em um atalho ou hífen.

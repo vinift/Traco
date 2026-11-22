@@ -295,7 +295,7 @@ const PageManager = {
     this.root = el('div', { class: 'pm-back', onpointerdown: (e) => { if (e.target === this.root) this.close(); } });
     $('#modalRoot').append(this.root); this.render();
   },
-  close() { if (this.root) this.root.remove(); this.root = null; Editor.afterPagesChanged(); },
+  close() { this._tok = null; if (this.root) this.root.remove(); this.root = null; Editor.afterPagesChanged(); },
   render() {
     const n = Editor.note, cur = Editor.currentPageIndex(); const box = el('div', { class: 'pm' });
     const B = (ic, title, fn, cls = '') => { const b = el('button', { class: 'cbtn ' + cls, title, onclick: fn }); b.innerHTML = icon(ic); return b; };
@@ -322,6 +322,14 @@ const PageManager = {
         }, true)));
     }
     const grid = el('div', { class: 'pm-grid' });
+    /* v0.56.1: miniaturas sob demanda — antes pedia a de TODAS as páginas de uma vez (PDF grande travava) e refazia tudo a cada toque.
+       Agora: as que já estão no cache aparecem na hora; as outras só quando chegam perto da tela (IntersectionObserver), uma por vez,
+       e um render() novo cancela a fila do anterior (_tok). A rolagem é mantida entre renders. */
+    const oldGrid = this.root.querySelector('.pm-grid'), keepTop = oldGrid ? oldGrid.scrollTop : null, tok = (this._tok = {}), queue = []; let busy = false;
+    const pump = async () => { if (busy) return; busy = true;
+      while (queue.length && this._tok === tok) { const [pp, im] = queue.shift(); try { const u = await pageThumb(n, pp); if (this._tok === tok) im.src = u; } catch (_) {} await new Promise((r) => setTimeout(r, 0)); }
+      busy = false; };
+    const io = 'IntersectionObserver' in window ? new IntersectionObserver((es) => { for (const en of es) if (en.isIntersecting) { io.unobserve(en.target); queue.unshift(en.target._q); } pump(); }, { root: grid, rootMargin: '400px 0px' }) : null;
     n.pages.forEach((p, i) => {
       if (this.filter === 'bm' && !p.bookmark) return;
       const img = el('img', { alt: '' });
@@ -335,11 +343,14 @@ const PageManager = {
         else { const idx = n.pages.indexOf(p); this.close(); Editor.goToPage(idx); }
       });
       grid.append(card);
-      pageThumb(n, p).then((u) => (img.src = u)).catch(() => {});
+      const c = PageThumbs.get(p.id); if (c && c.sig === pageSig(p, n)) img.src = c.url; /* já pronta (cache) */
+      else if (io) { card._q = [p, img]; io.observe(card); } else { queue.push([p, img]); }
     });
+    if (!io) pump();
     if (!grid.childElementCount) grid.append(el('p', { style: { color: 'var(--chmuted)' } }, 'Nenhuma página marcada. Toque no marcador de uma página para encontrá-la aqui depois.'));
     box.append(grid, el('div', { class: 'pm-hint' }, 'Toque para abrir · segure e arraste para mudar a ordem · ▾ para mais opções'));
     this.root.innerHTML = ''; this.root.append(box);
+    if (keepTop != null) grid.scrollTop = keepTop; else { const cc = grid.children[cur]; if (cc && this.filter === 'all') cc.scrollIntoView({ block: 'center' }); } /* 1ª vez: abre na página atual */
   },
   dragify(card, tap) { // segurar e arrastar para reordenar
     let t = null, drag = false, sx = 0, sy = 0, id = null;
