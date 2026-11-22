@@ -153,6 +153,15 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.56.0
+
+- **Ajustes do colchete na telinha do atalho:** nova seção "Colchete (toque duplo)", que vale para o colchete que sai com toque duplo em um atalho ou hífen.
+  - **Espessura:** "caneta" (como era) ou "do atalho". Fica salva para cada tipo de atalho.
+  - **Cor:** "caneta" (como era) ou "do atalho". Também fica salva para cada tipo.
+  - **Forma:** Curvatura, Início (quanto abaixo da linha começa), Comprimento (quantas linhas desce), Fim (quanto abaixo do centro termina) e Ponta (tamanho do traço do final). O botão **Padrão** volta ao colchete de sempre.
+  - A prévia da telinha mostra o colchete enquanto a seção está aberta. A curvatura vai no máximo até o tamanho da ponta: para curvas maiores, aumente também a Ponta.
+- O ajuste "Colchete" que ficava nos Ajustes do hífen foi para essa seção (agora é o "Fim").
+
 ## Novidades da v0.55.0
 
 - **Espessura própria para cada atalho rápido:** na telinha do atalho, abaixo da "Cor", há agora a linha "Espessura". "caneta" usa a espessura que estiver na caneta; as outras opções são as espessuras do seu grupo. Fica salva para cada tipo: por exemplo, número romano mais grosso e hífen com a espessura da caneta.
