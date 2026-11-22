@@ -589,6 +589,7 @@ const Editor = {
     const dt = performance.now() - g.t0;
     /* v0.23: destro → toques de 2/3 dedos só valem na metade esquerda (a palma apoia na direita); canhoto → o contrário */
     const hand = Store.settings.hand || 'right', half = this.W / 2, sideOk = hand === 'none' || (hand === 'right' ? g.maxX < half : g.minX > half);
+    if (g.max >= 4 && dt < 800) { if (typeof BugRec !== 'undefined') BugRec.capture('4 dedos'); return; } /* v0.54: toque com 4 dedos = relatar problema visual */
     if (!g.moved && dt < 350 && g.max >= 2 && !sideOk) return;
     if (!g.moved && dt < 350) { if (g.max === 2) { this.undo(); toast('Desfeito', 900); } else if (g.max === 3) { this.redo(); toast('Refeito', 900); } else if (g.max === 1 && g.p0 && !this.readOnly) this.fingerTap(g.p0); }
   },

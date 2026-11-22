@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.54.0
+
+- **Relatar problema visual:** quando notar algo estranho (barra sumindo, piscando, travada), toque com **4 dedos** na nota ou use ⋯ → "Relatar problema visual". O app guarda os últimos 30 segundos do que aconteceu (gestos de zoom e rolagem, quadros lentos, quais barras estavam visíveis, memória de desenho) e o estado da tela. Você escreve uma frase sobre o que viu e salva.
+- Os relatórios ficam em Configurações → Avançado → Diagnóstico (até 20), com **Compartilhar** (arquivo .json) e **Copiar** (para colar na conversa).
+
 ## Novidades da v0.53.2
 
 - **Trava de eixo ao mover:** se você começa a arrastar uma forma, texto ou imagem quase reto para o lado, a altura fica exatamente igual, mesmo com o dedo tremendo. Para soltar, puxe uns 20 px para cima ou para baixo. Começando na vertical, vale o mesmo para o lado. Arrastando na diagonal, o movimento é livre como antes. Com a caneta continua sempre livre.

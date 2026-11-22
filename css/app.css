@@ -1439,3 +1439,13 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 .ed-options input[type=range]:not(.cpk-alpha),.cpk-row input[type=range]:not(.cpk-alpha){height:32px;border-radius:11px}
 .ed-options .rng-wrap > .rng-val{font-size:12px;right:8px;padding:1px 6px}
 .qk-adj .grp .rng-wrap{grid-column:1 / -1;grid-row:2;width:100%}
+/* v0.54: relatório de problema visual */
+.br-new p{margin:0 0 10px;color:var(--muted);font-size:13.5px}
+.br-desc{width:100%;box-sizing:border-box;border-radius:12px;padding:10px 12px;font:inherit;font-size:15px;border:1px solid var(--line);background:var(--panel);color:var(--text);resize:vertical}
+.br-new small{display:block;margin-top:8px;color:var(--muted)}
+.br-list{margin-top:14px}
+.br-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--tile-line,var(--line))}
+.br-info{flex:1;min-width:200px;display:flex;flex-direction:column;gap:2px}
+.br-info span{font-size:14px}
+.br-info small{color:var(--muted);font-size:12px}
+.br-btns{display:flex;gap:6px;flex-wrap:wrap}

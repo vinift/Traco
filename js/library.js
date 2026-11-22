@@ -469,7 +469,8 @@ async function openSettings(focus) {
     errBox,
     el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' } },
       B('Copiar relatório', '', async () => { try { await navigator.clipboard.writeText(diagText()); toast('Relatório copiado'); } catch (_) { openModal({ title: 'Relatório', wide: true, body: el('textarea', { style: { width: '100%', height: '300px' } }, diagText()), buttons: [{ label: 'Fechar', cls: 'primary' }] }); } }),
-      B('Limpar', 'ghost', () => { localStorage.removeItem(ERRLOG_KEY); renderErr(); }))));
+      B('Limpar', 'ghost', () => { localStorage.removeItem(ERRLOG_KEY); renderErr(); })),
+    typeof BugRec !== 'undefined' ? BugRec.listEl() : null)); /* v0.54: relatórios de problema visual */
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Sobre'), el('p', {}, `Traço Notas · versão ${App.version}`), el('p', {}, 'Caderno digital feito sob medida: escrita com caneta, PDFs, tabelas, importação do Notewise e backup no seu Google Drive. As notas ficam guardadas no aparelho.')));
   /* v0.51: 7 grupos em abas que expandem; o resumo aparece com a aba fechada */
   const old = new Map([...body.querySelectorAll(':scope > .set-sec')].map((x) => [x.querySelector('h3').textContent, x]));
