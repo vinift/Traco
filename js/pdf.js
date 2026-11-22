@@ -131,6 +131,18 @@ async function exportNotePdf(note, onProgress, { shouldStop, dpi = PDF_DPI, jpeg
     onProgress && onProgress(i + 1, note.pages.length);
     if (shouldStop && shouldStop()) throw Object.assign(new Error('PDF adiado'), { deferred: true }); // você voltou a escrever: para e tenta depois
     const page = note.pages[i], wPt = page.w * 0.75, hPt = page.h * 0.75, sc = Math.min(k, maxPx / Math.max(page.w, page.h)); /* v0.29: qualidade escolhida na exportação (dpi, jpeg/png, limite) */
+    /* v0.57: área grande (alta resolução) é desenhada em FAIXAS de até BAND pixels — uma tela de 600 dpi inteira passaria de 200 MB e
+       derrubava o tablet. Cada faixa é gravada e liberada antes da próxima; sobrepõe ~1 unidade para não aparecer emenda. */
+    const BAND = 20e6, bands = async (pg, area, annotOnly, type, q, place) => {
+      const rows = Math.max(1, Math.ceil((area.w * sc * area.h * sc) / BAND)), bh = area.h / rows, ov = rows > 1 ? Math.min(1.5, bh * 0.02) : 0;
+      for (let r = 0; r < rows; r++) {
+        const y0 = area.y + r * bh, y1 = Math.min(area.y + area.h, y0 + bh + (r < rows - 1 ? ov : 0)), a = { x: area.x, y: y0, w: area.w, h: y1 - y0 };
+        const cv = await renderPageCanvas(note, page, sc, annotOnly ? { annot: true, area: a } : { area: a });
+        const bytes = await canvasBytes(cv, type, q); cv.width = cv.height = 0; // libera a memória da imagem na hora
+        const img = type === 'image/png' ? await out.embedPng(bytes) : await out.embedJpg(bytes); pg.drawImage(img, place(a)); if (img.embed) await img.embed();
+        if (rows > 1) await new Promise((res) => setTimeout(res, 0));
+      }
+    };
     let done = false;
     if (page.pdf) {
       try {
@@ -157,11 +169,8 @@ async function exportNotePdf(note, onProgress, { shouldStop, dpi = PDF_DPI, jpeg
             // só o retângulo onde há escrita (não a página inteira), e a imagem é gravada já compactada (embed) para não acumular memória
             const m = 6, ax = Math.max(0, Math.floor(bb.x - m)), ay = Math.max(0, Math.floor(bb.y - m)), area = { x: ax, y: ay, w: Math.min(page.w, Math.ceil(bb.x + bb.w + m)) - ax, h: Math.min(page.h, Math.ceil(bb.y + bb.h + m)) - ay };
             if (area.w > 0 && area.h > 0) {
-              const cv = await renderPageCanvas(note, page, sc, { annot: true, area });
-              const png = await canvasBytes(cv, 'image/png'); cv.width = cv.height = 0; // libera a memória da imagem na hora
-              const img = await out.embedPng(png), kx = box.width / page.w, ky = box.height / page.h;
-              pg.drawImage(img, { x: box.x + area.x * kx, y: box.y + (page.h - area.y - area.h) * ky, width: area.w * kx, height: area.h * ky });
-              if (img.embed) await img.embed();
+              const kx = box.width / page.w, ky = box.height / page.h;
+              await bands(pg, area, true, 'image/png', undefined, (a) => ({ x: box.x + a.x * kx, y: box.y + (page.h - a.y - a.h) * ky, width: a.w * kx, height: a.h * ky }));
             }
           }
           done = true;
@@ -169,9 +178,8 @@ async function exportNotePdf(note, onProgress, { shouldStop, dpi = PDF_DPI, jpeg
       } catch (e) { console.warn('PDF original não pôde ser copiado; usando imagem', e); }
     }
     if (!done) { // caderno (ou PDF que não deu para copiar): imagem nítida da página inteira
-      const cv = await renderPageCanvas(note, page, sc);
-      const bytes = await canvasBytes(cv, png ? 'image/png' : 'image/jpeg', jpegQ); cv.width = cv.height = 0; // libera a memória da imagem na hora
-      const pg = out.addPage([wPt, hPt]), img = png ? await out.embedPng(bytes) : await out.embedJpg(bytes); pg.drawImage(img, { x: 0, y: 0, width: wPt, height: hPt }); if (img.embed) await img.embed();
+      const pg = out.addPage([wPt, hPt]);
+      await bands(pg, { x: 0, y: 0, w: page.w, h: page.h }, false, png ? 'image/png' : 'image/jpeg', jpegQ, (a) => ({ x: a.x * 0.75, y: (page.h - a.y - a.h) * 0.75, width: a.w * 0.75, height: a.h * 0.75 }));
     }
     await new Promise((r) => setTimeout(r, 30)); // deixa a tela respirar
   }

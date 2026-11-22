@@ -67,7 +67,8 @@ const ExportPanel = {
     for (const [k, nm] of [['all', 'Nota inteira'], ['some', 'Páginas específicas']]) tabs.append(el('button', { class: 'xp-tab', 'data-k': k, onclick: () => setScope(k) }, nm));
     /* formato */
     const fmts = el('div', { class: 'xp-fmts' });
-    const paintFmt = () => { [...fmts.children].forEach((b) => b.classList.toggle('on', b.dataset.k === fmt)); qrow.style.display = fmt === 'pdf' ? '' : 'none'; go.textContent = label(); };
+    let drvRow = null;
+    const paintFmt = () => { [...fmts.children].forEach((b) => b.classList.toggle('on', b.dataset.k === fmt)); qrow.style.display = fmt === 'pdf' ? '' : 'none'; if (drvRow) drvRow.style.display = fmt === 'pdf' ? '' : 'none'; go.textContent = label(); };
     for (const [k, ic, nm] of [['pdf', 'file', 'PDF'], ['img', 'image', 'Imagens']]) { const b = el('button', { class: 'xp-fmt', 'data-k': k, onclick: () => { fmt = k; paintFmt(); } }); b.append(iconEl(ic), el('span', {}, nm)); fmts.append(b); }
     /* qualidade */
     const qrow = el('div', { class: 'xp-q' });
@@ -91,7 +92,11 @@ const ExportPanel = {
     fillRec();
     const label = () => (sel.size ? (fmt === 'pdf' ? 'PDF' : 'imagens') + ' · ' + (sel.size === n ? 'nota inteira' : sel.size + (sel.size === 1 ? ' página' : ' páginas')) : 'nenhuma página');
     const go = el('div', { class: 'xp-sum' });
-    box.append(tabs, card, pages, el('div', { class: 'xp-sec' }, 'Exportar como'), fmts, el('div', { class: 'xp-qw' }, qrow, qhint), go, rec);
+    /* v0.57: enviar o PDF (nota inteira) para a pasta da nota no Drive, no lugar do PDF do backup */
+    const canDrive = typeof Drive !== 'undefined' && Drive.configured() && Drive.hasAuth();
+    const drv = el('input', { type: 'checkbox' }); drv.checked = !!S.exportDrive; drv.onchange = () => { S.exportDrive = drv.checked; Store.saveSettings(); };
+    drvRow = canDrive ? el('label', { class: 'chk xp-drive' }, drv, el('span', {}, 'Enviar também para o Drive', el('small', {}, ' — substitui o PDF do backup desta nota (até a próxima edição)'))) : null;
+    box.append(tabs, card, pages, el('div', { class: 'xp-sec' }, 'Exportar como'), fmts, el('div', { class: 'xp-qw' }, qrow, qhint), drvRow, go, rec);
     setScope(scope); paintFmt(); paintQ();
     const act = await openModal({ title: share ? 'Compartilhar' : 'Exportar', body: box, wide: true, buttons: [
       { label: 'Cancelar', value: null },
@@ -106,6 +111,8 @@ const ExportPanel = {
       if (fmt === 'pdf') {
         const blob = await exportNotePdf(sub, (i, t) => toast(`Gerando PDF… ${i}/${t}`, 4000), (PDF_QUALITIES.find((x) => x.k === q) || PDF_QUALITIES[1]).opts);
         const name = base + '.pdf'; await RecentPdfs.add(blob, name, note.id);
+        if (drvRow && drv.checked) { if (idx.length !== n) toast('Drive: só a nota inteira substitui o PDF do backup — este não foi enviado', 3500);
+          else { toast('Enviando o PDF para o Drive…', 3000); Drive.uploadExportPdf(note, blob).then(() => toast('PDF no Drive atualizado', 2200)).catch((e) => toast('Drive: ' + (e.needAuth ? 'conecte o Drive' : e.message), 4000)); } }
         if (act === 'share') return sharePdfReady(blob, name, note.title);
         downloadBlob(blob, name); toast('PDF salvo em Downloads (também fica em "Gerados recentemente")', 2600);
       } else {

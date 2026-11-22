@@ -10,6 +10,7 @@ const PDF_QUALITIES = [
   { k: 'normal', name: 'Normal', desc: 'Nítido na tela e no papel (300 dpi)', opts: { dpi: 300, jpegQ: 0.93, maxPx: 6000 } },
   { k: 'alta', name: 'Alta', desc: 'Mais detalhe nos traços finos (400 dpi, quase sem perda)', opts: { dpi: 400, jpegQ: 0.97, maxPx: 7000 } },
   { k: 'max', name: 'Máxima', desc: 'Impressão: imagem sem perda (450 dpi, PNG) — arquivo grande e mais lento', opts: { dpi: 450, png: true, maxPx: 7000 } },
+  { k: 'ultra', name: 'Ultra', desc: 'O mais nítido: 600 dpi sem perda (PNG, desenhado em faixas) — arquivo muito grande e bem mais lento', opts: { dpi: 600, png: true, maxPx: 9000 } }, /* v0.57 */
 ];
 function pdfQualityAsk(share) {
   const S = Store.settings; let cur = S.pdfQuality || 'normal';

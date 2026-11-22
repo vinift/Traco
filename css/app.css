@@ -1453,3 +1453,6 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 .qk-ws .qk-w{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:34px;padding:4px 6px}
 .qk-ws .qk-w i{display:block;width:20px;border-radius:4px;background:currentColor}
 .qk-ws .qk-w small{font-size:10.5px;line-height:1}
+/* v0.57: enviar PDF exportado ao Drive */
+.xp-drive{display:flex;align-items:center;gap:10px;margin:4px 0 2px;font-size:14px}
+.xp-drive small{color:var(--muted);font-size:12.5px}

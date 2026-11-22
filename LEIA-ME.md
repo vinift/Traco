@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.57.0
+
+- **Qualidade Ultra no PDF:** nova opção acima da Máxima, com 600 dpi sem perda. Para o tablet aguentar, a página é desenhada em faixas, sem emendas visíveis. O arquivo fica grande e demora mais para gerar.
+- **Enviar o PDF exportado para o Drive:** na tela de exportar, marque "Enviar também para o Drive". O PDF, com a qualidade escolhida, vai para a pasta da nota no Drive no lugar do PDF do backup. Ele fica lá até a próxima vez que você editar a nota; aí o backup gera de novo com a qualidade das Configurações. Só vale para a nota inteira (não para páginas específicas), e a opção só aparece com o Drive conectado.
+- As qualidades Alta e Máxima também passaram a ser desenhadas em faixas, o que usa menos memória.
+
 ## Novidades da v0.56.1
 
 - **"Todas as páginas" rápido em notas grandes e PDFs:** a tela de páginas não gera mais a miniatura de todas as páginas de uma vez. Ela abre já na página em que você está e só desenha as miniaturas que aparecem na tela, uma de cada vez, conforme você rola. Ao marcar ou selecionar uma página, a tela não volta mais para o topo.

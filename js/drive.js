@@ -285,6 +285,22 @@ const Drive = {
   pdfDpi(id) { const c = (this.cfg.pdfCrash || {})[id] || 0; return c >= 2 ? 0 : c === 1 ? 120 : +this.cfg.pdfDpi || 200; },
   later(ms = 10000) { clearTimeout(this._waitT); this._waitT = setTimeout(() => this.sync(), ms); },
   /* um backup por vez entre o app e o segundo plano (service worker): trava compartilhada */
+  /* v0.57: PDF exportado (qualidade escolhida) vai para a pasta da nota no Drive no lugar do PDF do backup (mesma chave 'p:<id>').
+     Tira o PDF pendente do backup dessa nota para ele não sobrescrever logo em seguida; na próxima edição o backup gera de novo
+     com a qualidade das Configurações (escolha do usuário). Arquivo > 5 MB → envio em partes (uploadResumable cria um novo e o antigo vai para a lixeira). */
+  async uploadExportPdf(note, blob) {
+    if (!this.configured() || !this.hasAuth()) throw new Error('Drive não conectado');
+    const job = async () => {
+      const key = 'p:' + note.id, parent = await this.ensureNoteDir(note), name = safeName(note.title) + '.pdf', props = { traco: 'pdf', noteId: note.id };
+      if (blob.size <= 5 * 1024 * 1024) await this.upsert(key, { name, mime: 'application/pdf', data: blob, parent, props });
+      else {
+        const old = this.entry(key); await this.uploadResumable(key, name, blob, parent, props);
+        if (old) try { await this.api('PATCH', `https://www.googleapis.com/drive/v3/files/${old.id}`, { body: JSON.stringify({ trashed: true }), headers: { 'Content-Type': 'application/json' } }); } catch (_) {}
+      }
+      if (Store.dirty && Store.dirty.pdfs && Store.dirty.pdfs[note.id]) { delete Store.dirty.pdfs[note.id]; await Store.saveDirty(); }
+    };
+    return navigator.locks ? navigator.locks.request('traco-drive', job) : job();
+  },
   async sync(manual = false, opts = {}) {
     if (!navigator.locks) return this._sync(manual, opts);
     return navigator.locks.request('traco-drive', { ifAvailable: true }, async (lock) => {
