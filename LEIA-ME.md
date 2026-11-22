@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.53.2
+
+- **Trava de eixo ao mover:** se você começa a arrastar uma forma, texto ou imagem quase reto para o lado, a altura fica exatamente igual, mesmo com o dedo tremendo. Para soltar, puxe uns 20 px para cima ou para baixo. Começando na vertical, vale o mesmo para o lado. Arrastando na diagonal, o movimento é livre como antes. Com a caneta continua sempre livre.
+
 ## Novidades da v0.53.1
 
 - **Mover sem pular para outra altura:** arrastando uma forma, texto ou imagem para o lado, ela mantém a altura. Só gruda na pauta, na grade ou em outro objeto na vertical depois que você arrasta de verdade para cima ou para baixo (e o mesmo vale ao contrário).

@@ -339,6 +339,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v0.53.1 — alinhamento ao mover (pedido: ao mover para o lado o item pulava de altura; escolhas: grudar só no eixo movido + mais fraco): `moveSel` (tables.js) com `tol` 5/z (antes 9/z; vale também para redimensionar) e o `near0` (14 px no total) virou `nearX`/`nearY` por eixo — o eixo só gruda (grade/objetos/base do texto na pauta) depois de 14 px de tela de deslocamento NAQUELE eixo. Texto com "alinhar às linhas" (`t1.ruled`) continua sempre na pauta. Teste (toque CDP, grade 40, z 1,14): 200 px para o lado com tremido de ±3 px → y 207 → 206,7 (sem grudar); descendo 40 px → gruda (241).
 
+- v0.53.2 — trava de eixo ao mover (pedido do usuário, a outra opção da v0.53.1): em `moveSel` (kind 'move'), `a.axis` decide depois de 8 px de tela — |dy| ≤ 0,35·|dx| → 'x' (dy = 0), |dx| ≤ 0,35·|dy| → 'y' (dx = 0), senão 'free'; passar 20 px de tela no outro eixo → 'free' de vez. Não vale com `a.penFree` (caneta) nem `a.noSnap` (2º dedo). Teste (toque CDP, grade 40): 200 px para o lado com tremido de ±3 px → y 207 exato; lado 80 px e depois descer 32 → soltou (y 235); diagonal 60/50 → livre.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

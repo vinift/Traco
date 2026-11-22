@@ -159,6 +159,14 @@ Object.assign(Editor, {
     const b = a.b0;
     if (a.kind === 'move') {
       let dx = (p.x - a.start.x) / z, dy = (p.y - a.start.y) / z;
+      /* v0.53.2: trava de eixo (dedo, com ajustes ligados) — arrasto que sai quase reto na horizontal mantém a altura exata (e vice-versa);
+         solta de vez ao passar 20 px de tela no outro eixo. Decide depois de 8 px; a caneta e o 2º dedo (livre) não travam. */
+      if (!a.noSnap && !a.penFree && a.axis !== 'free') {
+        const ax = Math.abs(dx) * z, ay = Math.abs(dy) * z;
+        if (!a.axis && Math.max(ax, ay) >= 8) a.axis = ay <= 0.35 * ax ? 'x' : ax <= 0.35 * ay ? 'y' : 'free';
+        if (a.axis === 'x') { if (ay > 20) a.axis = 'free'; else dy = 0; }
+        else if (a.axis === 'y') { if (ax > 20) a.axis = 'free'; else dx = 0; }
+      }
       /* v0.25.1: movimento pequeno não gruda; v0.53.1: POR EIXO — arrastando para o lado, a altura só gruda depois de 14 px na vertical (e vice-versa) */
       const nearX = Math.abs(dx) * z < 14, nearY = Math.abs(dy) * z < 14;
       const sx = nearX ? null : this.snap1([b.x + dx, b.x + b.w / 2 + dx, b.x + b.w + dx], a.tx, a.grid && this.gridLines(a.grid, a.page, 0), tol);
