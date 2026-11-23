@@ -843,7 +843,7 @@ const Editor = {
     }
     if (!a.snap) { /* v0.23: caneta → "melhorar escrita" automático (alisa por distância e guarda os cantos); marca-texto → alisamento leve de antes */
       const sg = a.tool === 'pen' && typeof smoothArc === 'function' ? autoBeautifySigma(this.cam.z) : 0;
-      if (sg) a.pts = smoothArc(a.pts, sg * (1 + Math.max(0, (a.stab ?? 5) - 10) * 0.12)); /* v0.37.1: 11–20 também alisam mais no fim */ else smoothStroke(a.pts, (a.stab ?? 5) / 20);
+      if (sg) a.pts = smoothArc(a.pts, sg * (1 + Math.max(0, (a.stab ?? 5) - 10) * 0.12)); /* v0.37.1: 11–20 também alisam mais no fim */ else if (a.tool !== 'pen') smoothStroke(a.pts, (a.stab ?? 5) / 20); /* v1.2.2: caneta com "melhorar escrita" desligado não alisa mais depois de levantar — o traço gravado fica igual ao que se viu escrevendo (a tinta nativa "voltava" um pouco na troca) */
     }
     const pts = a.pts.map((v, i) => (i % 3 === 2 ? Math.round(v * 100) / 100 : r2(v)));
     const el = { id: uid(), type: 'stroke', tool: a.tool, color: a.color, width: a.width, pts };

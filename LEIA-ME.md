@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.2.2
+
+- Com o "Melhorar escrita automático" desligado, a caneta não alisa mais o traço depois que você levanta. O traço gravado fica exatamente como você viu enquanto escrevia, e no Traço Nativo ele não "mexe" mais na troca. A estabilização durante a escrita continua igual. Com o "Melhorar escrita" ligado, o arredondamento depois de levantar continua, de propósito.
+
 ## Novidades da v1.2.1
 
 - Traço Nativo: o fim do traço não "volta" mais um pouco quando você levanta a caneta. O traço gravado agora vai até o ponto exato onde a caneta saiu da tela, igual à tinta nativa (vale também fora do app nativo).
