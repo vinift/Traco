@@ -18,7 +18,7 @@ const Native = {
     this.polyfill();
   },
   /* chamada com resposta: o Android responde com Native._cb(id, json) */
-  ask(fn, ...args) { return new Promise((res) => { const id = ++this._n; this._wait.set(id, res); try { TracoNative[fn](id, ...args); } catch (e) { this._wait.delete(id); res({ error: e.message }); } }); },
+  ask(fn, ...args) { return new Promise((res) => { const id = ++this._n; this._wait.set(id, res); if (fn === 'driveAuth' && !args[0]) setTimeout(() => this._cb(id, { error: 'sem resposta do Android' }), 20000); /* renovação silenciosa não pode travar o backup */ try { TracoNative[fn](id, ...args); } catch (e) { this._wait.delete(id); res({ error: e.message }); } }); },
   _cb(id, s) { const w = this._wait.get(id); if (!w) return; this._wait.delete(id); let r; try { r = typeof s === 'string' ? JSON.parse(s) : s; } catch (_) { r = { error: String(s) }; } w(r || {}); },
   /* avisos do Android (notificação tocada, arquivo recebido…) — esperam o app terminar de abrir */
   _ev(type, data) {
@@ -100,4 +100,5 @@ const Native = {
   },
   appUpdate() { try { TracoNative.openExternal('https://github.com/vinift/Traco/releases/latest/download/traco-nativo.apk'); } catch (_) {} },
 };
+window.Native = Native; /* v1.0.2: o Android chama window.Native._cb/_ev — const global não fica em window (sem isto a resposta do login nunca chegava) */
 Native.init();

@@ -407,6 +407,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v1.0.1 — relato: no nativo, "Conectar" pedia a conta e a tela continuava "Backup no Drive desligado"; tocar de novo não pedia a conta (já autorizado = sem tela). O status das Configurações era texto fixo da abertura. Agora `stTxt()` atualiza depois do `await Drive.connect()` (que devolve true/false e guarda `Drive.lastErr`, mostrado como "Erro do login"), e no nativo o Conectar marca a caixa de backup automático. `DriveAuth.msg(e)` acrescenta o código do `ApiException` (10 = DEVELOPER_ERROR: cliente Android/SHA-1/projeto; 16 = cancelado) — vale a partir do APK novo. Teste com `TracoNative` simulado: erro 10 aparece no status; 2º toque → "✅ Conectado".
 
+- v1.0.2 — "Conectando…" eterno no nativo: o Android chama `window.Native&&Native._cb(...)`, mas `const Native` global NÃO fica em `window` → nenhuma resposta/aviso chegava (login, `_ev('timer')`, `_ev('inbox')`). Agora `window.Native = Native` no fim de native.js. `Native.ask('driveAuth', false)` tem limite de 20 s (renovação silenciosa não trava o backup). **Nos testes, simule o Android chamando `window.Native._cb`, não `Native._cb`.**
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).
