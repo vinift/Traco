@@ -150,6 +150,8 @@ const Editor = {
     const m = this.barMargins(), z = clamp((this.W - m.mL - m.mR) / this.maxW, 0.2, 3); this.cam.z = z; /* v0.25.1: largura = área entre as barras e a margem */
     this.cam.x = -this.maxW / 2 - m.mL / z; this.cam.y = -16 / z; this.clampCam(); this.requestRender();
   },
+  /* v1.4.1: perto do zoom máximo (até 50 pontos de % abaixo dele) o dedo não seleciona nem mexe em tabelas — só rola/zoom */
+  tableFingerLock() { return this.cam.z * 100 >= this.zoomLimits()[1] * 100 - 50 - 1e-6; },
   zoomLimits() { // ajustável em Configurações → Zoom (em %)
     const S = Store.settings, inf = this.note && this.note.mode === 'infinite';
     const a = clamp((+S.zoomMin || (inf ? 10 : 20)) / 100, 0.05, 1), b = clamp((+S.zoomMax || 800) / 100, 1.5, 20);
@@ -495,7 +497,7 @@ const Editor = {
       if (Store.settings.palmGuard && (this.penDown || performance.now() - this.lastPenSeen < 300)) { rec.ignored = true; return; } /* v1.3.2: 500 → 300 ms; a palma grande já é barrada pelo tamanho (Palm) */
       const drawingTouch = this.action && this.action.ptype === 'touch';
       if (!this.gesture && !drawingTouch && this.touchIds().length === 1 && this.sel && !this.readOnly) { // dedo também move, redimensiona e gira a seleção
-        const k = this.selHit(p);
+        const k = this.tableFingerLock() && this.selElements().some((x) => x.type === 'table') ? null : this.selHit(p); /* v1.4.1: tabela travada para o dedo no zoom alto */
         if (k) { rec.drawing = true; this.action = { pid: e.pointerId, ptype: 'touch', t0: performance.now(), tool: 'lasso', sx: p.x, sy: p.y, kind: k, hh: this._sh, start: p, box: this.selScreenBox() }; if (k === 'tableact') { this.action.th = this._thit; this.startTableAct(this.action); } return; }
       }
       if (Store.settings.fingerDraws && !this.readOnly && !this.gesture && !drawingTouch && this.touchIds().length === 1) { rec.drawing = true; this.startAction(e, p); return; }
@@ -961,7 +963,8 @@ const Editor = {
     if (len < 14) { // toque: seleciona o elemento sob o dedo/caneta
       const [x, y] = toL(a.pts[0]);
       for (let i = page.elements.length - 1; i >= 0; i--) if (canSel(page.elements[i]) && hitElement(page.elements[i], x, y, 8 / this.cam.z)) { ids = [page.elements[i].id]; break; }
-      if (!ids.length) { const t = [...page.elements].reverse().find((e) => e.type === 'table' && canSel(e) && x >= e.x && x <= e.x + e.w && y >= e.y && y <= e.y + e.h); if (t) ids = [t.id]; } // toque dentro da tabela
+      if (a.ptype === 'touch' && this.tableFingerLock()) ids = ids.filter((id) => { const e = page.elements.find((x) => x.id === id); return !e || e.type !== 'table'; }); /* v1.4.1 */
+      else if (!ids.length) { const t = [...page.elements].reverse().find((e) => e.type === 'table' && canSel(e) && x >= e.x && x <= e.x + e.w && y >= e.y && y <= e.y + e.h); if (t) ids = [t.id]; } // toque dentro da tabela
     } else if ((Store.settings.tools.lasso || {}).pick === 'touch') { /* v0.58: "passar por cima" */
       if (a.mode === 'rect') { /* retângulo: tudo que tiver alguma parte dentro */
         const poly = this.lassoPoly(a).map(toL), xs = poly.map((q) => q[0]), ys = poly.map((q) => q[1]), R = { x: Math.min(...xs), y: Math.min(...ys) }; R.w = Math.max(...xs) - R.x; R.h = Math.max(...ys) - R.y;

@@ -446,11 +446,11 @@ Object.assign(Editor, {
     const ch = e.text[ci], n = { ...e, text: e.text.slice(0, ci) + (ch === '☐' ? '☑' : '☐') + e.text.slice(ci + 1) };
     this.recReplace(page, e, n); this.opCommit(); if (navigator.vibrate) navigator.vibrate(8);
   },
-  hitAt(p) { // página e item (não-traço) sob um ponto da tela
+  hitAt(p, noTable) { // página e item (não-traço) sob um ponto da tela (v1.4.1: noTable = pula tabelas)
     const w = this.toWorld(p.x, p.y), pi = this.pageIndexAt(w.x, w.y, true); if (pi < 0) return {};
     const page = this.note.pages[pi], l = this.local(pi, w.x, w.y), tol = 10 / this.cam.z;
     const canLocked = (Store.settings.tools.lasso || {}).locked;
-    const els = [...page.elements].reverse().filter((e) => e.type !== 'stroke' && (!e.lock || canLocked));
+    const els = [...page.elements].reverse().filter((e) => e.type !== 'stroke' && (!e.lock || canLocked) && !(noTable && e.type === 'table'));
     let hit = els.find((e) => hitElement(e, l.x, l.y, tol));
     if (!hit) hit = els.find((e) => { const b = elBBox(e); return l.x >= b.x && l.x <= b.x + b.w && l.y >= b.y && l.y <= b.y + b.h; });
     return { page, l, hit };
@@ -459,7 +459,7 @@ Object.assign(Editor, {
   fingerTap(p) {
     if (this.crop) return this.applyCrop(); // recorte na página: tocar fora da imagem aplica
     if (this.textEl) return this.commitText();
-    const { page, l, hit } = this.hitAt(p);
+    const { page, l, hit } = this.hitAt(p, this.tableFingerLock()); /* v1.4.1: no zoom alto o dedo não seleciona tabela */
     if (!page) { this.sel = null; return this.requestRender(); }
     const ck = this.checkAt(page, l); if (ck) return this.toggleCheck(page, ck.e, ck.ci);
     const now = performance.now();

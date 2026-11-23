@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.4.1
+
+- **Tabelas travadas para o dedo no zoom alto:** do zoom máximo até 50% abaixo dele (ex.: máximo 750% → a partir de 700%), o dedo não seleciona, não move nem abre as células de uma tabela — só rola, faz zoom e as demais funções. A caneta (laço) continua selecionando normalmente, e em zoom menor tudo funciona como antes.
+
 ## Novidades da v1.4.0
 
 - **Telinha do atalho rápido reorganizada em abas.** Nada saiu.

@@ -505,6 +505,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
   - **Teste:** 4 abas renderizadas; grupo A tamanho do romano 70 → grupo B começa com 70, muda para 35 → A volta 70 → B volta 35; `brOpt().curve` 0,05; hífen + toque duplo → `path` com `rr` [0, 2, 0] (5% de 40); roteiro geral sem erros.
   - **Zoom** (relatório da v1.3.1: "Escritas sumindo ao tirar zoom" — escritas ANTIGAS somem só durante a pinça e voltam ao soltar; Alta, 101 blocos, 131–157 MB, dpr 2,75): não reproduzido no Chromium (traços visíveis durante a pinça; miniaturas da página atual e ±4 prontas em ~2 s). Hipótese: o Android descarta texturas no gesto (memória de desenho). Pedido ao usuário: testar a Econômica para comparar.
 
+- v1.4.1 — pedido: no zoom alto a tabela não pode ser selecionada pelo dedo. `Editor.tableFingerLock()` (editor.js) = `cam.z·100 ≥ zoomLimits()[1]·100 − 50` (50 pontos de % abaixo do máximo). Com ela: `fingerTap` chama `hitAt(p, noTable)` (richtext.js; tabelas saem da busca, outros itens ainda podem ser tocados), o `onDown` do dedo não faz `selHit` se a seleção tem tabela (vira gesto: não move/redimensiona nem entra em `tEdit` pelo `tapOnSel`), e o toque do laço com o dedo (`fingerDraws`) tira tabelas do `endLasso`. Caneta não muda. Teste (toque CDP, máximo 800): z 1,5 e 6,9 → seleciona; 7,6 e 8 → nada; tabela selecionada antes e arrasto a 800% → câmera rolou, tabela parada.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).
