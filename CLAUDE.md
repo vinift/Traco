@@ -481,6 +481,10 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v1.3.1 — "Erro no backup: Drive 401" de vez em quando no nativo (print do usuário). O `AuthorizationClient` do Play Services devolve a chave guardada no aparelho mesmo vencida: o `api()` zerava `this.token` e pedia de novo, mas `Native.driveToken(false)` voltava com a MESMA chave → 401 outra vez. Agora, no 401 e no nativo, `api()` chama `Native.ask('driveForget', tok)` → `Bridge.driveForget` (`GoogleAuthUtil.clearToken`, numa thread) antes de repetir, e também zera a chave salva (`persistTok`). APK antigo sem `driveForget`: o `ask` cai no catch e segue como antes. Teste com nativo simulado: T0 → 401 → forget T0 → auth → T1 → 200.
 
+
+
+- v1.3.2 — relato: depois de escrever, o 1º arrasto com o dedo para ir mais à direita era ignorado. Causa: `onMove` atualizava `lastPenSeen` também com a caneta pairando (hover), e o `onDown` do dedo marcava `rec.ignored` (`palmGuard`, 500 ms). Agora só conta a caneta encostada (`e.buttons || e.pressure > 0`) e a janela caiu para 300 ms. A palma grande continua barrada pelo `Palm` (tamanho). Teste (caneta CDP pairando 150 ms antes do toque + arrasto de 200 px): antes 0 px de rolagem, agora 77,9.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

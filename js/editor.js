@@ -492,7 +492,7 @@ const Editor = {
         if (!(e.width > 48 || e.height > 48)) { rec.noSnap = true; this.action.noSnap = (this.action.noSnap || 0) + 1; const ap = this.pointers.get(this.action.pid); if (ap) this.moveAction([], { clientX: ap.x + this.rect.left, clientY: ap.y + this.rect.top }); }
         return;
       }
-      if (Store.settings.palmGuard && (this.penDown || performance.now() - this.lastPenSeen < 500)) { rec.ignored = true; return; }
+      if (Store.settings.palmGuard && (this.penDown || performance.now() - this.lastPenSeen < 300)) { rec.ignored = true; return; } /* v1.3.2: 500 → 300 ms; a palma grande já é barrada pelo tamanho (Palm) */
       const drawingTouch = this.action && this.action.ptype === 'touch';
       if (!this.gesture && !drawingTouch && this.touchIds().length === 1 && this.sel && !this.readOnly) { // dedo também move, redimensiona e gira a seleção
         const k = this.selHit(p);
@@ -516,7 +516,7 @@ const Editor = {
   onMove(e) {
     if (e.buttons || e.pressure) this.lastInput = Date.now();
     if (!this.note) return;
-    if (e.pointerType === 'pen') this.lastPenSeen = performance.now();
+    if (e.pointerType === 'pen' && (e.buttons || e.pressure > 0)) this.lastPenSeen = performance.now(); /* v1.3.2: só a caneta ENCOSTADA conta (pairando perto da tela barrava o 1º arrasto do dedo) */
     const rec = this.pointers.get(e.pointerId);
     if (!rec) { if (e.pointerType === 'pen' && this.tool === 'eraser') this.hoverEraser(this.pt(e)); return; }
     const p = this.pt(e); rec.x = p.x; rec.y = p.y;
