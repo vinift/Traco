@@ -463,6 +463,20 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v1.2.6 — pedido do usuário: o zoom aparece ao lado do número da página (`#hudZoom` sem `.gone` no index.html; o `updateHud` já escrevia nele e o toque abre o menu de zoom do app.js). O slider "Zoom máximo" passou a ter passo de 10 (antes 100; o usuário usava 750%). As configurações do app antigo NÃO vão no backup do Drive: o Traço Nativo começou com os padrões.
 
+
+
+- v1.3.0 — "Arrumar o Drive" (pedido: o Drive ficou com pastas repetidas, conforme o print do usuário: duas "Direito", duas "_arquivos do app", duas "Nota sem título").
+  - **Causa:** o `restore` do nativo só preenche `n:`/`b:` no `Store.driveMap`. Sem `f:`/`d:`/`data`/`p:`, o 1º backup do nativo criou outra árvore de pastas por nome e levou os `.traco` (upsert com `n:`) para as pastas novas. Os PDFs e as pastas antigas ficaram para trás.
+  - **Escolhas do usuário:** só o nativo faz backup (desligar o automático no app antigo); mostrar a lista e confirmar.
+  - `Drive.tidyPlan` (drive.js): lê a árvore inteira com `tidyList`. K = ids do `driveMap` + raiz. Agrupa os filhos por tipo+nome:
+    - pastas: o alvo é a de K (ou a mais nova); cada repetida fora de K tem os filhos movidos para o alvo e vai para a lixeira. Não junta se as duas estão em K, nem se houver arquivo de K com o mesmo nome dos dois lados (`kk`) → vai para `kept`.
+    - arquivos: com algum de K, os outros vão para a lixeira; sem K, fica o mais novo.
+    - Recursivo, simulado em memória → `{ops, kept, scanned}`.
+  - `Drive.tidyRun` executa com o lock 'traco-drive' (PATCH addParents/removeParents ou `trashed: true`) e, ao mover um item de K, atualiza o `parent` no `driveMap`.
+  - UI: `tidyDrive()` (library.js), botão "Arrumar o Drive…" na seção do Drive, modal com as listas e Cancelar/Arrumar.
+  - Teste com árvore simulada igual ao print: data antiga juntada (blob de K movido e `parent` atualizado; biblioteca.json velho na lixeira); Direito antigo juntado (Antropologia movida; DPG/Nota X juntadas; PDF velho na lixeira); "Nota sem título" B (com o `.traco` de outra nota) ficou; 12 chamadas.
+  - **Pendente:** o `restore` também deveria preencher `f:`/`d:`/`data`/`p:` para não repetir isso numa instalação nova.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

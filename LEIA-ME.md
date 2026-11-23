@@ -153,6 +153,15 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.3.0
+
+- Configurações → Backup e dados → **Arrumar o Drive…**. O app analisa a pasta "Traço Notas" e mostra uma lista antes de mexer em qualquer coisa:
+  - **Pastas repetidas** com o mesmo nome no mesmo lugar, como as duas "Direito", são juntadas na que o app usa.
+  - **Cópias antigas** de PDFs e listas internas que já têm uma versão nova vão para a lixeira do Drive. Dá para recuperar por 30 dias.
+  - **Nada que o app usa é apagado.** Notas diferentes com o mesmo nome (por exemplo, duas "Nota sem título") ficam separadas.
+  - Só executa depois de você tocar em **Arrumar**.
+- Use no Traço Nativo, com o backup automático do app antigo **desligado**. Se o antigo voltar a fazer backup, ele recria as pastas antigas.
+
 ## Novidades da v1.2.6
 
 - O nível de zoom aparece ao lado do número da página, no topo da nota (ex.: "1 / 2  430%"). Tocar nele abre o menu de zoom (ajustar à largura, página inteira, níveis prontos).

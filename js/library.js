@@ -315,6 +315,28 @@ const Library = {
   },
 };
 
+/* v1.3.0: "Arrumar o Drive" — analisa (Drive.tidyPlan), mostra a lista e só executa (Drive.tidyRun) depois do OK */
+async function tidyDrive() {
+  if (!Drive.configured() || !Drive.hasAuth()) return toast('Conecte o Drive primeiro', 3000);
+  let plan;
+  try { toast('Analisando o Drive…', 60000); plan = await Drive.tidyPlan((n) => toast(`Analisando o Drive… ${n} pasta(s)`, 60000)); toast('Análise pronta', 1000); }
+  catch (e) { return toast((e.needAuth ? 'Conecte o Drive primeiro' : 'Não deu para analisar: ' + e.message), 6000); }
+  const mv = plan.ops.filter((o) => o.op === 'move'), tr = plan.ops.filter((o) => o.op === 'trash'), trF = tr.filter((o) => o.folder), trA = tr.filter((o) => !o.folder);
+  if (!plan.ops.length) return openModal({ title: 'Arrumar o Drive', body: el('p', {}, `Nada repetido: o Drive já está organizado (${plan.scanned} pastas analisadas).` + (plan.kept.length ? ` ${plan.kept.length} pasta(s) com o mesmo nome ficaram separadas porque são notas diferentes.` : '')), buttons: [{ label: 'Ok', cls: 'primary', value: true }] });
+  const line = (txt, sub) => el('li', {}, el('span', {}, txt), sub ? el('small', { class: 'muted', style: { display: 'block' } }, sub) : null);
+  const sec = (t, items) => items.length ? el('div', {}, el('h4', { style: { margin: '12px 0 4px' } }, t), el('ul', { style: { margin: 0, paddingLeft: '18px' } }, ...items.slice(0, 250), items.length > 250 ? el('li', {}, `… e mais ${items.length - 250}`) : null)) : null;
+  const body = el('div', {},
+    el('p', {}, `Analisei ${plan.scanned} pastas. Vou juntar ${trF.length} pasta(s) repetida(s) (${mv.length} item(ns) mudam de lugar) e mandar ${trA.length} cópia(s) antiga(s) para a lixeira do Drive. Nada que o app usa é apagado, e tudo que vai para a lixeira pode ser recuperado por 30 dias.`),
+    el('div', { style: { maxHeight: '48vh', overflow: 'auto', fontSize: '13px' } },
+      sec('Pastas repetidas que serão juntadas', trF.map((o) => line(o.path, o.why))),
+      sec('Itens que mudam de lugar', mv.map((o) => line(o.path, '→ ' + o.dest))),
+      sec('Cópias antigas para a lixeira', trA.map((o) => line(o.path, o.why))),
+      plan.kept.length ? sec('Ficam como estão (notas diferentes com o mesmo nome)', plan.kept.map((p) => line(p))) : null));
+  const ok = await openModal({ title: 'Arrumar o Drive', body, wide: true, buttons: [{ label: 'Cancelar', value: false }, { label: 'Arrumar', cls: 'primary', value: true }] });
+  if (!ok) return;
+  try { await Drive.tidyRun(plan, (i, t) => toast(`Arrumando o Drive… ${i}/${t}`, 60000)); toast(`Drive arrumado ✓ ${trF.length} pasta(s) juntada(s), ${trA.length} cópia(s) na lixeira do Drive`, 6000); }
+  catch (e) { toast('Parou no meio: ' + e.message + ' — toque em "Arrumar o Drive" de novo para continuar', 9000); }
+}
 /* ===== Configurações ===== */
 async function openSettings(focus) {
   const S = Store.settings, D = S.drive;
@@ -341,6 +363,7 @@ async function openSettings(focus) {
     el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
       B(Drive.native() ? 'Conectar' : 'Salvar e conectar', 'primary', async () => { if (Drive.native()) auto.checked = true; /* v1.0.1: no nativo, conectar já liga o backup (antes a caixa desmarcada deixava "desligado") */ saveDrive(); if (D.clientId || Drive.native()) { status.textContent = 'Conectando…'; await Drive.connect(); auto.checked = D.enabled !== false; status.textContent = stTxt(); } else toast('Informe o Client ID'); }),
       B('Fazer backup agora', '', () => { saveDrive(); Drive.sync(true); }),
+      B('Arrumar o Drive…', '', () => tidyDrive()), /* v1.3.0 */
       B('Restaurar do Drive', '', async () => {
         saveDrive(); if (!(await confirmBox('Restaurar do Drive', 'Baixar as notas do Drive? Notas que estão mais novas no Drive substituem as do tablet; as demais ficam como estão.', 'Restaurar'))) return;
         try { const n = await Drive.restore((i, t) => toast(`Restaurando… ${i}/${t}`, 4000)); const R = Drive.lastRestore || {}; toast(`${n} nota(s) restauradas — encontrei no Drive ${R.notes ?? '?'} nota(s) e ${R.blobs ?? '?'} anexo(s)` + (R.fail ? `; ${R.fail} com erro` : '') + (R.study ? `; ${R.study} sessão(ões) de estudo` : ''), 9000); /* v1.0.3 */ Library.render(); } catch (e) { toast(e.needAuth ? 'Conecte o Drive primeiro' : 'Erro: ' + e.message, 5000); }

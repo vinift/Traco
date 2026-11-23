@@ -402,6 +402,73 @@ const Drive = {
     } while (pageToken);
     return out;
   },
+  /* ===== v1.3.0: "Arrumar o Drive" — junta pastas repetidas (nomes iguais no mesmo lugar) e manda cópias antigas para a lixeira.
+     K = tudo que o app usa (ids em Store.driveMap + a raiz): nunca vai para a lixeira; ao mover um item de K, o `parent` do mapa é
+     atualizado (senão o próximo backup tentaria tirar o arquivo da pasta antiga). Notas diferentes com o mesmo título (arquivos de K
+     com o mesmo nome) não são juntadas. tidyPlan só lê e simula; tidyRun executa o plano. */
+  async tidyList(id) {
+    const out = []; let pageToken = '';
+    do {
+      const r = await this.api('GET', `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`'${id}' in parents and trashed=false`)}&fields=nextPageToken,files(id,name,mimeType,modifiedTime)&pageSize=1000${pageToken ? '&pageToken=' + pageToken : ''}`);
+      out.push(...r.files); pageToken = r.nextPageToken || '';
+    } while (pageToken);
+    return out;
+  },
+  async tidyPlan(onProg) {
+    const root = await this.ensureFolder(), K = new Map();
+    for (const [k, v] of Object.entries(Store.driveMap)) { const e = typeof v === 'string' ? { id: v } : v; if (e && e.id) K.set(e.id, k); }
+    K.set(root, 'root');
+    const rootN = { id: root, name: this.FOLDER, folder: true, parent: null, kids: [], mod: 0 }, queue = [rootN]; let seen = 0;
+    while (queue.length) {
+      const F = queue.shift();
+      for (const f of await this.tidyList(F.id)) { const n = { id: f.id, name: f.name, folder: f.mimeType === 'application/vnd.google-apps.folder', parent: F, kids: [], mod: Date.parse(f.modifiedTime) || 0 }; F.kids.push(n); if (n.folder) queue.push(n); }
+      onProg && onProg(++seen);
+    }
+    const ops = [], kept = [], isK = (n) => K.has(n.id);
+    const path = (n) => { const a = []; for (let x = n; x && x !== rootN; x = x.parent) a.unshift(x.name); return a.join(' › '); };
+    const detach = (n) => { const i = n.parent.kids.indexOf(n); if (i >= 0) n.parent.kids.splice(i, 1); };
+    const move = (n, to) => { ops.push({ op: 'move', id: n.id, name: n.name, folder: n.folder, from: n.parent.id, to: to.id, path: path(n), dest: path(to) || this.FOLDER, key: K.get(n.id) }); detach(n); n.parent = to; to.kids.push(n); };
+    const trash = (n, why) => { ops.push({ op: 'trash', id: n.id, name: n.name, folder: n.folder, path: path(n), why }); detach(n); };
+    const kk = (A, B) => B.kids.some((b) => !b.folder && isK(b) && A.kids.some((x) => !x.folder && isK(x) && x.name === b.name));
+    const tidy = (F) => {
+      const groups = new Map();
+      for (const n of F.kids) { const g = (n.folder ? 'd|' : 'f|') + n.name; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(n); }
+      for (const g of groups.values()) {
+        if (g.length < 2) continue;
+        const ks = g.filter(isK), newest = g.slice().sort((a, b) => b.mod - a.mod)[0];
+        if (g[0].folder) {
+          const target = ks[0] || newest;
+          for (const b of g) {
+            if (b === target || isK(b)) continue; /* duas pastas em uso (ex.: notas diferentes com o mesmo título): ficam */
+            if (kk(target, b)) { kept.push(path(b)); continue; }
+            for (const c of b.kids.slice()) move(c, target);
+            trash(b, 'pasta repetida — o que tinha dentro foi para a outra "' + b.name + '"');
+          }
+        } else {
+          const keep = ks.length ? null : newest;
+          for (const b of g) if (!isK(b) && b !== keep) trash(b, ks.length ? 'cópia antiga (o app usa a outra)' : 'cópia mais antiga');
+        }
+      }
+      for (const n of F.kids.slice()) if (n.folder) tidy(n);
+    };
+    tidy(rootN);
+    return { ops, kept, scanned: seen };
+  },
+  async tidyRun(plan, onProg) {
+    const job = (async () => {
+      let i = 0;
+      for (const o of plan.ops) {
+        if (o.op === 'move') {
+          await this.api('PATCH', `https://www.googleapis.com/drive/v3/files/${o.id}?addParents=${o.to}&removeParents=${o.from}&fields=id`, { body: '{}', headers: { 'Content-Type': 'application/json' } });
+          if (o.key && Store.driveMap[o.key] && typeof Store.driveMap[o.key] === 'object') { Store.driveMap[o.key].parent = o.to; delete Store.driveMap[o.key].checked; }
+        } else await this.api('PATCH', `https://www.googleapis.com/drive/v3/files/${o.id}?fields=id`, { body: JSON.stringify({ trashed: true }), headers: { 'Content-Type': 'application/json' } });
+        onProg && onProg(++i, plan.ops.length);
+      }
+      await Store.saveDriveMap();
+      return i;
+    });
+    return navigator.locks ? navigator.locks.request('traco-drive', job) : job(); /* não roda junto com o backup */
+  },
   async restore(onProgress) {
     const root = await this.ensureFolder();
     const prop = (v) => `appProperties has { key='traco' and value='${v}' }`;
