@@ -153,6 +153,18 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.0.0 — começa o Traço Nativo
+
+- **App nativo para Android ("Traço Nativo")**, instalado ao lado do app atual enquanto está em teste. A biblioteca, as configurações, o cronômetro e o resto continuam vindo do site (o "Verificar atualização" segue valendo). O Android cuida das partes em que o navegador limita:
+  - **Tinta nativa:** o traço que você está escrevendo é desenhado direto na tela pelo Android, com o mínimo de atraso. Quando você levanta a caneta, ele passa para a nota como sempre. Dá para desligar em Configurações → Caneta e escrita → "Tinta nativa do Android".
+  - **Drive pela conta do tablet:** o login usa a conta Google do Android, porque o login do site é bloqueado pelo Google dentro de apps. Não precisa de Client ID.
+  - **Abrir com / Compartilhar PDF:** o Traço Nativo aparece na lista ao tocar num PDF ou compartilhar um.
+  - **Cronômetro:** as notificações são do Android, e o alarme toca na hora mesmo com o app fechado.
+  - **Compartilhar e salvar arquivos:** usam o compartilhamento do Android; salvar vai para Downloads/Traço.
+- **Como baixar:** https://github.com/vinift/Traco/releases/latest/download/traco-nativo.apk (link fixo, sempre a versão mais nova). Para atualizar a parte nativa: Configurações → Avançado → Sobre → "Baixar a versão mais nova do app nativo".
+- **Para passar as notas para o app novo:** no app atual, faça o backup no Drive. No Traço Nativo, conecte o Drive e use "Restaurar do Drive".
+- No navegador e no app atual, nada muda.
+
 ## Novidades da v0.58.3
 
 - **Menos memória de desenho (barras piscando em notas grandes):** o relatório que você mandou mostrou 267 MB de memória de desenho.

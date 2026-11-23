@@ -324,20 +324,21 @@ async function openSettings(focus) {
   const sec = el('input', { type: 'password', value: D.clientSecret || '', placeholder: 'Opcional — evita ter que reconectar a cada hora' });
   const auto = el('input', { type: 'checkbox' }); auto.checked = D.enabled !== false;
   const status = el('p', {}, Drive.configured() ? (Drive.hasAuth() ? '✅ Conectado.' : '⚠️ Configurado, mas precisa conectar.') + (D.lastSync ? ' Último backup: ' + new Date(D.lastSync).toLocaleString('pt-BR') : '') : 'Backup no Drive desligado.');
-  const saveDrive = () => { const changed = cid.value.trim() !== D.clientId || sec.value.trim() !== (D.clientSecret || ''); D.clientId = cid.value.trim(); D.clientSecret = sec.value.trim(); D.enabled = auto.checked && !!D.clientId; if (changed) { delete D.refreshToken; Drive.token = null; } Store.saveSettings.flush(); Drive.refreshStatus(); };
+  const saveDrive = () => { const changed = cid.value.trim() !== D.clientId || sec.value.trim() !== (D.clientSecret || ''); D.clientId = cid.value.trim(); D.clientSecret = sec.value.trim(); D.enabled = auto.checked && (!!D.clientId || Drive.native()); if (changed) { delete D.refreshToken; Drive.token = null; } Store.saveSettings.flush(); Drive.refreshStatus(); };
   const B = (label, cls, fn) => el('button', { class: 'btn ' + cls, onclick: fn }, label);
   const driveSec = el('div', { class: 'set-sec', id: 'set-drive' }, el('h3', {}, 'Backup automático no Google Drive'),
     el('p', {}, 'Suas notas ficam salvas no tablet e são copiadas automaticamente para o seu Drive alguns segundos depois de cada alteração, organizadas como: Traço Notas › nome da pasta › título da nota. O Drive guarda o histórico de versões de cada arquivo.'),
     !Drive.canUse() ? el('p', { style: { color: 'var(--danger)' } }, 'Atenção: o backup só funciona quando o app está hospedado em um endereço https (veja o guia de instalação).') : null,
+    ...(Drive.native() ? [el('p', { class: 'muted' }, 'No Traço Nativo o login é pela conta Google do tablet (não precisa de Client ID).')] : [ /* v1.0 */
     el('div', { class: 'field' }, el('label', {}, 'Client ID (OAuth do Google Cloud)'), cid),
     el('div', { class: 'field' }, el('label', {}, 'Client Secret (opcional, recomendado)'), sec),
-    el('div', { class: 'field' }, el('label', {}, 'URI de redirecionamento e origem para cadastrar no Google Cloud'), el('code', { class: 'k' }, Drive.redirectUri()), el('code', { class: 'k' }, location.origin)),
+    el('div', { class: 'field' }, el('label', {}, 'URI de redirecionamento e origem para cadastrar no Google Cloud'), el('code', { class: 'k' }, Drive.redirectUri()), el('code', { class: 'k' }, location.origin))]),
     el('label', { class: 'chk', style: { marginBottom: '10px' } }, auto, 'Backup automático ligado'),
     UI.check('Salvar também uma cópia em PDF de cada nota (para ler direto no Drive)', D.pdf !== false, (v) => { D.pdf = v; Store.saveSettings(); }),
     el('div', { class: 'field' }, el('label', {}, 'Qualidade do PDF no Drive (mais alta = arquivo maior e mais memória para gerar)'), (() => { const s = el('select', {}, el('option', { value: '150' }, 'Normal · 150 dpi'), el('option', { value: '200' }, 'Alta · 200 dpi (padrão)'), el('option', { value: '300' }, 'Máxima · 300 dpi')); s.value = String(D.pdfDpi || 200); s.addEventListener('change', () => { D.pdfDpi = +s.value; D.pdfCrash = {}; Store.saveSettings(); }); return s; })()),
     status,
     el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
-      B('Salvar e conectar', 'primary', () => { saveDrive(); if (D.clientId) Drive.connect(); else toast('Informe o Client ID'); }),
+      B(Drive.native() ? 'Conectar' : 'Salvar e conectar', 'primary', () => { saveDrive(); if (D.clientId || Drive.native()) Drive.connect(); else toast('Informe o Client ID'); }),
       B('Fazer backup agora', '', () => { saveDrive(); Drive.sync(true); }),
       B('Restaurar do Drive', '', async () => {
         saveDrive(); if (!(await confirmBox('Restaurar do Drive', 'Baixar as notas do Drive? Notas que estão mais novas no Drive substituem as do tablet; as demais ficam como estão.', 'Restaurar'))) return;
@@ -394,7 +395,8 @@ async function openSettings(focus) {
       UI.slider('Melhorar escrita automático (ao levantar a caneta)', 0, 10, 1, autoBeautifyLevel(), (v) => { S.autoBeautify = v; Store.saveSettings(); }, (v) => (v === 0 ? 'desligado' : String(v))),
       el('p', { class: 'muted' }, 'Arredonda as curvas e tira o tremido sem apagar os cantos das letras. Para arrumar algo já escrito: laço → botão ✨ "Melhorar escrita" (também iguala o tamanho e a altura das palavras).'),
       el('div', { class: 'field' }, el('button', { class: 'btn', onclick: () => caligraphyNotebook() }, '✍ Caderno de caligrafia…'), el('p', { class: 'muted' }, 'Escreva cada letra do seu jeito mais bonito; o ✨ "Melhorar escrita" do laço aproxima as suas letras destas.')),
-      UI.check('Modo de baixa latência para a caneta (a tinta aparece mais rápido; reabra o app depois de mudar)', S.lowLatency === true, (v) => { S.lowLatency = v; Store.saveSettings(); toast('Reabra o app para aplicar'); }),
+      Native.on ? UI.check('Tinta nativa do Android (a escrita aparece com o mínimo de atraso; desligue se algo parecer estranho ao escrever)', S.nativeInk !== false, (v) => { S.nativeInk = v; Store.saveSettings(); }) : null, /* v1.0 */
+      Native.on ? null : UI.check('Modo de baixa latência para a caneta (a tinta aparece mais rápido; reabra o app depois de mudar)', S.lowLatency === true, (v) => { S.lowLatency = v; Store.saveSettings(); toast('Reabra o app para aplicar'); }),
       )));
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Formas ao segurar'), el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
     chk('Reconhecer formas ao segurar a caneta parada no fim do traço', 'shapeHold'),
@@ -463,7 +465,7 @@ async function openSettings(focus) {
       B('Copiar relatório', '', async () => { try { await navigator.clipboard.writeText(diagText()); toast('Relatório copiado'); } catch (_) { openModal({ title: 'Relatório', wide: true, body: el('textarea', { style: { width: '100%', height: '300px' } }, diagText()), buttons: [{ label: 'Fechar', cls: 'primary' }] }); } }),
       B('Limpar', 'ghost', () => { localStorage.removeItem(ERRLOG_KEY); renderErr(); })),
     typeof BugRec !== 'undefined' ? BugRec.listEl() : null)); /* v0.54: relatórios de problema visual */
-  body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Sobre'), el('p', {}, `Traço Notas · versão ${App.version}`), el('p', {}, 'Caderno digital feito sob medida: escrita com caneta, PDFs, tabelas, importação do Notewise e backup no seu Google Drive. As notas ficam guardadas no aparelho.')));
+  body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Sobre'), el('p', {}, `Traço Notas · versão ${App.version}` + (Native.on ? ` · app nativo ${Native.info.ver || '?'}` : '')), Native.on ? el('div', { class: 'field' }, el('button', { class: 'btn', onclick: () => Native.appUpdate() }, 'Baixar a versão mais nova do app nativo'), el('p', { class: 'muted' }, 'A parte do Android só muda instalando o APK novo; o resto atualiza pelo "Verificar atualização".')) : null, el('p', {}, 'Caderno digital feito sob medida: escrita com caneta, PDFs, tabelas, importação do Notewise e backup no seu Google Drive. As notas ficam guardadas no aparelho.')));
   /* v0.51: 7 grupos em abas que expandem; o resumo aparece com a aba fechada */
   const old = new Map([...body.querySelectorAll(':scope > .set-sec')].map((x) => [x.querySelector('h3').textContent, x]));
   const grp = (title, parts, sum) => {

@@ -7,8 +7,9 @@ const Drive = {
   get cfg() { return (Store.settings && Store.settings.drive) || {}; }, /* v0.58.3: voltar ao app antes do Store.init terminar dava "Cannot read properties of null (reading 'drive')" */
   redirectUri() { return location.origin + location.pathname; },
   canUse() { return location.protocol === 'https:' || location.hostname === 'localhost'; },
-  configured() { return !!(this.cfg.clientId && this.cfg.enabled); },
-  hasAuth() { return !!(this.cfg.refreshToken || (this.token && Date.now() < this.exp)); },
+  native() { return typeof Native !== 'undefined' && Native.on; }, /* v1.0: app nativo — login pela conta do Android, sem Client ID */
+  configured() { return !!((this.cfg.clientId || this.native()) && this.cfg.enabled); },
+  hasAuth() { return !!(this.cfg.refreshToken || (this.token && Date.now() < this.exp) || (this.native() && this.cfg.enabled && this.cfg.nativeAuth)); },
 
   setStatus(state, msg = '') {
     this.state = state; this.msg = msg;
@@ -65,6 +66,11 @@ const Drive = {
   /* ---- OAuth ---- */
   b64url(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
   async connect() {
+    if (this.native()) { /* v1.0: conta do Android (o Google bloqueia o login do site dentro de apps) */
+      try { this.token = await Native.driveToken(true); this.exp = Date.now() + 55 * 60000; this.persistTok(); this.cfg.enabled = true; this.cfg.nativeAuth = true; Store.saveSettings.flush(); this.refreshStatus(); toast('Google Drive conectado ✓'); setTimeout(() => this.sync(true), 500); }
+      catch (e) { toast(e.message, 5000); }
+      return;
+    }
     if (!this.cfg.clientId) { toast('Informe o Client ID nas configurações'); return openSettings('drive'); }
     if (!this.canUse()) { toast('O Drive só funciona com o app hospedado em https'); return; }
     if (typeof Editor !== 'undefined' && Editor.note) await Editor.saveNow();
@@ -111,6 +117,10 @@ const Drive = {
   async getToken() {
     if (this.token && Date.now() < this.exp) return this.token;
     await this.loadTok(); if (this.token && Date.now() < this.exp) return this.token;
+    if (this.native() && this.cfg.nativeAuth) { /* v1.0: renova sem tela pela conta do Android */
+      try { this.token = await Native.driveToken(false); this.exp = Date.now() + 55 * 60000; this.persistTok(); return this.token; }
+      catch (e) { if (e.needAuth) { this.cfg.nativeAuth = false; Store.saveSettings(); } throw e; }
+    }
     if (this.cfg.refreshToken) {
       try { await this.tokenReq({ refresh_token: this.cfg.refreshToken, grant_type: 'refresh_token' }); return this.token; }
       catch (e) { if (/invalid_grant/i.test(e.message)) { delete this.cfg.refreshToken; Store.saveSettings(); } throw e; }
@@ -120,7 +130,7 @@ const Drive = {
   disconnect() {
     const t = this.cfg.refreshToken || this.token;
     if (t) fetch('https://oauth2.googleapis.com/revoke?token=' + encodeURIComponent(t), { method: 'POST' }).catch(() => {});
-    delete this.cfg.refreshToken; this.token = null; this.exp = 0; this.cfg.enabled = false; this.cfg.folderId = null; Store.saveSettings();
+    delete this.cfg.refreshToken; this.cfg.nativeAuth = false; this.token = null; this.exp = 0; this.cfg.enabled = false; this.cfg.folderId = null; Store.saveSettings();
     this.refreshStatus();
   },
 

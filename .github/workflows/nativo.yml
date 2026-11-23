@@ -1,0 +1,53 @@
+# Gera o APK do "Traço Nativo" (pasta android/) e publica numa Release do GitHub.
+# Link fixo da versão mais nova: https://github.com/vinift/Traco/releases/latest/download/traco-nativo.apk
+# Precisa de UM segredo do repositório: TRACO_KEY_PASS (senha longa inventada pelo dono; guarde no Drive).
+# Na 1ª vez a chave de assinatura é criada aqui e guardada CRIPTOGRAFADA com essa senha em android/keystore.enc.
+name: App nativo (APK)
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/nativo.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: { group: nativo, cancel-in-progress: false }
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.11.1' }
+      - name: Chave de assinatura
+        env: { P: '${{ secrets.TRACO_KEY_PASS }}' }
+        run: |
+          if [ -z "$P" ]; then echo "::error::Falta o segredo TRACO_KEY_PASS (Settings → Secrets and variables → Actions)"; echo "### ⚠️ Falta o segredo TRACO_KEY_PASS" >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
+          cd android
+          if [ -f keystore.enc ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 300000 -in keystore.enc -out "$RUNNER_TEMP/release.jks" -pass env:P
+          else
+            keytool -genkeypair -keystore "$RUNNER_TEMP/release.jks" -storetype PKCS12 -alias traco -keyalg RSA -keysize 4096 -validity 36500 -storepass "$P" -keypass "$P" -dname "CN=Traco Nativo, O=vinift"
+            openssl enc -aes-256-cbc -pbkdf2 -iter 300000 -salt -in "$RUNNER_TEMP/release.jks" -out keystore.enc -pass env:P
+            git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add keystore.enc; git commit -m "nativo: chave de assinatura do APK (criptografada)"; git pull --rebase origin main; git push origin HEAD:main
+          fi
+          SHA1=$(keytool -list -v -keystore "$RUNNER_TEMP/release.jks" -storepass "$P" -alias traco | grep -m1 'SHA1:' | sed 's/.*SHA1: *//')
+          echo "SHA-1 da chave: $SHA1"
+          { echo "### Traço Nativo"; echo "SHA-1 da chave (para o cliente OAuth Android no Google Cloud): \`$SHA1\`"; echo "Pacote: \`io.github.vinift.traco.nativo\`"; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Compilar
+        env: { P: '${{ secrets.TRACO_KEY_PASS }}' }
+        run: |
+          cd android
+          export TRACO_KS="$RUNNER_TEMP/release.jks" TRACO_KS_PASS="$P"
+          VN="1.0.${{ github.run_number }}"
+          gradle --no-daemon assembleRelease -PvCode=${{ github.run_number }} -PvName=$VN
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/traco-nativo.apk"
+          echo "VN=$VN" >> "$GITHUB_ENV"
+      - name: Publicar
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          gh release create "nativo-$VN" "$RUNNER_TEMP/traco-nativo.apk" --repo "${{ github.repository }}" --target "${{ github.sha }}" --latest \
+            --title "Traço Nativo $VN" --notes "APK do app nativo (instale por cima do anterior). Link fixo da versão mais nova: https://github.com/${{ github.repository }}/releases/latest/download/traco-nativo.apk"
+          echo "APK: https://github.com/${{ github.repository }}/releases/download/nativo-$VN/traco-nativo.apk" >> "$GITHUB_STEP_SUMMARY"

@@ -307,15 +307,17 @@ const StudyTimer = {
    Limite do Android/Chrome: um site não consegue tocar alarme com o app totalmente encerrado; nesse caso o aviso aparece ao voltar.
    Em segundo plano por muito tempo o Chrome pode atrasar o alarme em até ~1 min. Desligável no painel do cronômetro. */
 Object.assign(StudyTimer, {
-  sysOn() { return Store.settings.timerNotify !== false && 'Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator; },
+  sysOn() { if (Native.on) return Store.settings.timerNotify !== false && Native.notifyOk(); /* v1.0: notificações do Android */ return Store.settings.timerNotify !== false && 'Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator; },
   askNotify() {
+    if (Native.on) { if (Store.settings.timerNotify !== false && !Native.notifyOk()) Native.notifyAsk(); return; }
     if (Store.settings.timerNotify === false || !('Notification' in window) || Notification.permission !== 'default') return;
     try { Notification.requestPermission().then((p) => { if (p === 'granted') { toast('Avisos do cronômetro ligados nas notificações do tablet', 2200); this._sysKey = null; this.sysSync(); } }); } catch (_) {}
   },
   async sysShow(tag, title, opts) {
+    if (Native.on) return Native.notify(tag, title, opts);
     try { const r = await navigator.serviceWorker.ready; await r.showNotification(title, { tag, icon: 'icons/icon-192.png', lang: 'pt-BR', ...opts }); } catch (e) { console.warn('notificação', e); }
   },
-  async sysClose(tag) { try { const r = await navigator.serviceWorker.ready; for (const n of await r.getNotifications({ tag })) n.close(); } catch (_) {} },
+  async sysClose(tag) { if (Native.on) return Native.notifyClose(tag); try { const r = await navigator.serviceWorker.ready; for (const n of await r.getNotifications({ tag })) n.close(); } catch (_) {} },
   hhmm(t) { return new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); },
   /* notificação fixa: só é refeita quando algo muda (não a cada segundo) */
   sysSync() {
@@ -336,6 +338,10 @@ Object.assign(StudyTimer, {
   /* alarme no instante exato do fim (o tick de 1 s pode ser atrasado pelo Chrome com o app em segundo plano) */
   armEnd() {
     const s = this.st; clearTimeout(this._endT); this._endT = null;
+    if (Native.on) { /* v1.0: alarme marcado no Android — toca mesmo com o app fechado */
+      const on = s.running && this.hasTarget() && this.sysOn(), brk = s.mode === 'pomodoro' && s.phase !== 'focus';
+      Native.alarm(on ? Date.now() + this.remaining(Date.now()) : 0, '⏰ ' + (s.mode === 'countdown' ? 'Tempo esgotado!' : brk ? 'Hora de voltar ao foco' : 'Hora da pausa'), s.segTitle || 'Traço');
+    }
     if (!s.running || !this.hasTarget()) return;
     const left = this.remaining(Date.now()); if (left > 0) this._endT = setTimeout(() => this.tick(), left + 30);
   },

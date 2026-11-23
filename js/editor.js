@@ -78,6 +78,7 @@ const Editor = {
     return true;
   },
   async close() {
+    if (Native.on) { Native.inkClear('all'); this._natPend = null; }
     try { this.commitText(); } catch (e) { logError(e, 'fechar: texto'); }
     this.ocrDebounced.cancel(); this.viewDebounced.cancel(); this.thumbDebounced.cancel && this.thumbDebounced.cancel();
     try { await this.saveView(); await this.saveNow(); } catch (e) { logError(e, 'fechar: salvar'); toast('Não consegui salvar a nota: ' + e.message, 4000); }
@@ -305,7 +306,8 @@ const Editor = {
     const a = this.action;
     /* v0.23: a tinta ao vivo (tela rápida ou camada de prévia) só some quando os blocos já mostram o traço inteiro — antes sumia um quadro antes (ou vários, se a área precisava ser redesenhada) e a tela piscava */
     const drawing = this.action && this.action.kind === 'draw';
-    if (!drawing && (this._inkHide || this._liveClear) && (allDone || performance.now() - (this._liveT || 0) > 600)) {
+    if (!drawing && (this._inkHide || this._liveClear || this._natPend) && (allDone || performance.now() - (this._liveT || 0) > 600)) {
+      if (this._natPend) { Native.inkClear(this._natPend); this._natPend = null; }
       if (this._inkHide) { this._inkHide = false; this.inkHide(); }
       if (this._liveClear) { this._liveClear = false; this.clearLive(); }
     }
@@ -565,6 +567,7 @@ const Editor = {
 
   /* ---------- Gestos de navegação ---------- */
   startGesture() {
+    if (this._natPend) { Native.inkClear(this._natPend); this._natPend = null; } /* v1.0: a tinta nativa fica presa à tela — sai antes de rolar/zoom */
     const f = this.pointers.get(this.touchIds()[0]); const g = this.gesture = { t0: performance.now(), moved: false, max: 0, p0: f ? { x: f.x, y: f.y } : null }; this.rebaseGesture();
     g.atEnd = !!(this.note && this.note.mode !== 'infinite' && !this._inertia && this.cam.y >= this.camMaxBase() - 4 / this.cam.z); // já parado no fim da nota
     /* v0.22: com o laço, segurar o dedo parado abre o painel de colar da biblioteca */
@@ -674,7 +677,7 @@ const Editor = {
   },
   cancelAction() {
     const a = this.action; this.action = null; if (!a) return;
-    clearTimeout(a.holdT); clearTimeout(a.holdBk); this.clearLive(); if (this.inkOn) this.inkHide();
+    clearTimeout(a.holdT); clearTimeout(a.holdBk); this.clearLive(); if (this.inkOn) this.inkHide(); if (a.nat) Native.inkClear(a.nat);
     if (a.kind === 'crop' && this.crop) this.crop.c = a.fresh ? a.prev : a.c0;
     if (a.kind === 'erase' || a.kind === 'plugin') this.opCommit();
     if (a.kind === 'move' || a.kind === 'scale' || a.kind === 'rotate' || a.kind === 'vnode' || a.kind === 'tableact') { this.selTf = null; this.tPreview = null; this.guides = null; }
@@ -691,7 +694,7 @@ const Editor = {
     a.dash = base.tool === 'pen' ? st.dash || 'solid' : 'solid';
     if (base.tool === 'pen') { a.pen = st.type || 'ball'; a.nib = st.nib ?? 45; a.inc = a.dash === 'solid' && (a.pen === 'ball' || a.pen === 'natural') && !colorHasAlpha(a.color); if (typeof Fades !== 'undefined') Fades.begin(a, st); } /* v0.38: cor em degradê */
     a.stab = stabLevel(base.tool, a.pen); a.inf = inf; if (e.pointerType === 'pen') Focus.writing(); // só a caneta esconde as barras do topo
-    if (this.lowLat && e.pointerType === 'pen' && a.inc && a.tool === 'pen') this.inkBegin(); // baixa latência: tinta direto numa tela "rápida"
+    if (this.lowLat && !Native.inkOk() && e.pointerType === 'pen' && a.inc && a.tool === 'pen') this.inkBegin(); // baixa latência: tinta direto numa tela "rápida"
     this.addDrawPoint(e);
     if (base.tool === 'highlighter' && Store.settings.hlSnapPdf !== false) { const pg = this.note.pages[pi]; if (pg && pg.pdf) PdfText.prefetch(pg.pdf); } // lê o texto do PDF enquanto você passa o marca-texto
     const S0 = Store.settings;
@@ -699,6 +702,7 @@ const Editor = {
       const q = a.pts; a.straight = true;
       a.shape = { id: uid(), type: 'shape', kind: 'line', x1: q[0], y1: q[1], x2: q[0], y2: q[1], color: a.color, width: a.width, fill: null, dash: a.dash };
     }
+    if (a.tool === 'pen' && e.pointerType === 'pen' && a.inc && !a.fade && !a.snap && !a.straight && Native.inkOk()) a.nat = Native.inkGo(this, a); /* v1.0: app nativo — a tinta ao vivo é desenhada pelo Android */
     this.drawLiveStroke();
   },
   addDrawPoint(ev) {
@@ -749,6 +753,7 @@ const Editor = {
     this.connectHeld();
     if (navigator.vibrate) navigator.vibrate(12);
     if (this.inkOn) this.inkHide(); // virou forma: a tinta rápida sai, a forma aparece na camada de prévia
+    if (a.nat) { Native.inkClear(a.nat); a.nat = 0; }
     this.drawLiveStroke();
   },
   /* v0.31: conectar a forma do "segurar" às formas da página (connectShape em geom.js; desliga em S.shapeConnect) */
@@ -810,6 +815,7 @@ const Editor = {
     }
     const n = a.pts.length / 3; const from = Math.max(0, a.drawn - 1);
     if (n - from < 1) return;
+    if (a.nat) { a.drawn = n; return; } /* v1.0: o Android já desenhou */
     const tc = this.inkOn ? this.ictx : c; if (this.inkOn) this.pageTf(tc, a.pi);
     const seg = a.pts.slice(from * 3); tc.fillStyle = a.color; tc.fill(buildRadiiPath(seg, penRadii(seg, a.width, a.pen)));
     a.drawn = n;
@@ -818,6 +824,7 @@ const Editor = {
     clearTimeout(a.holdT); clearTimeout(a.holdBk); Focus.writingEnd();
     this._liveClear = true; this._liveT = performance.now(); this.requestRender(); // a prévia sai no próximo desenho completo (sem piscar)
     if (this.inkOn) { this._inkHide = true; this.requestRender(); } // some depois que os blocos já mostram o traço (sem piscar)
+    if (a.nat) { (this._natPend || (this._natPend = [])).push(a.nat); this.requestRender(); } /* v1.0: tinta nativa sai junto, sem piscar */
     const page = this.note.pages[a.pi];
     if (a.shape && a.shape.bk) { const st = bracketStyleOf(a.shape); if (st) { Store.settings.bracketStyle = st; Store.saveSettings(); } const { bk, ...rest } = a.shape; a.shape = rest; } /* v0.31: lembra o estilo do colchete; a marca bk não fica salva */
     if (a.shape && !(a.straight && Math.hypot(a.shape.x2 - a.shape.x1, a.shape.y2 - a.shape.y1) < 2)) { this.recAdd(page, a.tool === 'highlighter' ? this.hlLine(a) : a.shape); this.opCommit(); return; }

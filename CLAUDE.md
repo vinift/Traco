@@ -49,9 +49,52 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 **Barra do sistema preta que empurra a tela (caminho novo, 20/11/2026):** o Bubblewrap aceita `display` = `standalone` | `fullscreen` | `fullscreen-sticky` ("fullscreen-sticky corresponds to Android's Immersive Sticky", README do bubblewrap/packages/cli). No modo imersivo fixo as barras aparecem POR CIMA (semitransparentes) ao puxar da borda e somem sozinhas, sem redimensionar — é o que o usuário quer. Instrução dada: no PWABuilder → Android → Options → **Display mode = Fullscreen sticky** ao gerar o APK novo. Se mesmo assim a tela pular, revisar `SafeArea`/`StableVH` (margens congeladas) para esse modo. Issue conhecido (bubblewrap #1035): área do entalhe em branco em fullscreen — o Pad 7 não tem entalhe.
 Não confirmado (não deu para ler a doc do PWABuilder daqui): se há uma opção a marcar para file handlers / share target; o Bubblewrap (gerador por baixo) aceita `fileHandlers` e `shareTarget` no twa-manifest.json e "merge" leva os campos do manifesto web. Se depois de gerar o Traço ainda não aparecer, abrir o zip e conferir no `twa-manifest.json` se `fileHandlers` está lá.
 
+## 3c. App nativo "Traço Nativo" (v1.0.0+; caminho "híbrido", porta aberta para reescrever tudo em nativo depois)
+
+- **Onde está:** pasta `android/`, projeto Kotlin sem wrapper do Gradle. O CI usa Gradle 8.11.1, AGP 8.7.3, Kotlin 2.0.21, compileSdk/targetSdk 35 e minSdk 29.
+- **Pacote e nome:** pacote `io.github.vinift.traco.nativo`, app "Traço Nativo". Fica instalado ao lado do TWA. Combinado com o usuário: quando estiver bom, ele substitui o TWA (desinstala o antigo e, se quiser, renomeia o app para "Traço").
+- **Build:** não dá para compilar aqui (o `dl.google.com` é bloqueado no ambiente, então não há SDK).
+  - `.github/workflows/nativo.yml` compila a cada push na `main` que toca em `android/**`, e também por `workflow_dispatch`.
+  - Assina o APK e publica a Release `nativo-1.0.<run>` com o asset `traco-nativo.apk`. Link fixo: `releases/latest/download/traco-nativo.apk`.
+  - `versionCode` = `run_number`.
+  - Veja os erros de compilação pelas ferramentas `mcp__github__actions_*` (logs dos jobs).
+- **Chave de assinatura:**
+  - Segredo único do repositório: `TRACO_KEY_PASS`, criado pelo usuário. **Nunca peça a senha.**
+  - Na 1ª execução o workflow gera o keystore e commita `android/keystore.enc` (AES-256 com pbkdf2, a partir dessa senha) direto na `main`. Por isso, faça `git fetch` + merge antes de publicar.
+  - O SHA-1 aparece no resumo do job. Ele é necessário para o cliente OAuth Android.
+- **Arquitetura:**
+  - `MainActivity` = WebView carregando `https://vinift.github.io/Traco/`, com `InkView` por cima.
+  - Tela cheia imersiva fixa.
+  - Voltar → `web.goBack()`.
+  - Seletor de arquivos.
+  - Links de fora → navegador.
+  - `requestUnbufferedDispatch` na caneta.
+- **Ponte `window.TracoNative`** (`Bridge.kt`) ↔ `js/native.js` (`Native`, carregado logo depois do util.js; `Native.on` falso fora do app, e aí nada muda):
+  - Respostas pedem `Native.ask(fn)` e voltam por `Native._cb(id, json)`. Avisos chegam por `Native._ev('timer'|'inbox', dado)`, que espera o app abrir.
+- **Tinta nativa** (`ink/InkView.kt` + `ink/StrokeFilter.kt`):
+  - Usa `CanvasFrontBufferedRenderer` (androidx.graphics-core) num `SurfaceView` transparente `setZOrderOnTop`, que não recebe toques.
+  - A `MainActivity.dispatchTouchEvent` passa a caneta para `ink.onPen` antes do WebView. Os pontos ficam guardados desde o DOWN.
+  - `Editor.startDraw` chama `Native.inkGo(ed, a)` só para caneta + `a.inc` (esferográfica/natural, sólida, sem alfa), sem degradê, régua ou reta. Ela manda cor, `w = a.width·z` (px CSS), pen, sens, stab, dpr e clip (página na tela) e devolve o id em `a.nat`. Com `a.nat`, o `drawLiveStroke` não desenha.
+  - `endDraw` → `_natPend`. Em `draw()`, quando os blocos já mostram o traço (mesma regra do `_inkHide`), chama `Native.inkClear(ids)`.
+  - `tryRecognize` (virou forma), `cancelAction`, `startGesture` e `close` ('all') limpam na hora.
+  - Do lado nativo: front buffer durante o traço; no UP vai para `commit()` (camada "multi", redesenhada a partir da lista `done`); `inkClear` tira da lista e chama `renderMultiBufferedLayer`.
+  - **`StrokeFilter` é a MESMA conta do `addDrawPoint` + `mapPressure` + `penRadius`.** Se mudar a estabilização na web, mude lá também.
+  - Configuração `S.nativeInk` (padrão ligada); no app nativo o `lowLatency` (cInk) é ignorado.
+- **Drive:**
+  - `DriveAuth.kt` usa `Identity.getAuthorizationClient`, escopo `drive.file`, sem refresh token.
+  - `Drive.native()`, `connect()` e `getToken()` renovam em silêncio (`Native.driveToken(false)`) e marcam `cfg.nativeAuth`.
+  - Precisa de um cliente OAuth **Android** no MESMO projeto do Google Cloud do Client ID web, com o pacote + SHA-1. Mesmo projeto = enxerga os arquivos do backup.
+- **Arquivos:**
+  - `navigator.share/canShare` e `downloadBlob` são trocados pelo `Native.polyfill`: base64 em pedaços de 768 KB → `fileBegin/fileChunk` → `shareFiles` (FileProvider `cache/out`) ou `saveFile` (MediaStore Downloads/Traço).
+  - `navigator.wakeLock` → `keepScreen`.
+- **Cronômetro:** `sysOn/askNotify/sysShow/sysClose` usam `Native.notify` (canais "timer" e "alarm"; botões → intent `timerAction` → `StudyTimer.onSysAction`). `armEnd` marca `Native.alarm` (AlarmManager exato, `USE_EXACT_ALARM`) → `AlarmReceiver` mostra a tag `traco-timer-end`.
+- **PDF recebido:** `Inbox.kt` (filtros VIEW/SEND `application/pdf`) copia para `filesDir/inbox`. A web pega em `__native/inbox/<id>` (o `sw.js` ignora `/__native/`; o WebView responde em `shouldInterceptRequest`, inclusive o do service worker) → `PdfOpen.open(file)`.
+- **Limites conhecidos:** a Fullscreen API não é usada (`Focus` com `!Native.on`). Os dados do TWA NÃO passam sozinhos para o app nativo; a passagem é pelo Drive.
+- **Próximos passos combinados (caminho 2):** depois da tinta, página/zoom nativos (desenho dos blocos fora do WebView) para memória e nitidez. Para o caminho 3, o código nativo foi separado por partes (`ink/`, Drive, Notify, Inbox) e o `StrokeFilter` já é o modelo do traço reaproveitável.
+
 ## 4. Arquitetura (JS puro, sem build)
 
-- Scripts clássicos que compartilham globais, carregados nesta ordem: util, store, geom, render, pdf, tpl-import, drive, editor, toolbar, tables, tiles, navigation, richtext, crop, shapeedit, colorpicker, fade, ui, ocr, beautify, import-notewise, library, plugins, workspace, split, timer, studyreport, pdfopen, notemenu, bugreport, app (autotoc vem logo depois de workspace; calligraphy logo depois de beautify).
+- Scripts clássicos que compartilham globais, carregados nesta ordem: util, native (v1.0), store, geom, render, pdf, tpl-import, drive, editor, toolbar, tables, tiles, navigation, richtext, crop, shapeedit, colorpicker, fade, ui, ocr, beautify, import-notewise, library, plugins, workspace, split, timer, studyreport, pdfopen, notemenu, bugreport, app (autotoc vem logo depois de workspace; calligraphy logo depois de beautify).
 - `const Editor`, `const UI`, `const StudyTimer` etc. **não** ficam em `window`: use `typeof Editor !== 'undefined'`.
 - Vários arquivos estendem o editor com `Object.assign(Editor, {...})` (tiles, navigation, richtext, tables, crop, colorpicker). **`Object.assign` não copia getters** (avalia uma vez) — use métodos (ex.: `previewCap()`, `tileCap()`).
 - Comentários: prefira `/* */` em linhas longas — um `//` já engoliu código mais de uma vez. O código é denso (linhas longas); edite com substituições exatas e confira com `node --check`.
@@ -359,6 +402,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 - v0.58.2 — patch de limpeza (pedido: otimizar sem tirar função/qualidade). Removido código morto (nada o chamava; conferido com busca por nome em js/*.js + index.html + sw.js): `beautifySelectionOld` + `yPercentiles` (beautify.js), `recognizeBracket` + `buildPenPath` + `CAPSULE_PENS` (geom.js), `Editor.doubleTapZoom` (navigation.js), `renderPreview` (tiles.js), `exportMenu` (ui.js), `Library.importMenu`, `loadScript` (util.js) — ~9 KB. Mantidos de propósito: `Editor.deletePage/duplicatePage/movePage` e `Store.deleteNote` (podem ser usados por plugins do usuário), `placeRoman/romanNext/setRomanNext`, `takeEyedrop`, `Drive.onPillClick`, `privacidade.html` (página de privacidade do OAuth do Google). `RangeFill` ignora canvas/blocos `.wt`/`.w-lvl` no MutationObserver (o zoom cria e remove blocos o tempo todo). Testes: roteiro geral (biblioteca, caneta, marca-texto, forma segurando, formas, borracha, texto, tabela, laço mover/copiar/colar/duplicar, desfazer/refazer, páginas, ir para página, ⋯, sumário, busca, pinça, atalho rápido com os 7 tipos, cronômetro, relatório 6 abas × 4 períodos, Configurações 7 abas + busca, exportar PDF, caligrafia, relatório de bug, tela cheia, tela dividida, fechar, lixeira) sem erros (só ERR_TUNNEL do OCR/rede do ambiente); vazamento: 7 ciclos abrir/fechar 3 notas + Configurações + relatório + cronômetro → heap 9,5 MB e 478 nós iguais ao 1º ciclo.
 
 - v0.58.3 — memória de desenho (relatório de bug do usuário pela v0.54: 267 MB de canvas = 200 blocos da qualidade "Alta" + `cMain`/`cLive` 26 MB cada + 15 MB de miniaturas, nota de 40 mil traços; barras piscando e "parte das configurações sumiu"; também "O app fechou enquanto enviava" a nota no backup). Escolhas: Alta com limite + liberar as telas paradas. (1) `tileCap()` (tiles.js): Alta = clamp(170 − 2·tela cheia em MB − 16, 64, 200|110) → ~105 blocos no Pad 7 (2,5 dpr). (2) Editor: `_pw/_ph` = tamanho cheio das telas (gravado no `resize`); o tiles.js usa `_pw/_ph` em vez de `cMain.width/height` (contas de blocos visíveis, `inkPaint`). `setCv(c, on)`, `mainOn()`, `liveOn()`, `idleCanvases(wantMain)` (chamado no fim do `draw`, depois da limpeza da prévia): `cMain` → 1×1 depois de 1,5 s sem `sel/flash/guides/crop/textEl/tPreview/action` (no modo de blocos; sem blocos `noTiles` fica sempre cheia); `cLive` → 1×1 depois de 2 s sem `action/_liveClear/_inkHide`. Voltam: `draw` com `_wantMain` → `mainOn`; `drawLiveStroke`, `drawLasso`, prévias de forma (2 lugares) e `api.preview/screenPreview` dos plugins → `liveOn`; ouvinte em captura no `#stage` (pointermove/pointerdown que não são toque — a caneta chegando perto) → `liveOn`. `clearLive` não reabre. `close()` zera flags/temporizadores. **Cuidado:** `_liveT` já era a marca de tempo da prévia do traço (anti-piscada) — o temporizador novo se chama `_liveIdleT` (a 1ª versão usou `_liveT` e quebrava as duas coisas). (3) `Drive.cfg` devolve `{}` enquanto `Store.settings` é null (erro "reading 'drive'" no visibilitychange antes do `Store.init`). Teste (2,5 dpr, 1280×800): aberta 88,8 MB → parada 2,6 s 40 MB (as duas 1×1); caneta perto → cLive volta (64,4); traço gravado e visível; parada → 40 de novo; seleção → cMain volta e a caixa aparece; pinça + rolagem com cMain 1×1 → blocos certos (64); Alta → limite 105; baixa latência ok; roteiro geral, mover entre páginas e laço sem erros.
+
+- v1.0.0 — começa o app nativo "Traço Nativo" (seção 3c). Web: `js/native.js`, ganchos em editor.js (`a.nat`, `_natPend`), drive.js (`native()`, `nativeAuth`), timer.js (Native.notify/alarm), workspace.js (sem Fullscreen API no nativo), library.js (Drive sem Client ID, "Tinta nativa do Android", botão de baixar o APK em Sobre) e sw.js (`/__native/`). Teste com `TracoNative` simulado (`addInitScript`): traço com a caneta → `inkGo` (cor, w, clip da página) e `inkClear` do mesmo id depois dos blocos; forma ao segurar → `inkClear` na hora; share de 1 MB em 2 pedaços; `downloadBlob` → `saveFile`; Drive conecta com token nativo; temporizador → notify + `alarmAt`; Configurações mostram tinta nativa e versão do app e escondem o Client ID e a baixa latência. Roteiro geral fora do nativo sem erros (só ERR_TUNNEL do OCR). Kotlin compilado só no GitHub Actions.
 
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).

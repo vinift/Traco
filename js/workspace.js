@@ -220,7 +220,7 @@ const Focus = {
     Store.settings.immersive = v; Store.saveSettings();
     // v0.15.1: no app instalado (APK/PWA) a tela já é cheia pelo sistema — mexer na "tela cheia do navegador" fazia a barra de
     // horário/bateria voltar ao sair e bagunçava o layout. Só usa esse recurso quando aberto numa aba comum do Chrome.
-    const inTab = window.matchMedia && matchMedia('(display-mode: browser)').matches;
+    const inTab = window.matchMedia && matchMedia('(display-mode: browser)').matches && !Native.on; /* v1.0: o app nativo já é tela cheia */
     if (inTab) try { if (v && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {}); else if (!v && document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (_) {}
     if (v) toast('Tela cheia — toque duas vezes numa área vazia (ou no botão do canto) para sair', 2600);
   },
