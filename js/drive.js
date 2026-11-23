@@ -370,6 +370,7 @@ const Drive = {
         delete d.pdfs[id]; await Store.saveDirty(); done();
       }
       for (const id of Object.keys(d.deleted)) { at('Removendo nota apagada'); await this.trash('n:' + id); await this.trash('p:' + id); await this.trash('d:' + id); delete d.deleted[id]; await Store.saveDirty(); done(); }
+      if (d.lib && !(Store.folders.length || Object.keys(Store.heads).length)) { d.lib = false; await Store.saveDirty(); } /* v1.0.3: app recém-instalado (vazio) não manda uma lista vazia por cima da do backup */
       if (d.lib) {
         at('Lista de pastas e notas'); const heads = {}; for (const [k, v] of Object.entries(Store.heads)) heads[k] = { ...v, thumb: undefined, texts: undefined };
         await this.upsert('lib', { name: 'biblioteca.json', mime: 'application/json', data: JSON.stringify({ v: 1, folders: Store.folders, heads, groups: Store.settings.presetGroups, saved: Date.now() }), parent: data, props: { traco: 'lib' } });
@@ -399,11 +400,15 @@ const Drive = {
   async restore(onProgress) {
     const root = await this.ensureFolder();
     const prop = (v) => `appProperties has { key='traco' and value='${v}' }`;
-    const [libs, blobs, notes, legacy] = await Promise.all([this.query(prop('lib')), this.query(prop('blob')), this.query(prop('nota')), this.query(`'${root}' in parents and name contains 'nota-'`)]);
-    const legacyLib = libs.length ? [] : await this.query(`'${root}' in parents and name = 'biblioteca.json'`);
-    const lib = libs[0] || legacyLib[0]; let n = 0, done = 0;
+    /* v1.0.3: além das marcas (appProperties — podem ser invisíveis para outro cliente do mesmo projeto, ex.: o app nativo), procura também pelo NOME dos arquivos */
+    const uniq = (...ls) => { const m = new Map(); for (const l of ls) for (const f of l) m.set(f.id, f); return [...m.values()]; };
+    const [libsP, blobsP, notesP, legacy, libsN, blobsN, notesN] = await Promise.all([this.query(prop('lib')), this.query(prop('blob')), this.query(prop('nota')), this.query(`'${root}' in parents and name contains 'nota-'`),
+      this.query(`name = 'biblioteca.json'`), this.query(`name contains 'arquivo-'`), this.query(`mimeType = 'application/gzip' or mimeType = 'application/json'`)]);
+    const blobs = uniq(blobsP, blobsN.filter((f) => /^arquivo-.+\.(pdf|img)$/.test(f.name))), notes = uniq(notesP, notesN.filter((f) => /\.traco$/.test(f.name)));
+    let lib = null, best = -1, n = 0, done = 0, fail = 0;
+    for (const f of uniq(libsP, libsN)) { try { const j = await this.api('GET', `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`); const sc = (j.folders || []).length + Object.keys(j.heads || {}).length; if (sc > best) { best = sc; lib = { j }; } } catch (e) { console.warn('biblioteca', e); } } /* a lista mais completa */
     if (lib) {
-      const j = await this.api('GET', `https://www.googleapis.com/drive/v3/files/${lib.id}?alt=media`);
+      const j = lib.j;
       for (const f of j.folders || []) if (!Store.folders.find((x) => x.id === f.id)) Store.folders.push(f);
       if (j.groups) for (const g of j.groups) if (!Store.settings.presetGroups.find((x) => x.id === g.id)) Store.settings.presetGroups.push(g);
       await DB.put('meta', Store.folders, 'folders'); Store.saveSettings();
@@ -417,14 +422,15 @@ const Drive = {
       onProgress && onProgress(++done, total);
     }
     for (const f of noteFiles) {
-      const remote = await readNoteFile(await this.api('GET', `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`, { raw: true }));
-      const id = remote.id; if (!id) continue;
+      let remote; try { remote = await readNoteFile(await this.api('GET', `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`, { raw: true })); } catch (e) { console.warn('restaurar nota', f.name, e); fail++; onProgress && onProgress(++done, total); continue; }
+      const id = remote && remote.id; if (!id) { onProgress && onProgress(++done, total); continue; }
       if (!this.entry('n:' + id)) Store.driveMap['n:' + id] = { id: f.id, parent: (f.parents || [])[0] };
       const local = Store.heads[id];
       if (!local || (remote.updated || 0) > (local.updated || 0)) { await Store.putNote(remote, { sync: false }); n++; const t = await makeThumb(remote); if (t) await Store.setThumb(id, t); }
       onProgress && onProgress(++done, total);
     }
     await Store.saveDriveMap();
+    this.lastRestore = { notes: noteFiles.length, blobs: blobs.length, fail, lib: best }; /* v1.0.3: resumo para a mensagem */
     return n;
   },
 };

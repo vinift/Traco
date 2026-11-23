@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.0.3
+
+- "Restaurar do Drive" também procura as notas, os anexos e a lista de pastas pelo nome dos arquivos, não só pelas marcas internas, que o app nativo pode não enxergar. Se houver mais de uma lista de pastas, usa a mais completa.
+- No fim, a mensagem diz quantas notas e anexos foram encontrados no Drive, para ficar claro o que aconteceu.
+- Uma nota com problema não interrompe mais a restauração das outras.
+- O app recém-instalado e vazio não manda mais uma lista de pastas vazia para o Drive.
+
 ## Novidades da v1.0.2
 
 - Traço Nativo: corrigido o "Conectando…" que não terminava. A resposta do login do Android não chegava à página. O mesmo defeito afetava os botões da notificação do cronômetro e os PDFs recebidos pelo "Abrir com".

@@ -409,6 +409,10 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v1.0.2 — "Conectando…" eterno no nativo: o Android chama `window.Native&&Native._cb(...)`, mas `const Native` global NÃO fica em `window` → nenhuma resposta/aviso chegava (login, `_ev('timer')`, `_ev('inbox')`). Agora `window.Native = Native` no fim de native.js. `Native.ask('driveAuth', false)` tem limite de 20 s (renovação silenciosa não trava o backup). **Nos testes, simule o Android chamando `window.Native._cb`, não `Native._cb`.**
 
+
+
+- v1.0.3 — relato: no nativo, "Restaurar do Drive" levou ~20 min e disse "0 notas restauradas" (causa não confirmada; suspeita: `appProperties` são privados do app e podem não aparecer para o cliente Android do mesmo projeto). `Drive.restore` agora junta, sem repetir (`uniq`), a busca pelas marcas e a busca pelo NOME: `name = 'biblioteca.json'` (baixa todas e usa a com mais pastas + notas), `name contains 'arquivo-'` (filtra `^arquivo-.+\.(pdf|img)$`) e mimeType gzip/json (filtra `.traco$`). Nota com erro → `fail++` e segue. Resumo em `Drive.lastRestore` {notes, blobs, fail, lib}, mostrado na mensagem. `sync` não sobe `biblioteca.json` com o app vazio (sem pastas nem notas). Teste com `Drive.query/api` simulados (marcas vazias, achado só pelo nome) → 1 nota e 1 pasta restauradas.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).
