@@ -373,8 +373,8 @@ async function openSettings(focus) {
     el('p', {}, 'Até onde o movimento de pinça pode afastar e aproximar a folha. O menu de zoom (porcentagem no canto) segue estes limites.'),
     UI.slider('Zoom mínimo (afastar)', 10, 100, 5, +S.zoomMin || 20, (v) => { S.zoomMin = v; Store.saveSettings(); zApply(); }, (v) => v + '%'),
     (() => { /* v0.23.3 */
-      const sel = el('select', { onchange: () => { S.zoomQuality = sel.value; Store.saveSettings(); if (typeof Editor !== 'undefined' && Editor.evictTiles && Editor.tiles) Editor.evictTiles(); } }, el('option', { value: 'high' }, 'Alta — a página atual fica nítida ao tirar o zoom (usa mais memória)'), el('option', { value: 'eco' }, 'Econômica — menos memória (as bordas podem desfocar por um instante)'));
-      sel.value = S.zoomQuality === 'high' ? 'high' : 'eco';
+      const sel = el('select', { onchange: () => { S.zoomQuality = sel.value; Store.saveSettings(); if (typeof Editor !== 'undefined' && Editor.evictTiles && Editor.tiles) { if (Editor.pcache) for (const pc of Editor.pcache.values()) if (pc.preview) pc.preview.stale = true; /* v1.1.0: miniaturas refeitas no tamanho da qualidade nova */ Editor.evictTiles(); } } }, Native.on ? el('option', { value: 'ultra' }, 'Ultra — guarda muito mais da nota em alta (só no app nativo; usa ~300 MB)') : null, el('option', { value: 'high' }, 'Alta — a página atual fica nítida ao tirar o zoom (usa mais memória)'), el('option', { value: 'eco' }, 'Econômica — menos memória (as bordas podem desfocar por um instante)'));
+      sel.value = S.zoomQuality === 'ultra' && Native.on ? 'ultra' : S.zoomQuality === 'high' || S.zoomQuality === 'ultra' ? 'high' : 'eco';
       return el('div', { class: 'field' }, el('label', {}, 'Qualidade ao tirar o zoom'), sel);
     })(),
     /* v0.25.1: a 'Trava de rolagem (%)' saiu — as margens das barras definem quando a rolagem lateral trava (clampCam) */

@@ -13,9 +13,11 @@ Object.assign(Editor, {
   /* v0.23.3: limite de blocos (cada um ~1 MB). "Alta" (padrão) dá espaço para a página atual inteira ficar nítida ao tirar o zoom; "econômica" = limite antigo */
   /* v0.24.1: "Econômica" (padrão) volta à memória de antes da v0.23.1 — as barras piscavam no zoom com dois dedos (memória de desenho cheia no Android).
      Os extras (mais blocos, mais miniaturas, camada afastada e miniaturas montadas durante o gesto) ficam só na "Alta" */
-  hiQ() { return Store.settings.zoomQuality === 'high'; },
-  tileCap() { const big = (navigator.deviceMemory || 4) >= 8, scr = ((this._pw || 1000) * (this._ph || 700) * 4) / 1048576, hiN = clamp(Math.floor(170 - 2 * scr - 16), 64, big ? 200 : 110), n = this.hiQ() ? hiN : (big ? 64 : 48); /* v0.58.3: Alta com limite — cabe num total de ~170 MB (blocos de 1 MB + 2 telas cheias + ~16 MB de miniaturas); no Pad 7 ≈ 102 blocos em vez de 200 (relatório do usuário: 267 MB e barras piscando) */ /* v0.28: econômica 90/60 → 64/48 (no Pad 7 as barras ainda sumiam em parte na pinça: memória de desenho cheia) */ /* v0.25.1: tela dividida = editor menor e o outro lado também usa memória */ const k = innerWidth ? clamp(this.W / innerWidth, 0.5, 1) : 1; return Math.round(n * (k < 0.95 ? Math.max(0.55, k) : 1)); },
-  previewCap() { const n = this.hiQ() && (navigator.deviceMemory || 4) >= 8 ? 18 : this.hiQ() ? 10 : 6; return innerWidth && this.W < innerWidth * 0.95 ? Math.min(n, 6) : n; },
+  hiQ() { const q = Store.settings.zoomQuality; return q === 'high' || q === 'ultra'; },
+  /* v1.1.0: "Ultra" (só no Traço Nativo): ~300 MB de desenho — muito mais blocos guardados e miniaturas de 1440 px; fora do app nativo vale como "Alta" */
+  ultraQ() { return Store.settings.zoomQuality === 'ultra' && typeof Native !== 'undefined' && Native.on; },
+  tileCap() { const big = (navigator.deviceMemory || 4) >= 8, scr = ((this._pw || 1000) * (this._ph || 700) * 4) / 1048576, hiN = clamp(Math.floor(170 - 2 * scr - 16), 64, big ? 200 : 110), n = this.ultraQ() ? clamp(Math.floor(300 - 2 * scr - 84), 96, 280) : this.hiQ() ? hiN : (big ? 64 : 48); /* v0.58.3: Alta com limite — cabe num total de ~170 MB (blocos de 1 MB + 2 telas cheias + ~16 MB de miniaturas); no Pad 7 ≈ 102 blocos em vez de 200 (relatório do usuário: 267 MB e barras piscando) */ /* v0.28: econômica 90/60 → 64/48 (no Pad 7 as barras ainda sumiam em parte na pinça: memória de desenho cheia) */ /* v0.25.1: tela dividida = editor menor e o outro lado também usa memória */ const k = innerWidth ? clamp(this.W / innerWidth, 0.5, 1) : 1; return Math.round(n * (k < 0.95 ? Math.max(0.55, k) : 1)); },
+  previewCap() { const n = this.ultraQ() ? 14 : this.hiQ() && (navigator.deviceMemory || 4) >= 8 ? 18 : this.hiQ() ? 10 : 6; return innerWidth && this.W < innerWidth * 0.95 ? Math.min(n, 6) : n; },
   pfMargin: 0.35, tileBudgetMs: 10,
   freeCanvas(c) { if (c) { if (c.parentNode) c.remove(); c.width = 0; c.height = 0; } }, // devolve a memória na hora (sem esperar a coleta de lixo)
   resetTiles() {
@@ -99,7 +101,7 @@ Object.assign(Editor, {
     const t0 = performance.now(), n = page.elements.length;
     let J = pc.pjob;
     if (!J) {
-      const s = Math.min(1.2, 960 / Math.max(page.w, page.h)), cv = this.newCanvas(Math.ceil(page.w * s), Math.ceil(page.h * s)), c = cv.getContext('2d');
+      const s = this.ultraQ() ? Math.min(1.6, 1440 / Math.max(page.w, page.h)) : Math.min(1.2, 960 / Math.max(page.w, page.h)), cv = this.newCanvas(Math.ceil(page.w * s), Math.ceil(page.h * s)), c = cv.getContext('2d');
       c.setTransform(s, 0, 0, s, 0, 0); drawPageContent(c, this.note, page, { x: 0, y: 0, w: page.w, h: page.h }, s, { dpr: 1, range: [0, 0] });
       J = pc.pjob = { cv, c, s, i: 0 };
     }

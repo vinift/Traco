@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.1.0
+
+- Traço Nativo: nova qualidade de zoom **Ultra**, em Configurações → Tela e zoom → Qualidade ao tirar o zoom.
+  - Guarda bem mais pedaços da nota em alta resolução: no Pad 7, uns 160, contra 100 na Alta e 64 na Econômica.
+  - A imagem de reserva de cada página fica mais nítida (1440 px em vez de 960). Afastar, aproximar e segurar o zoom borra bem menos.
+  - Usa até uns 300 MB de memória de desenho. Se as barras voltarem a piscar, volte para Alta.
+  - Só aparece no app nativo.
+
 ## Novidades da v1.0.4
 
 - O histórico do relatório de estudo agora também vai para o backup do Drive (arquivo "estudo.json"). Ao restaurar, as sessões do Drive se juntam às que já estão no aparelho, sem repetir.
