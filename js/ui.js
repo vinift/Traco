@@ -454,13 +454,6 @@ function noteSearchPop(anchor) {
 }
 
 /* ===== Exportação ===== */
-function exportMenu(anchor) {
-  menu(anchor, [
-    { label: 'Exportar nota em PDF', icon: 'file', run: () => exportPdfFlow(Editor.note) },
-    { label: 'Página atual como imagem (PNG)', icon: 'image', run: async () => { const p = Editor.note.pages[Editor.currentPageIndex()]; const cv = await renderPageCanvas(Editor.note, p, 2); cv.toBlob((b) => downloadBlob(b, safeName(Editor.note.title) + '.png')); } },
-    { label: 'Compartilhar PDF…', icon: 'download', run: () => exportPdfFlow(Editor.note, true) },
-  ]);
-}
 async function exportPdfFlow(note, share = false) {
   try {
     const q = await pdfQualityAsk(share); if (!q) return; /* v0.29: qualidade escolhida a cada exportação */

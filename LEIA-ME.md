@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.58.2
+
+- **Limpeza e otimização:** saiu código antigo que não era mais usado (versões anteriores do ✨, do reconhecimento de colchete, do zoom por toque duplo e de menus antigos). Nada do que você usa mudou. O app ficou um pouco mais leve e o zoom gasta um pouco menos de processamento.
+- Revisão geral: todas as telas e ferramentas foram percorridas num teste automático, sem erros. Abrir e fechar notas várias vezes não acumula memória.
+
 ## Novidades da v0.58.1
 
 - **Laço "Tocar" corrigido:** agora é o laço fechado de sempre, mas basta ele **encostar** numa letra ou traço para selecionar. Entra tudo que tiver alguma parte dentro do laço ou que o contorno dele cruzar. Antes era preciso pegar a letra quase inteira. Em "Área" continua como antes. A faixa de pincel da v0.58.0 saiu.

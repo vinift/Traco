@@ -30,9 +30,6 @@ function fmtDate(ts) {
   return sameDay ? 'Hoje, ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     : d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
 }
-function loadScript(src) {
-  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Falha ao carregar ' + src)); document.head.append(s); });
-}
 function blobToDataURL(b) { return new Promise((r) => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b); }); }
 function dataURLToBlob(u) {
   const [h, d] = u.split(','); const mime = h.match(/:(.*?);/)[1]; const bin = atob(d);

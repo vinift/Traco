@@ -32,18 +32,6 @@ function addCapsule(path, x1, y1, r1, x2, y2, r2) {
 }
 function addCircle(path, x, y, r) { path.moveTo(x + r, y); path.arc(x, y, r, 0, Math.PI * 2, false); path.closePath(); }
 
-function buildPenPath(pts, w, path = new Path2D(), from = 0) {
-  const n = pts.length / 3;
-  if (n === 0) return path;
-  let px = pts[from * 3], py = pts[from * 3 + 1], pr = penRadius(w, pts[from * 3 + 2]);
-  if (from === 0) addCircle(path, px, py, pr);
-  for (let i = from + 1; i < n; i++) {
-    const x = pts[i * 3], y = pts[i * 3 + 1], r = penRadius(w, pts[i * 3 + 2]);
-    addCircle(path, x, y, r); addCapsule(path, px, py, pr, x, y, r);
-    px = x; py = y; pr = r;
-  }
-  return path;
-}
 /* ---------- Estabilização ---------- */
 // nível 0–10 por tipo de caneta (esferográfica mais firme por padrão) e um para o marca-texto
 /* v0.37.1: escala 0–20 (11–20 = estabilização forte, para círculos e retas); padrão 10 em todas as canetas */
@@ -93,7 +81,6 @@ const PEN_TYPES = [
   ['fine', 'Marcador fino', 'Espessura constante e pontas retas'],
 ];
 function penKind(e) { return e.pen || 'natural'; } // traços antigos: comportamento natural (pressão)
-const CAPSULE_PENS = new Set(['ball', 'natural', 'fountain', 'brush']);
 function penRadii(pts, w, kind) {
   const n = pts.length / 3, r = new Array(n);
   if (kind === 'ball') { r.fill(w / 2); return r; }
@@ -369,27 +356,6 @@ function rdp(points, eps) {
 }
 /* v0.24.10: colchete de anotação — linha reta (vertical ou horizontal) com uma ou as duas pontas curvando para o MESMO lado
    (como "[", "└", "⌐"). Vira uma versão limpa: reta + curvas redondas (quarto de círculo) + rabinho do tamanho que você fez. */
-function recognizeBracket(P, x1, y1, x2, y2) {
-  const w = x2 - x1, h = y2 - y1, vert = h >= w * 2.2, horz = w >= h * 2.2; if (!vert && !horz) return null;
-  const Q = vert ? P : P.map(([x, y]) => [y, x]); // trabalha sempre como se fosse vertical
-  const L = vert ? h : w, top = vert ? y1 : x1, bot = vert ? y2 : x2; if (L < 20) return null;
-  const mid = Q.filter(([, y]) => y > top + L * 0.2 && y < bot - L * 0.2); if (mid.length < 3) return null;
-  const xs = mid.map((p) => p[0]).sort((m, n) => m - n), sx = xs[xs.length >> 1];
-  if (mid.some(([x]) => Math.abs(x - sx) > Math.max(3, L * 0.05))) return null; // o meio precisa ser reto
-  const a = Q[0], b = Q[Q.length - 1], minHook = Math.max(3, L * 0.02);
-  const hook = (e) => { const off = e[0] - sx; return Math.abs(off) >= minHook && (Math.abs(e[1] - top) < L * 0.12 || Math.abs(e[1] - bot) < L * 0.12) ? off : 0; };
-  const ha = hook(a), hb = hook(b); if (!ha && !hb) return null;
-  if (ha && hb && Math.sign(ha) !== Math.sign(hb)) return null; // ganchos para o mesmo lado ( [ ou ] )
-  const aTop = a[1] <= b[1], hT = aTop ? ha : hb, hB = aTop ? hb : ha, out = [];
-  /* raio da curva = quanto o gancho desce/sobe até encontrar a reta (do jeito que você desenhou) */
-  const seq = aTop ? Q : Q.slice().reverse();
-  /* ponto onde o gancho está na metade do caminho até a reta (sobra d para o lado, já desceu ym): o círculo tangente à reta e ao rabinho
-     que passa por ele tem raio r = d + ym + √(2·d·ym) */
-  const curveR = (fromTop, hk) => { const arr = fromTop ? seq : seq.slice().reverse(), e = arr[0], H = Math.abs(hk);
-    for (const p of arr) { const d = Math.abs(p[0] - sx); if (d <= H * 0.5) { const ym = Math.abs(p[1] - e[1]); return clamp(d + ym + Math.sqrt(2 * d * ym), 2, H); } } return H; };
-  const rT = hT ? Math.min(curveR(true, hT), L * 0.18) : 0, rB = hB ? Math.min(curveR(false, hB), L * 0.18) : 0;
-  return bracketShape({ v: vert, sx: r2(sx), top: r2(top), bot: r2(bot), hT: r2(hT), hB: r2(hB), rT: r2(rT), rB: r2(rB), rev: !aTop });
-}
 /* v0.25: o colchete guarda os parâmetros (br) para poder ser ajustado depois — segurando a caneta ou no modo "editar pontos".
    br (como se fosse vertical; v = false troca x↔y): sx = posição da reta, top/bot = pontas no eixo, hT/hB = rabinhos (0 = sem gancho,
    sinal = lado), rT/rB = raio das curvas, rev = pontos de baixo para cima (a ordem em que foi desenhado) */

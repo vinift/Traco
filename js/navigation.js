@@ -76,20 +76,6 @@ Object.assign(Editor, {
     const z = clamp(Math.min((this.W - 32) / p.w, (this.H - 32) / p.h), ...this.zoomLimits());
     this.cam.z = z; this.cam.x = o.x + p.w / 2 - this.W / (2 * z); this.cam.y = o.y + p.h / 2 - this.H / (2 * z); this.clampCam(); this.requestRender();
   },
-  /* toque duplo com o dedo numa área vazia: ajusta à largura ↔ volta ao zoom anterior */
-  doubleTapZoom(p) {
-    this.stopInertia();
-    const fitZ = clamp((this.W - 32) / (this.maxW || 1000), 0.2, 3);
-    const atFit = this.note.mode !== 'infinite' && Math.abs(this.cam.z - fitZ) / fitZ < 0.03;
-    if (atFit) { // na largura: volta ao zoom anterior (ou aproxima 2×) no ponto tocado
-      const prev = this._zoomPrev && Math.abs(this._zoomPrev.z - fitZ) / fitZ > 0.05 ? this._zoomPrev : { z: fitZ * 2 }; this._zoomPrev = null; const w = this.toWorld(p.x, p.y);
-      this.cam.z = prev.z; this.cam.x = w.x - p.x / prev.z; this.cam.y = w.y - p.y / prev.z;
-    } else {
-      this._zoomPrev = { ...this.cam }; const w = this.toWorld(p.x, p.y);
-      this.cam.z = this.note.mode === 'infinite' ? 1 : fitZ; this.cam.x = -this.W / (2 * this.cam.z); this.cam.y = w.y - p.y / this.cam.z;
-    }
-    this.clampCam(); this.requestRender(); Instruments.redraw(); toast(Math.round(this.cam.z * 100) + '%', 700);
-  },
 });
 const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8, 12, 16];
 
@@ -311,7 +297,7 @@ const RangeFill = {
   scan(root) { if (root.matches && root.matches('input[type=range]')) this.set(root); if (root.querySelectorAll) for (const r of root.querySelectorAll('input[type=range]')) this.set(r); },
   init() {
     document.addEventListener('input', (e) => { if (e.target.type === 'range') this.set(e.target); }, true);
-    new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1) this.scan(n); }).observe(document.body, { childList: true, subtree: true });
+    new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1 && n.nodeName !== 'CANVAS' && !(n.classList && (n.classList.contains('wt') || n.classList.contains('w-lvl')))) this.scan(n); }).observe(document.body, { childList: true, subtree: true }); /* v0.58.2: ignora os blocos de desenho do zoom (criados aos montes) */
     const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
     if (d && d.set) Object.defineProperty(HTMLInputElement.prototype, 'value', { ...d, set(v) { d.set.call(this, v); if (this.type === 'range') RangeFill.set(this); } });
     this.scan(document.body);

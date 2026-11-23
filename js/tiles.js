@@ -108,11 +108,6 @@ Object.assign(Editor, {
     if (pc.preview) this.freeCanvas(pc.preview.cv);
     pc.preview = { cv: J.cv, s: J.s, used: this.frameNo - 1 }; pc.pjob = null; return true;
   },
-  renderPreview(page) { // miniatura da página inteira (fundo provisório enquanto os blocos nítidos ficam prontos)
-    const s = Math.min(1.2, 960 / Math.max(page.w, page.h)), cv = this.newCanvas(Math.ceil(page.w * s), Math.ceil(page.h * s)), c = cv.getContext('2d');
-    c.setTransform(s, 0, 0, s, 0, 0); drawPageContent(c, this.note, page, { x: 0, y: 0, w: page.w, h: page.h }, s, { dpr: 1 }); // grade com 1 px da miniatura (não engrossa quando esticada)
-    return { cv, s, used: 0 };
-  },
   evictTiles() {
     if (this.tiles.size <= this.tileCap()) return;
     const arr = [...this.tiles.entries()].sort((a, b) => a[1].used - b[1].used);

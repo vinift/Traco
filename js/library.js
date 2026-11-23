@@ -269,14 +269,6 @@ const Library = {
       { label: 'Restaurar cópia do Traço (.json)', icon: 'download', run: () => importAll() },
     ]);
   },
-  importMenu(anchor) {
-    menu(anchor, [
-      { label: 'PDF (apostilas, leis, artigos)', icon: 'file', run: () => this.importPdf() },
-      { label: 'Notas do Notewise (.notewise ou .zip)', icon: 'layers', run: () => this.importNotewise() },
-      { label: 'Corrigir imagens recortadas (notas já importadas do Notewise)', icon: 'crop', run: () => this.fixNotewiseCrops() },
-      { label: 'Cópia de segurança do Traço (.json)', icon: 'download', run: () => importAll() },
-    ]);
-  },
   async importNotewise() {
     const f = await pickFile(''); if (!f) return;
     toast('Importando do Notewise…', 20000);
