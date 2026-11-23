@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.2.6
+
+- O nível de zoom aparece ao lado do número da página, no topo da nota (ex.: "1 / 2  430%"). Tocar nele abre o menu de zoom (ajustar à largura, página inteira, níveis prontos).
+- Configurações → Tela e zoom → "Zoom máximo" agora anda de 10 em 10%, então dá para escolher 750%. Antes ia de 100 em 100.
+
 ## Novidades da v1.2.5
 
 - Traço Nativo (APK novo): ao levantar a caneta, a tinta do Android espera a página dizer onde o traço termina e acaba exatamente ali. O último pedacinho que o Android via e a página não via deixou de aparecer e sumir.

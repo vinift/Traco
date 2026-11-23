@@ -378,7 +378,7 @@ async function openSettings(focus) {
       return el('div', { class: 'field' }, el('label', {}, 'Qualidade ao tirar o zoom'), sel);
     })(),
     /* v0.25.1: a 'Trava de rolagem (%)' saiu — as margens das barras definem quando a rolagem lateral trava (clampCam) */
-    UI.slider('Zoom máximo (aproximar)', 200, 2000, 100, +S.zoomMax || 800, (v) => { S.zoomMax = v; Store.saveSettings(); zApply(); }, (v) => v + '%'),
+    UI.slider('Zoom máximo (aproximar)', 200, 2000, 10, /* v1.2.6: de 10 em 10 (antes de 100 em 100: 750% não dava) */ +S.zoomMax || 800, (v) => { S.zoomMax = v; Store.saveSettings(); zApply(); }, (v) => v + '%'),
     el('p', { class: 'muted' }, 'No modo tela infinita o mínimo padrão é 10%.')));
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Escrita e caneta'),
     el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },

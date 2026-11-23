@@ -190,7 +190,7 @@ Não confirmado (não deu para ler a doc do PWABuilder daqui): se há uma opçã
 - `Library.render` grava pasta/visão em `localStorage` 'traco-lib-place' (v0.29); `App.restorePlace` lê `sessionStorage` (atualização) ou `localStorage`; `reopenLast` reabre a nota ('traco-last-note', removido ao fechar a nota); tela dividida em `S.split`.
 
 ### Topo da nota
-- v0.30: botões do topo reduzidos — `#btnBookmark`, `#btnOutline`, `#hudZoom` (e `#btnSplit` desde a v0.30.1) continuam no DOM com a classe `.gone` (o `updateHud` ainda escreve neles); `#btnTemplate` saiu; `#btnExport` abre `ExportPanel`; `#btnEdSettings` (⋯) abre `NoteMenu` (Configurações estão dentro, em "Definições"). Visual "fluido" no fim do app.css (pílulas sem borda, sombras suaves, `transform: scale` no toque, animações `tr-in/tr-pop/tr-fade`).
+- v0.30: botões do topo reduzidos — `#btnBookmark`, `#btnOutline` (e `#btnSplit` desde a v0.30.1) continuam no DOM com a classe `.gone` (v1.2.6: `#hudZoom` voltou a aparecer, ao lado do `#hudPage`) (o `updateHud` ainda escreve neles); `#btnTemplate` saiu; `#btnExport` abre `ExportPanel`; `#btnEdSettings` (⋯) abre `NoteMenu` (Configurações estão dentro, em "Definições"). Visual "fluido" no fim do app.css (pílulas sem borda, sombras suaves, `transform: scale` no toque, animações `tr-in/tr-pop/tr-fade`).
 - `.ch-title`: título + relógio (`#noteClock`, toque abre o cronômetro) + bateria (`#noteBat`, Battery API) + tempo de estudo (`#noteTimer`, roxo cheio / verde na pausa / laranja pausado). Escrevendo ou em tela cheia, os cantos do topo somem e (v0.34.3) a pílula do meio `.ch-title` fica INTEIRA (nome, relógio, bateria, tempo de estudo; antes só o tempo), com `pointer-events:none`; v0.34.4: SEM fundo/sombra da pílula (transparente), textos com `text-shadow` na cor `--ch` (halo) e o fundo roxo do tempo de estudo mantido. v0.29: toque de DEDO no topo (até a borda de baixo de `.ch-topright` + 14 px) com `.writing` traz as barras na hora (`Focus.initTopTap`, captura no `#editor`). Toque duplo com o dedo numa área vazia = `Focus.toggle()` (tela cheia; antes `doubleTapZoom`). Ao parar de escrever, as barras voltam depois de `S.writeHideSec` s (padrão 2,5; `Focus.writingEnd`; desliga com `S.hideWhileWriting`).
 - Barra de status do Android: margens de área segura congeladas (`--sat/--sar/--sab/--sal` no CSS em vez de `env(safe-area-inset-*)`); `theme-color` acompanha a tela. A cor/transparência real da barra depende do TWA. (v0.26.3 tentou manter a Fullscreen API para a barra sobrepor — `Immersive` — e **não funcionou no tablet**; removido na v0.27.0. Não insistir sem um caminho novo: a barra preta que empurra a tela vem do TWA saindo do modo imersivo. Caminho novo: gerar o APK com `display: fullscreen-sticky` — ver seção 3b.)
 - Segurar o dedo não abre menu/seleção do Chrome em nada, exceto em campo de texto que já estava em uso antes do toque.
@@ -458,6 +458,10 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
   - Sem resposta em 250 ms (forma, rabisco, toque), termina com `finish()`. Um novo DOWN também finaliza o anterior.
   - `clearUi` também mata o `ending`.
   - APK antigo sem `inkEnd`: a web só não chama.
+
+
+
+- v1.2.6 — pedido do usuário: o zoom aparece ao lado do número da página (`#hudZoom` sem `.gone` no index.html; o `updateHud` já escrevia nele e o toque abre o menu de zoom do app.js). O slider "Zoom máximo" passou a ter passo de 10 (antes 100; o usuário usava 750%). As configurações do app antigo NÃO vão no backup do Drive: o Traço Nativo começou com os padrões.
 
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
