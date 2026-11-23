@@ -238,6 +238,8 @@ const UI = {
       for (const [m, ic, n] of [['free', 'lassoFree', 'Laço livre'], ['rect', 'lassoRect', 'Laço retangular'], ['shot', 'camera', 'Print da área (vai para a biblioteca)']]) {
         const b = el('button', { class: 'cbtn' + (L.mode === m ? ' soft-on' : ''), title: n, onclick: () => { L.mode = m; this.save(); Editor.sel = null; Editor.requestRender(); this.renderOptions(); if (m === 'shot') toast('Arraste sobre a área para tirar o print', 1800); } }); b.innerHTML = icon(ic); sr.append(b);
       }
+      sep(); /* v0.58: o que o laço pega — por área (dentro do laço) ou passando por cima (o que o traço tocar) */
+      for (const [m, n, tt] of [['area', 'Área', 'Seleciona o que ficar DENTRO do laço'], ['touch', 'Tocar', 'Seleciona o que o laço TOCAR ao passar por cima']]) sr.append(el('button', { class: 'wchip' + ((L.pick || 'area') === m ? ' sel' : ''), title: tt, onclick: () => { L.pick = m; this.save(); this.renderOptions(); toast(m === 'touch' ? 'Laço: seleciona o que ele tocar' : 'Laço: seleciona o que ficar dentro', 1400); } }, el('span', { class: 'n', style: { fontSize: '10px' } }, n)));
       sep();
       const lk = el('button', { class: 'cbtn' + (L.locked ? ' soft-on' : ''), title: L.locked ? 'Selecionando também objetos bloqueados (toque para desligar)' : 'Selecionar objetos bloqueados', onclick: () => { L.locked = !L.locked; this.save(); this.renderOptions(); toast(L.locked ? 'O laço agora pega também objetos bloqueados' : 'Objetos bloqueados ficam de fora do laço', 1600); } }); lk.innerHTML = icon('lock'); sr.append(lk);
       if (Editor.clip) { const b = el('button', { class: 'cbtn', title: 'Colar', onclick: () => Editor.paste() }); b.innerHTML = icon('paste'); sr.append(b); }

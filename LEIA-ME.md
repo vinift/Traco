@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.58.0
+
+- **Mover para outra página:** ao arrastar algo selecionado (forma, escrita, texto, imagem), ele aparece por cima das páginas durante o arrasto. Se você soltar com o centro dele em outra página, ele passa para aquela página. O desfazer devolve para a página original.
+- **Laço: Área ou Tocar:** na barra do laço há duas opções novas.
+  - **Área** (como antes): seleciona o que ficar dentro do laço.
+  - **Tocar:** seleciona tudo em que o traço do laço encostar, como um pincel. O laço vira uma faixa roxa enquanto você passa. No laço retangular, seleciona tudo que tiver alguma parte dentro do retângulo.
+
 ## Novidades da v0.57.0
 
 - **Qualidade Ultra no PDF:** nova opção acima da Máxima, com 600 dpi sem perda. Para o tablet aguentar, a página é desenhada em faixas, sem emendas visíveis. O arquivo fica grande e demora mais para gerar.

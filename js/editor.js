@@ -259,6 +259,7 @@ const Editor = {
       if (needOv || this._ovDirty) ctx.clearRect(0, 0, this.cMain.width, this.cMain.height);
       this._ovDirty = !!needOv;
     } else { this._ovDirty = true; if (this.world) this.world.style.display = 'none'; ctx.fillStyle = this.desk; ctx.fillRect(0, 0, this.cMain.width, this.cMain.height); }
+    let moveLater = -1;
     note.pages.forEach((page, i) => {
       if (dom && !skipPages.has(page.id)) return;
       const o = this.layout[i];
@@ -275,7 +276,10 @@ const Editor = {
       if (direct) drawPageContent(ctx, note, page, lv, z, { dpr: d, skip });
       else if (!this.drawPageTiled(ctx, page, i, o, vis, st)) allDone = false;
       if (this.textEl && this.textCtx && this.textCtx.page === page && this.textCtx.el.sticky) { const te = this.textCtx.el, h = layoutText(te).h; drawElement(ctx, { ...te, text: '', spans: undefined, minH: Math.max(te.minH || te.w, h) }); } // post-it em edição
-      if (selActive && this.sel.pageId === page.id) {
+      /* v0.58: só MOVER (sem girar/escalar/editar pontos) — desenha por último e sem o recorte da página, para o item aparecer ao passar para a página vizinha */
+      const plainMove = selActive && this.sel.pageId === page.id && !this.selTf.free && !this.selTf.node && this.selTf.rot == null && this.selTf.sx === 1 && this.selTf.sy === 1 && this.note.mode !== 'infinite';
+      if (plainMove) moveLater = i;
+      else if (selActive && this.sel.pageId === page.id) {
         const t = this.selTf;
         if (t.free) { for (const e of page.elements) if (this.sel.ids.has(e.id)) drawElement(ctx, t.node || transformEl(e, t)); }
         else {
@@ -290,6 +294,11 @@ const Editor = {
       ctx.restore();
       if (this.crop && this.crop.pageId === page.id) { this.pageTf(ctx, i); this.drawCropImage(ctx); }
     });
+    if (moveLater >= 0 && this.selTf) { /* v0.58: itens sendo movidos por cima de todas as páginas (podem passar para outra) */
+      const page = note.pages[moveLater], t = this.selTf; this.pageTf(ctx, moveLater); ctx.save(); ctx.translate(t.dx, t.dy);
+      for (const e of page.elements) if (this.sel.ids.has(e.id) || (att && att.has(e.id))) drawElement(ctx, e);
+      ctx.restore();
+    }
     const a = this.action;
     /* v0.23: a tinta ao vivo (tela rápida ou camada de prévia) só some quando os blocos já mostram o traço inteiro — antes sumia um quadro antes (ou vários, se a área precisava ser redesenhada) e a tela piscava */
     const drawing = this.action && this.action.kind === 'draw';
@@ -916,6 +925,9 @@ const Editor = {
     const a = this.action, c = this.lctx, d = this.dpr; this.clearLive(); c.setTransform(d, 0, 0, d, 0, 0);
     c.beginPath(); this.lassoPoly(a).forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.closePath();
     if (a.mode === 'shot') { c.fillStyle = 'rgba(236,72,153,.08)'; c.fill(); c.setLineDash([7, 4]); c.strokeStyle = '#ec4899'; c.lineWidth = 2; c.stroke(); c.setLineDash([]); return; }
+    if (a.mode === 'free' && (Store.settings.tools.lasso || {}).pick === 'touch') { /* v0.58: "passar por cima" — faixa de pincel (o que ela tocar é selecionado) */
+      c.beginPath(); a.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.lineCap = c.lineJoin = 'round'; c.strokeStyle = 'rgba(124,58,237,.28)'; c.lineWidth = 16; c.stroke(); c.strokeStyle = '#7c3aed'; c.lineWidth = 1.5; c.stroke(); return;
+    }
     c.fillStyle = 'rgba(124,58,237,.08)'; c.fill(); c.setLineDash([5, 5]); c.strokeStyle = '#7c3aed'; c.lineWidth = 1.5; c.stroke(); c.setLineDash([]);
   },
   endLasso(a) {
@@ -929,6 +941,15 @@ const Editor = {
       const [x, y] = toL(a.pts[0]);
       for (let i = page.elements.length - 1; i >= 0; i--) if (canSel(page.elements[i]) && hitElement(page.elements[i], x, y, 8 / this.cam.z)) { ids = [page.elements[i].id]; break; }
       if (!ids.length) { const t = [...page.elements].reverse().find((e) => e.type === 'table' && canSel(e) && x >= e.x && x <= e.x + e.w && y >= e.y && y <= e.y + e.h); if (t) ids = [t.id]; } // toque dentro da tabela
+    } else if ((Store.settings.tools.lasso || {}).pick === 'touch') { /* v0.58: "passar por cima" */
+      if (a.mode === 'rect') { /* retângulo: tudo que tiver alguma parte dentro */
+        const poly = this.lassoPoly(a).map(toL), xs = poly.map((q) => q[0]), ys = poly.map((q) => q[1]), R = { x: Math.min(...xs), y: Math.min(...ys) }; R.w = Math.max(...xs) - R.x; R.h = Math.max(...ys) - R.y;
+        ids = page.elements.filter((e) => { if (!canSel(e)) return false; const b = elBBox(e); if (!rectsHit(b, R)) return false; if (e.type === 'stroke') { for (let i = 0; i < e.pts.length; i += 3) if (e.pts[i] >= R.x && e.pts[i] <= R.x + R.w && e.pts[i + 1] >= R.y && e.pts[i + 1] <= R.y + R.h) return true; return false; } return true; }).map((e) => e.id); /* formas, textos, imagens: a caixa encostar já basta */
+      } else { /* livre: o que o traço do laço tocar (a 8 px de tela) */
+        const tol = 8 / this.cam.z, P = []; const L = a.pts.map(toL);
+        for (let i = 0; i < L.length; i++) { P.push(L[i]); const nx = L[i + 1]; if (nx) { const n = Math.min(30, Math.floor(Math.hypot(nx[0] - L[i][0], nx[1] - L[i][1]) / (tol * 0.6))); for (let k = 1; k < n; k++) P.push([L[i][0] + ((nx[0] - L[i][0]) * k) / n, L[i][1] + ((nx[1] - L[i][1]) * k) / n]); } }
+        ids = page.elements.filter((e) => { if (!canSel(e)) return false; const b = elBBox(e); for (const [x, y] of P) if (x >= b.x - tol && x <= b.x + b.w + tol && y >= b.y - tol && y <= b.y + b.h + tol && hitElement(e, x, y, tol)) return true; return false; }).map((e) => e.id);
+      }
     } else {
       const poly = this.lassoPoly(a).map(toL);
       ids = page.elements.filter((e) => canSel(e) && elInLasso(e, poly)).map((e) => e.id);

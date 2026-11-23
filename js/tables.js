@@ -216,6 +216,15 @@ Object.assign(Editor, {
     const t = this.selTf; this.selTf = null; if (!t) return this.requestRender();
     const page = this.pageById(this.sel.pageId), att = (a && a.attached) || new Set();
     const apply = (e) => (t.node ? { ...t.node, id: e.id } : t.rot != null ? rotateEl(e, t.rot, t.cx, t.cy) : transformEl(e, t));
+    /* v0.58: ao MOVER, se o centro do que foi movido cai em outra página, os itens passam para ela (coordenadas convertidas; um passo do desfazer) */
+    const moved = [...this.selElements(), ...(!t.free ? page.elements.filter((x) => att.has(x.id)) : [])], plain = a && a.kind === 'move' && !t.node && t.rot == null && t.sx === 1 && t.sy === 1 && this.note.mode !== 'infinite';
+    let dest = -1; const si = this.pageIdx(page);
+    if (plain && moved.length) { const bb = bboxUnion(moved.map(apply)), o = this.layout[si]; if (bb) { const d = this.pageIndexAt(o.x + bb.x + bb.w / 2, o.y + bb.y + bb.h / 2); if (d >= 0 && d !== si) dest = d; } }
+    if (dest >= 0) {
+      const tp = this.note.pages[dest], o1 = this.layout[si], o2 = this.layout[dest], ox = o1.x - o2.x, oy = o1.y - o2.y;
+      for (const e of moved) { const n = transformEl(apply(e), { ox: 0, oy: 0, sx: 1, sy: 1, dx: ox, dy: oy }); this.recRemove(page, e); this.recAdd(tp, n); }
+      this.sel = { pageId: tp.id, ids: new Set(this.sel.ids) }; this.opCommit(); UI.buildSelBar && UI.buildSelBar(); toast('Movido para a página ' + (dest + 1), 1200); return;
+    }
     for (const e of this.selElements()) this.recReplace(page, e, apply(e));
     if (!t.free) for (const e of page.elements.filter((x) => att.has(x.id))) this.recReplace(page, e, apply(e)); // escrita dentro da tabela vai junto
     this.opCommit();
