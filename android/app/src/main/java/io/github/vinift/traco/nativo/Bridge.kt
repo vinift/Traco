@@ -105,6 +105,13 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun alarmCancel() = Notify.alarmCancel(a)
 
     /* ---- Drive ---- */
+    /* v1.3.1: o Google Play guarda a chave de acesso; se o Drive a recusou (401), esquece para a próxima vir nova */
+    @JavascriptInterface fun driveForget(id: Int, token: String) {
+        Thread {
+            try { com.google.android.gms.auth.GoogleAuthUtil.clearToken(a, token) } catch (_: Exception) {}
+            reply(id, JSONObject().put("ok", true))
+        }.start()
+    }
     @JavascriptInterface fun driveAuth(id: Int, interactive: Boolean) = a.runOnUiThread {
         DriveAuth.authorize(a, interactive) { res -> reply(id, res) }
     }

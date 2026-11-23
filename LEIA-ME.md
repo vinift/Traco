@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.3.1
+
+- Traço Nativo (APK novo): corrigido o "Erro no backup: Drive 401" que aparecia de vez em quando. O Android guardava a chave de acesso do Google mesmo depois de vencida e entregava a mesma de novo. Agora, quando o Drive recusa a chave, o app pede ao Android para esquecê-la e pega uma nova sozinho.
+
 ## Novidades da v1.3.0
 
 - Configurações → Backup e dados → **Arrumar o Drive…**. O app analisa a pasta "Traço Notas" e mostra uma lista antes de mexer em qualquer coisa:

@@ -477,6 +477,10 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
   - Teste com árvore simulada igual ao print: data antiga juntada (blob de K movido e `parent` atualizado; biblioteca.json velho na lixeira); Direito antigo juntado (Antropologia movida; DPG/Nota X juntadas; PDF velho na lixeira); "Nota sem título" B (com o `.traco` de outra nota) ficou; 12 chamadas.
   - **Pendente:** o `restore` também deveria preencher `f:`/`d:`/`data`/`p:` para não repetir isso numa instalação nova.
 
+
+
+- v1.3.1 — "Erro no backup: Drive 401" de vez em quando no nativo (print do usuário). O `AuthorizationClient` do Play Services devolve a chave guardada no aparelho mesmo vencida: o `api()` zerava `this.token` e pedia de novo, mas `Native.driveToken(false)` voltava com a MESMA chave → 401 outra vez. Agora, no 401 e no nativo, `api()` chama `Native.ask('driveForget', tok)` → `Bridge.driveForget` (`GoogleAuthUtil.clearToken`, numa thread) antes de repetir, e também zera a chave salva (`persistTok`). APK antigo sem `driveForget`: o `ask` cai no catch e segue como antes. Teste com nativo simulado: T0 → 401 → forget T0 → auth → T1 → 200.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

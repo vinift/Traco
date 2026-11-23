@@ -142,7 +142,10 @@ const Drive = {
       try { res = await fetch(url, { method, body, headers: { Authorization: 'Bearer ' + tok, ...headers } }); break; }
       catch (e) { const safe = method !== 'POST' || /uploadType=resumable/.test(url); if (!safe || k >= 2 || !navigator.onLine) throw e; await sleep(1500 * (k + 1)); } // criar arquivo (POST) não repete: evitaria cópia dupla
     }
-    if (res.status === 401 && retry) { this.token = null; this.exp = 0; return this.api(method, url, { body, headers, raw }, false); }
+    if (res.status === 401 && retry) {
+      if (this.native() && tok) { try { await Native.ask('driveForget', tok); } catch (_) {} } /* v1.3.1: senão o Android devolve a mesma chave vencida */
+      this.token = null; this.exp = 0; this.persistTok(); return this.api(method, url, { body, headers, raw }, false);
+    }
     if (!res.ok) { const t = await res.text(); const e = new Error(`Drive ${res.status}: ${t.slice(0, 200)}`); e.status = res.status; throw e; }
     return raw ? res : res.status === 204 ? null : res.json();
   },
