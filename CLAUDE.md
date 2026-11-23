@@ -429,6 +429,10 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
   - CSS no fim do app.css.
   - Teste: inicial "Padrão|P|M|G|Meu|+ Salvar|✎"; G → hyphenLen 40; mover "Meu" para a esquerda e apagar P → [M, Meu, G]; colchete curva 0/4 linhas salvo como "Reto", "Padrão" e depois "Reto" → 0/4.
 
+
+
+- v1.2.1 — relato: no nativo, ao levantar a caneta o traço "voltava um pouco". O `InkView` desenhava até o ponto do ACTION_UP, mas `endAction` (draw) ignorava as coordenadas do `pointerup`, e o traço gravado terminava no último pointermove. Agora, para a caneta, `endAction` chama `addDrawPoint(e)` com o `pointerup` (põe `this.action = a` de novo só para isso) antes do `endDraw`. Teste (caneta CDP): movimentos até x 600 e soltura em 640 → o fim do traço = ponto da soltura (355,8 = 355,8 em unidades da página).
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

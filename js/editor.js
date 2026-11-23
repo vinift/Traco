@@ -664,7 +664,7 @@ const Editor = {
     if (a.kind === 'tableact') return this.endTableAct();
     if (a.kind === 'crop') return this.cropEnd(a);
     if (a.kind === 'cropout') { const p = this.pt(e); if (Math.hypot(p.x - a.sx, p.y - a.sy) < 10) this.applyCrop(); return; } // tocar fora da imagem aplica
-    if (a.kind === 'draw') return this.endDraw(a);
+    if (a.kind === 'draw') { if (e && e.pointerType === 'pen' && e.clientX != null) { this.action = a; try { this.addDrawPoint(e); } catch (er) { console.warn(er); } this.action = null; } return this.endDraw(a); } /* v1.2.1: o ponto onde a caneta levantou também entra (a tinta nativa já ia até ele — sem isto o fim do traço "voltava" um pouco ao trocar) */
     if (a.kind === 'erase') { this.clearLive(); this.opCommit(); return; }
     if (a.kind === 'lasso') return this.endLasso(a);
     if (a.kind === 'move') { const p = this.pt(e), md = Math.max(a.maxD || 0, Math.hypot(p.x - a.start.x, p.y - a.start.y)), tap = this.isTapMove(a, md); /* v0.25.1: só é toque se quase não mexeu (antes < 8 px: arrastar um pouquinho voltava ao lugar) */ if (tap) { this.selTf = null; this.guides = null; this.ratioLabel = null; this.requestRender(); if (this.vEditEl()) return this.vTap(p, null); return this.tapOnSel(a, p); } }

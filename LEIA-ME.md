@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.2.1
+
+- Traço Nativo: o fim do traço não "volta" mais um pouco quando você levanta a caneta. O traço gravado agora vai até o ponto exato onde a caneta saiu da tela, igual à tinta nativa (vale também fora do app nativo).
+
 ## Novidades da v1.2.0
 
 - Atalho rápido → Colchete (toque duplo) → **Forma**: agora tem **+ Salvar**, para guardar com nome a forma atual do colchete (curvatura, início, comprimento, fim e ponta). Tocar na predefinição aplica.
