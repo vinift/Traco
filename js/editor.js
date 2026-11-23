@@ -20,6 +20,7 @@ const Editor = {
       try { this.ictx = this.cInk.getContext('2d', { alpha: false, desynchronized: true }); } catch (_) { this.ictx = this.cInk.getContext('2d', { alpha: false }); }
     }
     this.lctx = this.cLive.getContext('2d');
+    for (const ev of ['pointermove', 'pointerdown']) this.stage.addEventListener(ev, (e) => { if (e.pointerType !== 'touch' && this._liveOff) this.liveOn(); }, { capture: true, passive: true }); /* v0.58.3 */
     this.initPenTriple();
     // o Android pode descartar a memória de desenho (app em segundo plano, memória cheia): refaz tudo em vez de ficar em branco
     for (const c of [this.cMain, this.cLive]) {
@@ -86,7 +87,7 @@ const Editor = {
     if (this.crop) this.cancelCrop();
     this.note = null; this.sel = null; this.selTf = null; this.action = null; this.gesture = null; this.stopInertia();
     this.resetTiles(); PdfCache.clear(); ImgCache.clear(); PathLRU.clear(); // libera a memória dos blocos, do PDF e das imagens
-    for (const c of [this.cMain, this.cLive, this.cInk]) if (c) { c.width = 1; c.height = 1; } this._inkKey = null; /* v0.34: as 3 telas do editor (~50 MB no Pad 7) não ficam ocupando memória com a nota fechada; open() → resize() refaz */
+    for (const c of [this.cMain, this.cLive, this.cInk]) if (c) { c.width = 1; c.height = 1; } this._inkKey = null; clearTimeout(this._mainT); clearTimeout(this._liveIdleT); this._mainT = this._liveIdleT = null; this._mainOff = this._liveOff = false; /* v0.34: as 3 telas do editor (~50 MB no Pad 7) não ficam ocupando memória com a nota fechada; open() → resize() refaz */
     if (note) OCR.scheduleNote(note);
   },
   /* v0.25 (tela dividida): solta a nota sem o trabalho pesado do close() — salva em segundo plano e devolve a "folha" com os
@@ -138,7 +139,8 @@ const Editor = {
   resize(silent) {
     const r = this.stage.getBoundingClientRect(); this.dpr = Math.min(3, devicePixelRatio || 1);
     this.W = r.width; this.H = r.height; this.rect = r;
-    for (const c of [this.cMain, this.cLive]) { const w = Math.round(r.width * this.dpr), h = Math.round(r.height * this.dpr); if (c.width !== w) c.width = w; if (c.height !== h) c.height = h; } /* v0.25.1: mudar o tamanho (mesmo para o igual) apaga a tela: só quando muda */
+    this._pw = Math.round(r.width * this.dpr); this._ph = Math.round(r.height * this.dpr); /* v0.58.3: tamanho cheio das telas (as contas usam isto, não o tamanho atual da tela, que pode estar liberada em 1×1) */
+    if (!this._mainOff) this.setCv(this.cMain, true); if (!this._liveOff) this.setCv(this.cLive, true); /* v0.25.1: mudar o tamanho (mesmo para o igual) apaga a tela: só quando muda */
     this._mg = null; if (this.placeScroll) this.placeScroll(); /* margens e rolagem rápida medidas de novo só quando a tela muda */
     if (!silent) { this.clampCam(); this.requestRender(); Instruments.redraw(); }
   },
@@ -256,9 +258,10 @@ const Editor = {
       skipPages = new Set(); if (skip.size) for (const p of note.pages) if (p.elements.some((e) => skip.has(e.id))) skipPages.add(p.id);
       allDone = this.drawDom(vis, st, skipPages);
       const needOv = skipPages.size || this.sel || this.flash || this.guides || pv;
+      this._wantMain = !!(needOv || this.crop || this.textEl || this.action); if (this._wantMain) this.mainOn(); /* v0.58.3: a liberação é agendada no fim do draw */
       if (needOv || this._ovDirty) ctx.clearRect(0, 0, this.cMain.width, this.cMain.height);
       this._ovDirty = !!needOv;
-    } else { this._ovDirty = true; if (this.world) this.world.style.display = 'none'; ctx.fillStyle = this.desk; ctx.fillRect(0, 0, this.cMain.width, this.cMain.height); }
+    } else { this._wantMain = true; this.mainOn(); this._ovDirty = true; if (this.world) this.world.style.display = 'none'; ctx.fillStyle = this.desk; ctx.fillRect(0, 0, this.cMain.width, this.cMain.height); }
     let moveLater = -1;
     note.pages.forEach((page, i) => {
       if (dom && !skipPages.has(page.id)) return;
@@ -306,6 +309,7 @@ const Editor = {
       if (this._inkHide) { this._inkHide = false; this.inkHide(); }
       if (this._liveClear) { this._liveClear = false; this.clearLive(); }
     }
+    this.idleCanvases(this._wantMain); /* v0.58.3: agenda liberar as telas paradas (depois de limpar a prévia do traço) */
     this.drawSelection(); this.drawFlash(ctx); this.drawGuides(); this.updateHud(); this.positionText(); this.placePull(); this.updateScroll();
     if (!allDone && !st.zooming) this.requestRender(); // ainda há blocos a desenhar: continua no próximo quadro
     this._drawnCam = { ...this.cam }; this._drawnComplete = allDone && !st.zooming;
@@ -375,6 +379,17 @@ const Editor = {
     if (typeof SplitView !== 'undefined' && SplitView.shown) SplitView.hud();
   },
   clearLive() { const c = this.lctx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, this.cLive.width, this.cLive.height); },
+  /* v0.58.3: as duas telas de tela cheia (cMain = seleção/guias/destaques por cima dos blocos; cLive = traço ao vivo, laço, prévia de forma)
+     ocupam ~26 MB cada no Pad 7. Paradas, vão para 1×1 (cMain depois de 1,5 s sem nada por cima; cLive depois de 2 s sem traço) e voltam
+     na hora em que forem usadas (cLive já quando a caneta chega perto da tela). */
+  setCv(c, on) { const w = on ? this._pw || 1 : 1, h = on ? this._ph || 1 : 1; if (c.width !== w) c.width = w; if (c.height !== h) c.height = h; },
+  liveOn() { clearTimeout(this._liveIdleT); this._liveIdleT = null; if (this._liveOff) { this._liveOff = false; this.setCv(this.cLive, true); } },
+  mainOn() { clearTimeout(this._mainT); this._mainT = null; if (this._mainOff) { this._mainOff = false; this.setCv(this.cMain, true); } },
+  idleCanvases(wantMain) {
+    if (wantMain) this.mainOn();
+    else if (!this._mainOff && !this._mainT) this._mainT = setTimeout(() => { this._mainT = null; if (this.note && this.domMode() && !this.sel && !this.flash && !this.guides && !this.crop && !this.textEl && !this.tPreview && !this.action) { this._mainOff = true; this.setCv(this.cMain, false); } }, 1500);
+    if (!this.action && !this._liveClear && !this._inkHide && !this._liveOff && !this._liveIdleT) this._liveIdleT = setTimeout(() => { this._liveIdleT = null; if (this.note && !this.action && !this._liveClear && !this._inkHide) { this._liveOff = true; this.setCv(this.cLive, false); } }, 2000);
+  },
 
   /* ---------- Histórico (desfazer/refazer) ---------- */
   opBegin() { if (!this.curOp) this.curOp = { changes: [] }; },
@@ -776,7 +791,7 @@ const Editor = {
     a.shape = { ...s, x2, y2 };
   },
   drawLiveStroke() {
-    const a = this.action, c = this.lctx;
+    this.liveOn(); const a = this.action, c = this.lctx;
     if (a.shape) { this.clearLive(); this.pageTf(c, a.pi); drawElement(c, a.tool === 'highlighter' ? this.hlLine(a) : a.shape); return; }
     this.pageTf(c, a.pi);
     if (a.fade) { this.clearLive(); this.pageTf(c, a.pi); drawElement(c, { type: 'stroke', tool: 'pen', pen: a.pen, nib: a.nib, color: a.color, width: a.width, dash: a.dash !== 'solid' ? a.dash : undefined, pts: a.pts, fade: a.fade }); return; } /* v0.38: degradê */
@@ -922,7 +937,7 @@ const Editor = {
     return null;
   },
   drawLasso() {
-    const a = this.action, c = this.lctx, d = this.dpr; this.clearLive(); c.setTransform(d, 0, 0, d, 0, 0);
+    this.liveOn(); const a = this.action, c = this.lctx, d = this.dpr; this.clearLive(); c.setTransform(d, 0, 0, d, 0, 0);
     c.beginPath(); this.lassoPoly(a).forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.closePath();
     if (a.mode === 'shot') { c.fillStyle = 'rgba(236,72,153,.08)'; c.fill(); c.setLineDash([7, 4]); c.strokeStyle = '#ec4899'; c.lineWidth = 2; c.stroke(); c.setLineDash([]); return; }
 
@@ -1031,7 +1046,7 @@ const Editor = {
       else if (w && h && Math.abs(w - h) / Math.max(w, h) < 0.1) { const m = Math.max(w, h); x = e.x1 + sx * m; y = e.y1 + sy * m; }
     }
     a.el = { ...e, x2: x, y2: y };
-    this.clearLive(); this.pageTf(this.lctx, a.pi); drawElement(this.lctx, a.el);
+    this.liveOn(); this.clearLive(); this.pageTf(this.lctx, a.pi); drawElement(this.lctx, a.el);
   },
   endShape(a) {
     this.clearLive(); const e = a.el;
@@ -1049,7 +1064,7 @@ const Editor = {
   moveTable(w) {
     const a = this.action, l = this.local(a.pi, w.x, w.y);
     a.el = this.tableFrom(Store.settings.tools.table, a.l0.x, a.l0.y, l.x, l.y);
-    this.clearLive(); this.pageTf(this.lctx, a.pi); drawElement(this.lctx, a.el);
+    this.liveOn(); this.clearLive(); this.pageTf(this.lctx, a.pi); drawElement(this.lctx, a.el);
   },
   endTable(a) {
     this.clearLive(); const st = Store.settings.tools.table, page = this.note.pages[a.pi];

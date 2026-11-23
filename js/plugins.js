@@ -155,8 +155,8 @@ const Plugins = {
       addElements: (list) => { const ids = []; for (const e of list) { e.id = e.id || uid(); Editor.recAdd(page, e); ids.push(e.id); } Editor.opCommit(); return ids; }, // vários itens num passo só do desfazer
       removeElement: (id) => { const e = page.elements.find((x) => x.id === id); if (e) { Editor.recRemove(page, e); Editor.opCommit(); } },
       elements: () => page.elements,
-      preview: (fn) => { Editor.clearLive(); Editor.pageTf(Editor.lctx, pi); Editor.lctx.save(); fn(Editor.lctx); Editor.lctx.restore(); },
-      screenPreview: (fn) => { Editor.clearLive(); const d = Editor.dpr; Editor.lctx.setTransform(d, 0, 0, d, 0, 0); Editor.lctx.save(); fn(Editor.lctx); Editor.lctx.restore(); },
+      preview: (fn) => { Editor.liveOn(); Editor.clearLive(); Editor.pageTf(Editor.lctx, pi); Editor.lctx.save(); fn(Editor.lctx); Editor.lctx.restore(); },
+      screenPreview: (fn) => { Editor.liveOn(); Editor.clearLive(); const d = Editor.dpr; Editor.lctx.setTransform(d, 0, 0, d, 0, 0); Editor.lctx.save(); fn(Editor.lctx); Editor.lctx.restore(); },
       clearPreview: () => Editor.clearLive(),
       render: () => Editor.requestRender(),
       toast, ask: (q, v) => askText(q, v),

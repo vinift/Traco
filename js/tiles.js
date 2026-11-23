@@ -14,7 +14,7 @@ Object.assign(Editor, {
   /* v0.24.1: "Econômica" (padrão) volta à memória de antes da v0.23.1 — as barras piscavam no zoom com dois dedos (memória de desenho cheia no Android).
      Os extras (mais blocos, mais miniaturas, camada afastada e miniaturas montadas durante o gesto) ficam só na "Alta" */
   hiQ() { return Store.settings.zoomQuality === 'high'; },
-  tileCap() { const big = (navigator.deviceMemory || 4) >= 8, n = this.hiQ() ? (big ? 200 : 110) : (big ? 64 : 48); /* v0.28: econômica 90/60 → 64/48 (no Pad 7 as barras ainda sumiam em parte na pinça: memória de desenho cheia) */ /* v0.25.1: tela dividida = editor menor e o outro lado também usa memória */ const k = innerWidth ? clamp(this.W / innerWidth, 0.5, 1) : 1; return Math.round(n * (k < 0.95 ? Math.max(0.55, k) : 1)); },
+  tileCap() { const big = (navigator.deviceMemory || 4) >= 8, scr = ((this._pw || 1000) * (this._ph || 700) * 4) / 1048576, hiN = clamp(Math.floor(170 - 2 * scr - 16), 64, big ? 200 : 110), n = this.hiQ() ? hiN : (big ? 64 : 48); /* v0.58.3: Alta com limite — cabe num total de ~170 MB (blocos de 1 MB + 2 telas cheias + ~16 MB de miniaturas); no Pad 7 ≈ 102 blocos em vez de 200 (relatório do usuário: 267 MB e barras piscando) */ /* v0.28: econômica 90/60 → 64/48 (no Pad 7 as barras ainda sumiam em parte na pinça: memória de desenho cheia) */ /* v0.25.1: tela dividida = editor menor e o outro lado também usa memória */ const k = innerWidth ? clamp(this.W / innerWidth, 0.5, 1) : 1; return Math.round(n * (k < 0.95 ? Math.max(0.55, k) : 1)); },
   previewCap() { const n = this.hiQ() && (navigator.deviceMemory || 4) >= 8 ? 18 : this.hiQ() ? 10 : 6; return innerWidth && this.W < innerWidth * 0.95 ? Math.min(n, 6) : n; },
   pfMargin: 0.35, tileBudgetMs: 10,
   freeCanvas(c) { if (c) { if (c.parentNode) c.remove(); c.width = 0; c.height = 0; } }, // devolve a memória na hora (sem esperar a coleta de lixo)
@@ -134,7 +134,7 @@ Object.assign(Editor, {
       const fresh = t && !t.stale && (!page.pdf || t.pdfB === PdfCache.bitmap(page.pdf, s));
       if (!fresh) want.push([tx, ty, key]);
     }
-    if (want.length > 1) { const cx = this.cMain.width / 2 - ox, cy = this.cMain.height / 2 - oy, d = (w) => Math.hypot((w[0] + 0.5) * TILE - cx, (w[1] + 0.5) * TILE - cy); want.sort((a, b) => d(a) - d(b)); } // do centro da tela para fora
+    if (want.length > 1) { const cx = this._pw / 2 - ox, cy = this._ph / 2 - oy, d = (w) => Math.hypot((w[0] + 0.5) * TILE - cx, (w[1] + 0.5) * TILE - cy); want.sort((a, b) => d(a) - d(b)); } // do centro da tela para fora
     // blocos que faltam: renderiza agora (página alterada = sempre na hora, para nada "piscar"), ou dentro do orçamento do quadro
     const mustSync = pc.changed && !st.zooming;
     for (const w of want) {
@@ -152,9 +152,9 @@ Object.assign(Editor, {
       if (oldLvl == null) for (const k of pc.levels.keys()) if (k !== lvl && pc.levels.get(k).size && (oldLvl == null || Math.abs(k - s) < Math.abs(oldLvl - s))) oldLvl = k;
       const old = oldLvl != null ? pc.levels.get(oldLvl) : null;
       // blocos antigos que caem na tela; se não cobrem toda a parte visível da página, a miniatura vai por baixo
-      const vx0 = Math.max(ox, 0), vy0 = Math.max(oy, 0), vx1 = Math.min(ox + page.w * s, this.cMain.width), vy1 = Math.min(oy + page.h * s, this.cMain.height);
+      const vx0 = Math.max(ox, 0), vy0 = Math.max(oy, 0), vx1 = Math.min(ox + page.w * s, this._pw), vy1 = Math.min(oy + page.h * s, this._ph);
       const olds = []; let cx0 = Infinity, cy0 = Infinity, cx1 = -Infinity, cy1 = -Infinity, area = 0;
-      if (old) { const k = s / oldLvl; for (const [key, t] of old) { if (t.stale) continue; const [tx, ty] = key.split(',').map(Number); const dx = ox + tx * TILE * k, dy = oy + ty * TILE * k, dw = TILE * k; if (dx > this.cMain.width || dy > this.cMain.height || dx + dw < 0 || dy + dw < 0) continue; olds.push([t, dx, dy, dw]); cx0 = Math.min(cx0, dx); cy0 = Math.min(cy0, dy); cx1 = Math.max(cx1, dx + dw); cy1 = Math.max(cy1, dy + dw); area += dw * dw; } }
+      if (old) { const k = s / oldLvl; for (const [key, t] of old) { if (t.stale) continue; const [tx, ty] = key.split(',').map(Number); const dx = ox + tx * TILE * k, dy = oy + ty * TILE * k, dw = TILE * k; if (dx > this._pw || dy > this._ph || dx + dw < 0 || dy + dw < 0) continue; olds.push([t, dx, dy, dw]); cx0 = Math.min(cx0, dx); cy0 = Math.min(cy0, dy); cx1 = Math.max(cx1, dx + dw); cy1 = Math.max(cy1, dy + dw); area += dw * dw; } }
       const covered = olds.length && cx0 <= vx0 + 1 && cy0 <= vy0 + 1 && cx1 >= vx1 - 1 && cy1 >= vy1 - 1 && area >= (vx1 - vx0) * (vy1 - vy0) * 0.98;
       if (!covered && pc.preview && !pc.preview.stale) { pc.preview.used = this.frameNo; ctx.drawImage(pc.preview.cv, ox, oy, page.w * s, page.h * s); } // miniatura (preparada em segundo plano)
       if (olds.length) { ctx.imageSmoothingQuality = s / oldLvl < 0.6 ? 'medium' : 'low'; /* afastando muito: suaviza de verdade para as linhas finas da grade não sumirem */ for (const [t, dx, dy, dw] of olds) { t.used = this.frameNo; ctx.drawImage(t.cv, dx, dy, dw, dw); } ctx.imageSmoothingQuality = 'low'; }
@@ -183,12 +183,12 @@ Object.assign(Editor, {
   },
   inkBegin() {
     const c = this.cInk; if (!c || !this.note) return;
-    if (c.width === this.cMain.width && c.height === this.cMain.height && this._inkKey === this.inkKey()) { c.style.display = 'block'; this.inkOn = true; return; } // já pronto
+    if (c.width === this._pw && c.height === this._ph && this._inkKey === this.inkKey()) { c.style.display = 'block'; this.inkOn = true; return; } // já pronto
     this.inkPaint(); c.style.display = 'block'; this.inkOn = true;
   },
   inkPaint() {
     const c = this.cInk, x = this.ictx; if (!c || !this.note) return;
-    if (c.width !== this.cMain.width || c.height !== this.cMain.height) { c.width = this.cMain.width; c.height = this.cMain.height; }
+    if (c.width !== this._pw || c.height !== this._ph) { c.width = this._pw; c.height = this._ph; }
     const z = this.cam.z, vis = { x: this.cam.x, y: this.cam.y, w: this.W / z, h: this.H / z }, st = { t0: performance.now(), rendered: 0, zooming: false }, inf = this.note.mode === 'infinite';
     x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = inf ? (this.note.template && this.note.template.paper) || '#fff' : this.desk; x.fillRect(0, 0, c.width, c.height);
     this.note.pages.forEach((page, i) => {

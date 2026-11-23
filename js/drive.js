@@ -4,7 +4,7 @@ const Drive = {
   token: null, exp: 0, state: 'off', msg: '', running: false, again: false,
   SCOPE: 'https://www.googleapis.com/auth/drive.file',
   FOLDER: 'Traço Notas',
-  get cfg() { return Store.settings.drive; },
+  get cfg() { return (Store.settings && Store.settings.drive) || {}; }, /* v0.58.3: voltar ao app antes do Store.init terminar dava "Cannot read properties of null (reading 'drive')" */
   redirectUri() { return location.origin + location.pathname; },
   canUse() { return location.protocol === 'https:' || location.hostname === 'localhost'; },
   configured() { return !!(this.cfg.clientId && this.cfg.enabled); },

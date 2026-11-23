@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v0.58.3
+
+- **Menos memória de desenho (barras piscando em notas grandes):** o relatório que você mandou mostrou 267 MB de memória de desenho.
+  - **Qualidade "Alta" com limite:** a Alta continua, mas agora guarda só os pedaços de página que cabem num limite de memória. No Pad 7 são cerca de 105 em vez de 200.
+  - **Telas liberadas quando paradas:** as duas telas de tela cheia, que ocupam cerca de 52 MB, agora só ocupam memória enquanto estão em uso. A do traço volta assim que a caneta chega perto da tela, e a de cima volta quando há seleção, guias, busca, recorte ou texto em edição.
+  - Resultado: parado, de ~89 MB para ~40 MB numa nota comum. Na sua nota grande com a Alta, de ~267 MB para ~120 MB.
+- **Corrigido:** um erro do backup ("reading 'drive'") que acontecia ao voltar para o app antes de ele terminar de carregar.
+
 ## Novidades da v0.58.2
 
 - **Limpeza e otimização:** saiu código antigo que não era mais usado (versões anteriores do ✨, do reconhecimento de colchete, do zoom por toque duplo e de menus antigos). Nada do que você usa mudou. O app ficou um pouco mais leve e o zoom gasta um pouco menos de processamento.
