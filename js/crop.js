@@ -5,6 +5,11 @@
    Aplicar: ✓, Enter ou tocar fora da imagem. Cancelar: ✕, Esc ou desfazer.
    O recorte fica em frações da imagem original (e.crop), então dá para desfazer ou mudar depois sem perder nada. */
 
+const BR_CURVE = 5; /* v1.4.0: curvatura padrão do colchete do toque duplo (% do quadrado; antes 18), a pedido */
+/* v1.4.0: ajustes dos atalhos rápidos guardados por grupo/subgrupo de caneta (S.quickByGroup[grupo] = {chave: valor}). Quem está em uso
+   fica nas chaves normais de Store.settings; ao trocar de grupo (qkSync) o conjunto atual é guardado e o do grupo novo é carregado.
+   Grupo nunca usado começa com os ajustes de agora. A contagem (I, II…, 1, 2…, a, b…) continua por nota. */
+const QK_KEYS = ['quickKind', 'quickTab', 'hyphenLen', 'hyphenDrop', 'bulletSize', 'bulletDrop', 'arrowLen', 'arrowDrop', 'boxSize', 'boxDrop', 'romanSize', 'romanDrop', 'romanGap', 'romanSufSize', 'romanStyle', 'romanSuffix', 'numSuffix', 'alphaSuffix', 'seqAlign', 'quickColors', 'quickSufColors', 'quickWidths', 'quickColor', 'quickSufColor', 'quickBrW', 'quickBrC', 'brCurve', 'brTop', 'brLines', 'bracketDrop', 'brTip', 'quickPresets', 'quickPresetsSeeded'];
 const CROP_RATIOS = [['Livre', 0], ['Original', -1], ['1:1', 1], ['4:3', 4 / 3], ['3:4', 3 / 4], ['16:9', 16 / 9]];
 
 /* arrasto de uma alça: c0 = moldura no início, h = alça (n, ne, e… ou move), dx/dy em frações, ratio = largura/altura em px (0 = livre) */
@@ -210,6 +215,7 @@ Object.assign(Editor, {
      DUAS linhas da pauta/grade abaixo do fim deste (pula uma linha), com a mesma ponta, curva, cor e espessura. A reta nova começa
      em (canto − raio), como no encadear da v0.34.1, então passa direto pela junção. Sem pauta: o mesmo comprimento do colchete tocado */
   bracketChain(pos) {
+    this.qkSync();
     const r = this.stage.getBoundingClientRect(), w = this.toWorld(pos.x - r.left, pos.y - r.top), pi = this.pageIndexAt(w.x, w.y, true), page = this.note.pages[pi]; if (!page) return false;
     const l = this.local(pi, w.x, w.y), m = 18 / this.cam.z;
     for (let i = page.elements.length - 1; i >= 0; i--) {
@@ -283,7 +289,7 @@ Object.assign(Editor, {
   /* v0.56: colchete do toque duplo — ajustes globais (padrões = forma da v0.41.4–v0.47.5): curvatura brCurve (% do quadrado, 18), início
      brTop (% abaixo da linha seguinte, 22), comprimento brLines (linhas para baixo, 2 → centro do quadrado 2 linhas abaixo), fim abaixo do
      centro bracketDrop (%, = hyphenDrop ou 10), ponta brTip (% do meio-hífen, 100) */
-  brOpt() { const S = Store.settings, pc = (v, d, a, b) => clamp((v ?? d) / 100, a, b); return { curve: pc(S.brCurve, 18, 0, 0.6), top: pc(S.brTop, 22, 0, 0.9), lines: clamp(Math.round(+(S.brLines ?? 2)), 1, 8), drop: pc(S.bracketDrop, S.hyphenDrop ?? 10, -0.45, 0.45), tip: pc(S.brTip, 100, 0.2, 4) }; },
+  brOpt() { const S = Store.settings, pc = (v, d, a, b) => clamp((v ?? d) / 100, a, b); return { curve: pc(S.brCurve, BR_CURVE, 0, 0.6), top: pc(S.brTop, 22, 0, 0.9), lines: clamp(Math.round(+(S.brLines ?? 2)), 1, 8), drop: pc(S.bracketDrop, S.hyphenDrop ?? 10, -0.45, 0.45), tip: pc(S.brTip, 100, 0.2, 4) }; },
   bracketGeom(x1, x2, y1, y2, s, o) {
     const B = this.brOpt(), hy = (y1 + y2) / 2, cx = (x1 + x2) / 2, k = Math.floor((hy - o) / s);
     const top = Math.max(o + (k + 1) * s + s * B.top, y2 + s * 0.12), end = Math.max(o + (k + 0.5 + B.lines) * s + s * B.drop, top + s * 0.6), tip = (x2 - cx) * B.tip, r = Math.min(s * B.curve, tip * 0.9);
@@ -337,7 +343,19 @@ Object.assign(Editor, {
     }
     return els;
   },
+  qkSync() {
+    try {
+      const S = Store.settings, g = Store.activeGroup(this.note), gid = g && g.id; if (!gid) return;
+      const cur = S.quickGroupCur; if (cur === gid) return;
+      const by = S.quickByGroup || (S.quickByGroup = {}), snap = (o) => (o === undefined ? undefined : JSON.parse(JSON.stringify(o)));
+      if (cur) { const o = {}; for (const k of QK_KEYS) if (S[k] !== undefined) o[k] = snap(S[k]); by[cur] = o; }
+      const nw = by[gid];
+      if (nw) for (const k of QK_KEYS) { if (nw[k] === undefined) delete S[k]; else S[k] = snap(nw[k]); }
+      S.quickGroupCur = gid; Store.saveSettings();
+    } catch (e) { console.warn('atalhos por grupo', e); }
+  },
   quickPlace(kind, p) {
+    this.qkSync();
     const c = this.quickCell(p); if (!c) return false; const seq = !!this.SEQ[kind], els = this.quickEls(kind, c, seq ? this.seqNext(kind) : 0);
     const g = uid(); for (const e of els) { e.qg = g; e.qk = kind; this.recAdd(c.page, e); } this.opCommit(); if (seq) this.setSeqNext(kind, this.seqNext(kind) + 1); return true;
   },
@@ -413,10 +431,10 @@ Object.assign(Editor, {
      escolhido (os mesmos das Configurações) em "Ajustes" (S.quickAdj aberto/fechado). Enquanto aberta, o próximo toque da ponta
      da caneta na folha coloca o atalho. */
   openQuick() {
-    this.closeQuick(); const S = Store.settings, box = el('div', { class: 'qk-panel' });
+    this.qkSync(); this.closeQuick(); const S = Store.settings, box = el('div', { class: 'qk-panel' });
     const pv = el('canvas', { class: 'qk-prev' }), PW = 220, dpr = Math.min(3, devicePixelRatio || 1);
     const preview = () => {
-      const br = !!S.quickBrOpen, PH = br ? 64 + 44 * Math.min(4, this.brOpt().lines + 0.6) : 64; /* v0.56: com a seção do colchete aberta, mostra o colchete embaixo */
+      const br = S.quickTab === 'br', PH = br ? 64 + 44 * Math.min(4, this.brOpt().lines + 0.6) : 64; /* v0.56: com a seção do colchete aberta, mostra o colchete embaixo */
       if (pv.height !== Math.round(PH * dpr)) { pv.width = PW * dpr; pv.height = Math.round(PH * dpr); pv.style.width = PW + 'px'; pv.style.height = PH + 'px'; }
       const ctx = pv.getContext('2d'), k = S.quickKind || 'hyphen', sq = 44; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, PW, PH);
       ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, PW, PH); ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1; const x0 = 18, y0 = 10;
@@ -475,52 +493,60 @@ Object.assign(Editor, {
       return presetList(k, null, keys, redraw, 'Tamanhos', (chip) => [chip('Padrão', false, () => { for (const [kk] of keys) delete S[kk]; Store.saveSettings(); redraw(); }, 'Volta todos os ajustes deste atalho ao padrão')],
         [{ name: 'P', v: { [q[0]]: q[1] } }, { name: 'M', v: { [q[0]]: q[2] } }, { name: 'G', v: { [q[0]]: q[3] } }]);
     };
+    /* v1.4.0: telinha em abas (pedido: estava confusa). Em cima, sempre: tipo, prévia, próximo número e Fixar; embaixo, uma aba por vez
+       (S.quickTab): Tamanho (predefinições + medidas), Cor e traço, Número e sinal (só tipos com contagem) e Colchete. Nada saiu. */
     const draw = () => {
       const k = S.quickKind || 'hyphen', chip = (label, on, fn, title) => el('button', { class: 'qk-chip' + (on ? ' on' : ''), title, onclick: fn }, label);
       const KINDS = [['hyphen', '— Hífen'], ['bullet', '○ Tópico'], ['roman', 'IV Romano'], ['num', '1. Número'], ['alpha', 'a) Letra'], ['arrow', '→ Seta'], ['box', '☐ Caixa']];
       const kinds = el('div', { class: 'qk-kinds' }, ...KINDS.map(([v, lb]) => chip(lb, k === v, () => { S.quickKind = v; Store.saveSettings(); draw(); })));
-      const adjOpen = !!S.quickAdj, pin = !!this._qkPin;
+      const pin = !!this._qkPin, seq = !!this.SEQ[k];
       const pinBtn = el('button', { class: 'qk-pin' + (pin ? ' on' : ''), title: 'Fixar: colocar vários seguidos sem fechar a telinha', onclick: () => { this._qkPin = !pin; draw(); } }, pin ? '📌 Fixada' : '📌 Fixar');
-      const kids = [el('div', { class: 'qk-head' }, el('b', {}, 'Atalho rápido'), pinBtn, el('button', { class: 'qk-x', title: 'Fechar', onclick: () => this.closeQuick() }, '✕')), kinds, pv];
-      if (this.SEQ[k]) {
-        const n = this.seqNext(k), max = this.SEQ[k][1], suf = this.seqSuffix(k), ex = this.seqStr(k, 1);
-        kids.push(el('div', { class: 'qk-row qk-num' }, el('span', {}, 'Próximo'), chip('−', false, () => { this.setSeqNext(k, n - 1); draw(); }), el('b', { class: 'qk-rn' }, this.seqStr(k, n)), chip('+', false, () => { this.setSeqNext(k, Math.min(max, n + 1)); draw(); }), chip('Recomeçar', false, () => { this.setSeqNext(k, 1); draw(); }, 'Volta para o primeiro')),
-          el('div', { class: 'qk-row' }, el('span', {}, 'Depois'), ...[['', 'nada'], ['.', ex + '.'], ['-', ex + ' -'], [')', ex + ')']].map(([v, lb]) => chip(lb, suf === v, () => { S[this.SEQ[k][2]] = v; Store.saveSettings(); draw(); }))));
-        kids.push(el('div', { class: 'qk-row' }, el('span', {}, 'Posição'), ...[['center', 'Centralizado', 'No meio do quadrado (largo demais → começa na borda e cresce p/ direita)'], ['left', 'À esquerda', 'Começa na borda esquerda do quadrado']].map(([v, lb, t]) => chip(lb, (S.seqAlign || 'center') === v, () => { S.seqAlign = v; Store.saveSettings(); draw(); }, t))));
-        if (k === 'roman') kids.push(el('div', { class: 'qk-row' }, el('span', {}, 'Estilo'), ...[['serif', 'Serifado', 'Serifa em cada letra'], ['bar', 'Serifa única', 'Uma barra em cima e outra embaixo do número inteiro'], ['sans', 'Sem serifa', 'Só os traços']].map(([v, lb, t]) => chip(lb, (S.romanStyle || 'serif') === v, () => { S.romanStyle = v; Store.saveSettings(); draw(); }, t))));
+      const grp = typeof UI !== 'undefined' && UI.group ? UI.group() : null;
+      const kids = [el('div', { class: 'qk-head' }, el('b', {}, 'Atalho rápido'), grp ? el('small', { class: 'qk-grp', title: 'Os ajustes dos atalhos são guardados por grupo de caneta' }, grp.name) : null, pinBtn, el('button', { class: 'qk-x', title: 'Fechar', onclick: () => this.closeQuick() }, '✕')), kinds, pv];
+      if (seq) { const n = this.seqNext(k), max = this.SEQ[k][1];
+        kids.push(el('div', { class: 'qk-row qk-num' }, el('span', {}, 'Próximo'), chip('−', false, () => { this.setSeqNext(k, n - 1); draw(); }), el('b', { class: 'qk-rn' }, this.seqStr(k, n) + this.seqSuffix(k)), chip('+', false, () => { this.setSeqNext(k, Math.min(max, n + 1)); draw(); }), chip('Recomeçar', false, () => { this.setSeqNext(k, 1); draw(); }, 'Volta para o primeiro'))); }
+      const TABS = [['size', 'Tamanho'], ['look', 'Cor'], ...(seq ? [['sign', 'Sinal']] : []), ['br', 'Colchete']];
+      let tab = S.quickTab; if (!TABS.some(([v]) => v === tab)) tab = 'size';
+      const tabs = el('div', { class: 'qk-tabs' }, ...TABS.map(([v, lb]) => el('button', { class: 'qk-tab' + (tab === v ? ' on' : ''), onclick: () => { S.quickTab = v; Store.saveSettings(); draw(); } }, lb)));
+      const body = el('div', { class: 'qk-adj qk-tabbody' }), info = (t) => el('p', { class: 'qk-info' }, t); qkKeys = [];
+      const colorRow = (label, cur, setFn, noneLabel, noneTitle) => el('div', { class: 'qk-row qk-cols' }, el('span', {}, label), chip(noneLabel, !cur, () => { setFn(null); draw(); }, noneTitle),
+        ...(UI.groupColors ? UI.groupColors() : []).slice(0, 9).map((cc) => el('button', { class: 'qk-dot' + (cur && cur.toLowerCase() === cc.toLowerCase() ? ' on' : ''), title: cc, style: { background: cc }, onclick: () => { setFn(cc); draw(); } })));
+      if (tab === 'size') {
+        body.append(info(seq ? 'Altura das letras, posição no quadrado e espaço entre elas. As predefinições guardam também o tamanho do sinal.' : 'Tamanho do atalho e altura dentro do quadrado da pauta.'));
+        if (k === 'hyphen') body.append(sl('Comprimento', 'hyphenLen', 5, 90, 25, (v) => v + '%'), sl('Altura', 'hyphenDrop', -40, 40, 10, pct));
+        else if (k === 'bullet') body.append(sl('Tamanho', 'bulletSize', 5, 90, 30, (v) => v + '%'), sl('Altura', 'bulletDrop', -40, 40, S.hyphenDrop ?? 10, pct));
+        else if (k === 'arrow') body.append(sl('Comprimento', 'arrowLen', 20, 160, 70, (v) => v + '%'), sl('Altura', 'arrowDrop', -40, 40, S.hyphenDrop ?? 10, pct));
+        else if (k === 'box') body.append(sl('Tamanho', 'boxSize', 15, 95, 55, (v) => v + '%'), sl('Altura', 'boxDrop', -40, 40, S.hyphenDrop ?? 10, pct));
+        if (seq) { body.append(sl('Tamanho', 'romanSize', 15, 95, 50, (v) => v + '%'), sl('Altura', 'romanDrop', -40, 40, S.hyphenDrop ?? 10, pct)); if (k === 'roman') body.append(sl('Espaço entre letras', 'romanGap', 5, 80, 30, (v) => v + '%')); qkKeys.push(['romanSufSize', 100]); }
+        body.insertBefore(presetsRow(k, draw), body.children[1]);
+      } else if (tab === 'look') {
+        body.append(info('Cor e espessura deste atalho. "caneta" usa o que estiver escolhido na caneta na hora de colocar.'));
+        body.append(colorRow('Cor', this.qkColor(k), (c) => this.setQkColor(k, c), 'caneta', 'Usar a cor da caneta'));
+        const qw = this.qkWidth(k), ws = [...new Set((UI.widthList ? UI.widthList('pen') : []).map(Number).filter((x) => x > 0))].sort((a, b) => a - b).slice(0, 12);
+        if (qw && !ws.some((x) => Math.abs(x - qw) < 0.01)) ws.push(qw);
+        body.append(el('div', { class: 'qk-row qk-ws' }, el('span', {}, 'Espessura'), chip('caneta', !qw, () => { this.setQkWidth(k, null); draw(); }, 'Usar a espessura da caneta'),
+          ...ws.map((w) => { const b = chip('', !!qw && Math.abs(qw - w) < 0.01, () => { this.setQkWidth(k, w); draw(); }, String(w).replace('.', ',') + ' px'); b.classList.add('qk-w'); b.append(el('i', { style: { height: Math.max(1, Math.min(8, w)) + 'px' } }), el('small', {}, String(Math.round(w * 10) / 10).replace('.', ','))); return b; })));
+        if (seq) body.append(colorRow('Cor do sinal', this.qkColor(k, true), (c) => this.setQkColor(k, c, true), 'igual', 'Igual ao número'));
+      } else if (tab === 'sign') {
+        const suf = this.seqSuffix(k), ex = this.seqStr(k, 1);
+        body.append(info('O que vem depois do número ou da letra, e onde ele começa no quadrado.'),
+          el('div', { class: 'qk-row' }, el('span', {}, 'Depois'), ...[['', 'nada'], ['.', ex + '.'], ['-', ex + ' -'], [')', ex + ')']].map(([v, lb]) => chip(lb, suf === v, () => { S[this.SEQ[k][2]] = v; Store.saveSettings(); draw(); }))),
+          el('div', { class: 'qk-row' }, el('span', {}, 'Posição'), ...[['center', 'Centralizado', 'No meio do quadrado (largo demais → começa na borda e cresce p/ direita)'], ['left', 'À esquerda', 'Começa na borda esquerda do quadrado']].map(([v, lb, t]) => chip(lb, (S.seqAlign || 'center') === v, () => { S.seqAlign = v; Store.saveSettings(); draw(); }, t))));
+        if (k === 'roman') body.append(el('div', { class: 'qk-row' }, el('span', {}, 'Estilo'), ...[['serif', 'Serifado', 'Serifa em cada letra'], ['bar', 'Serifa única', 'Uma barra em cima e outra embaixo do número inteiro'], ['sans', 'Sem serifa', 'Só os traços']].map(([v, lb, t]) => chip(lb, (S.romanStyle || 'serif') === v, () => { S.romanStyle = v; Store.saveSettings(); draw(); }, t))));
+        body.append(sl('Tamanho do sinal (ponto, hífen, parêntese)', 'romanSufSize', 10, 250, 100, (v) => v + '%'));
+      } else {
+        const BRK = ['brCurve', 'brTop', 'brLines', 'bracketDrop', 'brTip'], bs = this.brStyle(k);
+        body.append(info('Colchete criado com toque duplo da caneta em cima do atalho. A prévia mostra como ele fica.'),
+          el('div', { class: 'qk-row' }, el('span', {}, 'Espessura'), chip('caneta', !bs.w, () => { this.setBrStyle(k, 'w', false); draw(); }, 'Espessura selecionada na caneta'), chip('do atalho', bs.w, () => { this.setBrStyle(k, 'w', true); draw(); }, 'Mesma espessura do atalho')),
+          el('div', { class: 'qk-row' }, el('span', {}, 'Cor'), chip('caneta', !bs.c, () => { this.setBrStyle(k, 'c', false); draw(); }, 'Cor selecionada na caneta'), chip('do atalho', bs.c, () => { this.setBrStyle(k, 'c', true); draw(); }, 'Mesma cor do atalho')),
+          presetList('br', null, [['brCurve', BR_CURVE], ['brTop', 22], ['brLines', 2], ['bracketDrop', S.hyphenDrop ?? 10], ['brTip', 100]], draw, 'Forma', (c) => [c('Padrão', BRK.every((x) => S[x] == null), () => { for (const x of BRK) delete S[x]; Store.saveSettings(); draw(); }, 'Volta ao colchete padrão')]),
+          sl('Curvatura', 'brCurve', 0, 60, BR_CURVE, (v) => (v === 0 ? 'canto reto' : v + '% do quadrado (até o tamanho da ponta)')),
+          sl('Início', 'brTop', 0, 90, 22, (v) => v + '% abaixo da linha'),
+          sl('Comprimento', 'brLines', 1, 8, 2, (v) => v + (v === 1 ? ' linha' : ' linhas') + ' para baixo'),
+          sl('Fim', 'bracketDrop', -40, 40, S.hyphenDrop ?? 10, pct),
+          sl('Ponta', 'brTip', 20, 400, 100, (v) => v + '% (100 = até o fim do hífen)'));
       }
-      /* v0.47: cor só do atalho */
-      const qc = this.qkColor(k), cols = (UI.groupColors ? UI.groupColors() : []).slice(0, 9);
-      kids.push(el('div', { class: 'qk-row qk-cols' }, el('span', {}, 'Cor'), chip('caneta', !qc, () => { this.setQkColor(k, null); draw(); }, 'Usar a cor da caneta'),
-        ...cols.map((cc) => el('button', { class: 'qk-dot' + (qc && qc.toLowerCase() === cc.toLowerCase() ? ' on' : ''), title: cc, style: { background: cc }, onclick: () => { this.setQkColor(k, cc); draw(); } }))));
-      /* v0.55: espessura só do atalho (por tipo) — "caneta" + espessuras do grupo da caneta */
-      const qw = this.qkWidth(k), ws = [...new Set((UI.widthList ? UI.widthList('pen') : []).map(Number).filter((x) => x > 0))].sort((a, b) => a - b).slice(0, 12);
-      if (qw && !ws.some((x) => Math.abs(x - qw) < 0.01)) ws.push(qw);
-      kids.push(el('div', { class: 'qk-row qk-ws' }, el('span', {}, 'Espessura'), chip('caneta', !qw, () => { this.setQkWidth(k, null); draw(); }, 'Usar a espessura da caneta'),
-        ...ws.map((w) => { const b = chip('', !!qw && Math.abs(qw - w) < 0.01, () => { this.setQkWidth(k, w); draw(); }, String(w).replace('.', ',') + ' px'); b.classList.add('qk-w'); b.append(el('i', { style: { height: Math.max(1, Math.min(8, w)) + 'px' } }), el('small', {}, String(Math.round(w * 10) / 10).replace('.', ','))); return b; })));
-      const adj = el('div', { class: 'qk-adj' }); qkKeys = [];
-      if (k === 'hyphen') adj.append(sl('Comprimento', 'hyphenLen', 5, 90, 25, (v) => v + '%'), sl('Altura', 'hyphenDrop', -40, 40, 10, pct));
-      else if (k === 'bullet') adj.append(sl('Tamanho', 'bulletSize', 5, 90, 30, (v) => v + '%'), sl('Altura', 'bulletDrop', -40, 40, S.hyphenDrop ?? 10, pct));
-      else if (k === 'arrow') adj.append(sl('Comprimento', 'arrowLen', 20, 160, 70, (v) => v + '%'), sl('Altura', 'arrowDrop', -40, 40, S.hyphenDrop ?? 10, pct));
-      else if (k === 'box') adj.append(sl('Tamanho', 'boxSize', 15, 95, 55, (v) => v + '%'), sl('Altura', 'boxDrop', -40, 40, S.hyphenDrop ?? 10, pct));
-      if (this.SEQ[k]) { const sq = this.qkColor(k, true); adj.append(el('div', { class: 'qk-row qk-cols' }, el('span', {}, 'Cor do sinal'), el('button', { class: 'qk-chip' + (!sq ? ' on' : ''), title: 'Igual ao número', onclick: () => { this.setQkColor(k, null, true); draw(); } }, 'igual'),
-        ...(UI.groupColors ? UI.groupColors() : []).slice(0, 9).map((cc) => el('button', { class: 'qk-dot' + (sq && sq.toLowerCase() === cc.toLowerCase() ? ' on' : ''), title: cc, style: { background: cc }, onclick: () => { this.setQkColor(k, cc, true); draw(); } })))); }
-      if (this.SEQ[k]) adj.append(sl('Tamanho', 'romanSize', 15, 95, 50, (v) => v + '%'), sl('Altura', 'romanDrop', -40, 40, S.hyphenDrop ?? 10, pct), k === 'roman' ? sl('Espaço entre letras', 'romanGap', 5, 80, 30, (v) => v + '%') : null, sl('Tamanho do sinal (ponto, hífen, parêntese)', 'romanSufSize', 10, 250, 100, (v) => v + '%'));
-      adj.prepend(presetsRow(k, draw));
-      /* v0.56: colchete do toque duplo — espessura/cor por tipo + forma (global), com "Padrão" = forma original */
-      const brOpen = !!S.quickBrOpen, BRK = ['brCurve', 'brTop', 'brLines', 'bracketDrop', 'brTip'], bs = this.brStyle(k);
-      const brBox = brOpen ? el('div', { class: 'qk-adj qk-br' },
-        el('div', { class: 'qk-row' }, el('span', {}, 'Espessura'), chip('caneta', !bs.w, () => { this.setBrStyle(k, 'w', false); draw(); }, 'Espessura selecionada na caneta'), chip('do atalho', bs.w, () => { this.setBrStyle(k, 'w', true); draw(); }, 'Mesma espessura do atalho')),
-        el('div', { class: 'qk-row' }, el('span', {}, 'Cor'), chip('caneta', !bs.c, () => { this.setBrStyle(k, 'c', false); draw(); }, 'Cor selecionada na caneta'), chip('do atalho', bs.c, () => { this.setBrStyle(k, 'c', true); draw(); }, 'Mesma cor do atalho')),
-        presetList('br', null, [['brCurve', 18], ['brTop', 22], ['brLines', 2], ['bracketDrop', S.hyphenDrop ?? 10], ['brTip', 100]], draw, 'Forma', (c) => [c('Padrão', BRK.every((x) => S[x] == null), () => { for (const x of BRK) delete S[x]; Store.saveSettings(); draw(); }, 'Volta ao colchete original')]), /* v1.2.0: salvar formas do colchete */
-        sl('Curvatura', 'brCurve', 0, 60, 18, (v) => (v === 0 ? 'canto reto' : v + '% do quadrado (até o tamanho da ponta)')),
-        sl('Início', 'brTop', 0, 90, 22, (v) => v + '% abaixo da linha'),
-        sl('Comprimento', 'brLines', 1, 8, 2, (v) => v + (v === 1 ? ' linha' : ' linhas') + ' para baixo'),
-        sl('Fim', 'bracketDrop', -40, 40, S.hyphenDrop ?? 10, pct),
-        sl('Ponta', 'brTip', 20, 400, 100, (v) => v + '% (100 = até o fim do hífen)')) : null;
-      kids.push(el('button', { class: 'qk-adjbtn' + (adjOpen ? ' open' : ''), onclick: () => { S.quickAdj = !adjOpen; Store.saveSettings(); draw(); } }, el('span', {}, 'Ajustes'), el('b', {}, '▾')), adjOpen ? adj : null,
-        el('button', { class: 'qk-adjbtn' + (brOpen ? ' open' : ''), onclick: () => { S.quickBrOpen = !brOpen; Store.saveSettings(); draw(); } }, el('span', {}, 'Colchete (toque duplo)'), el('b', {}, '▾')), brBox,
-        el('small', { class: 'qk-hint' + (pin ? ' pin' : '') }, pin ? 'Fixada: cada toque da caneta coloca um. Toque em ✕ para voltar a escrever.' : 'Toque no quadrado com a caneta'));
+      kids.push(tabs, body, el('small', { class: 'qk-hint' + (pin ? ' pin' : '') }, pin ? 'Fixada: cada toque da caneta coloca um. Toque em ✕ para voltar a escrever.' : 'Toque no quadrado com a caneta'));
       box.innerHTML = ''; box.append(...kids.filter(Boolean)); preview();
     };
     this._qkDraw = draw;

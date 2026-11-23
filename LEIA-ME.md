@@ -153,6 +153,21 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.4.0
+
+- **Telinha do atalho rápido reorganizada em abas.** Nada saiu.
+  - Em cima ficam sempre o tipo de atalho, a prévia, o próximo número e o Fixar.
+  - Embaixo, uma aba por vez, cada uma com uma explicação curta:
+    - **Tamanho:** predefinições, tamanho, altura e espaço entre letras.
+    - **Cor:** cor, espessura e cor do sinal.
+    - **Sinal:** o que vem depois do número, a posição e o estilo do romano. Só aparece nos tipos com contagem.
+    - **Colchete:** espessura, cor e forma do colchete do toque duplo.
+- **Atalhos salvos por grupo/subgrupo de caneta.** Cada grupo guarda o seu conjunto completo: tipo escolhido, tamanhos, cores, espessuras, sinais, forma do colchete e predefinições.
+  - Ao trocar de grupo, a telinha troca junto, e o nome do grupo aparece no topo dela.
+  - Um grupo usado pela primeira vez começa com os ajustes que estavam em uso.
+  - A contagem (I, II…, 1, 2…, a, b…) continua por nota.
+- O colchete do toque duplo agora tem **curvatura padrão de 5%** (antes 18%).
+
 ## Novidades da v1.3.2
 
 - Arrastar a página com o dedo logo depois de escrever funciona no primeiro toque. Antes, a proteção contra a palma também contava a caneta só pairando perto da tela, e o primeiro arrasto era ignorado. Agora só a caneta encostada conta, e a espera depois dela caiu de 0,5 s para 0,3 s. A palma continua sendo barrada pelo tamanho do toque.
