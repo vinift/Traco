@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.0.1
+
+- Traço Nativo: em Configurações → Backup e dados, o "Conectar" agora mostra o resultado na hora ("✅ Conectado" ou a mensagem de erro do Google) e já liga o backup. Antes a tela continuava dizendo "desligado" mesmo depois de escolher a conta.
+
 ## Novidades da v1.0.0 — começa o Traço Nativo
 
 - **App nativo para Android ("Traço Nativo")**, instalado ao lado do app atual enquanto está em teste. A biblioteca, as configurações, o cronômetro e o resto continuam vindo do site (o "Verificar atualização" segue valendo). O Android cuida das partes em que o navegador limita:

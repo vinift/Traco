@@ -323,7 +323,8 @@ async function openSettings(focus) {
   const cid = el('input', { type: 'text', value: D.clientId || '', placeholder: 'xxxxxxxx.apps.googleusercontent.com' });
   const sec = el('input', { type: 'password', value: D.clientSecret || '', placeholder: 'Opcional — evita ter que reconectar a cada hora' });
   const auto = el('input', { type: 'checkbox' }); auto.checked = D.enabled !== false;
-  const status = el('p', {}, Drive.configured() ? (Drive.hasAuth() ? '✅ Conectado.' : '⚠️ Configurado, mas precisa conectar.') + (D.lastSync ? ' Último backup: ' + new Date(D.lastSync).toLocaleString('pt-BR') : '') : 'Backup no Drive desligado.');
+  const stTxt = () => (Drive.configured() ? (Drive.hasAuth() ? '✅ Conectado.' : '⚠️ Configurado, mas precisa conectar.') + (D.lastSync ? ' Último backup: ' + new Date(D.lastSync).toLocaleString('pt-BR') : '') : 'Backup no Drive desligado.') + (Drive.lastErr ? ' — Erro do login: ' + Drive.lastErr : '');
+  const status = el('p', {}, stTxt());
   const saveDrive = () => { const changed = cid.value.trim() !== D.clientId || sec.value.trim() !== (D.clientSecret || ''); D.clientId = cid.value.trim(); D.clientSecret = sec.value.trim(); D.enabled = auto.checked && (!!D.clientId || Drive.native()); if (changed) { delete D.refreshToken; Drive.token = null; } Store.saveSettings.flush(); Drive.refreshStatus(); };
   const B = (label, cls, fn) => el('button', { class: 'btn ' + cls, onclick: fn }, label);
   const driveSec = el('div', { class: 'set-sec', id: 'set-drive' }, el('h3', {}, 'Backup automático no Google Drive'),
@@ -338,7 +339,7 @@ async function openSettings(focus) {
     el('div', { class: 'field' }, el('label', {}, 'Qualidade do PDF no Drive (mais alta = arquivo maior e mais memória para gerar)'), (() => { const s = el('select', {}, el('option', { value: '150' }, 'Normal · 150 dpi'), el('option', { value: '200' }, 'Alta · 200 dpi (padrão)'), el('option', { value: '300' }, 'Máxima · 300 dpi')); s.value = String(D.pdfDpi || 200); s.addEventListener('change', () => { D.pdfDpi = +s.value; D.pdfCrash = {}; Store.saveSettings(); }); return s; })()),
     status,
     el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
-      B(Drive.native() ? 'Conectar' : 'Salvar e conectar', 'primary', () => { saveDrive(); if (D.clientId || Drive.native()) Drive.connect(); else toast('Informe o Client ID'); }),
+      B(Drive.native() ? 'Conectar' : 'Salvar e conectar', 'primary', async () => { if (Drive.native()) auto.checked = true; /* v1.0.1: no nativo, conectar já liga o backup (antes a caixa desmarcada deixava "desligado") */ saveDrive(); if (D.clientId || Drive.native()) { status.textContent = 'Conectando…'; await Drive.connect(); auto.checked = D.enabled !== false; status.textContent = stTxt(); } else toast('Informe o Client ID'); }),
       B('Fazer backup agora', '', () => { saveDrive(); Drive.sync(true); }),
       B('Restaurar do Drive', '', async () => {
         saveDrive(); if (!(await confirmBox('Restaurar do Drive', 'Baixar as notas do Drive? Notas que estão mais novas no Drive substituem as do tablet; as demais ficam como estão.', 'Restaurar'))) return;

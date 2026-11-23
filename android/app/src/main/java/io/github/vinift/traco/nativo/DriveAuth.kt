@@ -4,6 +4,7 @@ import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
 import androidx.activity.result.IntentSenderRequest
+import com.google.android.gms.common.api.ApiException
 import org.json.JSONObject
 
 /**
@@ -14,6 +15,9 @@ import org.json.JSONObject
  */
 object DriveAuth {
     private const val SCOPE = "https://www.googleapis.com/auth/drive.file"
+
+    /* mensagem com o código do Google (10 = DEVELOPER_ERROR: cliente Android não cadastrado / SHA-1 ou pacote errado / outro projeto; 16 = cancelado) */
+    private fun msg(e: Exception): String { val c = (e as? ApiException)?.statusCode; return (e.message ?: "erro") + if (c != null && e.message?.contains(c.toString()) != true) " (código $c)" else "" }
 
     fun authorize(a: MainActivity, interactive: Boolean, done: (JSONObject) -> Unit) {
         val req = AuthorizationRequest.builder().setRequestedScopes(listOf(Scope(SCOPE))).build()
@@ -27,15 +31,15 @@ object DriveAuth {
                         try {
                             val t = client.getAuthorizationResultFromIntent(data).accessToken
                             done(if (t != null) JSONObject().put("token", t) else JSONObject().put("error", "sem chave"))
-                        } catch (e: Exception) { done(JSONObject().put("error", e.message ?: "cancelado")) }
+                        } catch (e: Exception) { done(JSONObject().put("error", msg(e))) }
                     }
                     try { a.authLauncher.launch(IntentSenderRequest.Builder(pi.intentSender).build()) }
-                    catch (e: Exception) { a.authCb = null; done(JSONObject().put("error", e.message ?: "erro")) }
+                    catch (e: Exception) { a.authCb = null; done(JSONObject().put("error", msg(e))) }
                 } else {
                     val t = r.accessToken
                     done(if (t != null) JSONObject().put("token", t) else JSONObject().put("error", "sem chave"))
                 }
             }
-            .addOnFailureListener { e -> done(JSONObject().put("error", e.message ?: "erro")) }
+            .addOnFailureListener { e -> done(JSONObject().put("error", msg(e))) }
     }
 }

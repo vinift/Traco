@@ -67,9 +67,9 @@ const Drive = {
   b64url(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
   async connect() {
     if (this.native()) { /* v1.0: conta do Android (o Google bloqueia o login do site dentro de apps) */
-      try { this.token = await Native.driveToken(true); this.exp = Date.now() + 55 * 60000; this.persistTok(); this.cfg.enabled = true; this.cfg.nativeAuth = true; Store.saveSettings.flush(); this.refreshStatus(); toast('Google Drive conectado ✓'); setTimeout(() => this.sync(true), 500); }
-      catch (e) { toast(e.message, 5000); }
-      return;
+      this.lastErr = '';
+      try { this.token = await Native.driveToken(true); this.exp = Date.now() + 55 * 60000; this.persistTok(); this.cfg.enabled = true; this.cfg.nativeAuth = true; Store.saveSettings.flush(); this.refreshStatus(); toast('Google Drive conectado ✓'); setTimeout(() => this.sync(true), 500); return true; }
+      catch (e) { this.lastErr = e.message; toast(e.message, 8000); return false; } /* v1.0.1: o erro também aparece nas Configurações */
     }
     if (!this.cfg.clientId) { toast('Informe o Client ID nas configurações'); return openSettings('drive'); }
     if (!this.canUse()) { toast('O Drive só funciona com o app hospedado em https'); return; }
