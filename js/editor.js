@@ -307,7 +307,7 @@ const Editor = {
     /* v0.23: a tinta ao vivo (tela rápida ou camada de prévia) só some quando os blocos já mostram o traço inteiro — antes sumia um quadro antes (ou vários, se a área precisava ser redesenhada) e a tela piscava */
     const drawing = this.action && this.action.kind === 'draw';
     if (!drawing && (this._inkHide || this._liveClear || this._natPend) && (allDone || performance.now() - (this._liveT || 0) > 600)) {
-      if (this._natPend) { Native.inkClear(this._natPend); this._natPend = null; }
+      if (this._natPend) { const ids = this._natPend; this._natPend = null; requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => Native.inkClear(ids), 70))); } /* v1.0.4: o WebView leva alguns quadros para mostrar os blocos na tela — tirar a tinta nativa na hora deixava um quadro sem o traço (piscava) */
       if (this._inkHide) { this._inkHide = false; this.inkHide(); }
       if (this._liveClear) { this._liveClear = false; this.clearLive(); }
     }

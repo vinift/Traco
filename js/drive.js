@@ -376,6 +376,11 @@ const Drive = {
         await this.upsert('lib', { name: 'biblioteca.json', mime: 'application/json', data: JSON.stringify({ v: 1, folders: Store.folders, heads, groups: Store.settings.presetGroups, saved: Date.now() }), parent: data, props: { traco: 'lib' } });
         d.lib = false; await Store.saveDirty(); done();
       }
+      try { /* v1.0.4: histórico de estudo também no backup (estudo.json na pasta de dados), só quando mudou */
+        const L = await DB.get('meta', 'studyLog');
+        if (L && (L.sessions || L.days)) { const js = JSON.stringify(L); let h = 0; for (let i = 0; i < js.length; i++) h = (h * 31 + js.charCodeAt(i)) | 0; const sig = js.length + ':' + h;
+          if (sig !== this.cfg.studySig) { at('Histórico de estudo'); await this.upsert('study', { name: 'estudo.json', mime: 'application/json', data: JSON.stringify({ v: 1, log: L, saved: Date.now() }), parent: data, props: { traco: 'study' } }); this.cfg.studySig = sig; } }
+      } catch (e) { console.warn('backup do estudo', e); }
       this.cfg.lastSync = Date.now(); if (sw) this.cfg.lastBgSync = this.cfg.lastSync; Store.saveSettings(); this.pg = null;
       this.refreshStatus(); if (manual) toast(pg.total ? `Backup no Drive concluído (${pg.total} ${pg.total === 1 ? 'item' : 'itens'})` : 'Backup no Drive concluído');
       if (pdfWait) { clearTimeout(this._pdfT); this._pdfT = setTimeout(() => this.sync(), 60000); }
@@ -430,7 +435,18 @@ const Drive = {
       onProgress && onProgress(++done, total);
     }
     await Store.saveDriveMap();
-    this.lastRestore = { notes: noteFiles.length, blobs: blobs.length, fail, lib: best }; /* v1.0.3: resumo para a mensagem */
+    let study = 0; /* v1.0.4: histórico de estudo — junta as sessões (pelo id) com as daqui */
+    try {
+      for (const f of uniq(await this.query(prop('study')), await this.query(`name = 'estudo.json'`))) {
+        const R = (await this.api('GET', `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`)).log; if (!R) continue;
+        const T = typeof StudyTimer !== 'undefined' ? StudyTimer : null, L = (T && T.log) || (await DB.get('meta', 'studyLog')) || {};
+        if (R.sessions) { const have = new Set((L.sessions || []).map((x) => x.id)); const add = R.sessions.filter((x) => !have.has(x.id)); study += add.length; L.sessions = (L.sessions || []).concat(add).sort((a, b) => a.s - b.s); if (!L.v) L.v = 2; }
+        for (const k of ['days', 'away']) if (R[k]) { L[k] = L[k] || {}; for (const [d, v] of Object.entries(R[k])) { if (v && typeof v === 'object') { const o = L[k][d] || (L[k][d] = {}); for (const [kk, ms] of Object.entries(v)) o[kk] = Math.max(o[kk] || 0, ms); } else L[k][d] = Math.max(L[k][d] || 0, v || 0); } }
+        if (R.titles) L.titles = { ...R.titles, ...(L.titles || {}) };
+        if (T) T.log = L; await DB.put('meta', L, 'studyLog');
+      }
+    } catch (e) { console.warn('restaurar estudo', e); }
+    this.lastRestore = { notes: noteFiles.length, blobs: blobs.length, fail, lib: best, study }; /* v1.0.3: resumo para a mensagem */
     return n;
   },
 };

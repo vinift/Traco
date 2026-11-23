@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.0.4
+
+- O histórico do relatório de estudo agora também vai para o backup do Drive (arquivo "estudo.json"). Ao restaurar, as sessões do Drive se juntam às que já estão no aparelho, sem repetir.
+- Traço Nativo: ao levantar a caneta, a tinta nativa espera a página mostrar o traço antes de sair (antes o traço piscava).
+
 ## Novidades da v1.0.3
 
 - "Restaurar do Drive" também procura as notas, os anexos e a lista de pastas pelo nome dos arquivos, não só pelas marcas internas, que o app nativo pode não enxergar. Se houver mais de uma lista de pastas, usa a mais completa.

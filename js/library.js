@@ -343,7 +343,7 @@ async function openSettings(focus) {
       B('Fazer backup agora', '', () => { saveDrive(); Drive.sync(true); }),
       B('Restaurar do Drive', '', async () => {
         saveDrive(); if (!(await confirmBox('Restaurar do Drive', 'Baixar as notas do Drive? Notas que estão mais novas no Drive substituem as do tablet; as demais ficam como estão.', 'Restaurar'))) return;
-        try { const n = await Drive.restore((i, t) => toast(`Restaurando… ${i}/${t}`, 4000)); const R = Drive.lastRestore || {}; toast(`${n} nota(s) restauradas — encontrei no Drive ${R.notes ?? '?'} nota(s) e ${R.blobs ?? '?'} anexo(s)` + (R.fail ? `; ${R.fail} com erro` : ''), 9000); /* v1.0.3 */ Library.render(); } catch (e) { toast(e.needAuth ? 'Conecte o Drive primeiro' : 'Erro: ' + e.message, 5000); }
+        try { const n = await Drive.restore((i, t) => toast(`Restaurando… ${i}/${t}`, 4000)); const R = Drive.lastRestore || {}; toast(`${n} nota(s) restauradas — encontrei no Drive ${R.notes ?? '?'} nota(s) e ${R.blobs ?? '?'} anexo(s)` + (R.fail ? `; ${R.fail} com erro` : '') + (R.study ? `; ${R.study} sessão(ões) de estudo` : ''), 9000); /* v1.0.3 */ Library.render(); } catch (e) { toast(e.needAuth ? 'Conecte o Drive primeiro' : 'Erro: ' + e.message, 5000); }
       }),
       Drive.hasAuth() ? B('Desconectar', 'ghost danger', () => { Drive.disconnect(); toast('Drive desconectado'); }) : null));
   body.append(driveSec);
