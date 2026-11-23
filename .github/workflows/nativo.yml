@@ -23,7 +23,7 @@ jobs:
       - name: Chave de assinatura
         env: { P: '${{ secrets.TRACO_KEY_PASS }}' }
         run: |
-          if [ -z "$P" ]; then echo "::error::Falta o segredo TRACO_KEY_PASS (Settings → Secrets and variables → Actions)"; echo "### ⚠️ Falta o segredo TRACO_KEY_PASS" >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
+          if [ -z "$P" ]; then echo "::warning::Falta o segredo TRACO_KEY_PASS — só confere se compila (sem APK)"; echo "### ⚠️ Falta o segredo TRACO_KEY_PASS — só conferi se compila" >> "$GITHUB_STEP_SUMMARY"; echo "NOKEY=1" >> "$GITHUB_ENV"; exit 0; fi
           cd android
           if [ -f keystore.enc ]; then
             openssl enc -d -aes-256-cbc -pbkdf2 -iter 300000 -in keystore.enc -out "$RUNNER_TEMP/release.jks" -pass env:P
@@ -40,12 +40,14 @@ jobs:
         env: { P: '${{ secrets.TRACO_KEY_PASS }}' }
         run: |
           cd android
+          if [ -n "$NOKEY" ]; then gradle --no-daemon assembleDebug; exit 0; fi
           export TRACO_KS="$RUNNER_TEMP/release.jks" TRACO_KS_PASS="$P"
           VN="1.0.${{ github.run_number }}"
           gradle --no-daemon assembleRelease -PvCode=${{ github.run_number }} -PvName=$VN
           cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/traco-nativo.apk"
           echo "VN=$VN" >> "$GITHUB_ENV"
       - name: Publicar
+        if: env.NOKEY != '1'
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
           gh release create "nativo-$VN" "$RUNNER_TEMP/traco-nativo.apk" --repo "${{ github.repository }}" --target "${{ github.sha }}" --latest \
