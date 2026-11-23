@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.2.3
+
+- Traço Nativo: o relatório de problema visual (⋯ → "Relatar problema visual", ou toque com 4 dedos) agora inclui os últimos 5 traços. Eles vêm como a tinta do Android desenhou e como a página gravou, com a diferença medida entre os dois. Isso serve para achar a "mexidinha" ao levantar a caneta. Precisa do APK novo.
+
 ## Novidades da v1.2.2
 
 - Com o "Melhorar escrita automático" desligado, a caneta não alisa mais o traço depois que você levanta. O traço gravado fica exatamente como você viu enquanto escrevia, e no Traço Nativo ele não "mexe" mais na troca. A estabilização durante a escrita continua igual. Com o "Melhorar escrita" ligado, o arredondamento depois de levantar continua, de propósito.

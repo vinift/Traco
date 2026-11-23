@@ -437,6 +437,15 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v1.2.2 — ainda "mexia" ao levantar com o melhorar escrita desligado. Causa: com `autoBeautifySigma` 0, o `endDraw` fazia `smoothStroke(a.pts, stab/20)` (1–2 passadas de [¼ ½ ¼]), o que encolhia as curvas depois da tinta nativa. Agora só o marca-texto faz isso: a caneta sem melhorar escrita grava os pontos como foram vistos ao vivo. Com melhorar escrita LIGADO o `smoothArc` continua (a mexida ali é esperada; se incomodar, a ideia é aplicar o alisamento também na tinta ao vivo). Teste (caneta CDP, arco de 270°): maior diferença entre os pontos ao vivo e os gravados = 0,007 un. (só o arredondamento).
 
+
+
+- v1.2.3 — diagnóstico da "mexidinha" da tinta nativa (ainda acontece depois da v1.2.2).
+  - Web: `Native.inkNote(ed, a, el)` no `endDraw` (só com `a.nat`) guarda os 5 últimos traços gravados, em px CSS da tela, em `Native.inkLog`.
+  - `Native.inkReport()` lê `TracoNative.inkDebug()` e compara por id: `mediaDist`, `maxDist` (ponto mais perto), `desvioMedio`, `inicio`/`fim` (página − nativo, px CSS). Vai em `BugRec.state().tinta`.
+  - Android: `InkView.remember` guarda os 5 últimos (pontos filtrados em px CSS + `brutos` = nº de amostras recebidas) e `debugJson()`.
+  - Teste com nativo simulado (deslocado 3 px e sem os 2 últimos pontos) → início [3, 0], fim [4,6, 0,6].
+  - Leitura: início ≠ 0 e desvio constante = coordenadas; só o fim = término; média alta sem desvio = filtro/amostras diferentes.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

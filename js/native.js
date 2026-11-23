@@ -41,6 +41,28 @@ const Native = {
       return TracoNative.inkGo(JSON.stringify({ color: a.color, w: a.width * z, pen: a.pen, sens: S.pressureSens ?? 0.6, stab: a.stab ?? 10, dpr: devicePixelRatio || 1, clip: cl })) | 0;
     } catch (e) { console.warn('tinta nativa', e); return 0; }
   },
+  /* v1.2.3: diagnóstico — os últimos traços como a página gravou (px CSS da tela) para comparar com os que o Android desenhou */
+  inkLog: [],
+  inkNote(ed, a, el) {
+    try {
+      const z = ed.cam.z, r = ed.stage.getBoundingClientRect(), o = ed.layout[a.pi], P = el.pts, out = [];
+      for (let i = 0; i < P.length; i += 3) out.push(Math.round((r.left + (o.x + P[i] - ed.cam.x) * z) * 10) / 10, Math.round((r.top + (o.y + P[i + 1] - ed.cam.y) * z) * 10) / 10);
+      this.inkLog.push({ id: a.nat, z: Math.round(z * 1000) / 1000, stab: a.stab, pen: a.pen, w: Math.round(a.width * z * 100) / 100, pts: out }); if (this.inkLog.length > 5) this.inkLog.shift();
+    } catch (e) { console.warn('tinta: diagnóstico', e); }
+  },
+  inkReport() {
+    let nat = []; try { nat = JSON.parse(TracoNative.inkDebug ? TracoNative.inkDebug() : '[]') || []; } catch (_) { nat = 'sem dados (APK antigo?)'; }
+    const cmp = [];
+    if (Array.isArray(nat)) for (const w of this.inkLog) {
+      const n = nat.find((x) => x.id === w.id); if (!n || !n.pts || n.pts.length < 2) { cmp.push({ id: w.id, nativo: 'não achado' }); continue; }
+      const W = w.pts, N = n.pts, near = (x, y, A) => { let b = 1e9, bi = 0; for (let i = 0; i < A.length; i += 2) { const d = Math.hypot(A[i] - x, A[i + 1] - y); if (d < b) { b = d; bi = i; } } return [b, bi]; };
+      let sum = 0, mx = 0, sdx = 0, sdy = 0, k = 0; for (let i = 0; i < W.length; i += 2) { const [d, j] = near(W[i], W[i + 1], N); sum += d; mx = Math.max(mx, d); sdx += W[i] - N[j]; sdy += W[i + 1] - N[j + 1]; k++; }
+      const r1 = (v) => Math.round(v * 10) / 10;
+      cmp.push({ id: w.id, pontosPagina: W.length / 2, pontosNativo: N.length / 2, mediaDist: r1(sum / k), maxDist: r1(mx), desvioMedio: [r1(sdx / k), r1(sdy / k)],
+        inicio: [r1(W[0] - N[0]), r1(W[1] - N[1])], fim: [r1(W[W.length - 2] - N[N.length - 2]), r1(W[W.length - 1] - N[N.length - 1])] });
+    }
+    return { comparacao: cmp, pagina: this.inkLog, nativo: nat };
+  },
   inkClear(ids) { if (!this.on) return; try { TracoNative.inkClear(Array.isArray(ids) ? ids.join(',') : String(ids)); } catch (_) {} },
 
   /* ---- arquivos para fora (compartilhar / salvar em Downloads) ---- */

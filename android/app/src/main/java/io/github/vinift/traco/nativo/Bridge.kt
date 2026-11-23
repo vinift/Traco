@@ -37,6 +37,7 @@ class Bridge(private val a: MainActivity) {
     /* ---- tinta ---- */
     @JavascriptInterface fun inkGo(style: String): Int = a.ink.go(style)
     @JavascriptInterface fun inkClear(ids: String) = a.ink.clear(ids)
+    @JavascriptInterface fun inkDebug(): String = a.ink.debugJson()
 
     /* ---- arquivos para fora: a web manda em pedaços base64 ---- */
     @JavascriptInterface fun fileBegin(name: String, mime: String): Int {

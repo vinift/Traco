@@ -850,6 +850,7 @@ const Editor = {
     if (a.tool === 'highlighter') { el.opacity = a.opacity; if (a.snap) el.cap = 'butt'; }
     if (a.tool === 'pen' && a.dash !== 'solid') el.dash = a.dash;
     if (a.tool === 'pen') { el.pen = a.pen; if (a.pen === 'calli') el.nib = a.nib; if (a.fade) Fades.end(a, el); }
+    if (a.nat) Native.inkNote(this, a, el); /* v1.2.3: diagnóstico da tinta nativa (vai no relatório de problema visual) */
     this.recAdd(page, el); this.opCommit();
   },
 

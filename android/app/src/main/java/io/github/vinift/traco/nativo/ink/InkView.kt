@@ -76,7 +76,7 @@ class InkView(ctx: Context) : SurfaceView(ctx), CanvasFrontBufferedRenderer.Call
     /* ---------- entrada (linha da tela, chamada pela MainActivity antes do WebView) ---------- */
     fun onPen(e: MotionEvent) {
         when (e.actionMasked) {
-            MotionEvent.ACTION_DOWN -> { down = true; buf.clear(); cur = null; collect(e) }
+            MotionEvent.ACTION_DOWN -> { down = true; buf.clear(); cur = null; rawCount = 0; collect(e) }
             MotionEvent.ACTION_MOVE -> collect(e)
             MotionEvent.ACTION_UP -> { collect(e); end(); down = false }
             MotionEvent.ACTION_CANCEL -> { down = false; cur?.let { kill(it) }; cur = null }
@@ -90,6 +90,7 @@ class InkView(ctx: Context) : SurfaceView(ctx), CanvasFrontBufferedRenderer.Call
     }
 
     private fun point(x: Float, y: Float, p: Float) {
+        rawCount++
         val c = cur
         if (c == null) { if (down) buf.add(x, y, p) }
         else if (!c.dead) c.f.add(x / c.st.dpr, y / c.st.dpr, p)
@@ -113,10 +114,22 @@ class InkView(ctx: Context) : SurfaceView(ctx), CanvasFrontBufferedRenderer.Call
     /* raio como penRadii da web: esferográfica = metade da espessura; natural = penRadius(w, p) */
     private fun radius(st: Style, p: Float) = if (st.natural) st.w / 2 * (0.35f + 1.3f * p.coerceIn(0f, 1f)) else st.w / 2
 
+    /* v1.2.3: diagnóstico — últimos 5 traços como o Android desenhou (px CSS), lidos pela web no relatório de problema visual */
+    private val hist = ArrayDeque<String>()
+    fun debugJson(): String = synchronized(hist) { "[" + hist.joinToString(",") + "]" }
+    private fun remember(c: Stroke, raw: Int) {
+        val P = c.f.pts; val sb = StringBuilder()
+        var i = 0; while (i < P.size) { if (i > 0) sb.append(','); sb.append(Math.round(P[i] * 10) / 10.0).append(',').append(Math.round(P[i + 1] * 10) / 10.0); i += 3 }
+        val j = "{\"id\":${c.id},\"dpr\":${c.st.dpr},\"w\":${c.st.w},\"stab\":${c.st.stab},\"brutos\":$raw,\"pts\":[$sb]}"
+        synchronized(hist) { hist.addLast(j); while (hist.size > 5) hist.removeFirst() }
+    }
+    private var rawCount = 0
+
     private fun end() {
         val c = cur ?: return; cur = null
         if (c.dead) return
         if (c.f.finish()) { cur = c; flush(); cur = null }
+        try { remember(c, rawCount) } catch (_: Exception) {}
         done.add(c); r?.commit() // o traço passa para a camada "guardada" até a web pedir para tirar
     }
 
