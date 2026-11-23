@@ -446,6 +446,10 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
   - Teste com nativo simulado (deslocado 3 px e sem os 2 últimos pontos) → início [3, 0], fim [4,6, 0,6].
   - Leitura: início ≠ 0 e desvio constante = coordenadas; só o fim = término; média alta sem desvio = filtro/amostras diferentes.
 
+
+
+- v1.2.4 — causa da "mexidinha" achada pelo relatório da v1.2.3. Nos 5 traços, a tinta nativa e o traço gravado eram iguais (média 0–0,1 px, desvio 0, início 0), mas o nativo tinha 1 ponto a mais no fim, até 4,8 px adiante. As amostras do ACTION_UP (e o histórico dele) chegam ao Android, mas o WebView não as repassa: o `pointerup` traz a posição do último movimento. `InkView.onPen`: ACTION_UP agora só chama `end()`, sem `collect(e)`. Precisa do APK novo (build automático; a parte web só mudou o número da versão).
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

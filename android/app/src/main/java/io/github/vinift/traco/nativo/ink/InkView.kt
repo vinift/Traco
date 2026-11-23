@@ -78,7 +78,9 @@ class InkView(ctx: Context) : SurfaceView(ctx), CanvasFrontBufferedRenderer.Call
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> { down = true; buf.clear(); cur = null; rawCount = 0; collect(e) }
             MotionEvent.ACTION_MOVE -> collect(e)
-            MotionEvent.ACTION_UP -> { collect(e); end(); down = false }
+            /* v1.2.4: as amostras que chegam junto com o ACTION_UP NÃO entram — a página (WebView) não as recebe (o pointerup traz a
+               posição do último movimento), e o traço gravado terminava até ~5 px antes da tinta nativa ("voltava" ao levantar; medido no relatório) */
+            MotionEvent.ACTION_UP -> { end(); down = false }
             MotionEvent.ACTION_CANCEL -> { down = false; cur?.let { kill(it) }; cur = null }
         }
     }
