@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.6.0 — IA integrada
+
+- **Configurações → Inteligência artificial:** escolha o provedor (Google Gemini, Claude, OpenAI ou qualquer serviço compatível com OpenAI, como OpenRouter, Groq ou Ollama), cole a sua chave de API e toque em "Carregar modelos" e depois em "Testar". A chave fica só neste aparelho: não vai para o Drive, para a cópia local nem para o relatório de problema.
+- **Leitura da escrita pela IA:** com a IA ligada, as páginas novas ou alteradas são lidas por ela em segundo plano. Ela entende melhor letra corrida, siglas e termos técnicos, e a busca e o sumário passam a usar esse texto. Para reler com a IA uma nota já lida: ⋯ da nota → "Ler esta nota com a IA". Se a cota acabar ou a chave for recusada, o app volta ao leitor comum por 10 minutos.
+- **Sumário com IA:** Sumário → "Analisar com IA". Um modelo que pensa mais olha a nota inteira (tamanho da letra, espessura, cor, recuo, espaço, numeração e o sentido do texto) e separa títulos, subtítulos, seções e tópicos. O resultado fica salvo na nota; quando a nota muda, aparece o aviso para refazer.
+- Dois modelos: um rápido para ler a escrita e outro que "pensa mais" para o sumário (no Gemini, o app sugere o Flash e o Pro mais novos).
+
 ## Novidades da v1.5.0
 
 - **Mudar o tamanho de todas as células de uma vez:** no modo de editar células da tabela, há uma alça roxa no meio da borda de baixo (altura de todas as linhas) e outra no meio da borda direita (largura de todas as colunas). Por padrão as células crescem juntas e mantêm as proporções. O botão "Igualar" na barra da tabela (ícone de caixa entre duas linhas) faz as alças deixarem todas as linhas/colunas do mesmo tamanho; com ele ligado, as alças mostram um "=".

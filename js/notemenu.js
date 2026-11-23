@@ -154,6 +154,7 @@ const NoteMenu = {
         note.mode === 'infinite' ? item('home', 'Voltar ao centro', () => Editor.goHome(), 'volta ao ponto onde a tela começa') : null,
         note.mode !== 'infinite' ? item('pages', 'Vá para página', () => GoPage.open(anchor), 'página ' + (Editor.currentPageIndex() + 1) + ' de ' + note.pages.length) : null,
         item('list', 'Sumário', () => Outline.open(anchor), 'marcadores e índice do PDF'),
+        typeof AI !== 'undefined' && AI.ready() ? item('sparkle', 'Ler esta nota com a IA', () => { const n = AI.rereadNote(note); toast(n ? `A IA vai ler ${n} página${n > 1 ? 's' : ''} em segundo plano` : 'Todas as páginas já foram lidas pela IA', 2600); }, (() => { const tot = note.pages.filter((p) => !OCR.pageSig(p).startsWith('0:')).length, done = note.pages.filter((p) => p.ocr && p.ocr.ai && p.ocr.sig === OCR.pageSig(p)).length; return `${done} de ${tot} página${tot === 1 ? '' : 's'} lida${tot === 1 ? '' : 's'} pela IA`; })()) : null, /* v1.6 */
         item('grid', 'Alterar modelo', () => templateModal()),
         item('search', 'Zoom', () => zoomMenu(anchor), Math.round(Editor.cam.z * 100) + '%'),
         item('settings', 'Definições', () => openSettings()),

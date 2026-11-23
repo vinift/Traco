@@ -1471,3 +1471,9 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 .qk-tab.on{background:var(--panel);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.12);font-weight:600}
 .qk-tabbody{padding:2px 0 0}
 .qk-info{margin:0 0 4px;font-size:12px;line-height:1.35;color:var(--muted)}
+
+/* v1.6: IA */
+.ai-toc-btn { display: inline-flex; align-items: center; gap: 6px; margin: 4px 10px 8px; }
+.ai-toc-btn svg { width: 16px; height: 16px; }
+.ol-topic.ai-tp { font-size: 13px; opacity: .85; }
+.ai-status { font-size: 13px; margin: 6px 0 0; }
