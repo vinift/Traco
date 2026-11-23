@@ -47,6 +47,7 @@ const Native = {
     try {
       const z = ed.cam.z, r = ed.stage.getBoundingClientRect(), o = ed.layout[a.pi], P = el.pts, out = [];
       for (let i = 0; i < P.length; i += 3) out.push(Math.round((r.left + (o.x + P[i] - ed.cam.x) * z) * 10) / 10, Math.round((r.top + (o.y + P[i + 1] - ed.cam.y) * z) * 10) / 10);
+      if (out.length >= 2 && TracoNative.inkEnd) TracoNative.inkEnd(a.nat, out[out.length - 2], out[out.length - 1]); /* v1.2.5: o Android termina a tinta exatamente aqui */
       this.inkLog.push({ id: a.nat, z: Math.round(z * 1000) / 1000, stab: a.stab, pen: a.pen, w: Math.round(a.width * z * 100) / 100, pts: out }); if (this.inkLog.length > 5) this.inkLog.shift();
     } catch (e) { console.warn('tinta: diagnóstico', e); }
   },

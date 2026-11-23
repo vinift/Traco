@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.2.5
+
+- Traço Nativo (APK novo): ao levantar a caneta, a tinta do Android espera a página dizer onde o traço termina e acaba exatamente ali. O último pedacinho que o Android via e a página não via deixou de aparecer e sumir.
+
 ## Novidades da v1.2.4
 
 - Traço Nativo (APK novo): a tinta do Android termina no mesmo ponto que o traço gravado. O relatório mostrou que o Android desenhava um último pedacinho (até ~5 px) que a página não recebe, e era isso que "voltava" ao levantar a caneta.

@@ -76,7 +76,7 @@ class InkView(ctx: Context) : SurfaceView(ctx), CanvasFrontBufferedRenderer.Call
     /* ---------- entrada (linha da tela, chamada pela MainActivity antes do WebView) ---------- */
     fun onPen(e: MotionEvent) {
         when (e.actionMasked) {
-            MotionEvent.ACTION_DOWN -> { down = true; buf.clear(); cur = null; rawCount = 0; collect(e) }
+            MotionEvent.ACTION_DOWN -> { ending?.let { finalizeEnd(it, null) }; down = true; buf.clear(); cur = null; rawCount = 0; collect(e) }
             MotionEvent.ACTION_MOVE -> collect(e)
             /* v1.2.4: as amostras que chegam junto com o ACTION_UP NÃO entram — a página (WebView) não as recebe (o pointerup traz a
                posição do último movimento), e o traço gravado terminava até ~5 px antes da tinta nativa ("voltava" ao levantar; medido no relatório) */
@@ -99,8 +99,9 @@ class InkView(ctx: Context) : SurfaceView(ctx), CanvasFrontBufferedRenderer.Call
     }
 
     /* manda para a tela os pontos novos (com o último já desenhado, para emendar) */
-    private fun flush() {
-        val c = cur ?: return; if (c.dead) return
+    private fun flush() { flushStroke(cur ?: return) }
+    private fun flushStroke(c: Stroke) {
+        if (c.dead) return
         val P = c.f.pts; if (P.size <= c.sent) return
         val from = if (c.sent >= 3) c.sent - 3 else 0
         val n = (P.size - from) / 3; val out = FloatArray(n * 3); val d = c.st.dpr
@@ -127,13 +128,26 @@ class InkView(ctx: Context) : SurfaceView(ctx), CanvasFrontBufferedRenderer.Call
     }
     private var rawCount = 0
 
+    /* v1.2.5: ao levantar, o fim do traço espera a página dizer onde ele termina (inkEnd) — o Android recebe amostras finais
+       que não chegam ao WebView, e o traço gravado terminava alguns px antes. Sem resposta em 250 ms, termina sozinho. */
+    private var ending: Stroke? = null
+    private var endT: Runnable? = null
     private fun end() {
         val c = cur ?: return; cur = null
         if (c.dead) return
-        if (c.f.finish()) { cur = c; flush(); cur = null }
+        ending = c; val t = Runnable { finalizeEnd(c, null) }; endT = t; main.postDelayed(t, 250)
+    }
+    private fun finalizeEnd(c: Stroke, pt: FloatArray?) {
+        if (ending !== c) return
+        ending = null; endT?.let { main.removeCallbacks(it) }; endT = null
+        if (c.dead) return
+        val P = c.f.pts
+        if (pt != null) { if (P.size >= 3) P.add(pt[0], pt[1], P[P.size - 1]) } else c.f.finish()
+        flushStroke(c)
         try { remember(c, rawCount) } catch (_: Exception) {}
         done.add(c); r?.commit() // o traço passa para a camada "guardada" até a web pedir para tirar
     }
+    fun endFrom(id: Int, x: Float, y: Float) { main.post { val c = ending; if (c != null && c.id == id) finalizeEnd(c, floatArrayOf(x, y)) } }
 
     private fun kill(c: Stroke) { c.dead = true; done.remove(c); r?.cancel(); r?.renderMultiBufferedLayer(emptyList()) }
 
@@ -164,10 +178,11 @@ class InkView(ctx: Context) : SurfaceView(ctx), CanvasFrontBufferedRenderer.Call
 
     private fun clearUi(ids: String) {
         val rr = r ?: return
-        if (ids == "all") { cur?.dead = true; cur = null; done.forEach { it.dead = true }; done.clear(); rr.cancel(); rr.clear(); return }
+        if (ids == "all") { ending?.dead = true; ending = null; cur?.dead = true; cur = null; done.forEach { it.dead = true }; done.clear(); rr.cancel(); rr.clear(); return }
         val set = ids.split(',').mapNotNull { it.trim().toIntOrNull() }.toSet()
         val c = cur
         if (c != null && c.id in set && !c.dead) { c.dead = true; rr.cancel() } // virou forma etc.: some agora
+        val en = ending; if (en != null && en.id in set) { en.dead = true; ending = null; rr.cancel() }
         val gone = done.filter { it.id in set }
         if (gone.isNotEmpty()) {
             gone.forEach { it.dead = true }; done.removeAll(gone.toSet())

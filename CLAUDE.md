@@ -450,6 +450,15 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v1.2.4 — causa da "mexidinha" achada pelo relatório da v1.2.3. Nos 5 traços, a tinta nativa e o traço gravado eram iguais (média 0–0,1 px, desvio 0, início 0), mas o nativo tinha 1 ponto a mais no fim, até 4,8 px adiante. As amostras do ACTION_UP (e o histórico dele) chegam ao Android, mas o WebView não as repassa: o `pointerup` traz a posição do último movimento. `InkView.onPen`: ACTION_UP agora só chama `end()`, sem `collect(e)`. Precisa do APK novo (build automático; a parte web só mudou o número da versão).
 
+
+
+- v1.2.5 — o relatório da v1.2.4 ainda mostrava diferença só no último ponto (até 4,7 px). Mesmo sem as amostras do UP, o Android recebe MOVEs finais que não chegam ao JS antes do `pointerup`. Agora:
+  - `InkView.end()` guarda o traço em `ending` e espera `TracoNative.inkEnd(id, x, y)`, que a web chama em `Native.inkNote` com o último ponto gravado (px CSS).
+  - `finalizeEnd` acrescenta esse ponto (sem `f.finish()`), desenha e faz `commit()`.
+  - Sem resposta em 250 ms (forma, rabisco, toque), termina com `finish()`. Um novo DOWN também finaliza o anterior.
+  - `clearUi` também mata o `ending`.
+  - APK antigo sem `inkEnd`: a web só não chama.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).
