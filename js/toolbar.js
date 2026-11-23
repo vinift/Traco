@@ -585,8 +585,8 @@ const UI = {
     if (one.length === 1 && ['stroke', 'shape', 'text'].includes(one[0].type)) B('eyedrop', 'Conta-gotas: usar este estilo na ferramenta', () => Editor.pickStyle());
     if (one.length === 1 && one[0].type === 'text') B('text', 'Editar texto (ou toque duas vezes)', () => { const e = one[0], pg = Editor.pageById(Editor.sel.pageId); Editor.sel = null; Editor.openTextEditor(pg, e, false); });
     const els = Editor.selElements();
-    if (Editor.selTable()) { const tb = B('grid', Editor.tEdit ? 'Voltar a mover e redimensionar a tabela' : 'Editar células (linhas, colunas, cores, mesclar)', () => Editor.toggleTableCells()); if (Editor.tEdit) tb.classList.add('tcell-on'); } /* v0.39 */
-    if (els.length === 1 && els[0].type === 'table') B('table', 'Ajustes da tabela', () => this.openTableEdit(els[0].id));
+    if (Editor.selTable()) { const tb = B('cellEdit', Editor.tEdit ? 'Voltar a mover e redimensionar a tabela' : 'Editar células (linhas, colunas, cores, mesclar)', () => Editor.toggleTableCells()); if (Editor.tEdit) { tb.classList.add('tcell-on'); this.tableEqBtn(B); } } /* v0.39 */
+    if (els.length === 1 && els[0].type === 'table') B('tableSet', 'Ajustes da tabela', () => this.openTableEdit(els[0].id));
     if (els.length === 1 && els[0].type === 'image') B('crop', 'Recortar imagem', () => Editor.cropSel());
     if (Editor.selElements().some((e) => e.type === 'stroke' && e.tool === 'pen')) {
       B('ocr', 'Reconhecer texto (copiar ou converter)', () => recognizeSelection());
@@ -692,10 +692,13 @@ const UI = {
     if (!fullCols || t.mode === 'row') { const d = B('delRow', t.r2 > t.r1 ? 'Excluir linhas' : 'Excluir linha', () => Editor.tableOp((e) => { const r = Tables.deleteRows(e, t.r1, t.r2); return r && { ...r, keepSel: false }; })); d.style.color = 'var(--danger)'; }
     if (!fullRows || t.mode === 'col') { const d = B('delCol', t.c2 > t.c1 ? 'Excluir colunas' : 'Excluir coluna', () => Editor.tableOp((e) => { const r = Tables.deleteCols(e, t.c1, t.c2); return r && { ...r, keepSel: false }; })); d.style.color = 'var(--danger)'; }
     sep();
-    B('table', 'Ajustes da tabela', () => this.openTableEdit(e.id));
+    B('tableSet', 'Ajustes da tabela', () => this.openTableEdit(e.id));
     B('check', 'Concluir seleção de células', () => { Editor.tsel = null; this.buildSelBar(); Editor.requestRender(); });
-    { const mv = B('grid', 'Voltar a mover e redimensionar a tabela', () => Editor.toggleTableCells(false)); mv.classList.add('tcell-on'); }
+    this.tableEqBtn(B);
+    { const mv = B('cellEdit', 'Voltar a mover e redimensionar a tabela', () => Editor.toggleTableCells(false)); mv.classList.add('tcell-on'); }
   },
+  /* v1.5: alças de baixo/direita da tabela — padrão mantém as proporções; ligado = deixa todas as linhas/colunas iguais */
+  tableEqBtn(B) { const S = Store.settings, b = B('distribute', S.tableEqual ? 'Alças de baixo/direita: igualar células (ligado)' : 'Alças de baixo/direita: manter proporções (toque para igualar)', () => { S.tableEqual = !S.tableEqual; Store.saveSettings(); this.buildSelBar(); Editor.requestRender(); toast(S.tableEqual ? 'Alças de baixo e da direita: deixam todas as células iguais' : 'Alças de baixo e da direita: mantêm as proporções', 2000); }); if (S.tableEqual) b.classList.add('tcell-on'); },
 
   /* ---------- auxiliares usados nos diálogos ---------- */
   slider(label, min, max, step, val, onInput, fmt = (v) => v) {

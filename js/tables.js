@@ -246,6 +246,8 @@ Object.assign(Editor, {
   tableHit(e, p) {
     const S = this.tableScreen(e), xs = S.xs, ys = S.ys, x0 = xs[0], x1 = xs[xs.length - 1], y0 = ys[0], y1 = ys[ys.length - 1];
     if (Math.hypot(p.x - (x0 - 16), p.y - (y0 - 16)) < 18) return { k: 'tmove' };
+    if (Math.abs(p.x - (x0 + x1) / 2) < 26 && Math.abs(p.y - (y1 + 14)) < 16) return { k: 'tallrows' }; /* v1.5: alça de baixo = altura de todas as linhas */
+    if (Math.abs(p.y - (y0 + y1) / 2) < 26 && Math.abs(p.x - (x1 + 14)) < 16) return { k: 'tallcols' }; /* alça da direita = largura de todas as colunas */
     if (p.y >= y0 - 22 && p.y < y0 - 2 && p.x >= x0 && p.x <= x1) { let c = 0; while (c < e.cols - 1 && p.x > xs[c + 1]) c++; return { k: 'tcolsel', c }; }
     if (p.x >= x0 - 22 && p.x < x0 - 2 && p.y >= y0 && p.y <= y1) { let r = 0; while (r < e.rows - 1 && p.y > ys[r + 1]) r++; return { k: 'trowsel', r }; }
     if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1) {
@@ -262,7 +264,7 @@ Object.assign(Editor, {
     if (th.k === 'tcolsel') { this.tsel = { id: e.id, r1: 0, r2: e.rows - 1, c1: th.c, c2: th.c, a: th.c, mode: 'col' }; UI.buildSelBar(); }
     else if (th.k === 'trowsel') { this.tsel = { id: e.id, c1: 0, c2: e.cols - 1, r1: th.r, r2: th.r, a: th.r, mode: 'row' }; UI.buildSelBar(); }
     else if (th.k === 'tcell') { this.tsel = { id: e.id, ...Tables.expand(e, { r1: th.r, c1: th.c, r2: th.r, c2: th.c }), ar: th.r, ac: th.c, mode: 'cell' }; UI.buildSelBar(); }
-    else if (th.k === 'trowsize' || th.k === 'tcolsize') { a.dims = Tables.dims(e); a.att = Tables.attached(a.page, e); }
+    else if (th.k === 'trowsize' || th.k === 'tcolsize' || th.k === 'tallrows' || th.k === 'tallcols') { a.dims = Tables.dims(e); a.att = Tables.attached(a.page, e); }
     this.requestRender();
   },
   moveTableAct(p) {
@@ -274,6 +276,12 @@ Object.assign(Editor, {
       else if (t.mode === 'row') Object.assign(t, { r1: Math.min(t.a, cell.r), r2: Math.max(t.a, cell.r) });
       else Object.assign(t, Tables.expand(e, Tables.norm(t.ar, t.ac, cell.r, cell.c)));
       UI.buildSelBar(); this.requestRender(); return;
+    }
+    if (th.k === 'tallrows' || th.k === 'tallcols') { /* v1.5: todas as linhas/colunas de uma vez — mantém as proporções ou (S.tableEqual) deixa todas iguais */
+      const eq = !!Store.settings.tableEqual, { cw, rh } = a.dims;
+      if (th.k === 'tallrows') { const H = Math.max(10 * e.rows, e.h + (p.y - a.start.y) / z), k = H / e.h; this.tPreview = Tables.relayout(a.page, e, { ...e, colW: cw, rowH: rh.map((v) => (eq ? H / e.rows : v * k)), h: H }, null, null, a.att); }
+      else { const W = Math.max(14 * e.cols, e.w + (p.x - a.start.x) / z), k = W / e.w; this.tPreview = Tables.relayout(a.page, e, { ...e, rowH: rh, colW: cw.map((v) => (eq ? W / e.cols : v * k)), w: W }, null, null, a.att); }
+      this.requestRender(); return;
     }
     if (th.k === 'trowsize') { const h = Math.max(10, a.dims.rh[th.r] + (p.y - a.start.y) / z); const n = Tables.resizeRow(e, th.r, h); this.tPreview = Tables.relayout(a.page, e, n, null, null, a.att); }
     if (th.k === 'tcolsize') { const w = Math.max(14, a.dims.cw[th.c] + (p.x - a.start.x) / z); const n = Tables.resizeCol(e, th.c, w); this.tPreview = Tables.relayout(a.page, e, n, null, null, a.att); }
@@ -301,6 +309,15 @@ Object.assign(Editor, {
     // alça de mover
     ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.arc(x0 - 16, y0 - 16, 12, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff';
     for (const [dx, dy] of [[-4, -4], [0, -4], [4, -4], [-4, 0], [0, 0], [4, 0], [-4, 4], [0, 4], [4, 4]]) { ctx.beginPath(); ctx.arc(x0 - 16 + dx, y0 - 16 + dy, 1.3, 0, Math.PI * 2); ctx.fill(); }
+    { /* v1.5: alças de baixo e da direita (todas as linhas / todas as colunas); com "igualar" ligado ficam com um "=" */
+      const eq = !!Store.settings.tableEqual, mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+      const pill = (x, y, w, h, vert) => { ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, Math.min(w, h) / 2); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.beginPath();
+        if (eq) { if (!vert) { ctx.moveTo(x - 2.5, y - 4); ctx.lineTo(x - 2.5, y + 4); ctx.moveTo(x + 2.5, y - 4); ctx.lineTo(x + 2.5, y + 4); } else { ctx.moveTo(x - 4, y - 2.5); ctx.lineTo(x + 4, y - 2.5); ctx.moveTo(x - 4, y + 2.5); ctx.lineTo(x + 4, y + 2.5); } }
+        else if (vert) { ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6); ctx.moveTo(x - 3, y - 3); ctx.lineTo(x, y - 6); ctx.lineTo(x + 3, y - 3); ctx.moveTo(x - 3, y + 3); ctx.lineTo(x, y + 6); ctx.lineTo(x + 3, y + 3); }
+        else { ctx.moveTo(x - 6, y); ctx.lineTo(x + 6, y); ctx.moveTo(x - 3, y - 3); ctx.lineTo(x - 6, y); ctx.lineTo(x - 3, y + 3); ctx.moveTo(x + 3, y - 3); ctx.lineTo(x + 6, y); ctx.lineTo(x + 3, y + 3); }
+        ctx.stroke(); };
+      pill(mx, y1 + 14, 34, 18, true); pill(x1 + 14, my, 18, 34, false); /* vert = arrasta na vertical */
+    }
     // células selecionadas
     if (this.tsel) { const t = this.tsel; ctx.fillStyle = 'rgba(124,58,237,.18)'; ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 2; ctx.fillRect(xs[t.c1], ys[t.r1], xs[t.c2 + 1] - xs[t.c1], ys[t.r2 + 1] - ys[t.r1]); ctx.strokeRect(xs[t.c1], ys[t.r1], xs[t.c2 + 1] - xs[t.c1], ys[t.r2 + 1] - ys[t.r1]); }
     ctx.restore();

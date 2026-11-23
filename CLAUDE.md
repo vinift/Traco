@@ -507,6 +507,14 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v1.4.1 — pedido: no zoom alto a tabela não pode ser selecionada pelo dedo. `Editor.tableFingerLock()` (editor.js) = `cam.z·100 ≥ zoomLimits()[1]·100 − 50` (50 pontos de % abaixo do máximo). Com ela: `fingerTap` chama `hitAt(p, noTable)` (richtext.js; tabelas saem da busca, outros itens ainda podem ser tocados), o `onDown` do dedo não faz `selHit` se a seleção tem tabela (vira gesto: não move/redimensiona nem entra em `tEdit` pelo `tapOnSel`), e o toque do laço com o dedo (`fingerDraws`) tira tabelas do `endLasso`. Caneta não muda. Teste (toque CDP, máximo 800): z 1,5 e 6,9 → seleciona; 7,6 e 8 → nada; tabela selecionada antes e arrasto a 800% → câmera rolou, tabela parada.
 
+- v1.5.0 — alças de "todas as linhas/colunas" no modo de editar células e ícones diferenciados.
+  - `tableHit` (tables.js): `tallrows` (pílula no meio da borda de baixo, y1 + 14) e `tallcols` (meio da borda direita, x1 + 14). Escolhas do usuário: embaixo e à direita; padrão mantém as proporções, opcional igualar.
+  - `moveTableAct`: novo total H/W (mín. 10/14 por linha/coluna) e `rowH`/`colW` = proporcional (×k) ou, com `S.tableEqual`, H/rows e W/cols. Usa o `relayout` (a escrita acompanha) e grava no `endTableAct` como os outros.
+  - Desenho em `drawTableOverlay` (`pill`: setas ↕/↔; com igualar, "=" / "‖").
+  - Botão `UI.tableEqBtn(B)` (ícone `distribute`, `.tcell-on` quando ligado) na barra da seleção com `tEdit` e na barra das células.
+  - Ícones novos em util.js: `cellEdit` (grade com a célula do meio cheia; substitui `grid` só na barra da seleção/células — o `grid` continua no Modelo de página) e `tableSet` (tabela + engrenagem, Ajustes da tabela). `front` redesenhado (camadas + seta para cima; antes quase igual ao `copy`).
+  - Teste (toque CDP, tabela 300×200, colunas 1:2:3, linhas 1:3): proporcional → 360×300, colunas 60/120/180, linhas 75/225; igualar → colunas 120×3, linhas 150×2; `tEdit` continua; sem erros.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

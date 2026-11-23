@@ -90,7 +90,9 @@ const ICONS = {
   check: '<path d="M20 6 9 17l-5-5"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
   plug: '<path d="M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
-  front: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h11"/>',
+  front: '<path d="M12 11V2M8 6l4-4 4 4"/><path d="m3 14 9 4 9-4"/><path d="m3 18.5 9 4 9-4"/>', /* v1.5: camadas com seta para cima (antes parecia o copiar) */
+  cellEdit: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/><rect x="9" y="9" width="6" height="6" fill="currentColor"/>', /* v1.5: editar células (célula marcada) */
+  tableSet: '<rect x="2" y="3" width="14" height="12" rx="1.5"/><path d="M2 7h14M2 11h14M7 3v12M11.5 3v12"/><circle cx="18.5" cy="18.5" r="2.2"/><path d="M18.5 14.5v1.3M18.5 21.2v1.3M14.5 18.5h1.3M21.2 18.5h1.3M15.7 15.7l.9.9M20.4 20.4l.9.9M15.7 21.3l.9-.9M20.4 16.6l.9-.9"/>', /* v1.5: ajustes da tabela (tabela + engrenagem) */
   line: '<path d="M5 19 19 5"/>',
   arrow: '<path d="M5 19 19 5M9 5h10v10"/>',
   rect: '<rect x="4" y="5" width="16" height="14" rx="1"/>',
