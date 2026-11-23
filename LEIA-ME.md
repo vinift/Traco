@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.2.0
+
+- Atalho rápido → Colchete (toque duplo) → **Forma**: agora tem **+ Salvar**, para guardar com nome a forma atual do colchete (curvatura, início, comprimento, fim e ponta). Tocar na predefinição aplica.
+- As predefinições de **Tamanhos** e de **Forma** podem ser **movidas e apagadas**. Toque no **✎**: cada uma ganha ‹ › para mudar de lugar e ✕ para apagar. Toque em **✓ Pronto** para terminar.
+- P, M e G viraram predefinições comuns, então também dá para mover ou apagar. O "Padrão" continua fixo.
+- A predefinição que está em uso fica destacada.
+
 ## Novidades da v1.1.0
 
 - Traço Nativo: nova qualidade de zoom **Ultra**, em Configurações → Tela e zoom → Qualidade ao tirar o zoom.

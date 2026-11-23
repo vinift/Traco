@@ -447,15 +447,33 @@ Object.assign(Editor, {
     };
     /* predefinições: Pequeno/Médio/Grande (só o tamanho principal), Padrão (apaga os ajustes do atalho) e as do usuário (S.quickPresets[tipo]) */
     const QP = { hyphen: ['hyphenLen', 18, 25, 40], bullet: ['bulletSize', 20, 30, 45], arrow: ['arrowLen', 50, 70, 100], box: ['boxSize', 40, 55, 75], roman: ['romanSize', 35, 50, 70], num: ['romanSize', 35, 50, 70], alpha: ['romanSize', 35, 50, 70] };
-    const presetsRow = (k, redraw) => {
-      const q = QP[k], my = (S.quickPresets = S.quickPresets || {})[k] || [], keys = qkKeys.slice();
+    /* v1.2.0: lista de predefinições editável — tocar aplica; ✎ liga a edição com ‹ › (mover) e ✕ (apagar). P/M/G viraram itens comuns
+       da lista (semeados uma vez em S.quickPresets[tipo]); o colchete usa S.quickPresets.br. "Padrão" e "+ Salvar" ficam fixos. */
+    const presetList = (id, list0, keys, redraw, label, fixed, seed) => {
+      const P = (S.quickPresets = S.quickPresets || {}), seeded = (S.quickPresetsSeeded = S.quickPresetsSeeded || {});
+      if (seed && !seeded[id]) { P[id] = [...seed, ...(P[id] || [])]; seeded[id] = true; Store.saveSettings(); }
+      const my = P[id] || [], ed = (this._qkEd = this._qkEd || {}), editing = !!ed[id];
       const chip = (lb, on, fn, title) => el('button', { class: 'qk-chip qk-pre' + (on ? ' on' : ''), title, onclick: fn }, lb);
+      const cur = (kk, d) => S[kk] ?? d, defs = Object.fromEntries(keys);
+      const isOn = (v) => Object.entries(v).every(([kk, val]) => cur(kk, defs[kk]) === val);
       const apply = (v) => { for (const [kk, val] of Object.entries(v)) S[kk] = val; Store.saveSettings(); redraw(); };
-      const out = [chip('P', S[q[0]] === q[1], () => apply({ [q[0]]: q[1] }), 'Pequeno'), chip('M', (S[q[0]] ?? q[2]) === q[2], () => apply({ [q[0]]: q[2] }), 'Médio (padrão)'), chip('G', S[q[0]] === q[3], () => apply({ [q[0]]: q[3] }), 'Grande'),
-        chip('Padrão', false, () => { for (const [kk] of keys) delete S[kk]; Store.saveSettings(); redraw(); }, 'Volta todos os ajustes deste atalho ao padrão')];
-      for (const pr of my) out.push(el('span', { class: 'qk-mine' }, chip(pr.name, false, () => apply(pr.v), 'Aplicar'), el('button', { class: 'qk-del', title: 'Apagar predefinição', onclick: () => { S.quickPresets[k] = my.filter((x) => x !== pr); Store.saveSettings(); redraw(); } }, '✕')));
-      out.push(chip('+ Salvar', false, async () => { const name = await askText('Nome da predefinição', ''); if (!name) return; const v = {}; for (const [kk, d] of keys) v[kk] = S[kk] ?? d; S.quickPresets[k] = [...my, { name: name.slice(0, 18), v }].slice(-8); Store.saveSettings(); redraw(); }, 'Guardar os ajustes atuais com um nome'));
-      return el('div', { class: 'qk-row qk-presets' }, el('span', {}, 'Tamanhos'), ...out);
+      const save = (L) => { P[id] = L; Store.saveSettings(); redraw(); };
+      const out = [...fixed(chip)];
+      my.forEach((pr, i) => {
+        if (!editing) return out.push(chip(pr.name, isOn(pr.v), () => apply(pr.v), 'Aplicar'));
+        const mv = (d) => { const L = my.slice(), j = i + d; if (j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; save(L); };
+        out.push(el('span', { class: 'qk-mine editing' }, el('button', { class: 'qk-mv', title: 'Mover para a esquerda', disabled: i === 0, onclick: () => mv(-1) }, '‹'), el('b', {}, pr.name),
+          el('button', { class: 'qk-mv', title: 'Mover para a direita', disabled: i === my.length - 1, onclick: () => mv(1) }, '›'),
+          el('button', { class: 'qk-del', title: 'Apagar predefinição', onclick: () => save(my.filter((x) => x !== pr)) }, '✕')));
+      });
+      if (!editing) out.push(chip('+ Salvar', false, async () => { const name = await askText('Nome da predefinição', ''); if (!name) return; const v = {}; for (const [kk, d] of keys) v[kk] = cur(kk, d); save([...my, { name: name.slice(0, 18), v }].slice(-12)); }, 'Guardar os ajustes atuais com um nome'));
+      if (my.length) out.push(chip(editing ? '✓ Pronto' : '✎', editing, () => { ed[id] = !editing; redraw(); }, editing ? 'Terminar de editar' : 'Mover ou apagar predefinições'));
+      return el('div', { class: 'qk-row qk-presets' }, el('span', {}, label), ...out);
+    };
+    const presetsRow = (k, redraw) => {
+      const q = QP[k], keys = qkKeys.slice();
+      return presetList(k, null, keys, redraw, 'Tamanhos', (chip) => [chip('Padrão', false, () => { for (const [kk] of keys) delete S[kk]; Store.saveSettings(); redraw(); }, 'Volta todos os ajustes deste atalho ao padrão')],
+        [{ name: 'P', v: { [q[0]]: q[1] } }, { name: 'M', v: { [q[0]]: q[2] } }, { name: 'G', v: { [q[0]]: q[3] } }]);
     };
     const draw = () => {
       const k = S.quickKind || 'hyphen', chip = (label, on, fn, title) => el('button', { class: 'qk-chip' + (on ? ' on' : ''), title, onclick: fn }, label);
@@ -494,7 +512,7 @@ Object.assign(Editor, {
       const brBox = brOpen ? el('div', { class: 'qk-adj qk-br' },
         el('div', { class: 'qk-row' }, el('span', {}, 'Espessura'), chip('caneta', !bs.w, () => { this.setBrStyle(k, 'w', false); draw(); }, 'Espessura selecionada na caneta'), chip('do atalho', bs.w, () => { this.setBrStyle(k, 'w', true); draw(); }, 'Mesma espessura do atalho')),
         el('div', { class: 'qk-row' }, el('span', {}, 'Cor'), chip('caneta', !bs.c, () => { this.setBrStyle(k, 'c', false); draw(); }, 'Cor selecionada na caneta'), chip('do atalho', bs.c, () => { this.setBrStyle(k, 'c', true); draw(); }, 'Mesma cor do atalho')),
-        el('div', { class: 'qk-row' }, el('span', {}, 'Forma'), chip('Padrão', BRK.every((x) => S[x] == null), () => { for (const x of BRK) delete S[x]; Store.saveSettings(); draw(); }, 'Volta ao colchete original')),
+        presetList('br', null, [['brCurve', 18], ['brTop', 22], ['brLines', 2], ['bracketDrop', S.hyphenDrop ?? 10], ['brTip', 100]], draw, 'Forma', (c) => [c('Padrão', BRK.every((x) => S[x] == null), () => { for (const x of BRK) delete S[x]; Store.saveSettings(); draw(); }, 'Volta ao colchete original')]), /* v1.2.0: salvar formas do colchete */
         sl('Curvatura', 'brCurve', 0, 60, 18, (v) => (v === 0 ? 'canto reto' : v + '% do quadrado (até o tamanho da ponta)')),
         sl('Início', 'brTop', 0, 90, 22, (v) => v + '% abaixo da linha'),
         sl('Comprimento', 'brLines', 1, 8, 2, (v) => v + (v === 1 ? ' linha' : ' linhas') + ' para baixo'),

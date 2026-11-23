@@ -1456,3 +1456,9 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 /* v0.57: enviar PDF exportado ao Drive */
 .xp-drive{display:flex;align-items:center;gap:10px;margin:4px 0 2px;font-size:14px}
 .xp-drive small{color:var(--muted);font-size:12.5px}
+/* v1.2.0: predefinições do atalho em edição — ‹ nome › ✕ */
+.qk-mine.editing{border:1px dashed var(--accent);border-radius:999px;padding:0 0 0 2px;gap:2px;height:31px}
+.qk-mine.editing b{font-size:12px;font-weight:600;padding:0 4px;white-space:nowrap}
+.qk-mv{border:0;background:transparent;color:var(--fg,inherit);width:26px;height:29px;font-size:17px;line-height:1;cursor:pointer;border-radius:999px}
+.qk-mv:disabled{opacity:.25}
+.qk-mine.editing .qk-del{border:0;border-left:1px solid var(--line);height:29px}
