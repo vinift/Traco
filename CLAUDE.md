@@ -576,6 +576,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
   - fade.js: `Fades.purge(id)` tira 'fade:id' de qualquer lista em `presetGroups`/`colorPresets`.
   - Teste (Drive simulado): bolinha 'fade:fX' sem definição + `biblioteca.json` com fX → o toque recuperou (cinza → degradê vermelho/azul); sem Drive → janela "Degradê sem cores" e Remover; purge em grupo/subgrupo; `sync(true)` sobe `fades`.
 
+- v1.11.5 — pedido: carimbos grudam na grade do quadrado tocado. `ex-texto` (ver 4): `grudar(e, note, page, x, y)` usa `Editor.gridLines(tpl, page, 1/0)`. Linhas: `e.ruled = R.s` e `e.y` = linha de baixo do quadrado tocado (floor + 1) − `rtLineHeight(e)`, então a base fica a 0,05·s acima da linha, como no "alinhar às linhas" do Texto. Colunas: `e.x` = linha da esquerda + min(3, 0,1·s). `maxW` é recalculado depois. Vale também na tela infinita. Interruptor "Grudar na grade" (store 'grudar', padrão ligado); o `tools.text.ruled` não é mais usado pelo carimbo. Teste: grade 40, toque em 213,229 → x 203, base 238 com tamanhos 16/20/40; pauta 32 (o = 80) → base 238,4 e x igual ao toque; desligado → solto no ponto.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

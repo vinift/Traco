@@ -63,7 +63,7 @@ Traco.registerTool({
 });`,
   },
   {
-    id: 'ex-texto', name: 'Carimbo de texto', enabled: true, builtin: true, ver: 3,
+    id: 'ex-texto', name: 'Carimbo de texto', enabled: true, builtin: true, ver: 4,
     code: `// Toque na página para inserir o texto do carimbo. Crie vários carimbos (barra de baixo) e ajuste texto, tamanho, cor e fonte no painel de ajustes.
 const NOVO = { txt: 'Importante!', size: 20, color: '#dc2626', font: 'sys', bold: true, i: false, u: false };
 const pad = (n) => String(n).padStart(2, '0');
@@ -80,11 +80,19 @@ function lista(api) {
   return l;
 }
 function atual(api) { const l = lista(api), k = api.store.get('cur'); return l.find((x) => x.id === k) || l[0]; }
-function elemento(c, x, y, page) {
+/* encaixa no quadrado tocado: base do texto na linha de baixo do quadrado e começo na linha da esquerda (folha só com linhas: só a altura) */
+function grudar(e, note, page, x, y) {
+  const tpl = page.template || note.template; if (!tpl || tpl.type === 'blank') return;
+  const R = Editor.gridLines(tpl, page, 1), C = Editor.gridLines(tpl, page, 0);
+  if (R && R.s > 0) { e.ruled = R.s; e.y = R.o + (Math.floor((y - R.o) / R.s) + 1) * R.s - rtLineHeight(e); }
+  if (C && C.s > 0) e.x = C.o + Math.floor((x - C.o) / C.s) * C.s + Math.min(3, C.s * 0.1);
+}
+function elemento(c, x, y, page, note, snap) {
   const text = formatar(c.txt) || ' ';
-  const e = { type: 'text', x, y: y - c.size * 0.6, auto: true, maxW: page.w ? Math.max(60, page.w - x - 16) : 600, w: 20, text, size: c.size, color: c.color, bold: !!c.bold, font: c.font || 'sys' };
+  const e = { type: 'text', x, y: y - c.size * 0.6, auto: true, maxW: 600, w: 20, text, size: c.size, color: c.color, bold: !!c.bold, font: c.font || 'sys' };
   if (c.i || c.u) e.spans = [{ n: text.length, i: c.i ? true : undefined, u: c.u ? true : undefined }];
-  try { if (Store.settings.tools.text.ruled) Editor.applyRuled(page, e, true, y); } catch (_) {}
+  if (snap) { try { grudar(e, note, page, x, y); } catch (_) {} }
+  e.maxW = page.w ? Math.max(60, page.w - e.x - 16) : 600;
   try { e.w = Math.max(8, Math.ceil(layoutText(e).w * 10) / 10); } catch (_) { e.w = Math.max(60, text.length * c.size * 0.6); }
   return e;
 }
@@ -96,7 +104,7 @@ function amostra(c, el) {
 }
 Traco.registerTool({
   id: 'carimbo-texto', name: 'Carimbo de texto', icon: 'stamp', hint: 'Toque na página para inserir o texto.',
-  onUp(p, api) { const c = atual(api); carregar(c); api.addElements([elemento(c, p.x, p.y, api.page)]); },
+  onUp(p, api) { const c = atual(api); carregar(c); api.addElements([elemento(c, p.x, p.y, api.page, api.note, api.store.get('grudar') !== false)]); },
   /* barra de baixo: os carimbos salvos, para trocar com um toque */
   /* barra da esquerda: tamanhos de letra salvos (como as espessuras) */
   renderRail(rail, api) {
@@ -164,7 +172,9 @@ Traco.registerTool({
       switchRow('Itálico', null, !!c.i, (v) => { c.i = v; upd(); }),
       switchRow('Sublinhado', null, !!c.u, (v) => { c.u = v; upd(); }),
       colorSection('Cor', c.color, (v) => { c.color = v; upd(); }),
-      el('div', { class: 'tp-sec' }, 'Fonte'), fl, del);
+      el('div', { class: 'tp-sec' }, 'Fonte'), fl,
+      switchRow('Grudar na grade', 'O texto encaixa no quadrado tocado: em cima da linha de baixo e encostado na linha da esquerda', api.store.get('grudar') !== false, (v) => api.store.set('grudar', v)),
+      del);
     upd();
   },
 });`,
