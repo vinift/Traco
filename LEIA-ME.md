@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.11.3 — tamanhos do carimbo de texto na barra da esquerda
+
+- Com o carimbo de texto ativo, a barra da esquerda mostra tamanhos de letra prontos: 12, 16, 20, 28 e 40.
+- Um toque troca o tamanho do carimbo em uso. O **+** salva o tamanho atual, por exemplo um que você ajustou no painel.
+- Como nas espessuras, dá para **segurar e arrastar** para mudar a ordem e usar o lápis da barra de baixo para **excluir**.
+
 ## Novidades da v1.11.2 — organizar os carimbos de texto
 
 - Os carimbos da barra de baixo funcionam como as cores e as espessuras.

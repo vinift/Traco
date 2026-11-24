@@ -63,7 +63,7 @@ Traco.registerTool({
 });`,
   },
   {
-    id: 'ex-texto', name: 'Carimbo de texto', enabled: true, builtin: true, ver: 2,
+    id: 'ex-texto', name: 'Carimbo de texto', enabled: true, builtin: true, ver: 3,
     code: `// Toque na página para inserir o texto do carimbo. Crie vários carimbos (barra de baixo) e ajuste texto, tamanho, cor e fonte no painel de ajustes.
 const NOVO = { txt: 'Importante!', size: 20, color: '#dc2626', font: 'sys', bold: true, i: false, u: false };
 const pad = (n) => String(n).padStart(2, '0');
@@ -98,6 +98,26 @@ Traco.registerTool({
   id: 'carimbo-texto', name: 'Carimbo de texto', icon: 'stamp', hint: 'Toque na página para inserir o texto.',
   onUp(p, api) { const c = atual(api); carregar(c); api.addElements([elemento(c, p.x, p.y, api.page)]); },
   /* barra de baixo: os carimbos salvos, para trocar com um toque */
+  /* barra da esquerda: tamanhos de letra salvos (como as espessuras) */
+  renderRail(rail, api) {
+    const { el } = Traco.ui, c = atual(api), box = el('div', { class: 'scol' });
+    let sz = api.store.get('sizes'); if (!Array.isArray(sz) || !sz.length) { sz = [12, 16, 20, 28, 40]; api.store.set('sizes', sz); }
+    sz.forEach((w, i) => {
+      const ch = el('button', { class: 'wchip' + (Math.abs(c.size - w) < 0.01 ? ' sel' : ''), title: Traco.fmtW(w) + ' · segure e arraste para reordenar' }); ch.dataset.i = i;
+      ch.append(el('span', { style: { fontWeight: 600, fontSize: Math.min(20, 9 + w / 4) + 'px', lineHeight: 1 } }, 'A'), el('span', { class: 'n' }, Traco.fmtW(w)));
+      if (Traco.editing()) ch.append(el('span', { class: 'xbadge', onclick: (e) => { e.stopPropagation(); if (sz.length < 2) return; sz.splice(i, 1); api.store.set('sizes', sz); Traco.refreshBar(); } }, '×'));
+      box.append(ch);
+    });
+    Traco.sortable(box, '.wchip', sz, () => { api.store.set('sizes', sz); Traco.refreshBar(); }, {
+      tap: (i) => { if (Traco.editing()) return; c.size = sz[i]; api.store.set('lista', lista(api)); Traco.refresh(); },
+      long: () => Traco.toggleEditing(),
+    });
+    const add = el('button', { class: 'cbtn addb', title: 'Salvar o tamanho atual (' + Traco.fmtW(c.size) + ')', onclick: () => {
+      if (sz.some((w) => Math.abs(w - c.size) < 0.01)) return Traco.ui.toast('Esse tamanho já está salvo', 1200);
+      sz.push(c.size); sz.sort((a, b) => a - b); api.store.set('sizes', sz); Traco.refreshBar(); Traco.ui.toast('Tamanho ' + Traco.fmtW(c.size) + ' salvo', 1200);
+    } });
+    add.innerHTML = Traco.ui.icon('plus'); box.append(add); rail.append(box);
+  },
   renderBar(bar, api) {
     const { el } = Traco.ui, l = lista(api), cur = atual(api), box = el('div', { class: 'scol' });
     l.forEach((c, i) => {
@@ -206,7 +226,7 @@ const Plugins = {
       /* v1.11: redesenhar barras/painel da ferramenta (usado pelo carimbo de texto) */
       refresh: () => UI.refresh(), refreshBar: () => UI.renderOptions(), openOptions: () => { UI.openPanel(); },
       /* v1.11.2: reordenar/remover itens da barra igual às cores e espessuras */
-      sortable: (box, sel, list, onDone, o) => makeSortable(box, sel, list, onDone, o), editing: () => UI.editMode,
+      sortable: (box, sel, list, onDone, o) => makeSortable(box, sel, list, onDone, o), fmtW: (w) => fmtW(w), editing: () => UI.editMode,
       toggleEditing: () => { UI.editMode = !UI.editMode; UI.renderOptions(); if (UI.editMode) toast('Toque no × para remover; toque em ✓ para concluir', 1800); }, editBtn: (what) => UI.editBtn(what),
       ui: { el, icon, toast, openModal, askText, colorPop, PALETTE,
         slider: (label, val, min, max, step, fmt, on) => UI.sliderRows(label, val, min, max, step, fmt, on)[0],

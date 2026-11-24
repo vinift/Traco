@@ -566,6 +566,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v1.11.2 — pedido: mover e excluir os carimbos de texto como as cores/espessuras. `Traco` dos plugins ganhou `sortable` (= `makeSortable`), `editing()` (= `UI.editMode`), `toggleEditing()` e `editBtn(o que)`. No `ex-texto` (ver 2), o `renderBar` monta `.scol` com `.stamp-chip[data-i]` (texto em `span.st` com reticências), `xbadge` no modo de edição (não apaga o último; se apagar o atual, `cur` vai para o 1º), toque = selecionar e segurar = modo de edição. CSS `.stamp-chip` com `touch-action:none`, `.dragging`/`.lifted`. Teste (mouse): A,B,C → arrastar A para o fim → B,C,A gravado; toque em C seleciona; lápis → 3 ×; apagar C (o atual) → B,A com B selecionado; o último não sai.
 
+- v1.11.3 — pedido: tamanhos de letra do carimbo de texto como predefinições na barra da esquerda. Gancho novo `renderRail(sr, api)` para ferramentas de plugin (toolbar.js `renderOptions`, antes do botão de ajustes, com separador), e `Traco.fmtW`. `ex-texto` (ver 3): store `'sizes'` (padrão [12, 16, 20, 28, 40]) como `.wchip` "A" + número (igual às espessuras do Texto). Toque → `size` do carimbo atual; arrastar reordena; × no modo de edição (não apaga o último); o + salva o tamanho atual e ordena. Teste (mouse): toque no 40 → carimbo e texto colocado com 40; tamanho 33 pelo painel + "+" → 12 16 20 28 33 40.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

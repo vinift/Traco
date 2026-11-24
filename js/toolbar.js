@@ -244,7 +244,8 @@ const UI = {
       if (Editor.clip) { const b = el('button', { class: 'cbtn', title: 'Colar', onclick: () => Editor.paste() }); b.innerHTML = icon('paste'); sr.append(b); }
     } else {
       const pt = Plugins.tools.find((x) => x.id === t);
-      if (pt && pt.renderOptions) tune();
+      if (pt && pt.renderRail) { try { pt.renderRail(sr, Plugins.api(Editor.currentPageIndex(), pt.owner)); } catch (e) { console.error(e); } } /* v1.11.3: itens na barra da esquerda (ex.: tamanhos do carimbo de texto) */
+      if (pt && pt.renderOptions) { if (pt.renderRail) sep(); tune(); }
       if (pt && pt.renderBar) { try { pt.renderBar(hb, Plugins.api(Editor.currentPageIndex(), pt.owner)); } catch (e) { console.error(e); } }
     }
     this.addGrip(); this.addHGrip();
