@@ -408,7 +408,9 @@ async function openSettings(focus) {
       chk('Ignorar a palma da mão em todo o app (toques grandes e toques enquanto a caneta escreve não fazem nada)', 'palmGuard'),
       (() => { /* v0.28: calibrar o tamanho da palma */ const info = el('small', { class: 'muted' }, ''); const upd = () => { info.textContent = Palm.last ? `Seu último toque: ${Palm.last} px` : 'Toque na tela para ver o tamanho do seu toque'; };
         upd(); const iv = setInterval(() => { if (!info.isConnected) return clearInterval(iv); upd(); }, 500);
-        return el('div', {}, UI.slider('Toque considerado palma a partir de', 20, 90, 2, +S.palmSize || 40, (v) => { S.palmSize = v; Store.saveSettings(); }, (v) => v + ' px'), info); })(),
+        const cal = el('button', { class: 'btn', onclick: () => PalmCal.open() }, 'Calibrar a palma…'); /* v1.9 */
+        const zn = el('small', { class: 'muted' }, S.palmZone && S.palmZone.on ? ' Zona da mão ligada (calibrada).' : '');
+        return el('div', {}, UI.slider('Toque considerado palma a partir de', 20, 90, 2, +S.palmSize || 40, (v) => { S.palmSize = v; Store.saveSettings(); }, (v) => v + ' px'), info, zn, el('div', { style: { marginTop: '8px' } }, cal)); })(),
       chk('Rabiscar para apagar (zigue-zague com a caneta por cima do que quer apagar)', 'scribbleErase'),
       UI.slider('Sensibilidade à pressão', 0, 1, 0.05, S.pressureSens ?? 0.6, (v) => { S.pressureSens = v; S.pressure = v > 0; Store.saveSettings(); }, (v) => (v === 0 ? 'sem' : Math.round(v * 100) + '%')),
       (() => { /* v0.23: mão que escreve → onde valem os toques de 2/3 dedos (desfazer/refazer) */

@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.9.0 — calibrar a palma
+
+- **Configurações → Caneta e escrita → "Calibrar a palma…":** uma página em 2 passos. Primeiro você escreve normalmente com a mão apoiada, e cada toque da palma aparece em vermelho. Depois você rola e dá zoom só com o dedo, e os toques aparecem em azul.
+- **Resultado:** o app propõe o tamanho a partir do qual um toque é palma e liga a **zona da mão**: um toque que começa logo depois da caneta encostar ou chegar perto da tela, do lado da mão que escreve, é ignorado. Ele mostra quantos toques da palma seriam ignorados e quantos do dedo continuariam funcionando, pinta cada toque de verde (acertou) ou laranja (errou), e você pode mexer no tamanho antes de tocar em "Aplicar".
+- O dedo da outra mão, longe da caneta, continua rolando normalmente mesmo logo depois de escrever.
+
 ## Novidades da v1.8.0 — post-it
 
 - **Selecionar a escrita sem levar o post-it:** como na tabela, o laço em volta da escrita que está dentro do post-it pega só a escrita. Para pegar o post-it, o laço precisa passar pela borda dele (ou toque nele). Vale para o laço livre, o retangular e o modo "Tocar".

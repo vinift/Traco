@@ -181,16 +181,27 @@ const ZoomGuard = {
    A janela de 500 ms depois da caneta (S.palmGuard) continua valendo na folha. Configurações → Escrita e caneta mostra o tamanho do
    último toque para calibrar. */
 const Palm = {
-  ids: new Set(), lastUp: 0, last: 0,
-  on() { return Store.settings.palmGuard !== false; },
+  ids: new Set(), lastUp: 0, last: 0, paused: false,
+  pen: { t: -1e9, x: 0, y: 0, down: false }, /* v1.9: última posição da caneta (encostada OU pairando perto da tela) */
+  on() { return !this.paused && Store.settings.palmGuard !== false; },
+  /* v1.9: "zona da mão" (calibração) — toque que começa logo depois da caneta ser vista (S.palmZone.ms) e do lado da mão que escreve
+     (dx ≥ Z.dx e dy ≥ Z.dy em px de tela, em relação à ponta; espelhado para canhoto) é palma. Só com uma nota aberta. */
+  zoneHit(e) {
+    const S = Store.settings, Z = S.palmZone; if (!Z || !Z.on || (S.hand || 'right') === 'none' || typeof Editor === 'undefined' || !Editor.note) return false;
+    if (performance.now() - this.pen.t > (Z.ms || 600)) return false;
+    const dx = (e.clientX - this.pen.x) * (S.hand === 'left' ? -1 : 1), dy = e.clientY - this.pen.y;
+    return dx >= (Z.dx ?? -40) && dy >= (Z.dy ?? -120);
+  },
   size() { return +Store.settings.palmSize || 40; },
   big(w, h) { return w >= this.size() || h >= this.size(); },
   penDown() { return typeof Editor !== 'undefined' && Editor.penDown; },
   init() {
     const stop = (e) => { e.stopImmediatePropagation(); if (e.cancelable) e.preventDefault(); };
+    const penSeen = (e) => { if (e.pointerType === 'pen') this.pen = { t: performance.now(), x: e.clientX, y: e.clientY, down: !!(e.buttons & 1) }; };
+    for (const t of ['pointermove', 'pointerdown', 'pointerup']) addEventListener(t, penSeen, { capture: true, passive: true });
     addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'touch') return; this.last = Math.round(Math.max(e.width || 0, e.height || 0));
-      if (this.on() && (this.big(e.width, e.height) || this.penDown())) { this.ids.add(e.pointerId); stop(e); }
+      if (this.on() && (this.big(e.width, e.height) || this.penDown() || this.zoneHit(e))) { this.ids.add(e.pointerId); stop(e); }
     }, true);
     addEventListener('pointermove', (e) => {
       if (e.pointerType !== 'touch') return; if (this.ids.has(e.pointerId)) return stop(e);
