@@ -245,6 +245,7 @@ Object.assign(Editor, {
   textAt(w) {
     const pi = this.pageIndexAt(w.x, w.y, this.note.mode === 'infinite'); if (pi < 0) return;
     const page = this.note.pages[pi], l = this.local(pi, w.x, w.y);
+    if (this.tapFolded(page, l.x, l.y)) return; /* v1.8 */
     const hit = [...page.elements].reverse().find((e) => e.type === 'text' && !e.lock && hitElement(e, l.x, l.y, 4));
     if (hit) return this.openTextEditor(page, hit, false);
     const st = Store.settings.tools.text, sk = Store.settings.tools.sticky, inf = this.note.mode === 'infinite';
@@ -464,6 +465,7 @@ Object.assign(Editor, {
     if (this.textEl) return this.commitText();
     const { page, l, hit } = this.hitAt(p, this.tableFingerLock()); /* v1.4.1: no zoom alto o dedo não seleciona tabela */
     if (!page) { this.sel = null; return this.requestRender(); }
+    if (this.tapFolded(page, l.x, l.y)) { this.sel = null; return; } /* v1.8 */
     const ck = this.checkAt(page, l); if (ck) return this.toggleCheck(page, ck.e, ck.ci);
     const now = performance.now();
     if (!hit) { // toque duplo numa área vazia: v0.29 liga/desliga a tela cheia (antes era zoom rápido)
@@ -491,6 +493,7 @@ Object.assign(Editor, {
     if (a.tool !== 'pen' || a.shape || a.snap) return false;
     const b = bboxUnion([{ type: 'stroke', tool: 'pen', width: 0, pts: a.pts }]); if (!b || Math.max(b.w, b.h) * this.cam.z > 4) return false;
     const x = a.pts[0], y = a.pts[1];
+    if (this.tapFolded(page, x, y)) return true; /* v1.8: toque da caneta abre o post-it recolhido (sem deixar ponto) */
     const ck = this.checkAt(page, { x, y }); if (ck) { this.toggleCheck(page, ck.e, ck.ci); return true; }
     const hit = [...page.elements].reverse().find((e) => e.type === 'text' && !e.lock && hitElement(e, x, y, 2)); if (!hit) return false;
     const now = performance.now(), last = this._penDot;

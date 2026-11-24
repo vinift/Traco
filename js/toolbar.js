@@ -590,7 +590,12 @@ const UI = {
       return;
     }
     const allSticky = Editor.selElements().length && Editor.selElements().every((e) => e.type === 'text' && e.sticky); /* v1.7: só post-its → o botão muda a cor do papel */
-    if (allSticky) { const sb = B('palette', 'Cor do post-it', () => colorPop(sb, Editor.selElements()[0].bg || '#fde68a', (c) => { this.stickyAdd(c); this.save(); this.applyStickyBg(c); this.refresh(); }, this.stickyList().concat(STICKY_COLORS.filter((x) => !this.stickyList().includes(x)), HL_PALETTE, PALETTE.slice(4, 16)))); }
+    if (allSticky) { const sb = B('palette', 'Cor do post-it', () => colorPop(sb, Editor.selElements()[0].bg || '#fde68a', (c) => { this.stickyAdd(c); this.save(); this.applyStickyBg(c); this.refresh(); }, this.stickyList().concat(STICKY_COLORS.filter((x) => !this.stickyList().includes(x)), HL_PALETTE, PALETTE.slice(4, 16)))); 
+      const one = Editor.selElements(); if (one.length === 1) { const sk = one[0], pg = Editor.pageById(Editor.sel.pageId), S = Store.settings; /* v1.8 */
+        B(sk.folded ? 'full' : 'unfull', sk.folded ? 'Abrir o post-it' : 'Recolher o post-it (vira um símbolo; toque nele para abrir)', () => { const cur = pg.elements.find((x) => x.id === sk.id); if (sk.folded) Editor.unfoldSticky(pg, cur); else Editor.foldSticky(pg, cur); });
+        if (!sk.folded) { const ib = B('fit', S.stickyInkScale ? 'Ao redimensionar: papel e escrita (toque para só o papel)' : 'Ao redimensionar: só o papel (toque para papel e escrita)', () => { S.stickyInkScale = !S.stickyInkScale; Store.saveSettings(); this.buildSelBar(); toast(S.stickyInkScale ? 'Redimensionar: o papel e a escrita mudam juntos' : 'Redimensionar: só o papel muda', 1800); }); if (S.stickyInkScale) ib.classList.add('tcell-on'); }
+      }
+    }
     else {
       const cb = B('palette', 'Mudar cor', () => colorPop(cb, (Editor.selElements()[0] || {}).color || '#000000', (c) => Editor.recolorSel(c), PALETTE, { alpha: true }));
     }
@@ -604,7 +609,7 @@ const UI = {
     B('lock', 'Bloquear (não move, não apaga e o laço comum ignora)', () => Editor.lockSel(true));
     const one = Editor.selElements(); 
     if (one.length === 1 && ['stroke', 'shape', 'text'].includes(one[0].type)) B('eyedrop', 'Conta-gotas: usar este estilo na ferramenta', () => Editor.pickStyle());
-    if (one.length === 1 && one[0].type === 'text') B('text', 'Editar texto (ou toque duas vezes)', () => { const e = one[0], pg = Editor.pageById(Editor.sel.pageId); Editor.sel = null; Editor.openTextEditor(pg, e, false); });
+    if (one.length === 1 && one[0].type === 'text' && !one[0].folded) B('text', 'Editar texto (ou toque duas vezes)', () => { const e = one[0], pg = Editor.pageById(Editor.sel.pageId); Editor.sel = null; Editor.openTextEditor(pg, e, false); });
     const els = Editor.selElements();
     if (Editor.selTable()) { const tb = B('cellEdit', Editor.tEdit ? 'Voltar a mover e redimensionar a tabela' : 'Editar células (linhas, colunas, cores, mesclar)', () => Editor.toggleTableCells()); if (Editor.tEdit) { tb.classList.add('tcell-on'); this.tableEqBtn(B); } } /* v0.39 */
     if (els.length === 1 && els[0].type === 'table') B('tableSet', 'Ajustes da tabela', () => this.openTableEdit(els[0].id));

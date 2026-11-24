@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.8.0 — post-it
+
+- **Selecionar a escrita sem levar o post-it:** como na tabela, o laço em volta da escrita que está dentro do post-it pega só a escrita. Para pegar o post-it, o laço precisa passar pela borda dele (ou toque nele). Vale para o laço livre, o retangular e o modo "Tocar".
+- **Redimensionar: só o papel ou tudo:** com o post-it selecionado, o botão "Ao redimensionar" alterna entre mudar só o papel (padrão) e mudar o papel e a escrita juntos. Quando a opção de mudar os dois está ligada, o botão fica verde.
+- **Recolher e abrir:** o botão "Recolher o post-it" na barra de seleção transforma o post-it num pequeno símbolo. A escrita dele fica guardada e some da página. Toque no símbolo (com o dedo ou com a caneta) para abrir: tudo volta no lugar, mesmo que você tenha movido o símbolo. Recolher e abrir entram no desfazer.
+
 ## Novidades da v1.7.0 — post-it
 
 - **Escrita faz parte do post-it:** o que você escreve em cima dele vai junto ao mover, girar, apagar, copiar, duplicar e trazer para frente. Ao mudar o tamanho do post-it, a escrita fica como está.

@@ -247,7 +247,7 @@ const Editor = {
     const skip = new Set(); if (this.editingId) skip.add(this.editingId);
     const selActive = this.sel && this.selTf; if (selActive) for (const id of this.sel.ids) skip.add(id);
     if (this.crop) skip.add(this.crop.id); // recorte na página: a imagem é desenhada por cima, inteira
-    const att = selActive && this.action && this.action.attached && !this.selTf.free ? this.action.attached : null; if (att) for (const id of att) skip.add(id);
+    const att = selActive && this.action && this.action.attached && (!this.selTf.free || this.action.inkScale) ? this.action.attached : null; /* v1.8: post-it com "escrita junto" */ if (att) for (const id of att) skip.add(id);
     const pv = this.tPreview; if (pv) { for (const id of pv.map.keys()) skip.add(id); for (const x of pv.removed) skip.add(x.id); }
     // zoom em andamento: usa os blocos já prontos (esticados) e redesenha nítido quando o zoom para
     const now = performance.now(); this.frameNo = (this.frameNo || 0) + 1;
@@ -287,7 +287,7 @@ const Editor = {
       if (plainMove) moveLater = i;
       else if (selActive && this.sel.pageId === page.id) {
         const t = this.selTf;
-        if (t.free) { for (const e of page.elements) if (this.sel.ids.has(e.id)) drawElement(ctx, t.node || transformEl(e, t)); }
+        if (t.free) { for (const e of page.elements) if (this.sel.ids.has(e.id) || (att && att.has(e.id))) drawElement(ctx, t.node || transformEl(e, t)); }
         else {
           if (t.rot != null) { ctx.translate(t.cx, t.cy); ctx.rotate(t.rot); ctx.translate(-t.cx, -t.cy); }
           else { ctx.translate(t.ox + t.dx, t.oy + t.dy); ctx.scale(t.sx, t.sy); ctx.translate(-t.ox, -t.oy); }
@@ -924,6 +924,7 @@ const Editor = {
   /* alças de redimensionar: 4 cantos (proporcional) e 4 lados (estica um eixo). Sem alças dos lados em itens girados;
      no texto, só as laterais (a altura do texto acompanha o conteúdo); caixa pequena demais esconde as do meio */
   selHandles(box) {
+    if (this.selElements().some((e) => e.folded)) return []; /* v1.8: post-it recolhido só move */
     const els = this.selElements(), x1 = box.x, y1 = box.y, x2 = box.x + box.w, y2 = box.y + box.h, xm = (x1 + x2) / 2, ym = (y1 + y2) / 2;
     const H = [['se', x2, y2], ['nw', x1, y1], ['ne', x2, y1], ['sw', x1, y2]];
     if (!els.some((e) => e.rot)) {
@@ -968,7 +969,7 @@ const Editor = {
     } else if ((Store.settings.tools.lasso || {}).pick === 'touch') { /* v0.58: "passar por cima" */
       if (a.mode === 'rect') { /* retângulo: tudo que tiver alguma parte dentro */
         const poly = this.lassoPoly(a).map(toL), xs = poly.map((q) => q[0]), ys = poly.map((q) => q[1]), R = { x: Math.min(...xs), y: Math.min(...ys) }; R.w = Math.max(...xs) - R.x; R.h = Math.max(...ys) - R.y;
-        ids = page.elements.filter((e) => { if (!canSel(e)) return false; const b = elBBox(e); if (!rectsHit(b, R)) return false; if (e.type === 'stroke') { for (let i = 0; i < e.pts.length; i += 3) if (e.pts[i] >= R.x && e.pts[i] <= R.x + R.w && e.pts[i + 1] >= R.y && e.pts[i + 1] <= R.y + R.h) return true; return false; } return true; }).map((e) => e.id); /* formas, textos, imagens: a caixa encostar já basta */
+        ids = page.elements.filter((e) => { if (!canSel(e)) return false; const b = elBBox(e); if (!rectsHit(b, R)) return false; if (e.sticky && !e.folded && R.x > b.x && R.y > b.y && R.x + R.w < b.x + b.w && R.y + R.h < b.y + b.h) return false; /* v1.8: retângulo dentro do post-it não o pega */ if (e.type === 'stroke') { for (let i = 0; i < e.pts.length; i += 3) if (e.pts[i] >= R.x && e.pts[i] <= R.x + R.w && e.pts[i + 1] >= R.y && e.pts[i + 1] <= R.y + R.h) return true; return false; } return true; }).map((e) => e.id); /* formas, textos, imagens: a caixa encostar já basta */
       } else { /* v0.58.1 livre: o laço fechado de sempre, mas basta ENCOSTAR — entra o que tiver alguma parte dentro ou que o contorno do laço cruzar (a 4 px de tela) */
         const poly = this.lassoPoly(a).map(toL), tol = 4 / this.cam.z, P = [], C = [...poly, poly[0]];
         for (let i = 0; i + 1 < C.length; i++) { P.push(C[i]); const nx = C[i + 1], n = Math.min(30, Math.floor(Math.hypot(nx[0] - C[i][0], nx[1] - C[i][1]) / (tol * 0.8))); for (let k = 1; k < n; k++) P.push([C[i][0] + ((nx[0] - C[i][0]) * k) / n, C[i][1] + ((nx[1] - C[i][1]) * k) / n]); }
@@ -977,6 +978,7 @@ const Editor = {
           if (!canSel(e)) return false; const b = elBBox(e); if (!rectsHit(b, R)) return false;
           if (e.type === 'stroke') { for (let i = 0; i < e.pts.length; i += 3) if (pointInPoly(e.pts[i], e.pts[i + 1], poly)) return true; }
           else if (elInLasso(e, poly)) return true;
+          if (e.sticky && !e.folded) return false; /* v1.8: post-it aberto só pela borda (como a tabela) */
           for (const [x, y] of P) if (x >= b.x - tol && x <= b.x + b.w + tol && y >= b.y - tol && y <= b.y + b.h + tol && hitElement(e, x, y, tol)) return true;
           return false;
         }).map((e) => e.id);

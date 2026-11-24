@@ -107,12 +107,27 @@ Object.assign(Editor, {
     const inside = (s, x) => { const b = elBBox(x); let cx = b.x + b.w / 2, cy = b.y + b.h / 2; if (s.rot) { const c = rawCenter(s); [cx, cy] = rotPt(cx, cy, c.x, c.y, -s.rot); } return cx >= s.x && cx <= s.x + s.w && cy >= s.y && cy <= s.y + layoutText(s).h; };
     const stack = []; /* post-its já vistos (de baixo para cima): cada item pertence ao post-it MAIS ALTO abaixo dele que o contém */
     for (const x of page.elements) {
-      if (x.type === 'text' && x.sticky) { stack.push(x); continue; }
+      if (x.type === 'text' && x.sticky) { if (!x.folded) stack.push(x); continue; }
       if (!stack.length || exclude.has(x.id) || x.type === 'table' || x.lock) continue;
       for (let k = stack.length - 1; k >= 0; k--) if (inside(stack[k], x)) { if (sel.has(stack[k])) out.add(x.id); break; }
     }
     return out;
   },
+  /* v1.8: recolher/abrir post-it — recolhido, a escrita dele fica guardada dentro (kids) e some da página; ao abrir volta no lugar (andando com o post-it) */
+  foldSticky(page, s) {
+    if (!s || !s.sticky || s.folded) return; const att = this.stickyAtt(page, [s]), kids = page.elements.filter((x) => att.has(x.id));
+    for (const k of kids) this.recRemove(page, k);
+    const cur = page.elements.find((x) => x.id === s.id); this.recReplace(page, cur, { ...cur, folded: true, kids: clone(kids), fx: cur.x, fy: cur.y }); this.opCommit();
+    if (this.sel) this.sel = { pageId: page.id, ids: new Set([s.id]) }; UI.buildSelBar(); this.requestRender();
+  },
+  unfoldSticky(page, s) {
+    if (!s || !s.folded) return; const dx = s.x - (s.fx ?? s.x), dy = s.y - (s.fy ?? s.y), { folded, kids, fx, fy, ...n } = s;
+    this.recReplace(page, s, n); let i = page.elements.indexOf(n) + 1;
+    for (const k of kids || []) this.recAdd(page, dx || dy ? transformEl(k, { ox: 0, oy: 0, sx: 1, sy: 1, dx, dy }) : k, i++);
+    this.opCommit(); if (this.sel && this.sel.ids.has(s.id)) UI.buildSelBar(); this.requestRender();
+  },
+  /* toque (dedo ou caneta) num post-it recolhido: abre */
+  tapFolded(page, x, y) { const s = [...page.elements].reverse().find((e) => e.folded && x >= e.x - 4 && x <= e.x + STICKY_FOLD + 4 && y >= e.y - 4 && y <= e.y + STICKY_FOLD + 4); if (!s) return false; this.unfoldSticky(page, s); return true; },
   /* seleção + escrita dos post-its selecionados, na ordem da página */
   selWithAtt() { const page = this.pageById(this.sel.pageId), els = this.selElements(), att = this.stickyAtt(page, els, this.sel.ids); return att.size ? page.elements.filter((e) => this.sel.ids.has(e.id) || att.has(e.id)) : els; },
   /* prepara a ação de mover/redimensionar: alvos de alinhamento e escrita presa às tabelas */
@@ -123,6 +138,7 @@ Object.assign(Editor, {
     const attached = new Set();
     for (const e of els) if (e.type === 'table') for (const x of Tables.attached(page, e, this.sel.ids)) attached.add(x.id);
     for (const id of this.stickyAtt(page, els, this.sel.ids)) attached.add(id); /* v1.7 */
+    a.inkScale = !!(els.length === 1 && els[0].sticky && Store.settings.stickyInkScale); /* v1.8: redimensionar o post-it leva a escrita junto (opção) */
     a.attached = attached;
     const single = els.length === 1 ? els[0] : null; a.el1 = single;
     a.free = !!(single && single.type !== 'stroke' && !(single.type === 'shape' && (single.kind === 'poly' || single.kind === 'path' || single.kind === 'line' || single.kind === 'arrow')) && !single.rot);
@@ -241,7 +257,7 @@ Object.assign(Editor, {
       this.sel = { pageId: tp.id, ids: new Set(this.sel.ids) }; this.opCommit(); UI.buildSelBar && UI.buildSelBar(); toast('Movido para a página ' + (dest + 1), 1200); return;
     }
     for (const e of this.selElements()) this.recReplace(page, e, apply(e));
-    if (!t.free) for (const e of page.elements.filter((x) => att.has(x.id))) this.recReplace(page, e, apply(e)); // escrita dentro da tabela vai junto
+    if (!t.free || (a && a.inkScale)) for (const e of page.elements.filter((x) => att.has(x.id))) this.recReplace(page, e, apply(e)); // escrita dentro da tabela vai junto
     this.opCommit();
   },
   commitTablePreview() {

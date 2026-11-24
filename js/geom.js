@@ -198,7 +198,8 @@ function elBBox(e) {
     else { const g = shapeGeom(e); x1 = g.x1; y1 = g.y1; x2 = g.x2; y2 = g.y2; }
     const m = e.width / 2 + (e.kind === 'arrow' ? e.width * 4 : 0);
     b = { x: x1 - m, y: y1 - m, w: x2 - x1 + 2 * m, h: y2 - y1 + 2 * m };
-  } else if (e.type === 'text') { const L = layoutText(e); b = { x: e.x, y: e.y, w: e.auto ? L.w : e.w, h: L.h }; if (e.frame && !e.sticky) { const m = (e.frame.pad ?? 8) + (e.frame.w || 0) / 2 + 1; b = { x: b.x - m, y: b.y - m, w: b.w + 2 * m, h: b.h + 2 * m }; } }
+  } else if (e.type === 'text' && e.folded) b = { x: e.x, y: e.y, w: STICKY_FOLD, h: STICKY_FOLD }; /* v1.8: post-it recolhido = símbolo */
+  else if (e.type === 'text') { const L = layoutText(e); b = { x: e.x, y: e.y, w: e.auto ? L.w : e.w, h: L.h }; if (e.frame && !e.sticky) { const m = (e.frame.pad ?? 8) + (e.frame.w || 0) / 2 + 1; b = { x: b.x - m, y: b.y - m, w: b.w + 2 * m, h: b.h + 2 * m }; } }
   else if (e.type === 'image') b = { x: e.x, y: e.y, w: e.w, h: e.h };
   else if (e.type === 'table') { const m = (e.bw || 1) / 2; b = { x: e.x - m, y: e.y - m, w: e.w + 2 * m, h: e.h + 2 * m }; }
   else if (e.bbox) b = e.bbox; else b = { x: e.x || 0, y: e.y || 0, w: e.w || 10, h: e.h || 10 };
@@ -300,8 +301,8 @@ function elInLasso(e, poly) {
   // caixas (texto, post-it, imagem, tabela, forma preenchida): contorno ou interior tocado pelo laço
   const b = elBBox(e), pts = [];
   const N = 8; for (let i = 0; i <= N; i++) { const u = i / N; pts.push([b.x + u * b.w, b.y], [b.x + u * b.w, b.y + b.h], [b.x, b.y + u * b.h], [b.x + b.w, b.y + u * b.h]); }
-  if (e.type === 'text' || e.type === 'shape') for (let i = 1; i < 6; i++) for (let j = 1; j < 4; j++) pts.push([b.x + (b.w * i) / 6, b.y + (b.h * j) / 4]); // texto: também o miolo
-  return anyIn(pts); // tabela/imagem: o laço precisa pegar a borda (escrever dentro da tabela não seleciona a tabela)
+  if ((e.type === 'text' && !(e.sticky && !e.folded)) || e.type === 'shape') for (let i = 1; i < 6; i++) for (let j = 1; j < 4; j++) pts.push([b.x + (b.w * i) / 6, b.y + (b.h * j) / 4]); // texto: também o miolo
+  return anyIn(pts); // v1.8: post-it aberto também (o laço na escrita dentro dele não pega o post-it) — tabela/imagem: o laço precisa pegar a borda (escrever dentro da tabela não seleciona a tabela)
 }
 /* Transformações — sempre retornam um novo objeto (invalida caches) */
 function transformEl(e, f) { // f: {sx, sy, ox, oy, dx, dy}  x' = ox + (x-ox)*sx + dx
@@ -702,6 +703,7 @@ function scribbleTargets(elements, flat, z = 1, strength = 2) {
 function rotPt(x, y, cx, cy, a) { const c = Math.cos(a), s = Math.sin(a), dx = x - cx, dy = y - cy; return [cx + dx * c - dy * s, cy + dx * s + dy * c]; }
 function hasRot(e) { return e.type === 'image' || e.type === 'text' || e.type === 'table' || (e.type === 'shape' && e.kind !== 'line' && e.kind !== 'arrow' && e.kind !== 'poly' && e.kind !== 'path'); }
 function rawBox(e) {
+  if (e.type === 'text' && e.folded) return { x: e.x, y: e.y, w: STICKY_FOLD, h: STICKY_FOLD };
   if (e.type === 'text') { const L = layoutText(e); return { x: e.x, y: e.y, w: e.auto ? L.w : e.w, h: L.h }; }
   if (e.type === 'image' || e.type === 'table') return { x: e.x, y: e.y, w: e.w, h: e.h };
   const g = shapeGeom(e); return { x: g.x1, y: g.y1, w: g.w, h: g.h };

@@ -1,4 +1,5 @@
 'use strict';
+const STICKY_FOLD = 40; /* v1.8: tamanho do post-it recolhido (unidades da página) */
 /* ===== Desenho de modelos e elementos ===== */
 const ImgCache = {
   map: new Map(), onReady: null,
@@ -93,6 +94,14 @@ function drawElement(ctx, e) {
       if (e.dash && e.dash !== 'solid') { ctx.setLineDash(dashPattern(e.dash, e.width)); if (e.kind === 'arrow') { ctx.stroke(buildShapePath({ ...e, kind: 'line' })); ctx.setLineDash([]); ctx.stroke(arrowHead(e)); } else ctx.stroke(p); }
       else ctx.stroke(p);
     }
+  } else if (e.type === 'text' && e.folded) { /* v1.8: post-it recolhido — quadradinho com a dobra e linhas; toque abre */
+    const F = STICKY_FOLD, f = F * 0.32, x = e.x, y = e.y;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.2)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2; ctx.fillStyle = e.bg || '#fde68a';
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + F, y); ctx.lineTo(x + F, y + F - f); ctx.lineTo(x + F - f, y + F); ctx.lineTo(x, y + F); ctx.closePath(); ctx.fill(); ctx.restore();
+    ctx.fillStyle = 'rgba(0,0,0,.14)'; ctx.beginPath(); ctx.moveTo(x + F, y + F - f); ctx.lineTo(x + F - f, y + F - f); ctx.lineTo(x + F - f, y + F); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.beginPath();
+    for (const [k, w] of [[0.3, 0.6], [0.5, 0.6], [0.7, 0.36]]) { ctx.moveTo(x + F * 0.2, y + F * k); ctx.lineTo(x + F * (0.2 + w), y + F * k); }
+    ctx.stroke();
   } else if (e.type === 'text') {
     const L = layoutText(e);
     let tx = e.x, ty = e.y;
