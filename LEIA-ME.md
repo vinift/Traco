@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.11.2 — organizar os carimbos de texto
+
+- Os carimbos da barra de baixo funcionam como as cores e as espessuras.
+  - **Segure e arraste** um carimbo para mudar a ordem.
+  - O **lápis** no fim da barra (ou segurar o carimbo parado) mostra um **×** em cada um; toque no × para excluir e no ✓ para terminar.
+  - O último carimbo não pode ser apagado.
+
 ## Novidades da v1.11.1 — print mais rápido e com "Descartar"
 
 - A janela do print do laço abre quase na hora. A imagem nítida termina de ser preparada enquanto você olha a prévia, e os botões Baixar e Colar esperam por ela sozinhos.

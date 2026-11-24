@@ -63,7 +63,7 @@ Traco.registerTool({
 });`,
   },
   {
-    id: 'ex-texto', name: 'Carimbo de texto', enabled: true, builtin: true, ver: 1,
+    id: 'ex-texto', name: 'Carimbo de texto', enabled: true, builtin: true, ver: 2,
     code: `// Toque na página para inserir o texto do carimbo. Crie vários carimbos (barra de baixo) e ajuste texto, tamanho, cor e fonte no painel de ajustes.
 const NOVO = { txt: 'Importante!', size: 20, color: '#dc2626', font: 'sys', bold: true, i: false, u: false };
 const pad = (n) => String(n).padStart(2, '0');
@@ -99,14 +99,24 @@ Traco.registerTool({
   onUp(p, api) { const c = atual(api); carregar(c); api.addElements([elemento(c, p.x, p.y, api.page)]); },
   /* barra de baixo: os carimbos salvos, para trocar com um toque */
   renderBar(bar, api) {
-    const { el } = Traco.ui, l = lista(api), cur = atual(api);
-    for (const c of l) {
+    const { el } = Traco.ui, l = lista(api), cur = atual(api), box = el('div', { class: 'scol' });
+    l.forEach((c, i) => {
       carregar(c);
-      const b = el('button', { class: 'stamp-chip' + (c === cur ? ' sel' : ''), title: formatar(c.txt), onclick: () => { api.store.set('cur', c.id); Traco.refresh(); } });
-      amostra(c, b); bar.append(b);
-    }
+      const b = el('button', { class: 'stamp-chip' + (c === cur ? ' sel' : ''), title: formatar(c.txt) + ' · segure e arraste para reordenar' }); b.dataset.i = i;
+      const t = el('span', { class: 'st' }); amostra(c, t); b.append(t);
+      if (Traco.editing()) b.append(el('span', { class: 'xbadge', onclick: (e) => {
+        e.stopPropagation();
+        if (l.length < 2) return Traco.ui.toast('É preciso ter pelo menos um carimbo');
+        l.splice(i, 1); if (c === cur) api.store.set('cur', l[0].id); api.store.set('lista', l); Traco.refresh();
+      } }, '×'));
+      box.append(b);
+    });
+    Traco.sortable(box, '.stamp-chip', l, () => { api.store.set('lista', l); Traco.refreshBar(); }, {
+      tap: (i) => { if (Traco.editing()) return; api.store.set('cur', l[i].id); Traco.refresh(); },
+      long: () => Traco.toggleEditing(),
+    });
     const add = el('button', { class: 'cbtn addb', title: 'Novo carimbo', onclick: () => { const n = Object.assign({}, cur, { id: Traco.uid(), txt: 'Novo carimbo' }); l.push(n); api.store.set('lista', l); api.store.set('cur', n.id); Traco.openOptions(); } });
-    add.innerHTML = Traco.ui.icon('plus'); bar.append(add);
+    add.innerHTML = Traco.ui.icon('plus'); box.append(add, Traco.editBtn('carimbos')); bar.append(box);
   },
   renderOptions(box, api) {
     const { el, slider, switchRow, colorSection, toast } = Traco.ui;
@@ -195,6 +205,9 @@ const Plugins = {
       uid, clamp,
       /* v1.11: redesenhar barras/painel da ferramenta (usado pelo carimbo de texto) */
       refresh: () => UI.refresh(), refreshBar: () => UI.renderOptions(), openOptions: () => { UI.openPanel(); },
+      /* v1.11.2: reordenar/remover itens da barra igual às cores e espessuras */
+      sortable: (box, sel, list, onDone, o) => makeSortable(box, sel, list, onDone, o), editing: () => UI.editMode,
+      toggleEditing: () => { UI.editMode = !UI.editMode; UI.renderOptions(); if (UI.editMode) toast('Toque no × para remover; toque em ✓ para concluir', 1800); }, editBtn: (what) => UI.editBtn(what),
       ui: { el, icon, toast, openModal, askText, colorPop, PALETTE,
         slider: (label, val, min, max, step, fmt, on) => UI.sliderRows(label, val, min, max, step, fmt, on)[0],
         switchRow: (label, hint, val, on) => UI.switchRow(label, hint, val, on),
