@@ -157,7 +157,7 @@ const StudyTimer = {
   start() {
     const s = this.st, t = Date.now(); if (s.running) return;
     if (this.hasTarget() && this.remaining(t) <= 0) this.resetPhase();
-    s.running = true; s.runStart = t; this.boundary(t); this.unlockAudio(); this.askNotify(); this.paint(); this.renderPanel();
+    s.segStart = 0; /* v1.13.1: o tempo pausado NÃO vira estudo — antes o boundary daqui gravava [hora da pausa, agora) */ s.running = true; s.runStart = t; this.boundary(t); this.unlockAudio(); this.askNotify(); this.paint(); this.renderPanel();
   },
   pause() {
     const s = this.st, t = Date.now(); if (!s.running) return;
@@ -205,7 +205,7 @@ const StudyTimer = {
     const head = s.mode === 'countdown' ? 'Tempo esgotado!' : brk ? 'Hora da pausa' : 'Hora de voltar ao foco';
     const stop = () => this.alarmStop();
     const btns = [el('button', { class: 'btn primary tma-stop', onclick: stop }, 'Parar')];
-    if (s.mode === 'countdown') btns.push(el('button', { class: 'btn tma-more', onclick: () => { stop(); s.acc = 0; s.target = 5 * 60000; s.running = true; s.runStart = Date.now(); this.boundary(s.runStart); this.save(); this.paint(); this.renderPanel(); } }, '+5 min'));
+    if (s.mode === 'countdown') btns.push(el('button', { class: 'btn tma-more', onclick: () => { stop(); s.acc = 0; s.target = 5 * 60000; s.segStart = 0; s.running = true; s.runStart = Date.now(); this.boundary(s.runStart); this.save(); this.paint(); this.renderPanel(); } }, '+5 min'));
     else if (s.mode === 'pomodoro' && !s.running) btns.push(el('button', { class: 'btn tma-more', onclick: () => { stop(); this.start(); } }, 'Iniciar foco'));
     const ov = el('div', { class: 'tm-alarm' + (late ? ' late' : '') },
       el('div', { class: 'tma-box' }, el('div', { class: 'tma-ic' }, '⏰'), el('b', { class: 'tma-h' }, head), el('div', { class: 'tma-msg' }, (late ? `Terminou às ${this.hhmm(endT)} · ` : '') + msg), el('div', { class: 'tma-btns' }, ...btns)));

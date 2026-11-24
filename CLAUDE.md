@@ -595,6 +595,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
   - drive.js: o `restore` junta `qa` por t + resultado.
   - Teste (toque CDP): botões visíveis e tocáveis em tela cheia; ✓✓✗✓✗↶ → qa 1101, pad "Português · 75% ✓3 ✗1"; arrastar grava `qzPos` sem contar resposta; trecho gravado com q. Histórico simulado (Português 50 + 20 q, Informática 30 + 25 q com 9/3), meta 30 e 25 para Informática → "20 min de 30" e "25 min de 25 ✓", 75%, 3 min/questão. Sem erros.
 
+- v1.13.1 — relato (print): 16 min de questões no cronômetro e 37 no "Questões hoje". **Causa (bug antigo, desde a v0.21):** `pause()` faz `boundary(t)`, que deixa `segStart = t`; o `start()` seguinte punha `running = true` e chamava `boundary(t)`, que gravava [hora da pausa, agora) como estudo. Ou seja, todo tempo pausado entrava no histórico, e o modo questões só tornou isso visível. O "+5 min" do alarme (`alarmShow`) fazia o mesmo. Agora os dois zeram `s.segStart = 0` antes do `boundary` (o `boundary` só grava com `segStart`). `skip()` e `phaseEnd` já punham `segStart = t`. Não dá para separar o tempo antigo a mais (o estado não guarda as pausas); o usuário pode editar as sessões. Teste (`page.clock`): 5 min rodando + 10 pausado + 5 rodando → antes 1 sessão de 20 min, agora 5 + 5 = 10, igual ao cronômetro.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

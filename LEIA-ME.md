@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.13.1 — tempo pausado não conta mais
+
+- **Correção importante:** ao tocar em **Continuar** depois de pausar o cronômetro, o tempo em que ele ficou pausado entrava no histórico como estudo (ou como questões). Por isso o relatório mostrava mais tempo do que o cronômetro. O "+5 min" do alarme do temporizador tinha o mesmo problema. Agora só conta o tempo com o cronômetro rodando.
+- O tempo já gravado a mais não dá para separar sozinho. Se quiser acertar um dia, em Relatório → Sessões toque no trecho e ajuste o horário.
+
 ## Novidades da v1.13.0 — tempo de questões, botões ✓/✗ e meta de questões por matéria
 
 - **Modo Questões no cronômetro:** no painel do cronômetro, escolha **📖 Estudo** ou **✍️ Questões**. O modo vale para o cronômetro, não para a nota, então a mesma nota pode ter aula e questões. No topo, o tempo ganha um "Q" laranja.
