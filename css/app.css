@@ -1494,3 +1494,8 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 .rp-srow.blk .rp-snote{font-weight:500}
 .rp-srow.blk.open{box-shadow:inset 3px 0 0 var(--accent,#7c3aed)}
 .rp-srow.sub{margin-left:22px;width:calc(100% - 22px);opacity:.92}
+
+/* v1.11 — carimbo de texto: carimbos salvos na barra de baixo e prévia no painel */
+.stamp-chip{flex:none;max-width:170px;height:calc(var(--cb,40px) - 4px);padding:0 12px;border:0;border-radius:calc(var(--cb,40px) / 2);background:transparent;font-size:15px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.stamp-chip.sel{background:var(--chacc-soft);box-shadow:inset 0 0 0 2px var(--chacc)}
+.stamp-prev{padding:12px;border-radius:14px;background:var(--ch2);margin:4px 0 12px;white-space:pre-wrap;word-break:break-word;line-height:1.25}

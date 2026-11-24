@@ -99,7 +99,7 @@ Não confirmado (não deu para ler a doc do PWABuilder daqui): se há uma opçã
 - Vários arquivos estendem o editor com `Object.assign(Editor, {...})` (tiles, navigation, richtext, tables, crop, colorpicker). **`Object.assign` não copia getters** (avalia uma vez) — use métodos (ex.: `previewCap()`, `tileCap()`).
 - Comentários: prefira `/* */` em linhas longas — um `//` já engoliu código mais de uma vez. O código é denso (linhas longas); edite com substituições exatas e confira com `node --check`.
 - `vendor/`: pdf.js (`pdf.min.mjs` + worker) e `pdf-lib.min.js`.
-- Ícones: objeto de SVGs em `js/util.js` (`icon('nome')`, `iconEl`). Ícones já criados por nós: `timer`, `sparkle`, `nodes`, `lockSide`, `swapSides`.
+- Ícones: objeto de SVGs em `js/util.js` (`icon('nome')`, `iconEl`). Ícones já criados por nós: `timer`, `sparkle`, `nodes`, `lockSide`, `swapSides`, `stamp`.
 - UI utilitária (`js/util.js`): `el(tag, attrs, ...filhos)`, `$`, `$$`, `toast(msg, ms)`, `openModal`, `confirmBox`, `openPop(âncora, conteúdo, {onClose})` / `closePop()`, `menu`, `clamp`, `clone`, `uid`, `debounce`.
 
 ### Arquivos principais
@@ -551,6 +551,16 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
   - Teste: hoje 9:00–9:25, 9:28–9:50, 10:30–11:00 + cópias exatas das duas primeiras (outros ids) + 10:45–11:10 + registro antigo repetido 2 dias atrás → antes 149 min hoje, depois 87 (3 removidas, 1 cortada; o antigo 120 → 60); recarregar não muda mais; junção tipo restauração (todas as sessões com ids novos) 174 → 87; Sessões: 2 blocos (47 min com pausa de 3 min; 40 min); sem erros.
 
 - v1.10.1 — pedido: um trecho "fora das notas"/"sem matéria" curto não deve partir a sessão. `StudyReport.blocks`: trecho que não conta logo depois de um bloco que conta (início ≤ `gapMs()` desde o fim do bloco) fica em espera (`pend`); se a MESMA matéria volta também dentro do limite contado desde o fim do bloco, os trechos em espera entram no bloco como pausa (`b.pause` inclui a duração deles, `b.study` não) e o bloco continua; senão `flush()` os põe como blocos próprios (regra antiga). Teste (node, vm com `subj`/`countable` simulados, limite 10): A 9:00–9:20 + fora 9:21–9:25 + A 9:26–9:50 → 1 bloco, 3 trechos, 44 min de estudo, 6 de pausa; fora até 9:40 e A 9:41 → 3 blocos; volta em outra matéria → 3 blocos.
+
+- v1.11.0 — pedido: tirar o ponteiro laser e criar um carimbo de texto (texto padrão com tamanho, cor e fonte).
+  - plugins.js: `ex-laser` saiu de `EXAMPLE_PLUGINS`. O novo `ex-texto` ("Carimbo de texto", ferramenta `pl:carimbo-texto`, ícone `stamp` novo em util.js) guarda `store 'lista'` = [{id, txt, size, color, font, bold, i, u}] e `'cur'`.
+  - `onUp` cria `text` `auto` com `font`, e `spans` [{n, i, u}] para itálico/sublinhado. Aceita os códigos de data, segue `tools.text.ruled` (`applyRuled`) e calcula `w` por `layoutText`.
+  - `renderOptions` traz textarea, tamanho, negrito/itálico/sublinhado, cor, lista `FONTS` e um botão para excluir.
+  - Gancho novo `renderBar(hb, api)` para ferramentas de plugin (toolbar.js `renderOptions`): os carimbos aparecem como `.stamp-chip` no `#hbar`, mais o "+".
+  - `Traco.refresh/refreshBar/openOptions` novos.
+  - Migração única `S.pluginsV111`: tira o `ex-laser` builtin e põe o `ex-texto` depois do `ex-data`.
+  - richtext.js: `_mw` (cache de larguras) é limpo quando `Fonts.ver` sobe. Antes, palavras medidas com a fonte de reserva ficavam com vão.
+  - Teste (caneta CDP): carimbo "Revisar {dd}/{mm}" em Caveat → texto "Revisar 24/11", fonte caveat, w 115; o + cria outro, com itálico → spans [{n 7, i}]; o chip troca o atual; desfazer ok. Migração [ex-data, ex-laser, meu] → [ex-data, ex-texto, meu]. Sem erros.
 
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).

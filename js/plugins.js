@@ -63,26 +63,80 @@ Traco.registerTool({
 });`,
   },
   {
-    id: 'ex-laser', name: 'Ponteiro laser', enabled: true, builtin: true, ver: 1,
-    code: `// Rastro vermelho que some sozinho — ótimo para apresentar ou explicar.
-let trail = [], timer = null;
-function loop(api) {
-  const now = performance.now();
-  trail = trail.filter(t => now - t.t < 900);
-  api.screenPreview(ctx => {
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    for (let i = 1; i < trail.length; i++) {
-      const a = trail[i - 1], b = trail[i], age = (now - b.t) / 900;
-      ctx.strokeStyle = 'rgba(239,68,68,' + (1 - age) + ')'; ctx.lineWidth = 6 * (1 - age) + 1;
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-    }
-  });
-  timer = trail.length ? requestAnimationFrame(() => loop(api)) : (api.clearPreview(), null);
+    id: 'ex-texto', name: 'Carimbo de texto', enabled: true, builtin: true, ver: 1,
+    code: `// Toque na página para inserir o texto do carimbo. Crie vários carimbos (barra de baixo) e ajuste texto, tamanho, cor e fonte no painel de ajustes.
+const NOVO = { txt: 'Importante!', size: 20, color: '#dc2626', font: 'sys', bold: true, i: false, u: false };
+const pad = (n) => String(n).padStart(2, '0');
+function formatar(f, d = new Date()) { /* aceita os mesmos códigos de data do carimbo de data */
+  const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+  const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const v = { Dia: cap(DIAS[d.getDay()]), dia: DIAS[d.getDay()], dd: pad(d.getDate()), mm: pad(d.getMonth() + 1), Mes: cap(MESES[d.getMonth()]), mes: MESES[d.getMonth()], aaaa: d.getFullYear(), hh: pad(d.getHours()), min: pad(d.getMinutes()) };
+  return String(f || '').replace(/\\{(Dia|dia|dd|mm|Mes|mes|aaaa|hh|min)\\}/g, (_, k) => v[k]);
+}
+function lista(api) {
+  let l = api.store.get('lista');
+  if (!Array.isArray(l) || !l.length) { l = [Object.assign({ id: Traco.uid() }, NOVO)]; api.store.set('lista', l); }
+  return l;
+}
+function atual(api) { const l = lista(api), k = api.store.get('cur'); return l.find((x) => x.id === k) || l[0]; }
+function elemento(c, x, y, page) {
+  const text = formatar(c.txt) || ' ';
+  const e = { type: 'text', x, y: y - c.size * 0.6, auto: true, maxW: page.w ? Math.max(60, page.w - x - 16) : 600, w: 20, text, size: c.size, color: c.color, bold: !!c.bold, font: c.font || 'sys' };
+  if (c.i || c.u) e.spans = [{ n: text.length, i: c.i ? true : undefined, u: c.u ? true : undefined }];
+  try { if (Store.settings.tools.text.ruled) Editor.applyRuled(page, e, true, y); } catch (_) {}
+  try { e.w = Math.max(8, Math.ceil(layoutText(e).w * 10) / 10); } catch (_) { e.w = Math.max(60, text.length * c.size * 0.6); }
+  return e;
+}
+function fonte(c) { return (c.i ? 'italic ' : '') + (c.bold ? 700 : 400) + ' 20px ' + Fonts.css(c.font || 'sys'); }
+function carregar(c) { if (c.font && c.font !== 'sys') Fonts.link(c.font).then(() => document.fonts.load(fonte(c), 'Aa')).catch(() => {}); }
+function amostra(c, el) {
+  const s = el.style; s.fontFamily = Fonts.css(c.font || 'sys'); s.color = c.color; s.fontWeight = c.bold ? 700 : 400; s.fontStyle = c.i ? 'italic' : 'normal'; s.textDecoration = c.u ? 'underline' : 'none';
+  el.textContent = formatar(c.txt) || '(vazio)';
 }
 Traco.registerTool({
-  id: 'laser', name: 'Ponteiro laser', icon: 'laser', hint: 'Desenhe: o traço desaparece em seguida e nada é salvo.',
-  onDown(p, api) { trail.push({ x: p.screenX, y: p.screenY, t: performance.now() }); if (!timer) loop(api); },
-  onMove(p, api) { trail.push({ x: p.screenX, y: p.screenY, t: performance.now() }); },
+  id: 'carimbo-texto', name: 'Carimbo de texto', icon: 'stamp', hint: 'Toque na página para inserir o texto.',
+  onUp(p, api) { const c = atual(api); carregar(c); api.addElements([elemento(c, p.x, p.y, api.page)]); },
+  /* barra de baixo: os carimbos salvos, para trocar com um toque */
+  renderBar(bar, api) {
+    const { el } = Traco.ui, l = lista(api), cur = atual(api);
+    for (const c of l) {
+      carregar(c);
+      const b = el('button', { class: 'stamp-chip' + (c === cur ? ' sel' : ''), title: formatar(c.txt), onclick: () => { api.store.set('cur', c.id); Traco.refresh(); } });
+      amostra(c, b); bar.append(b);
+    }
+    const add = el('button', { class: 'cbtn addb', title: 'Novo carimbo', onclick: () => { const n = Object.assign({}, cur, { id: Traco.uid(), txt: 'Novo carimbo' }); l.push(n); api.store.set('lista', l); api.store.set('cur', n.id); Traco.openOptions(); } });
+    add.innerHTML = Traco.ui.icon('plus'); bar.append(add);
+  },
+  renderOptions(box, api) {
+    const { el, slider, switchRow, colorSection, toast } = Traco.ui;
+    const l = lista(api), c = atual(api), save = () => { api.store.set('lista', l); Traco.refreshBar(); };
+    const prev = el('div', { class: 'stamp-prev' });
+    const upd = () => { prev.style.fontSize = Math.min(30, c.size) + 'px'; amostra(c, prev); save(); };
+    const inp = el('textarea', { class: 'tp-input', rows: 2, spellcheck: 'false', style: { height: 'auto', minHeight: '60px', resize: 'vertical', padding: '8px 10px' } });
+    inp.value = c.txt; inp.addEventListener('input', () => { c.txt = inp.value; upd(); });
+    const fl = el('div', { class: 'font-pop in-panel' }); let g = null;
+    for (const f of FONTS) {
+      if (f[3] !== g) { g = f[3]; fl.append(el('div', { class: 'fp-g' }, g)); }
+      Fonts.link(f[0]);
+      const b = el('button', { class: 'fp-i' + ((c.font || 'sys') === f[0] ? ' on' : ''), style: { fontFamily: f[2] }, onclick: () => { c.font = f[0]; [...fl.querySelectorAll('.fp-i')].forEach((x) => x.classList.toggle('on', x === b)); carregar(c); upd(); } }, f[1]);
+      fl.append(b);
+    }
+    const del = el('button', { class: 'btn ghost danger', style: { marginTop: '12px' }, onclick: () => {
+      if (l.length < 2) return toast('É preciso ter pelo menos um carimbo');
+      l.splice(l.indexOf(c), 1); api.store.set('cur', l[0].id); save(); Traco.openOptions();
+    } }, 'Excluir este carimbo');
+    box.append(el('div', { class: 'tp-sec' }, 'Prévia'), prev,
+      el('div', { class: 'tp-sec' }, 'Texto'), inp,
+      el('p', { style: { fontSize: '12px', color: 'var(--chmuted)', margin: '4px 0 8px' } }, 'Pode usar códigos de data: {dd}/{mm}/{aaaa}, {Dia}, {mes}, {hh}:{min}. Os carimbos ficam na barra de baixo; o + cria outro.'),
+      slider('Tamanho', c.size, 8, 80, 1, (v) => v, (v) => { c.size = v; upd(); }),
+      switchRow('Negrito', null, !!c.bold, (v) => { c.bold = v; upd(); }),
+      switchRow('Itálico', null, !!c.i, (v) => { c.i = v; upd(); }),
+      switchRow('Sublinhado', null, !!c.u, (v) => { c.u = v; upd(); }),
+      colorSection('Cor', c.color, (v) => { c.color = v; upd(); }),
+      el('div', { class: 'tp-sec' }, 'Fonte'), fl, del);
+    upd();
+  },
 });`,
   },
 ];
@@ -96,6 +150,7 @@ Traco.registerTool({
   renderOptions(container, api)                     // opcional: conteúdo do painel de ajustes
   Traco.ui: el, icon, toast, openModal, askText, slider, switchRow, colorSection
 })
+  renderBar(barra, api)                             // opcional: itens na barra de baixo (ex.: carimbos salvos)
 Traco.registerAction({ id, name, icon, run(api) })   // botão que executa uma vez
 Traco.registerRenderer('meuTipo', (ctx, elemento) => {...}) // desenhar elementos próprios
 
@@ -115,6 +170,12 @@ const Plugins = {
   init() {
     const S = Store.settings;
     if (!S.pluginsSeeded) { S.plugins = EXAMPLE_PLUGINS.map((p) => ({ ...p })).concat(S.plugins || []); S.pluginsSeeded = true; Store.saveSettings(); }
+    /* v1.11: o ponteiro laser saiu (o usuário não usava) e entrou o carimbo de texto, também para quem já tinha os exemplos */
+    if (!S.pluginsV111) {
+      S.plugins = S.plugins.filter((x) => !(x.id === 'ex-laser' && x.builtin));
+      if (!S.plugins.some((x) => x.id === 'ex-texto')) { const ex = EXAMPLE_PLUGINS.find((x) => x.id === 'ex-texto'); const k = S.plugins.findIndex((x) => x.id === 'ex-data'); S.plugins.splice(k + 1, 0, { ...ex }); }
+      S.pluginsV111 = true; Store.saveSettings();
+    }
     for (const ex of EXAMPLE_PLUGINS) { // atualiza plugins de exemplo que você não editou
       const p = S.plugins.find((x) => x.id === ex.id);
       if (p && !p.edited && (p.ver || 1) < ex.ver) { p.code = ex.code; p.ver = ex.ver; p.name = ex.name; Store.saveSettings(); }
@@ -132,6 +193,8 @@ const Plugins = {
       registerAction(def) { if (!def || !def.run) throw new Error('registerAction precisa de run()'); def.owner = p.id; self.actions.push(def); },
       registerRenderer(type, fn) { self.renderers[type] = fn; },
       uid, clamp,
+      /* v1.11: redesenhar barras/painel da ferramenta (usado pelo carimbo de texto) */
+      refresh: () => UI.refresh(), refreshBar: () => UI.renderOptions(), openOptions: () => { UI.openPanel(); },
       ui: { el, icon, toast, openModal, askText, colorPop, PALETTE,
         slider: (label, val, min, max, step, fmt, on) => UI.sliderRows(label, val, min, max, step, fmt, on)[0],
         switchRow: (label, hint, val, on) => UI.switchRow(label, hint, val, on),

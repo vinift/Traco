@@ -40,13 +40,13 @@ const Fonts = {
     this.state[font] = 'loading';
     this.link(k).then(() => document.fonts.load(font, 'AaÇçãé')).then((l) => {
       this.state[font] = 'ok';
-      if (l && l.length) { this.ver++; if (typeof Editor !== 'undefined' && Editor.note) Editor.requestRender(); }
+      if (l && l.length) { this.ver++; _mw.clear(); /* v1.11: larguras medidas com a fonte de reserva ficavam guardadas */ if (typeof Editor !== 'undefined' && Editor.note) Editor.requestRender(); }
     }).catch(() => { this.state[font] = 'fail'; });
   },
   async ensure(els) { // antes de exportar/miniatura: espera as fontes usadas (até 3 s)
     const ps = [];
     for (const e of els) if (e.type === 'text') for (const r of rtRuns(e)) { if (r.st.f && r.st.f !== 'sys') { const f = rtFont(r.st, e.size); ps.push(this.link(r.st.f).then(() => document.fonts.load(f, r.t.slice(0, 20) || 'A'))); } }
-    if (ps.length) { await Promise.race([Promise.allSettled(ps), new Promise((r) => setTimeout(r, 3000))]); this.ver++; }
+    if (ps.length) { await Promise.race([Promise.allSettled(ps), new Promise((r) => setTimeout(r, 3000))]); this.ver++; _mw.clear(); }
   },
   prewarm() { // com internet, baixa todas as fontes uma vez para funcionarem offline depois
     if (!navigator.onLine) return;

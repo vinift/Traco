@@ -147,6 +147,7 @@ const ICONS = {
   fillCell: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/><rect x="3.8" y="3.8" width="7.4" height="7.4" fill="currentColor" stroke="none"/>',
   full: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   unfull: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
+  stamp: '<path d="M9.5 3.5h5l-.8 6.5h-3.4z"/><path d="M5 13.5c0-1.9 1.6-3.5 3.5-3.5h7c1.9 0 3.5 1.6 3.5 3.5V16H5z"/><path d="M4 19.5h16"/>',
   laser: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
 };
 function icon(name) {

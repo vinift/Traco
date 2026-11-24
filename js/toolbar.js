@@ -245,6 +245,7 @@ const UI = {
     } else {
       const pt = Plugins.tools.find((x) => x.id === t);
       if (pt && pt.renderOptions) tune();
+      if (pt && pt.renderBar) { try { pt.renderBar(hb, Plugins.api(Editor.currentPageIndex(), pt.owner)); } catch (e) { console.error(e); } }
     }
     this.addGrip(); this.addHGrip();
   },

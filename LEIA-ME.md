@@ -153,6 +153,16 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.11.0 — carimbo de texto
+
+- **Saiu o ponteiro laser.**
+- **Novo: Carimbo de texto** (ícone de carimbo na barra da esquerda, logo abaixo do carimbo de data).
+  - Toque na página e o texto aparece ali.
+  - Nos ajustes (botão ⚙ ao lado) você escolhe o texto, o tamanho, a cor e a fonte, e liga negrito, itálico ou sublinhado. O texto pode ter mais de uma linha e aceita os códigos de data, como {dd}/{mm}.
+  - Pode ter **vários carimbos**: eles aparecem na barra de baixo, cada um com a cor e a fonte dele. Um toque troca de carimbo e o **+** cria outro.
+  - O texto colocado é um texto normal: dá para mover, editar (toque duplo) e desfazer.
+- Correção: com fontes que ainda estavam baixando, às vezes sobrava um espaço grande entre as palavras de um texto.
+
 ## Novidades da v1.10.1 — sessão não se parte por um tempo fora das notas
 
 - Se você sai da matéria por pouco tempo (por exemplo, vai para a biblioteca ou abre uma nota sem matéria) e volta para a **mesma matéria** dentro do limite de pausa escolhido em Sessões, tudo continua sendo **uma sessão só**. O tempo fora entra como pausa e não conta como estudo.
