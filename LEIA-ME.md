@@ -153,6 +153,16 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.11.4 — degradês que viravam bolinhas cinzas
+
+- **Causa:** o backup do Drive guardava os grupos de cores com as bolinhas de degradê, mas não guardava as cores de cada degradê. No app restaurado do Drive (o Traço Nativo), essas bolinhas apareciam cinzas e não respondiam ao toque.
+- **Agora:**
+  - Os degradês vão junto no backup.
+  - O app procura no Drive as cores que estão faltando, sozinho a cada backup ou na hora ao tocar numa bolinha cinza.
+  - Se não achar, a bolinha cinza oferece ser removida.
+  - Excluir um degradê tira a bolinha de todos os grupos (antes ficava cinza nos outros).
+- **Para recuperar os que sumiram:** abra o app antigo (TWA), toque em "Verificar atualização" e depois em "Fazer backup agora". Em seguida, no Traço Nativo, toque na bolinha cinza.
+
 ## Novidades da v1.11.3 — tamanhos do carimbo de texto na barra da esquerda
 
 - Com o carimbo de texto ativo, a barra da esquerda mostra tamanhos de letra prontos: 12, 16, 20, 28 e 40.

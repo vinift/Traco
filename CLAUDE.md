@@ -568,6 +568,14 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v1.11.3 — pedido: tamanhos de letra do carimbo de texto como predefinições na barra da esquerda. Gancho novo `renderRail(sr, api)` para ferramentas de plugin (toolbar.js `renderOptions`, antes do botão de ajustes, com separador), e `Traco.fmtW`. `ex-texto` (ver 3): store `'sizes'` (padrão [12, 16, 20, 28, 40]) como `.wchip` "A" + número (igual às espessuras do Texto). Toque → `size` do carimbo atual; arrastar reordena; × no modo de edição (não apaga o último); o + salva o tamanho atual e ordena. Teste (mouse): toque no 40 → carimbo e texto colocado com 40; tamanho 33 pelo painel + "+" → 12 16 20 28 33 40.
 
+- v1.11.4 — relato: alguns degradês viraram bolinhas cinzas sem toque.
+  - **Causa:** o `biblioteca.json` sobe `presetGroups` (com as entradas 'fade:<id>'), mas `S.fades` (as definições) não subia. O `restore` do Traço Nativo trouxe os grupos sem as definições, e o `Fades.css` virava '#888'. Causa secundária: excluir um degradê o tirava só da lista do grupo atual.
+  - drive.js: `fadeRefs`, `missingFades`, `fadesSig` (só c/m/p/s, sem os contadores o/n que mudam a cada traço), `mergeFades(j)` e `repairFades(force)` (procura `name = 'biblioteca.json'` e junta as definições que faltam, no máximo a cada 30 min sem force).
+  - O `biblioteca.json` agora leva `fades`. No `sync`: `repairFades(manual)` e `d.lib = true` quando `fadesSig` ≠ `cfg.fadesSig`. O `restore` faz `mergeFades` de todo `biblioteca.json` que lê.
+  - toolbar.js: `UI.lostFade(list, i)` no toque da bolinha sem definição (tenta o Drive; senão `confirmBox` para remover).
+  - fade.js: `Fades.purge(id)` tira 'fade:id' de qualquer lista em `presetGroups`/`colorPresets`.
+  - Teste (Drive simulado): bolinha 'fade:fX' sem definição + `biblioteca.json` com fX → o toque recuperou (cinza → degradê vermelho/azul); sem Drive → janela "Degradê sem cores" e Remover; purge em grupo/subgrupo; `sync(true)` sobe `fades`.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

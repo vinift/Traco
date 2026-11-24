@@ -91,6 +91,12 @@ const Fades = {
     if (r === 'del') return 'del';
     return true;
   },
+  /* v1.11.4: excluir tira a bolinha de TODAS as listas (outros grupos ficavam com uma bolinha cinza) */
+  purge(id) {
+    const key = 'fade:' + id, S = Store.settings;
+    const walk = (o) => { if (Array.isArray(o)) { for (let i = o.length - 1; i >= 0; i--) if (o[i] === key) o.splice(i, 1); else walk(o[i]); } else if (o && typeof o === 'object') for (const k of Object.keys(o)) walk(o[k]); };
+    walk(S.presetGroups); walk(S.colorPresets); delete this.all()[id];
+  },
   create(firstColor) {
     const id = 'f' + uid().slice(0, 8);
     this.all()[id] = { c: [firstColor && !this.isKey(firstColor) ? firstColor : '#7c3aed', '#e11d48', '#2563eb'], m: 'len', p: 200, s: 3, o: 0, n: 0 };

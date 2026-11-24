@@ -373,11 +373,13 @@ const Drive = {
         delete d.pdfs[id]; await Store.saveDirty(); done();
       }
       for (const id of Object.keys(d.deleted)) { at('Removendo nota apagada'); await this.trash('n:' + id); await this.trash('p:' + id); await this.trash('d:' + id); delete d.deleted[id]; await Store.saveDirty(); done(); }
+      try { await this.repairFades(manual); } catch (e) { console.warn('degradês', e); }
+      if (this.fadesSig() !== this.cfg.fadesSig) d.lib = true; /* v1.11.4: degradê novo/alterado também sobe a lista */
       if (d.lib && !(Store.folders.length || Object.keys(Store.heads).length)) { d.lib = false; await Store.saveDirty(); } /* v1.0.3: app recém-instalado (vazio) não manda uma lista vazia por cima da do backup */
       if (d.lib) {
         at('Lista de pastas e notas'); const heads = {}; for (const [k, v] of Object.entries(Store.heads)) heads[k] = { ...v, thumb: undefined, texts: undefined };
-        await this.upsert('lib', { name: 'biblioteca.json', mime: 'application/json', data: JSON.stringify({ v: 1, folders: Store.folders, heads, groups: Store.settings.presetGroups, saved: Date.now() }), parent: data, props: { traco: 'lib' } });
-        d.lib = false; await Store.saveDirty(); done();
+        await this.upsert('lib', { name: 'biblioteca.json', mime: 'application/json', data: JSON.stringify({ v: 1, folders: Store.folders, heads, groups: Store.settings.presetGroups, fades: Store.settings.fades || {}, saved: Date.now() }), parent: data, props: { traco: 'lib' } });
+        this.cfg.fadesSig = this.fadesSig(); d.lib = false; await Store.saveDirty(); done();
       }
       try { /* v1.0.4: histórico de estudo também no backup (estudo.json na pasta de dados), só quando mudou */
         const L = await DB.get('meta', 'studyLog');
@@ -472,6 +474,21 @@ const Drive = {
     });
     return navigator.locks ? navigator.locks.request('traco-drive', job) : job(); /* não roda junto com o backup */
   },
+  /* v1.11.4: os grupos de cores (presetGroups) vão no biblioteca.json com as bolinhas 'fade:<id>', mas a definição dos degradês
+     (S.fades) não ia — no app restaurado (Traço Nativo) as bolinhas ficavam cinzas e sem toque. Agora vão juntas, e o app
+     procura no Drive as definições que estão faltando. */
+  fadeRefs() { const S = Store.settings, out = new Set(); for (const m of JSON.stringify([S.presetGroups, S.colorPresets, S.tools]).matchAll(/"fade:([^"]+)"/g)) out.add(m[1]); return [...out]; },
+  missingFades() { const F = Store.settings.fades || {}; return this.fadeRefs().filter((id) => !F[id]); },
+  fadesSig() { const F = Store.settings.fades || {}, t = JSON.stringify(Object.keys(F).sort().map((k) => [k, F[k].c, F[k].m, F[k].p, F[k].s])); let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return t.length + ':' + h; },
+  mergeFades(j) { if (!j || !j.fades) return 0; const F = (Store.settings.fades = Store.settings.fades || {}); let n = 0; for (const [k, v] of Object.entries(j.fades)) if (!F[k] && v && Array.isArray(v.c)) { F[k] = v; n++; } return n; },
+  async repairFades(force) {
+    if (!this.missingFades().length) return 0;
+    if (!force && Date.now() - (this._fadeTry || 0) < 30 * 60000) return 0; this._fadeTry = Date.now();
+    let n = 0;
+    for (const f of await this.query(`name = 'biblioteca.json'`)) { try { n += this.mergeFades(await this.api('GET', `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`)); } catch (e) { console.warn('degradês', e); } }
+    if (n) { Store.saveSettings(); try { if (typeof UI !== 'undefined' && typeof Editor !== 'undefined' && Editor.note) UI.refresh(); } catch (_) {} }
+    return n;
+  },
   async restore(onProgress) {
     const root = await this.ensureFolder();
     const prop = (v) => `appProperties has { key='traco' and value='${v}' }`;
@@ -481,7 +498,7 @@ const Drive = {
       this.query(`name = 'biblioteca.json'`), this.query(`name contains 'arquivo-'`), this.query(`mimeType = 'application/gzip' or mimeType = 'application/json'`)]);
     const blobs = uniq(blobsP, blobsN.filter((f) => /^arquivo-.+\.(pdf|img)$/.test(f.name))), notes = uniq(notesP, notesN.filter((f) => /\.traco$/.test(f.name)));
     let lib = null, best = -1, n = 0, done = 0, fail = 0;
-    for (const f of uniq(libsP, libsN)) { try { const j = await this.api('GET', `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`); const sc = (j.folders || []).length + Object.keys(j.heads || {}).length; if (sc > best) { best = sc; lib = { j }; } } catch (e) { console.warn('biblioteca', e); } } /* a lista mais completa */
+    for (const f of uniq(libsP, libsN)) { try { const j = await this.api('GET', `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`); this.mergeFades(j); const sc = (j.folders || []).length + Object.keys(j.heads || {}).length; if (sc > best) { best = sc; lib = { j }; } } catch (e) { console.warn('biblioteca', e); } } /* a lista mais completa */
     if (lib) {
       const j = lib.j;
       for (const f of j.folders || []) if (!Store.folders.find((x) => x.id === f.id)) Store.folders.push(f);

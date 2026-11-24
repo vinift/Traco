@@ -316,6 +316,17 @@ const UI = {
     const b = el('button', { class: 'cbtn addb editb' + (this.editMode ? ' soft-on' : ''), title: this.editMode ? 'Concluir edição' : `Editar ${what} (remover)`, onclick: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) toast('Toque no × para remover; toque em ✓ para concluir', 1800); } });
     b.innerHTML = icon(this.editMode ? 'check' : 'edit'); return b;
   },
+  /* v1.11.4: bolinha de degradê sem definição (veio de um backup antigo): procura no Drive; se não achar, oferece remover */
+  async lostFade(list, i) {
+    const key = list[i];
+    if (typeof Drive !== 'undefined' && Drive.configured && Drive.configured() && Drive.hasAuth && Drive.hasAuth()) {
+      toast('Procurando as cores desse degradê no Drive…', 1800);
+      try { if (await Drive.repairFades(true)) { toast('Degradês recuperados do Drive', 1800); this.refresh(); return; } } catch (_) {}
+    }
+    if (await confirmBox('Degradê sem cores', 'As cores deste degradê não estão neste aparelho (o backup antigo não as guardava). Se ele ainda existe no outro app, abra-o, atualize e toque em "Fazer backup agora"; depois toque aqui de novo. Remover a bolinha da lista?', 'Remover', true)) {
+      const k = list.indexOf(key); if (k >= 0) list.splice(k, 1); this.save(); this.refresh();
+    }
+  },
   colorDots(sr, t) {
     const st = Store.settings.tools[t], list = this.colorList(t);
     const box = el('div', { class: 'scol' });
@@ -329,7 +340,7 @@ const UI = {
     });
     makeSortable(box, '.cdot', list, () => { this.save(); this.renderOptions(); }, {
       tap: (i) => { if (this.editMode) return;
-        if (Fades.isKey(list[i])) { const id = Fades.idOf(list[i]); if (!Fades.get(id)) return; if (Fades.active(st) && st.fade === id) { Fades.edit(id, () => this.renderOptions()).then((r) => { if (r === 'del') { list.splice(list.indexOf('fade:' + id), 1); delete Fades.all()[id]; st.fade = null; } this.save(); this.renderOptions(); }); return; } Fades.select(st, id); this.save(); this.refresh(); return; }
+        if (Fades.isKey(list[i])) { const id = Fades.idOf(list[i]); if (!Fades.get(id)) { this.lostFade(list, i); return; } if (Fades.active(st) && st.fade === id) { Fades.edit(id, () => this.renderOptions()).then((r) => { if (r === 'del') { const k = list.indexOf('fade:' + id); if (k >= 0) list.splice(k, 1); Fades.purge(id); st.fade = null; } this.save(); this.renderOptions(); }); return; } Fades.select(st, id); this.save(); this.refresh(); return; }
         st.color = list[i]; st.fade = null; /* v0.38.2: cor normal desliga o degradê (mesmo sendo igual à 1ª cor dele) */ this.save(); if (t === 'text') this.applyTextStyle({ color: list[i] });
         /* v0.52.1: só troca a marcação (antes refazia rail, subrail e hbar inteiros a cada toque → piscava no tablet) */ box.querySelectorAll('.cdot').forEach((x) => x.classList.toggle('sel', +x.dataset.i === i)); if (this.panelOpen) this.buildPanel(); },
       long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) toast('Toque no × para remover', 1500); },
