@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.12.1 — escolher quando a meta nova começa
+
+- Ao lado dos campos de meta (relatório → Visão geral) há um botão **"Mudança vale a partir de: Hoje | Amanhã"**.
+  - **Amanhã** (padrão): hoje continua com a meta antiga.
+  - **Hoje**: a meta nova já vale para hoje.
+- Nos dois casos, os dias que já passaram não mudam, então a sequência não quebra.
+
 ## Novidades da v1.12.0 — meta sem quebrar a sequência e total nas barras
 
 - **Mudar a meta não quebra mais a sequência.** A meta nova (seg–sex, sábado ou domingo) passa a valer a partir de amanhã. Hoje e os dias que já passaram continuam com a meta que valia antes. Antes, aumentar a meta fazia os dias antigos "não baterem" e zerava a sequência.

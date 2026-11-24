@@ -32,9 +32,15 @@ const StudyReport = {
   },
   /* chamado ANTES de mudar uma meta: guarda a meta atual como a que vale até HOJE (a nova começa amanhã; várias mudanças no mesmo dia guardam só a 1ª) */
   keepGoal() {
-    const S = Store.settings, until = StudyTimer.dayKey(Date.now());
+    /* v1.12.1: S.goalFrom 'tomorrow' (padrão: hoje continua com a meta antiga) | 'today' (a meta nova já vale hoje) */
+    const S = Store.settings, T = StudyTimer, today = T.dayKey(Date.now()), y = new Date(); y.setHours(12, 0, 0, 0); y.setDate(y.getDate() - 1);
+    const until = S.goalFrom === 'today' ? T.dayKey(y.getTime()) : today;
     const H = (S.goalHist = S.goalHist || []), last = H[H.length - 1];
-    if (last && last.until >= until) return;
+    if (last && last.until >= until) {
+      /* registro feito hoje no modo "amanhã" e agora "hoje": o registro passa a valer só até ontem (some se já houver um até ontem) */
+      if (last.until > until) { const prev = H[H.length - 2]; if (prev && prev.until >= until) H.pop(); else last.until = until; }
+      return;
+    }
     H.push({ until, g: S.studyGoal, we: S.studyGoalWE, sun: S.studyGoalSun }); if (H.length > 200) H.splice(0, H.length - 200);
   },
   /* 1 = bateu a meta (ou estudou num dia de descanso), 0 = descanso sem estudo (não quebra nem conta), −1 = não bateu */
@@ -171,14 +177,15 @@ const StudyReport = {
       ...B.map((b, i) => el('button', { class: 'rp-col' + (b.day && (b.g === 0 ? b.v > 0 : b.v >= b.g) ? ' hit' : '') + (b.day && b.g === 0 ? ' rest' : '') + (now >= b.a && now < b.b ? ' now' : ''), title: `${b.tip}: ${T.fmtDur(b.v)}`, onclick: () => showB(b, i) },
         b.day && b.g !== gl && b.g > 0 ? el('i', { class: 'rp-gtick', style: { bottom: `calc(${(b.g / max) * 100}% - 1px)` } }) : null, el('div', { class: 'rp-stack', style: { height: b.v ? Math.max(1.5, (b.v / max) * 100) + '%' : '0' } }, ...b.parts.map((p) => el('i', { style: { flex: String(p.v), background: p.color } }))), this.totLabel(b.v, max, B.length > 14), el('small', {}, b.lab))));
     const side = el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Matérias no período'), list.length ? this.subjRows(this.bySubj(list), total) : el('p', { class: 'tm-hint' }, 'Sem tempo registrado. O tempo conta com o cronômetro rodando e o app na tela.'));
-    const S = Store.settings, goalIn = el('input', { type: 'number', min: 5, max: 900, step: 15, value: Math.round(Math.max(5, +S.studyGoal || 60)), class: 'sr-goalin', onchange: () => { this.keepGoal(); S.studyGoal = clamp(Math.round(+goalIn.value || 60), 5, 900); Store.saveSettings(); toast('Meta nova vale a partir de amanhã — a sequência não quebra', 2200); render(); } });
-    const dayIn = (key) => { const v = S[key] === undefined && key === 'studyGoalSun' ? S.studyGoalWE : S[key], i = el('input', { type: 'number', min: 0, max: 900, step: 15, value: v != null && v !== '' ? v : '', placeholder: 'igual', class: 'sr-goalin', onchange: () => { const t = i.value.trim(); this.keepGoal(); S[key] = t === '' ? null : clamp(Math.round(+t || 0), 0, 900); Store.saveSettings(); toast('Meta nova vale a partir de amanhã — a sequência não quebra', 2200); render(); } }); return i; };
+    const S = Store.settings, goalIn = el('input', { type: 'number', min: 5, max: 900, step: 15, value: Math.round(Math.max(5, +S.studyGoal || 60)), class: 'sr-goalin', onchange: () => { this.keepGoal(); S.studyGoal = clamp(Math.round(+goalIn.value || 60), 5, 900); Store.saveSettings(); toast(S.goalFrom === 'today' ? 'Meta nova já vale hoje — os dias anteriores não mudam' : 'Meta nova vale a partir de amanhã — a sequência não quebra', 2200); render(); } });
+    const dayIn = (key) => { const v = S[key] === undefined && key === 'studyGoalSun' ? S.studyGoalWE : S[key], i = el('input', { type: 'number', min: 0, max: 900, step: 15, value: v != null && v !== '' ? v : '', placeholder: 'igual', class: 'sr-goalin', onchange: () => { const t = i.value.trim(); this.keepGoal(); S[key] = t === '' ? null : clamp(Math.round(+t || 0), 0, 900); Store.saveSettings(); toast(S.goalFrom === 'today' ? 'Meta nova já vale hoje — os dias anteriores não mudam' : 'Meta nova vale a partir de amanhã — a sequência não quebra', 2200); render(); } }); return i; };
     const satIn = dayIn('studyGoalWE'), sunIn = dayIn('studyGoalSun');
+    const fromSeg = UI.seg([['today', 'Hoje'], ['tomorrow', 'Amanhã']], S.goalFrom === 'today' ? 'today' : 'tomorrow', (v) => { S.goalFrom = v; Store.saveSettings(); });
     const hint = !Store.folders.some((f) => f.subject) ? el('p', { class: 'tm-hint' }, 'Dica: marque pastas como matéria (menu ⋯ da pasta → "Marcar como matéria") para ver o tempo por matéria.') : null;
     const pauseRow = this.unit === 'day' ? el('div', { class: 'rp-pause' }, el('button', { class: 'btn' + (this.isPause(r.a + 43200000) ? ' primary' : ''), onclick: () => { const on = this.togglePause(r.a + 43200000); toast(on ? 'Dia de pausa: não quebra a sequência' : 'Dia de pausa removido', 1800); render(); } }, this.isPause(r.a + 43200000) ? '⏸ Dia de pausa (tocar para tirar)' : '⏸ Marcar como dia de pausa'), el('small', {}, 'Feriado, viagem… o dia não quebra a sequência; se estudar, conta.')) : null;
     const out = el('div', { class: 'rp-geral' }, tiles, pauseRow,
       el('div', { class: 'rp-grid' }, el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, this.unit === 'day' ? 'Tempo por hora' : this.unit === 'year' ? 'Tempo por mês' : 'Tempo por dia', el('span', { class: 'rp-hs' }, 'toque numa barra')), plot, detail,
-        el('div', { class: 'rp-goalrow' }, el('label', {}, 'Meta seg–sex', goalIn, 'min'), el('label', {}, 'Sábado', satIn, 'min'), el('label', {}, 'Domingo', sunIn, 'min'), el('small', {}, 'vazio = igual a seg–sex · 0 = descanso (não quebra a sequência) · mudanças valem a partir de amanhã'))), side), hint);
+        el('div', { class: 'rp-goalrow' }, el('label', {}, 'Meta seg–sex', goalIn, 'min'), el('label', {}, 'Sábado', satIn, 'min'), el('label', {}, 'Domingo', sunIn, 'min'), el('label', { class: 'rp-from' }, 'Mudança vale a partir de', fromSeg), el('small', {}, 'vazio = igual a seg–sex · 0 = descanso (não quebra a sequência) · os dias que já passaram nunca mudam'))), side), hint);
     const ci = B.findIndex((b) => now >= b.a && now < b.b), si = this.sel != null && B[this.sel] ? this.sel : ci >= 0 ? ci : B.length - 1;
     if (B[si]) showB(B[si], si); /* v0.43.1: na hora (antes num setTimeout → a tela mudava depois de aparecer) */
     return out;
