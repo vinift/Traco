@@ -7,7 +7,7 @@
    Guardado em meta 'studyTimer' (estado) e meta 'studyLog' ({ days: { 'AAAA-MM-DD': { idDaNota | '_': ms } }, titles: { id: título } }). */
 
 const StudyTimer = {
-  DEF: { mode: 'stopwatch', running: false, acc: 0, runStart: 0, target: 25 * 60000, phase: 'focus', cycle: 0, segStart: 0, segNote: null, segTitle: '', cdMin: 25, pomo: { focus: 25, short: 5, long: 15, every: 4 } },
+  DEF: { mode: 'stopwatch', running: false, acc: 0, runStart: 0, target: 25 * 60000, phase: 'focus', cycle: 0, segStart: 0, segNote: null, segTitle: '', q: false, segQ: false, cdMin: 25, pomo: { focus: 25, short: 5, long: 15, every: 4 } },
   st: null, log: null,
 
   async init() {
@@ -78,26 +78,41 @@ const StudyTimer = {
     }
     return { removed, trimmed };
   },
-  addSess(a, b, n, f) {
-    const S = this.log.sessions || (this.log.sessions = []), last = S[S.length - 1]; n = n || null; f = f || null;
-    if (last && !last.lg && !last.m && Math.abs(last.e - a) < 3000 && last.n === n && (last.f || null) === f) last.e = Math.max(last.e, b);
-    else { const x = { id: uid(), s: a, e: b, n }; if (f) x.f = f; S.push(x); }
+  addSess(a, b, n, f, q) {
+    const S = this.log.sessions || (this.log.sessions = []), last = S[S.length - 1]; n = n || null; f = f || null; q = q ? 1 : 0;
+    if (last && !last.lg && !last.m && Math.abs(last.e - a) < 3000 && last.n === n && (last.f || null) === f && (last.q ? 1 : 0) === q) last.e = Math.max(last.e, b);
+    else { const x = { id: uid(), s: a, e: b, n }; if (f) x.f = f; if (q) x.q = 1; /* v1.13: trecho de questões */ S.push(x); }
     if (S.length > 8000) S.splice(0, S.length - 8000);
   },
   /* sessões + o trecho em andamento (para o relatório e os painéis) */
   allSess() {
     const s = this.st, out = (this.log.sessions || []).slice();
-    if (s && this.counts() && s.segStart && !s.segAway) { const t = Date.now(); if (t > s.segStart) out.push({ id: '_live', s: s.segStart, e: t, n: s.segNote || null, f: s.segSubj || undefined, live: 1 }); }
+    if (s && this.counts() && s.segStart && !s.segAway) { const t = Date.now(); if (t > s.segStart) out.push({ id: '_live', s: s.segStart, e: t, n: s.segNote || null, f: s.segSubj || undefined, q: s.segQ ? 1 : undefined, live: 1 }); }
     return out;
   },
   sessKey(x) { return x.f ? 'f:' + x.f : x.n || '_'; },
   /* matéria escolhida no cronômetro (null = pela nota aberta) */
   setSubj(v) { const s = this.st; if (s.running) this.boundary(Date.now()); s.subj = v || null; if (!s.running) s.segSubj = s.subj; this.save(); this.renderPanel(); this.paint(); },
+  /* v1.13: modo questões — ligado no cronômetro (não pela nota: na mesma nota tem aula e questões). O tempo fica marcado com q: 1
+     e, enquanto roda, os botões ✓/✗ (QuizPad) ficam na tela, até em tela cheia. Respostas em log.qa = [[t, 1|0, nota, matéria escolhida]] */
+  setQ(v) { const s = this.st; v = !!v; if (s.q === v) return; if (s.running) this.boundary(Date.now()); s.q = v; if (!s.running) s.segQ = v; this.save(); this.renderPanel(); this.paint(); },
+  qOn() { const s = this.st; return !!(s && s.q && this.counts()); },
+  answer(ok) {
+    if (!this.qOn()) return; const n = this.curNote(), A = this.log.qa || (this.log.qa = []);
+    A.push([Date.now(), ok ? 1 : 0, n ? n.id : null, this.st.subj || null]); if (A.length > 30000) A.splice(0, A.length - 30000);
+    this.saveLog(); QuizPad.sync(true); if (this.pop && this.pop.isConnected) this._statT = 0;
+  },
+  undoAnswer() {
+    const A = this.log.qa || [], last = A[A.length - 1]; if (!last || this.dayKey(last[0]) !== this.dayKey(Date.now())) return false;
+    A.pop(); this.saveLog(); QuizPad.sync(true); return true;
+  },
+  /* matéria de uma resposta (como a das sessões: a escolhida no cronômetro ou a da nota) */
+  ansSubj(x) { return subjectOfNote(x[3] ? 'f:' + x[3] : x[2] || '_'); },
   autoSubj() { const n = this.curNote(); return n ? subjectOfNote(n.id) : subjectOfNote('_'); },
   curSubj() { const s = this.st; return s.subj ? subjectOfNote('f:' + s.subj) : this.autoSubj(); },
   /* soma no histórico o trecho [a, b), separando na meia-noite */
-  addLog(a, b, noteId, title, subj) {
-    this.addSess(a, b, noteId, subj);
+  addLog(a, b, noteId, title, subj, q) {
+    this.addSess(a, b, noteId, subj, q);
     if (!(b > a)) return; const L = this.log, k = noteId || '_';
     while (a < b) {
       const d = new Date(a); d.setHours(24, 0, 0, 0); const e = Math.min(b, d.getTime()), key = this.dayKey(a);
@@ -110,8 +125,8 @@ const StudyTimer = {
   /* fecha o trecho atual (troca de nota, pausa, fim de fase ou a cada minuto) e começa outro */
   boundary(t) {
     const s = this.st;
-    if (this.counts() && s.segStart && !s.segAway) this.addLog(s.segStart, t, s.segNote, s.segTitle, s.segSubj);
-    const n = this.curNote(); s.segStart = t; s.segNote = n ? n.id : null; s.segTitle = n ? n.title : ''; s.segSubj = s.subj || null; this.save();
+    if (this.counts() && s.segStart && !s.segAway) this.addLog(s.segStart, t, s.segNote, s.segTitle, s.segSubj, s.segQ);
+    const n = this.curNote(); s.segStart = t; s.segNote = n ? n.id : null; s.segTitle = n ? n.title : ''; s.segSubj = s.subj || null; s.segQ = !!s.q; this.save();
   },
   /* v0.42: fecha o trecho fora da tela [awayAt, t) — só até o fim do temporizador/fase, se acabou nesse meio-tempo */
   closeAway(t) {
@@ -226,11 +241,12 @@ const StudyTimer = {
     for (const id of ['noteTimer', 'libTimer']) {
       const n = document.getElementById(id); if (!n) continue;
       n.classList.toggle('hidden', !show); if (!show) continue;
-      const key = txt + '|' + s.running + '|' + brk; if (n._k === key) continue; n._k = key;
-      n.innerHTML = icon('timer') + '<b>' + txt + '</b>'; n.classList.toggle('paused', !s.running); n.classList.toggle('brk', brk);
+      const key = txt + '|' + s.running + '|' + brk + '|' + !!s.q; if (n._k === key) continue; n._k = key;
+      n.innerHTML = icon('timer') + (s.q ? '<i class="tm-qtag">Q</i>' : '') + '<b>' + txt + '</b>'; n.classList.toggle('paused', !s.running); n.classList.toggle('brk', brk); n.classList.toggle('qmode', !!s.q);
       n.title = `${this.phaseName()}${s.running ? '' : ' (pausado)'} · toque para abrir`;
     }
     const ct = document.querySelector('.ch-title'); if (ct) ct.classList.toggle('has-timer', show);
+    if (typeof QuizPad !== 'undefined') QuizPad.sync();
     if (this.pop && this.pop.isConnected) { const b = this.pop.querySelector('.tm-big'); if (b) b.textContent = txt; this.paintRing(); const st = this.pop.querySelector('.tm-stats'); if (st && (!this._statT || Date.now() - this._statT > 15000)) { this._statT = Date.now(); st.replaceWith(this.statsEl()); } }
   },
 
@@ -271,6 +287,8 @@ const StudyTimer = {
     const ck = cs.key, noSubj = ck === '_' || ck === '~' || ck === '?';
     const kids = [
       el('div', { class: 'tm-tabs' }, tab('stopwatch', 'Cronômetro'), tab('countdown', 'Temporizador'), tab('pomodoro', 'Pomodoro')),
+      el('div', { class: 'tm-kind' }, el('button', { class: 'tm-kbtn' + (!s.q ? ' on' : ''), onclick: () => this.setQ(false) }, '📖 Estudo'), el('button', { class: 'tm-kbtn q' + (s.q ? ' on' : ''), onclick: () => this.setQ(true) }, '✍️ Questões')),
+      s.q ? el('p', { class: 'tm-hint' }, 'Tempo de questões. Enquanto o cronômetro roda, os botões ✓ e ✗ ficam na tela (até em tela cheia): toque a cada questão. Segure e arraste para mudar o lugar.') : null,
       ring, subjBtn, subjList, noSubj ? el('p', { class: 'tm-hint tm-away' }, 'Sem matéria: este tempo não entra no relatório. Escolha uma matéria acima.') : null,
       el('div', { class: 'tm-ctrl' },
         s.running ? btn('Pausar', () => this.pause()) : btn(s.acc > 0 ? 'Continuar' : 'Iniciar', () => this.start(), 'primary'),
@@ -317,6 +335,7 @@ const StudyTimer = {
         /* v0.50: dia de pausa (feriado etc.) — não quebra a sequência */
         el('button', { class: 'tm-pausebtn' + (R.isPause(t) ? ' on' : ''), onclick: () => { const on = R.togglePause(t); toast(on ? 'Hoje é dia de pausa: não quebra a sequência' : 'Dia de pausa removido', 1800); this.renderPanel(); } }, R.isPause(t) ? '⏸ Hoje é dia de pausa · tirar' : '⏸ Marcar hoje como dia de pausa'),
         aw >= 60000 ? el('small', { class: 'tm-away' }, `${this.fmtDur(aw)} hoje com o app fora da tela não contaram`) : null),
+      StudyReport.qTodayEl(),
       el('div', { class: 'tm-tot' }, el('span', {}, 'Últimos 7 dias'), el('b', {}, this.fmtDur(week))),
       el('div', { class: 'tm-bars' }, el('div', { class: 'tm-gl', style: { bottom: `calc(14px + (100% - 14px) * ${gl / max})` } }), ...days.map((x, i) => el('div', { class: 'tm-bar' + (i === 6 ? ' today' : '') + (R.dayHit(x.k, vals[i]) === 1 ? ' hit' : ''), title: `${x.d.toLocaleDateString('pt-BR')}: ${this.fmtDur(vals[i])}` }, el('i', { style: { height: Math.round((vals[i] / max) * 100) + '%' } }), el('small', {}, WD[x.d.getDay()])))),
       top.length ? el('div', { class: 'tm-notes' }, ...top.map((x) => el('div', { class: 'tm-row' }, el('span', { class: 'tm-subj' }, el('i', { class: 'sr-dot', style: { background: x.color } }), x.name), el('b', {}, this.fmtDur(x.v))))) : el('p', { class: 'tm-hint' }, 'O tempo estudado aparece aqui, por dia e por matéria.'),
@@ -386,3 +405,50 @@ Object.assign(StudyTimer, {
   },
 });
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.type === 'traco-timer') StudyTimer.onSysAction(e.data.action); });
+
+/* ===== v1.13 — botões ✓ / ✗ na tela durante o tempo de questões =====
+   Aparecem com o cronômetro rodando no modo "Questões" (até com a nota em tela cheia); tocar = acertei/errei, ↶ = desfaz a
+   última de hoje. Segurar e arrastar move (lugar em S.qzPos). Mostra os números de hoje da matéria em uso. */
+const QuizPad = {
+  el: null, _k: '',
+  build() {
+    const B = (cls, html, title) => { const b = el('button', { class: 'qz-b ' + cls, title }); b.innerHTML = html; return b; };
+    this.ok = B('ok', '<span>✓</span><b>0</b>', 'Acertei'); this.no = B('no', '<span>✗</span><b>0</b>', 'Errei'); this.undo = B('undo', '↶', 'Desfazer a última');
+    this.info = el('div', { class: 'qz-info' });
+    const box = el('div', { class: 'qz-pad' }, this.info, el('div', { class: 'qz-row' }, this.ok, this.no, this.undo));
+    let st = null;
+    box.addEventListener('pointerdown', (e) => { e.stopPropagation(); st = { id: e.pointerId, x: e.clientX, y: e.clientY, r: box.getBoundingClientRect(), drag: false, b: e.target.closest('.qz-b') }; try { box.setPointerCapture(e.pointerId); } catch (_) {} });
+    box.addEventListener('pointermove', (e) => {
+      if (!st || e.pointerId !== st.id) return; const dx = e.clientX - st.x, dy = e.clientY - st.y;
+      if (!st.drag && Math.hypot(dx, dy) > 12) st.drag = true;
+      if (st.drag) { const x = clamp(st.r.left + dx, 4, innerWidth - st.r.width - 4), y = clamp(st.r.top + dy, 4, innerHeight - st.r.height - 4); box.style.left = x + 'px'; box.style.top = y + 'px'; box.style.bottom = 'auto'; }
+    });
+    const end = (e) => {
+      if (!st || e.pointerId !== st.id) return; const s0 = st; st = null; e.stopPropagation();
+      if (s0.drag) { const r = box.getBoundingClientRect(); Store.settings.qzPos = { x: r.left / innerWidth, y: r.top / innerHeight }; Store.saveSettings(); return; }
+      if (e.type !== 'pointerup' || !s0.b) return;
+      const b = s0.b; b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse'); if (navigator.vibrate) navigator.vibrate(8);
+      if (b === this.ok) StudyTimer.answer(true); else if (b === this.no) StudyTimer.answer(false); else if (!StudyTimer.undoAnswer()) toast('Nada para desfazer hoje', 1200);
+    };
+    box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
+    box.addEventListener('click', (e) => e.stopPropagation());
+    document.body.append(box); this.el = box; this.place();
+  },
+  place() {
+    const b = this.el, P = Store.settings.qzPos; if (!b) return;
+    if (P) { const r = b.getBoundingClientRect(); b.style.left = clamp(P.x * innerWidth, 4, innerWidth - r.width - 4) + 'px'; b.style.top = clamp(P.y * innerHeight, 4, innerHeight - r.height - 4) + 'px'; b.style.bottom = 'auto'; }
+    else { b.style.left = ''; b.style.top = ''; b.style.bottom = ''; }
+  },
+  sync(force) {
+    const T = StudyTimer, on = T.st && T.qOn() && !document.querySelector('.settings-page');
+    if (!on) { if (this.el) this.el.classList.add('hidden'); return; }
+    if (!this.el) { this.build(); addEventListener('resize', () => this.place()); }
+    this.el.classList.remove('hidden');
+    const A = T.log.qa || [], cs = T.curSubj(), key = A.length + '|' + cs.key + '|' + T.dayKey(Date.now());
+    if (!force && key === this._k) return; this._k = key;
+    const d = new Date(); d.setHours(0, 0, 0, 0); const a = d.getTime(); let ok = 0, no = 0;
+    for (let i = A.length - 1; i >= 0 && A[i][0] >= a; i--) if (T.ansSubj(A[i]).key === cs.key) { if (A[i][1]) ok++; else no++; }
+    this.ok.querySelector('b').textContent = ok; this.no.querySelector('b').textContent = no;
+    this.info.textContent = cs.name + (ok + no ? ' · ' + Math.round((ok / (ok + no)) * 100) + '%' : '');
+  },
+};

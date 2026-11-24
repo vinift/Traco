@@ -15,6 +15,64 @@ const StudyReport = {
     const h = (S.goalHist || []).find((x) => k <= x.until);
     return this.goalOf(h ? { studyGoal: h.g, studyGoalWE: h.we, studyGoalSun: h.sun } : S, d);
   },
+  /* ---------- v1.13: questões ----------
+     Tempo de questões = sessões com q: 1 (modo "Questões" do cronômetro); respostas em StudyTimer.log.qa [[t, 1|0, nota, matéria]].
+     Meta de questões POR MATÉRIA: S.qGoal = {each: min (para cada matéria estudada no dia), subj: {idDaPasta: min}} (0 = sem meta). */
+  qGoalFor(key) { const G = Store.settings.qGoal || {}, v = G.subj && G.subj[key] != null ? G.subj[key] : G.each; return +v > 0 ? +v * 60000 : 0; },
+  qStats(a, b) {
+    const m = new Map(), get = (sb) => { let c = m.get(sb.key); if (!c) m.set(sb.key, (c = { ...sb, study: 0, q: 0, ok: 0, no: 0 })); return c; };
+    for (const [x, v] of this.within(a, b)) { const c = get(this.subj(x)); c.study += v; if (x.q) c.q += v; }
+    for (const r of StudyTimer.log.qa || []) if (r[0] >= a && r[0] < b) { const c = get(StudyTimer.ansSubj(r)); if (r[1]) c.ok++; else c.no++; }
+    return [...m.values()].filter((c) => c.study > 0 || c.ok + c.no > 0).sort((p, q) => q.study - p.study);
+  },
+  /* soma das metas de questões dos dias em que a matéria foi estudada (dia a dia) */
+  qGoalSum(a, b) {
+    const out = {}; if (!(Store.settings.qGoal && (Store.settings.qGoal.each > 0 || Object.values(Store.settings.qGoal.subj || {}).some((v) => v > 0)))) return out;
+    for (let t = a; t < b; ) { const d = new Date(t); d.setHours(24, 0, 0, 0); const e = Math.min(b, d.getTime()); for (const c of this.qStats(t, e)) if (c.study > 0 && this.countableKey(c.key)) out[c.key] = (out[c.key] || 0) + this.qGoalFor(c.key); t = e; }
+    return out;
+  },
+  countableKey(k) { return k !== '_' && k !== '~' && k !== '?'; },
+  pct(c) { const n = c.ok + c.no; return n ? Math.round((c.ok / n) * 100) + '%' : '—'; },
+  qRow(c, goal) {
+    const T = StudyTimer, n = c.ok + c.no, done = goal ? c.q >= goal : false;
+    return el('div', { class: 'rp-qrow' + (done ? ' hit' : '') },
+      el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: c.color } }), c.name),
+      el('span', { class: 'rp-qtime' }, el('b', {}, T.fmtDur(c.q)), goal ? el('small', {}, ' de ' + T.fmtDur(goal) + (done ? ' ✓' : '')) : null,
+        goal ? el('span', { class: 'rp-qbar' }, el('i', { style: { width: Math.min(100, (c.q / goal) * 100) + '%' } })) : null),
+      el('span', { class: 'rp-qans' }, el('b', { class: 'ok' }, '✓ ' + c.ok), el('b', { class: 'no' }, '✗ ' + c.no), el('b', { class: 'pc' }, this.pct(c))),
+      el('small', { class: 'rp-qpace' }, n && c.q ? T.fmtDur(c.q / n) + '/questão' : ''));
+  },
+  /* bloco "Questões hoje" no painel do cronômetro */
+  qTodayEl() {
+    const T = StudyTimer, d = new Date(); d.setHours(0, 0, 0, 0); const a = d.getTime(), list = this.qStats(a, a + 86400000);
+    const rows = list.filter((c) => c.q > 0 || c.ok + c.no > 0 || (c.study > 0 && this.countableKey(c.key) && this.qGoalFor(c.key)));
+    if (!rows.length && !T.st.q) return null;
+    return el('div', { class: 'tm-qday' }, el('div', { class: 'tm-tot' }, el('span', {}, '✍️ Questões hoje'), el('b', {}, T.fmtDur(rows.reduce((s, c) => s + c.q, 0)))),
+      rows.length ? el('div', { class: 'rp-qlist' }, ...rows.map((c) => this.qRow(c, this.countableKey(c.key) ? this.qGoalFor(c.key) : 0))) : el('p', { class: 'tm-hint' }, 'Ligue "Questões" e inicie o cronômetro para contar.'));
+  },
+  /* aba Questões do relatório */
+  viewQuest(r, render) {
+    const T = StudyTimer, S = Store.settings, G = (S.qGoal = S.qGoal || {}), list = this.qStats(r.a, r.b), goals = this.unit === 'year' ? {} : this.qGoalSum(r.a, r.b);
+    const tq = list.reduce((s, c) => s + c.q, 0), ok = list.reduce((s, c) => s + c.ok, 0), no = list.reduce((s, c) => s + c.no, 0), n = ok + no;
+    const tile = (lab, val, sub) => el('div', { class: 'rp-tile' }, el('small', {}, lab), el('b', {}, val), sub ? el('span', {}, sub) : null);
+    const tiles = el('div', { class: 'rp-tiles' }, tile('Tempo de questões', T.fmtDur(tq)), tile('Questões', String(n), n ? `✓ ${ok} · ✗ ${no}` : ''), tile('Acertos', n ? Math.round((ok / n) * 100) + '%' : '—'), tile('Tempo por questão', n && tq ? T.fmtDur(tq / n) : '—'));
+    const rows = list.filter((c) => c.q > 0 || c.ok + c.no > 0 || goals[c.key]);
+    const table = el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Por matéria', el('span', { class: 'rp-hs' }, this.unit === 'day' ? 'meta = para cada matéria estudada no dia' : this.unit === 'year' ? '' : 'meta = soma dos dias em que a matéria foi estudada')),
+      rows.length ? el('div', { class: 'rp-qlist' }, ...rows.map((c) => this.qRow(c, goals[c.key] || 0))) : el('p', { class: 'tm-hint' }, 'Sem questões neste período. No cronômetro, toque em "✍️ Questões" e inicie: os botões ✓ e ✗ aparecem na tela.'));
+    /* metas: uma para cada matéria + ajuste por matéria */
+    const each = el('input', { type: 'number', min: 0, max: 600, step: 5, value: G.each > 0 ? G.each : '', placeholder: 'sem meta', class: 'sr-goalin', onchange: () => { const v = Math.round(+each.value || 0); G.each = v > 0 ? clamp(v, 1, 600) : 0; Store.saveSettings(); render(); } });
+    const subs = Store.folders.filter((f) => f.subject).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    const own = el('div', { class: 'rp-qown' + (this._qOwn ? '' : ' hidden') }, ...subs.map((f) => {
+      const cur = G.subj && G.subj[f.id] != null ? G.subj[f.id] : '';
+      const i = el('input', { type: 'number', min: 0, max: 600, step: 5, value: cur, placeholder: 'igual', class: 'sr-goalin', onchange: () => { G.subj = G.subj || {}; const t = i.value.trim(); if (t === '') delete G.subj[f.id]; else G.subj[f.id] = clamp(Math.round(+t || 0), 0, 600); Store.saveSettings(); render(); } });
+      return el('label', {}, el('i', { class: 'sr-dot', style: { background: f.color || FOLDER_COLORS[0] } }), f.name, i, 'min');
+    }));
+    const goalCard = el('div', { class: 'rp-card rp-qgoal' }, el('div', { class: 'rp-h' }, 'Meta de questões'),
+      el('label', {}, 'Para cada matéria estudada no dia', each, 'min'),
+      subs.length ? el('button', { class: 'btn ghost', onclick: () => { this._qOwn = !this._qOwn; render(); } }, this._qOwn ? 'Fechar metas por matéria' : 'Meta diferente para alguma matéria…') : null, own,
+      el('small', { class: 'tm-hint' }, 'Ex.: 30 min → cada matéria que você estudar no dia pede 30 min de questões. Vazio = igual à de cima; 0 = sem meta para aquela matéria.'));
+    return el('div', { class: 'rp-quest' }, tiles, table, goalCard);
+  },
   /* v1.12: total da barra (soma das matérias) — dentro do topo da barra se couber, senão logo acima */
   shortDur(ms) { const m = Math.round(ms / 60000); if (m < 1) return ms > 0 ? '<1m' : ''; const h = Math.floor(m / 60); return h ? h + 'h' + (m % 60 ? String(m % 60).padStart(2, '0') : '') : m + 'm'; },
   totLabel(v, max, dense) {
@@ -128,7 +186,7 @@ const StudyReport = {
       render(); reload.classList.remove('spin'); toast('Relatório atualizado', 1500);
     } }, iconEl('refresh'), el('span', {}, 'Recarregar'));
     const page = el('div', { class: 'settings-page rp-page' }, el('header', { class: 'sp-head rp-head' }, back, el('h1', {}, 'Relatório de estudo'), units, nav, reload), tabs, body);
-    const TABS = [['geral', 'Visão geral'], ['cal', 'Calendário'], ['subj', 'Matérias'], ['hours', 'Horários'], ['sess', 'Sessões'], ['notes', 'Notas']];
+    const TABS = [['geral', 'Visão geral'], ['cal', 'Calendário'], ['subj', 'Matérias'], ['quest', 'Questões'], ['hours', 'Horários'], ['sess', 'Sessões'], ['notes', 'Notas']];
     const render = () => {
       const r = this.range();
       units.innerHTML = ''; for (const [k, n] of [['day', 'Dia'], ['week', 'Semana'], ['month', 'Mês'], ['year', 'Ano']]) units.append(el('button', { class: 'xp-tab' + (this.unit === k ? ' on' : ''), onclick: () => { this.unit = k; this.sel = null; render(); } }, n));
@@ -137,7 +195,7 @@ const StudyReport = {
         isNow ? null : el('button', { class: 'btn ghost rp-today', onclick: () => { this.anchor = Date.now(); this.sel = null; render(); } }, 'Hoje')].filter(Boolean));
       tabs.innerHTML = ''; for (const [k, n] of TABS) tabs.append(el('button', { class: 'rp-tab' + (this.tab === k ? ' on' : ''), onclick: () => { this.tab = k; render(); } }, n));
       body.innerHTML = '';
-      const fn = { geral: 'viewGeral', cal: 'viewCal', subj: 'viewSubj', hours: 'viewHours', sess: 'viewSess', notes: 'viewNotes' }[this.tab] || 'viewGeral';
+      const fn = { geral: 'viewGeral', cal: 'viewCal', subj: 'viewSubj', quest: 'viewQuest', hours: 'viewHours', sess: 'viewSess', notes: 'viewNotes' }[this.tab] || 'viewGeral';
       try { body.append(this[fn](r, render, close)); } catch (e) { console.error(e); body.append(el('p', { class: 'tm-hint' }, 'Erro ao montar esta aba: ' + e.message)); }
     };
     this._render = render; render();

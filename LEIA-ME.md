@@ -153,6 +153,20 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.13.0 — tempo de questões, botões ✓/✗ e meta de questões por matéria
+
+- **Modo Questões no cronômetro:** no painel do cronômetro, escolha **📖 Estudo** ou **✍️ Questões**. O modo vale para o cronômetro, não para a nota, então a mesma nota pode ter aula e questões. No topo, o tempo ganha um "Q" laranja.
+- **Botões ✓ e ✗ na tela:** enquanto o cronômetro de questões roda, dois botões grandes ficam na tela, inclusive com a nota em tela cheia.
+  - Toque ✓ quando acertar e ✗ quando errar.
+  - O **↶** desfaz a última resposta.
+  - Segure e arraste para mudar o lugar dos botões.
+  - Acima deles aparecem a matéria e a % de acerto de hoje.
+- **Meta de questões por matéria:** em Relatório → **Questões**, defina, por exemplo, "30 min para cada matéria estudada no dia". Cada matéria que você estudar pede esse tempo de questões. Também dá para pôr uma meta diferente para alguma matéria.
+- **Aba Questões no relatório:**
+  - tempo de questões, número de questões, % de acerto e tempo por questão;
+  - por matéria: "Português · 20 min de 30 min · ✓ 3 ✗ 1 · 75%".
+- O painel do cronômetro mostra **"Questões hoje"** por matéria. O tempo de questões também continua contando no total de estudo.
+
 ## Novidades da v1.12.1 — escolher quando a meta nova começa
 
 - Ao lado dos campos de meta (relatório → Visão geral) há um botão **"Mudança vale a partir de: Hoje | Amanhã"**.
