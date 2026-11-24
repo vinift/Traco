@@ -28,17 +28,28 @@ const StudyReport = {
   /* soma das metas de questões dos dias em que a matéria foi estudada (dia a dia) */
   qGoalSum(a, b) {
     const out = {}; if (!(Store.settings.qGoal && (Store.settings.qGoal.each > 0 || Object.values(Store.settings.qGoal.subj || {}).some((v) => v > 0)))) return out;
-    for (let t = a; t < b; ) { const d = new Date(t); d.setHours(24, 0, 0, 0); const e = Math.min(b, d.getTime()); for (const c of this.qStats(t, e)) if (c.study > 0 && this.countableKey(c.key)) out[c.key] = (out[c.key] || 0) + this.qGoalFor(c.key); t = e; }
+    /* v1.13.4: por matéria {goal (meta de 1 dia), days (dias estudados com meta), hit (dias em que bateu), multi} — na semana/mês
+       mostra "meta em H de D dias" (antes somava as metas dos dias: 2 dias × 30 min = "de 1h", que parecia errado) */
+    const multi = b - a > 90000000;
+    for (let t = a; t < b; ) { const d = new Date(t); d.setHours(24, 0, 0, 0); const e = Math.min(b, d.getTime());
+      for (const c of this.qStats(t, e)) { const g = this.qGoalFor(c.key); if (!(c.study > 0 && g && this.countableKey(c.key))) continue; const o = out[c.key] || (out[c.key] = { goal: g, days: 0, hit: 0, multi }); o.days++; if (c.q >= g) o.hit++; }
+      t = e; }
     return out;
+  },
+  qNote(p, I) {
+    const T = StudyTimer, q = p.q || 0, done = I.multi ? I.hit >= I.days : q >= I.goal;
+    return el('small', { class: 'rp-qnote' + (done ? ' hit' : '') }, I.multi ? `✍️ ${T.fmtDur(q)} · meta em ${I.hit} de ${I.days} ${I.days === 1 ? 'dia' : 'dias'}` + (done ? ' ✓' : '') : `✍️ ${T.fmtDur(q)} de ${T.fmtDur(I.goal)}` + (done ? ' ✓' : ''));
   },
   countableKey(k) { return k !== '_' && k !== '~' && k !== '?'; },
   pct(c) { const n = c.ok + c.no; return n ? Math.round((c.ok / n) * 100) + '%' : '—'; },
-  qRow(c, goal) {
-    const T = StudyTimer, n = c.ok + c.no, done = goal ? c.q >= goal : false;
+  /* g = meta de 1 dia (número) ou info de qGoalSum ({goal, days, hit, multi}) */
+  qRow(c, g) {
+    const T = StudyTimer, n = c.ok + c.no, I = typeof g === 'number' ? (g ? { goal: g, days: 1, hit: c.q >= g ? 1 : 0 } : null) : g;
+    const done = I ? I.hit >= I.days : false, frac = I ? (I.multi ? I.hit / I.days : Math.min(1, c.q / I.goal)) : 0;
     return el('div', { class: 'rp-qrow' + (done ? ' hit' : '') },
       el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: c.color } }), c.name),
-      el('span', { class: 'rp-qtime' }, el('b', {}, T.fmtDur(c.q)), goal ? el('small', {}, ' de ' + T.fmtDur(goal) + (done ? ' ✓' : '')) : null,
-        goal ? el('span', { class: 'rp-qbar' }, el('i', { style: { width: Math.min(100, (c.q / goal) * 100) + '%' } })) : null),
+      el('span', { class: 'rp-qtime' }, el('b', {}, T.fmtDur(c.q)), I ? el('small', {}, I.multi ? ` · meta em ${I.hit} de ${I.days} ${I.days === 1 ? 'dia' : 'dias'}` + (done ? ' ✓' : '') : ' de ' + T.fmtDur(I.goal) + (done ? ' ✓' : '')) : null,
+        I ? el('span', { class: 'rp-qbar' }, el('i', { style: { width: frac * 100 + '%' } })) : null),
       el('span', { class: 'rp-qans' }, el('b', { class: 'ok' }, '✓ ' + c.ok), el('b', { class: 'no' }, '✗ ' + c.no), el('b', { class: 'pc' }, this.pct(c))),
       el('small', { class: 'rp-qpace' }, n && c.q ? T.fmtDur(c.q / n) + '/questão' : ''));
   },
@@ -72,7 +83,7 @@ const StudyReport = {
     const tile = (lab, val, sub) => el('div', { class: 'rp-tile' }, el('small', {}, lab), el('b', {}, val), sub ? el('span', {}, sub) : null);
     const tiles = el('div', { class: 'rp-tiles' }, tile('Tempo de questões', T.fmtDur(tq)), tile('Questões', String(n), n ? `✓ ${ok} · ✗ ${no}` : ''), tile('Acertos', n ? Math.round((ok / n) * 100) + '%' : '—'), tile('Tempo por questão', n && tq ? T.fmtDur(tq / n) : '—'));
     const rows = list.filter((c) => c.q > 0 || c.ok + c.no > 0 || goals[c.key]);
-    const table = el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Por matéria', el('span', { class: 'rp-hs' }, this.unit === 'day' ? 'meta = para cada matéria estudada no dia' : this.unit === 'year' ? '' : 'meta = soma dos dias em que a matéria foi estudada')),
+    const table = el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Por matéria', el('span', { class: 'rp-hs' }, this.unit === 'day' ? 'meta = para cada matéria estudada no dia' : this.unit === 'year' ? '' : 'meta = dias em que bateu a meta de questões / dias em que estudou a matéria')),
       rows.length ? el('div', { class: 'rp-qlist' }, ...rows.map((c) => this.qRow(c, goals[c.key] || 0))) : el('p', { class: 'tm-hint' }, 'Sem questões neste período. No cronômetro, toque em "✍️ Questões" e inicie: os botões ✓ e ✗ aparecem na tela.'));
     return el('div', { class: 'rp-quest' }, tiles, table, el('p', { class: 'tm-hint' }, 'A meta de questões fica na Visão geral, junto da meta de estudo.'));
   },
@@ -265,7 +276,7 @@ const StudyReport = {
   },
   subjRows(parts, total, goals) {
     const T = StudyTimer, mx = Math.max(1, ...parts.map((p) => p.v));
-    return el('div', { class: 'rp-list' }, ...parts.map((p) => el('div', { class: 'rp-row' }, el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: p.color } }), p.name, goals && goals[p.key] ? el('small', { class: 'rp-qnote' + (p.q >= goals[p.key] ? ' hit' : '') }, `✍️ ${T.fmtDur(p.q || 0)} de ${T.fmtDur(goals[p.key])}` + (p.q >= goals[p.key] ? ' ✓' : '')) : p.q ? el('small', { class: 'rp-qnote' }, '✍️ ' + T.fmtDur(p.q) + ' de questões') : null), el('span', { class: 'rp-track', style: { display: 'flex' } }, el('i', { style: { width: ((p.v - (p.q || 0)) / mx) * 100 + '%', background: p.color, borderRadius: p.q ? '4px 0 0 4px' : '' } }), p.q ? el('i', { style: { width: (p.q / mx) * 100 + '%', background: this.qColor(p.color), borderRadius: '0 4px 4px 0' } }) : null), el('b', {}, T.fmtDur(p.v)), el('small', {}, Math.round((p.v / Math.max(1, total)) * 100) + '%'))));
+    return el('div', { class: 'rp-list' }, ...parts.map((p) => el('div', { class: 'rp-row' }, el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: p.color } }), p.name, goals && goals[p.key] ? this.qNote(p, goals[p.key]) : p.q ? el('small', { class: 'rp-qnote' }, '✍️ ' + T.fmtDur(p.q) + ' de questões') : null), el('span', { class: 'rp-track', style: { display: 'flex' } }, el('i', { style: { width: ((p.v - (p.q || 0)) / mx) * 100 + '%', background: p.color, borderRadius: p.q ? '4px 0 0 4px' : '' } }), p.q ? el('i', { style: { width: (p.q / mx) * 100 + '%', background: this.qColor(p.color), borderRadius: '0 4px 4px 0' } }) : null), el('b', {}, T.fmtDur(p.v)), el('small', {}, Math.round((p.v / Math.max(1, total)) * 100) + '%'))));
   },
 
   /* ---------- Calendário ---------- */

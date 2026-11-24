@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.13.4 — meta de questões na semana e no mês
+
+- Antes, na semana e no mês, a meta de questões aparecia somada. Uma matéria estudada em 2 dias mostrava "de 1h" (30 min × 2), o que parecia errado.
+- Agora a semana e o mês mostram em quantos dias você bateu a meta, por exemplo "✍️ 21 min · meta em 0 de 2 dias". O ✓ aparece quando bateu em todos os dias em que estudou a matéria.
+- No dia continua "21 min de 30 min".
+
 ## Novidades da v1.13.3 — meta de questões junto da meta de estudo
 
 - A meta de questões saiu da aba Questões e foi para a **Visão geral**, logo abaixo da meta de estudo: "✍️ Meta de questões [30] min para cada matéria estudada no dia".
