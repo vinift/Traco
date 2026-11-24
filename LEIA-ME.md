@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.11.1 — print mais rápido e com "Descartar"
+
+- A janela do print do laço abre quase na hora. A imagem nítida termina de ser preparada enquanto você olha a prévia, e os botões Baixar e Colar esperam por ela sozinhos.
+- Botão novo **Descartar**: tira o print da biblioteca (e do backup). Se você descartar antes de o print ficar pronto, ele nem chega a ser salvo.
+
 ## Novidades da v1.11.0 — carimbo de texto
 
 - **Saiu o ponteiro laser.**

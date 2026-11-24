@@ -679,18 +679,25 @@ const UI = {
     for (const [k, n, d] of PEN_TYPES) box.append(el('button', { class: (st.type || 'ball') === k ? 'on' : '', onclick: () => { st.type = k; this.save(); closePop(); this.refresh(); } }, penSample(k, 74, 30, { nib: st.nib, color: st.color }), el('span', {}, el('b', {}, n), el('small', {}, d))));
     openPop(anchor, box);
   },
-  /* resultado do print do laço */
-  shotPop(img, blob, cv) {
-    const prev = el('img', { src: cv.toDataURL('image/png'), style: { maxWidth: '300px', maxHeight: '220px', borderRadius: '10px', border: '1px solid var(--line)', display: 'block', background: '#fff' } });
+  /* resultado do print do laço (v1.11.1: abre na hora com a prévia; botões esperam o print nítido; "Descartar" tira da biblioteca) */
+  shotPop(pv, job) {
+    const prev = el('img', { src: pv.toDataURL('image/png'), style: { maxWidth: '300px', maxHeight: '220px', borderRadius: '10px', border: '1px solid var(--line)', display: 'block', background: '#fff' } });
+    pv.width = pv.height = 1;
     const name = () => safeName((Editor.note && Editor.note.title) || 'print') + ' — print.png';
     const btn = (ic, label, fn, cls = '') => { const b = el('button', { class: 'btn ' + cls, onclick: fn }); b.innerHTML = icon(ic); b.append(label); return b; };
-    const box = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'stretch' } },
-      el('div', { style: { fontWeight: 600 } }, 'Print salvo na biblioteca'),
-      el('div', { class: 'lbl-sm' }, 'Abra a biblioteca na barra lateral (em qualquer nota) para colar.'), prev,
-      el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
-        btn('download', 'Baixar PNG', () => downloadBlob(blob, name())),
-        btn('paste', 'Colar aqui', () => { closePop(); Store.settings.tools.lasso.mode = 'free'; UI.setTool('lasso', true); Editor.pasteElements([img]); }),
-        btn('check', 'OK', () => closePop(), 'primary')));
+    const title = el('div', { style: { fontWeight: 600 } }, 'Preparando o print…');
+    const hint = el('div', { class: 'lbl-sm' }, 'Já pode escolher: o print fica pronto em instantes.');
+    const got = async () => { const r = await job.p.catch(() => null); if (!r) toast('Não deu para gerar o print'); return r; };
+    const dl = btn('download', 'Baixar PNG', async () => { const r = await got(); if (r) downloadBlob(r.blob, name()); });
+    const paste = btn('paste', 'Colar aqui', async () => { closePop(); const r = await got(); if (!r) return; Store.settings.tools.lasso.mode = 'free'; UI.setTool('lasso', true); Editor.pasteElements([r.img]); });
+    const discard = btn('trash', 'Descartar', async () => {
+      closePop(); job.cancel = true; const r = await job.p.catch(() => null);
+      if (r) { await Clips.remove(r.cid); await DB.del('blobs', r.blobId); delete Store.dirty.blobs[r.blobId]; await Store.saveDirty(); if (Editor.lastShot && Editor.lastShot.img === r.img) Editor.lastShot = null; if (UI.clipsOpen) UI.buildPanel(); }
+      toast('Print descartado', 1500);
+    }, 'ghost danger');
+    const box = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'stretch' } }, title, hint, prev,
+      el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, dl, paste, discard, btn('check', 'OK', () => closePop(), 'primary')));
+    job.p.then((r) => { if (r) { title.textContent = 'Print salvo na biblioteca'; hint.textContent = 'Abra a biblioteca na barra lateral (em qualquer nota) para colar.'; } }).catch(() => {});
     const r = { left: innerWidth / 2, right: innerWidth / 2, width: 0, top: innerHeight / 2 - 170, bottom: innerHeight / 2 - 170, height: 0 };
     openPop({ getBoundingClientRect: () => r }, box);
   },
@@ -760,6 +767,7 @@ const Clips = {
     const pinned = l.filter((c) => c.pin), rest = l.filter((c) => !c.pin).slice(0, this.MAX);
     await this.save(pinned.concat(rest));
     if (UI.clipsOpen) UI.buildPanel();
+    return entry.id;
   },
   async thumb(els, b) {
     for (const e of els) if (e.type === 'image') await ImgCache.load(e.blobId);

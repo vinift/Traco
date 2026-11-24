@@ -562,6 +562,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
   - richtext.js: `_mw` (cache de larguras) é limpo quando `Fonts.ver` sobe. Antes, palavras medidas com a fonte de reserva ficavam com vão.
   - Teste (caneta CDP): carimbo "Revisar {dd}/{mm}" em Caveat → texto "Revisar 24/11", fonte caveat, w 115; o + cria outro, com itálico → spans [{n 7, i}]; o chip troca o atual; desfazer ok. Migração [ex-data, ex-laser, meu] → [ex-data, ex-texto, meu]. Sem erros.
 
+- v1.11.1 — pedido: a janela do print demorava a aparecer; poder descartar o print nela. `Editor.captureArea` (editor.js) agora faz uma prévia de 600 px no lado maior e abre `UI.shotPop(pv, job)` na hora. O render grande (até 4096 px), o PNG, o `Store.putBlob` e o `Clips.add`, que agora devolve o id, vão em `job.p`. Antes, tudo isso mais um `toDataURL` do canvas grande acontecia antes da janela. Na `shotPop` (toolbar.js), Baixar e Colar esperam `job.p`. "Descartar" marca `job.cancel`, que impede salvar se ainda não salvou; se já salvou, faz `Clips.remove(cid)` + `DB.del('blobs')` + tira de `Store.dirty.blobs`. O título passa de "Preparando o print…" para "Print salvo na biblioteca". Teste (2,5 dpr, CPU 4×, 400 traços, área 500×450): janela 1764 → 350 ms. Descartar depois de pronto → 0 clips e 0 blobs pendentes; descartar na hora → nada salvo; Colar aqui → imagem colada.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

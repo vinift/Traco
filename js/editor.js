@@ -913,13 +913,21 @@ const Editor = {
     if (this.note.mode !== 'infinite') { x1 = Math.max(0, x1); y1 = Math.max(0, y1); x2 = Math.min(page.w, x2); y2 = Math.min(page.h, y2); }
     if (x2 - x1 < 4 || y2 - y1 < 4) return toast('Arraste para marcar a área do print');
     const area = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 }, sc = clamp(4096 / Math.max(area.w, area.h), 2, 8); // print nítido: até 4096 px no lado maior
-    const cv = await renderPageCanvas(this.note, page, sc, { area });
-    const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
-    const id = await Store.putBlob(blob);
-    const img = { id: uid(), type: 'image', x: area.x, y: area.y, w: area.w, h: area.h, blobId: id };
-    await Clips.add([img], 'print');
-    this.lastShot = { img, blob };
-    UI.shotPop(img, blob, cv);
+    /* v1.11.1: a janela abre logo com uma prévia leve (600 px); o print nítido (render grande + PNG) e o salvar na biblioteca
+       vão por trás em job.p — antes tudo isso (e mais um toDataURL do canvas grande) vinha antes da janela. job.cancel = descartado antes de salvar */
+    const note = this.note, pv = await renderPageCanvas(note, page, Math.min(sc, 600 / Math.max(area.w, area.h)), { area });
+    const job = { cancel: false };
+    job.p = (async () => {
+      const cv = await renderPageCanvas(note, page, sc, { area });
+      const blob = await new Promise((r) => cv.toBlob(r, 'image/png')); cv.width = cv.height = 1;
+      if (job.cancel || !blob) return null;
+      const id = await Store.putBlob(blob);
+      const img = { id: uid(), type: 'image', x: area.x, y: area.y, w: area.w, h: area.h, blobId: id };
+      const cid = await Clips.add([img], 'print');
+      this.lastShot = { img, blob };
+      return { img, blob, cid, blobId: id };
+    })();
+    UI.shotPop(pv, job);
   },
   /* alças de redimensionar: 4 cantos (proporcional) e 4 lados (estica um eixo). Sem alças dos lados em itens girados;
      no texto, só as laterais (a altura do texto acompanha o conteúdo); caixa pequena demais esconde as do meio */
