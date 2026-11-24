@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.12.0 — meta sem quebrar a sequência e total nas barras
+
+- **Mudar a meta não quebra mais a sequência.** A meta nova (seg–sex, sábado ou domingo) passa a valer a partir de amanhã. Hoje e os dias que já passaram continuam com a meta que valia antes. Antes, aumentar a meta fazia os dias antigos "não baterem" e zerava a sequência.
+- **Total de horas em cada barra** dos gráficos do relatório (dia, semana, mês e ano): a soma de todas as matérias aparece dentro da barra (ou logo acima, se a barra for baixa). No mês, o número fica na vertical para caber.
+
 ## Novidades da v1.11.6 — carimbo de texto gruda só na altura
 
 - O carimbo de texto continua em cima da linha de baixo do quadrado tocado, mas agora começa exatamente onde você tocou: não encosta mais na linha da esquerda.

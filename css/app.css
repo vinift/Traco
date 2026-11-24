@@ -1503,3 +1503,8 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 .stamp-chip.lifted{box-shadow:0 0 0 2px var(--chacc)}
 .stamp-chip{overflow:visible}.stamp-chip .xbadge{top:0;right:0}
 .stamp-chip .st{display:block;max-width:146px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* v1.12 — total de horas em cada barra do relatório */
+.rp-tot{position:absolute;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;line-height:1;white-space:nowrap;color:var(--text);pointer-events:none;font-variant-numeric:tabular-nums;z-index:1}
+.rp-tot.in{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55)}
+.rp-tot.dn{font-size:9.5px;writing-mode:vertical-rl;transform:translateX(-50%) rotate(180deg)}

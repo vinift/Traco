@@ -307,7 +307,7 @@ const StudyTimer = {
   statsEl() {
     const t = Date.now(), map = StudyReport.dayMap(), goal = StudyReport.goalMs(), today = this.dayMs(t), aw = ((this.log.away || {})[this.dayKey(t)]) || 0;
     const days = []; for (let i = 6; i >= 0; i--) { const d = new Date(t); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); days.push({ k: this.dayKey(d.getTime()), d }); }
-    const R = StudyReport, gl = R.goalMs(Date.parse('2024-01-03T12:00')), vals = days.map((x) => R.sum(map[x.k])), max = Math.max(...vals, gl, 1), week = vals.reduce((a, b) => a + b, 0);
+    const R = StudyReport, gl = R.goalCur(Date.parse('2024-01-03T12:00')), vals = days.map((x) => R.sum(map[x.k])), max = Math.max(...vals, gl, 1), week = vals.reduce((a, b) => a + b, 0);
     const subj = new Map(); for (const { k } of days) for (const [id, v] of Object.entries(map[k] || {})) { const sb = subjectOfNote(id), c = subj.get(sb.key) || { ...sb, v: 0 }; c.v += v; subj.set(sb.key, c); }
     const top = [...subj.values()].sort((a, b) => b.v - a.v).slice(0, 5);
     const WD = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
