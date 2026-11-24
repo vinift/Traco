@@ -50,6 +50,21 @@ const StudyReport = {
     return el('div', { class: 'tm-qday' }, el('div', { class: 'tm-tot' }, el('span', {}, '✍️ Questões hoje'), el('b', {}, T.fmtDur(rows.reduce((s, c) => s + c.q, 0)))),
       rows.length ? el('div', { class: 'rp-qlist' }, ...rows.map((c) => this.qRow(c, this.countableKey(c.key) ? this.qGoalFor(c.key) : 0))) : el('p', { class: 'tm-hint' }, 'Ligue "Questões" e inicie o cronômetro para contar.'));
   },
+  /* v1.13.3: meta de questões compacta, na mesma linha das metas de estudo (Visão geral): um valor para cada matéria
+     estudada no dia + "Por matéria" abre uma janelinha com um campo por matéria (vazio = igual, 0 = sem meta) */
+  qGoalEl(render) {
+    const S = Store.settings, G = (S.qGoal = S.qGoal || {}), T = StudyTimer;
+    const each = el('input', { type: 'number', min: 0, max: 600, step: 5, value: G.each > 0 ? G.each : '', placeholder: '—', class: 'sr-goalin', onchange: () => { const v = Math.round(+each.value || 0); G.each = v > 0 ? clamp(v, 1, 600) : 0; Store.saveSettings(); render(); } });
+    const subs = Store.folders.filter((f) => f.subject).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')), nOwn = Object.keys(G.subj || {}).length;
+    const btn = el('button', { class: 'btn ghost rp-qsub', onclick: () => {
+      const box = el('div', { class: 'rp-qpop' }, el('b', {}, 'Meta de questões por matéria'), el('small', { class: 'tm-hint' }, 'Vazio = igual à geral' + (G.each > 0 ? ` (${G.each} min)` : '') + ' · 0 = sem meta'),
+        ...subs.map((f) => { const cur = G.subj && G.subj[f.id] != null ? G.subj[f.id] : ''; const i = el('input', { type: 'number', min: 0, max: 600, step: 5, value: cur, placeholder: 'igual', class: 'sr-goalin', onchange: () => { G.subj = G.subj || {}; const t = i.value.trim(); if (t === '') delete G.subj[f.id]; else G.subj[f.id] = clamp(Math.round(+t || 0), 0, 600); Store.saveSettings(); } });
+          return el('label', {}, el('i', { class: 'sr-dot', style: { background: f.color || FOLDER_COLORS[0] } }), el('span', {}, f.name), i, 'min'); }),
+        subs.length ? null : el('p', { class: 'tm-hint' }, 'Marque pastas como matéria para definir aqui.'));
+      openPop(btn, box, { onClose: () => render() });
+    } }, nOwn ? `Por matéria (${nOwn}) ▾` : 'Por matéria ▾');
+    return el('div', { class: 'rp-qgoalrow' }, el('label', {}, '✍️ Meta de questões', each, 'min para cada matéria estudada no dia'), btn);
+  },
   /* aba Questões do relatório */
   viewQuest(r, render) {
     const T = StudyTimer, S = Store.settings, G = (S.qGoal = S.qGoal || {}), list = this.qStats(r.a, r.b), goals = this.unit === 'year' ? {} : this.qGoalSum(r.a, r.b);
@@ -59,19 +74,7 @@ const StudyReport = {
     const rows = list.filter((c) => c.q > 0 || c.ok + c.no > 0 || goals[c.key]);
     const table = el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Por matéria', el('span', { class: 'rp-hs' }, this.unit === 'day' ? 'meta = para cada matéria estudada no dia' : this.unit === 'year' ? '' : 'meta = soma dos dias em que a matéria foi estudada')),
       rows.length ? el('div', { class: 'rp-qlist' }, ...rows.map((c) => this.qRow(c, goals[c.key] || 0))) : el('p', { class: 'tm-hint' }, 'Sem questões neste período. No cronômetro, toque em "✍️ Questões" e inicie: os botões ✓ e ✗ aparecem na tela.'));
-    /* metas: uma para cada matéria + ajuste por matéria */
-    const each = el('input', { type: 'number', min: 0, max: 600, step: 5, value: G.each > 0 ? G.each : '', placeholder: 'sem meta', class: 'sr-goalin', onchange: () => { const v = Math.round(+each.value || 0); G.each = v > 0 ? clamp(v, 1, 600) : 0; Store.saveSettings(); render(); } });
-    const subs = Store.folders.filter((f) => f.subject).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-    const own = el('div', { class: 'rp-qown' + (this._qOwn ? '' : ' hidden') }, ...subs.map((f) => {
-      const cur = G.subj && G.subj[f.id] != null ? G.subj[f.id] : '';
-      const i = el('input', { type: 'number', min: 0, max: 600, step: 5, value: cur, placeholder: 'igual', class: 'sr-goalin', onchange: () => { G.subj = G.subj || {}; const t = i.value.trim(); if (t === '') delete G.subj[f.id]; else G.subj[f.id] = clamp(Math.round(+t || 0), 0, 600); Store.saveSettings(); render(); } });
-      return el('label', {}, el('i', { class: 'sr-dot', style: { background: f.color || FOLDER_COLORS[0] } }), f.name, i, 'min');
-    }));
-    const goalCard = el('div', { class: 'rp-card rp-qgoal' }, el('div', { class: 'rp-h' }, 'Meta de questões'),
-      el('label', {}, 'Para cada matéria estudada no dia', each, 'min'),
-      subs.length ? el('button', { class: 'btn ghost', onclick: () => { this._qOwn = !this._qOwn; render(); } }, this._qOwn ? 'Fechar metas por matéria' : 'Meta diferente para alguma matéria…') : null, own,
-      el('small', { class: 'tm-hint' }, 'Ex.: 30 min → cada matéria que você estudar no dia pede 30 min de questões. Vazio = igual à de cima; 0 = sem meta para aquela matéria.'));
-    return el('div', { class: 'rp-quest' }, tiles, table, goalCard);
+    return el('div', { class: 'rp-quest' }, tiles, table, el('p', { class: 'tm-hint' }, 'A meta de questões fica na Visão geral, junto da meta de estudo.'));
   },
   /* v1.13.2: tom mais escuro da matéria para o tempo de questões */
   kindTag(q) { return el('span', { class: 'rp-kind' + (q ? ' q' : '') }, q ? '✍️ Questões' : '📖 Estudo'); },
@@ -230,14 +233,14 @@ const StudyReport = {
     const showB = (b, i) => {
       this.sel = i; detail.innerHTML = '';
       detail.append(el('div', { class: 'rp-dhead' }, el('b', {}, `${b.tip}: ${T.fmtDur(b.v)}${b.day && b.g === 0 ? ' · descanso' : b.day && b.v >= b.g ? ' ✓ meta' : ''}`), b.drill ? el('button', { class: 'btn ghost', onclick: () => this.go(b.drill[0], b.drill[1]) }, b.drill[0] === 'day' ? 'Abrir o dia →' : 'Abrir o mês →') : null));
-      detail.append(b.parts.length ? this.subjRows(b.parts, b.v) : el('p', { class: 'tm-hint' }, 'Nada registrado.'));
+      detail.append(b.parts.length ? this.subjRows(b.parts, b.v, b.day ? this.qGoalSum(b.a, b.b) : null) : el('p', { class: 'tm-hint' }, 'Nada registrado.'));
       if (b.day && aw[T.dayKey(b.a + 43200000)] >= 30000) detail.append(el('p', { class: 'tm-hint rp-warn' }, `Não contado (app fora da tela com o cronômetro rodando): ${T.fmtDur(aw[T.dayKey(b.a + 43200000)])}`));
       [...plot.querySelectorAll('.rp-col.on')].forEach((c) => c.classList.remove('on')); plot.children[i + (gl ? 1 : 0)] && plot.children[i + (gl ? 1 : 0)].classList.add('on');
     };
     const plot = el('div', { class: 'rp-plot' + (B.length > 14 ? ' dense' : '') }, gl ? el('div', { class: 'rp-goal', style: { bottom: `calc(20px + (100% - 20px) * ${gl / max})` } }, el('span', {}, 'meta')) : null,
       ...B.map((b, i) => el('button', { class: 'rp-col' + (b.day && (b.g === 0 ? b.v > 0 : b.v >= b.g) ? ' hit' : '') + (b.day && b.g === 0 ? ' rest' : '') + (now >= b.a && now < b.b ? ' now' : ''), title: `${b.tip}: ${T.fmtDur(b.v)}`, onclick: () => showB(b, i) },
         b.day && b.g !== gl && b.g > 0 ? el('i', { class: 'rp-gtick', style: { bottom: `calc(${(b.g / max) * 100}% - 1px)` } }) : null, el('div', { class: 'rp-stack', style: { height: b.v ? Math.max(1.5, (b.v / max) * 100) + '%' : '0' } }, ...b.parts.flatMap((p) => [p.v - p.q > 0 ? el('i', { style: { flex: String(p.v - p.q), background: p.color } }) : null, p.q > 0 ? el('i', { class: 'qpart', style: { flex: String(p.q), background: this.qColor(p.color) } }) : null].filter(Boolean))), this.totLabel(b.v, max, B.length > 14), el('small', {}, b.lab))));
-    const side = el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Matérias no período'), list.length ? this.subjRows(this.bySubj(list), total) : el('p', { class: 'tm-hint' }, 'Sem tempo registrado. O tempo conta com o cronômetro rodando e o app na tela.'));
+    const side = el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Matérias no período'), list.length ? this.subjRows(this.bySubj(list), total, this.unit === 'year' ? null : this.qGoalSum(r.a, r.b)) : el('p', { class: 'tm-hint' }, 'Sem tempo registrado. O tempo conta com o cronômetro rodando e o app na tela.'));
     const S = Store.settings, goalIn = el('input', { type: 'number', min: 5, max: 900, step: 15, value: Math.round(Math.max(5, +S.studyGoal || 60)), class: 'sr-goalin', onchange: () => { this.keepGoal(); S.studyGoal = clamp(Math.round(+goalIn.value || 60), 5, 900); Store.saveSettings(); toast(S.goalFrom === 'today' ? 'Meta nova já vale hoje — os dias anteriores não mudam' : 'Meta nova vale a partir de amanhã — a sequência não quebra', 2200); render(); } });
     const dayIn = (key) => { const v = S[key] === undefined && key === 'studyGoalSun' ? S.studyGoalWE : S[key], i = el('input', { type: 'number', min: 0, max: 900, step: 15, value: v != null && v !== '' ? v : '', placeholder: 'igual', class: 'sr-goalin', onchange: () => { const t = i.value.trim(); this.keepGoal(); S[key] = t === '' ? null : clamp(Math.round(+t || 0), 0, 900); Store.saveSettings(); toast(S.goalFrom === 'today' ? 'Meta nova já vale hoje — os dias anteriores não mudam' : 'Meta nova vale a partir de amanhã — a sequência não quebra', 2200); render(); } }); return i; };
     const satIn = dayIn('studyGoalWE'), sunIn = dayIn('studyGoalSun');
@@ -247,7 +250,7 @@ const StudyReport = {
     const out = el('div', { class: 'rp-geral' }, tiles, pauseRow,
       el('div', { class: 'rp-grid' }, el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, this.unit === 'day' ? 'Tempo por hora' : this.unit === 'year' ? 'Tempo por mês' : 'Tempo por dia', el('span', { class: 'rp-hs' }, 'toque numa barra')), plot,
           list.some(([x]) => x.q) ? el('div', { class: 'rp-legend' }, el('span', {}, el('i', { style: { background: 'var(--accent)' } }), 'estudo'), el('span', {}, el('i', { style: { background: this.qColor('var(--accent)') } }), 'questões (tom mais escuro da matéria)')) : null, detail,
-        el('div', { class: 'rp-goalrow' }, el('label', {}, 'Meta seg–sex', goalIn, 'min'), el('label', {}, 'Sábado', satIn, 'min'), el('label', {}, 'Domingo', sunIn, 'min'), el('label', { class: 'rp-from' }, 'Mudança vale a partir de', fromSeg), el('small', {}, 'vazio = igual a seg–sex · 0 = descanso (não quebra a sequência) · os dias que já passaram nunca mudam'))), side), hint);
+        el('div', { class: 'rp-goalrow' }, el('label', {}, 'Meta seg–sex', goalIn, 'min'), el('label', {}, 'Sábado', satIn, 'min'), el('label', {}, 'Domingo', sunIn, 'min'), el('label', { class: 'rp-from' }, 'Mudança vale a partir de', fromSeg), el('small', {}, 'vazio = igual a seg–sex · 0 = descanso (não quebra a sequência) · os dias que já passaram nunca mudam'), this.qGoalEl(render))), side), hint);
     const ci = B.findIndex((b) => now >= b.a && now < b.b), si = this.sel != null && B[this.sel] ? this.sel : ci >= 0 ? ci : B.length - 1;
     if (B[si]) showB(B[si], si); /* v0.43.1: na hora (antes num setTimeout → a tela mudava depois de aparecer) */
     return out;
@@ -260,9 +263,9 @@ const StudyReport = {
     if (sat === wd && sun === wd) return `meta ${f(wd)}/dia`;
     return sat === sun ? `meta ${f(wd)} seg–sex · ${g(sat)} fim de semana` : `meta ${f(wd)} seg–sex · sáb ${g(sat)} · dom ${g(sun)}`;
   },
-  subjRows(parts, total) {
+  subjRows(parts, total, goals) {
     const T = StudyTimer, mx = Math.max(1, ...parts.map((p) => p.v));
-    return el('div', { class: 'rp-list' }, ...parts.map((p) => el('div', { class: 'rp-row' }, el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: p.color } }), p.name, p.q ? el('small', { class: 'rp-qnote' }, ' · ✍️ ' + T.fmtDur(p.q)) : null), el('span', { class: 'rp-track', style: { display: 'flex' } }, el('i', { style: { width: ((p.v - (p.q || 0)) / mx) * 100 + '%', background: p.color, borderRadius: p.q ? '4px 0 0 4px' : '' } }), p.q ? el('i', { style: { width: (p.q / mx) * 100 + '%', background: this.qColor(p.color), borderRadius: '0 4px 4px 0' } }) : null), el('b', {}, T.fmtDur(p.v)), el('small', {}, Math.round((p.v / Math.max(1, total)) * 100) + '%'))));
+    return el('div', { class: 'rp-list' }, ...parts.map((p) => el('div', { class: 'rp-row' }, el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: p.color } }), p.name, goals && goals[p.key] ? el('small', { class: 'rp-qnote' + (p.q >= goals[p.key] ? ' hit' : '') }, `✍️ ${T.fmtDur(p.q || 0)} de ${T.fmtDur(goals[p.key])}` + (p.q >= goals[p.key] ? ' ✓' : '')) : p.q ? el('small', { class: 'rp-qnote' }, '✍️ ' + T.fmtDur(p.q) + ' de questões') : null), el('span', { class: 'rp-track', style: { display: 'flex' } }, el('i', { style: { width: ((p.v - (p.q || 0)) / mx) * 100 + '%', background: p.color, borderRadius: p.q ? '4px 0 0 4px' : '' } }), p.q ? el('i', { style: { width: (p.q / mx) * 100 + '%', background: this.qColor(p.color), borderRadius: '0 4px 4px 0' } }) : null), el('b', {}, T.fmtDur(p.v)), el('small', {}, Math.round((p.v / Math.max(1, total)) * 100) + '%'))));
   },
 
   /* ---------- Calendário ---------- */

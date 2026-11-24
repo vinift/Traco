@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.13.3 — meta de questões junto da meta de estudo
+
+- A meta de questões saiu da aba Questões e foi para a **Visão geral**, logo abaixo da meta de estudo: "✍️ Meta de questões [30] min para cada matéria estudada no dia".
+- O botão **Por matéria ▾** abre uma janelinha com um campo para cada matéria. Vazio = igual à geral; 0 = sem meta.
+- Em cada matéria (na lista do período e no dia tocado no gráfico) aparece o progresso, por exemplo "✍️ 20 min de 30 min". Fica verde com ✓ quando bate.
+
 ## Novidades da v1.13.2 — questões em destaque no relatório
 
 - **Gráficos:** em cada barra, a parte de cada matéria aparece em duas cores. A cor normal é o estudo, e o **tom mais escuro da mesma cor** é o tempo de questões. Há uma legenda embaixo do gráfico.
