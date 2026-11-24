@@ -15,7 +15,7 @@ const StudyTimer = {
     try { s = await DB.get('meta', 'studyTimer'); l = await DB.get('meta', 'studyLog'); } catch (e) { console.warn('cronômetro', e); }
     this.st = { ...clone(this.DEF), ...(s || {}) }; this.st.pomo = { ...this.DEF.pomo, ...(this.st.pomo || {}) };
     this.log = l && l.days ? l : { days: {}, titles: {} };
-    try { this.migrate(); } catch (e) { console.warn('histórico', e); }
+    try { this.migrate(); this.cleanSess(); } catch (e) { console.warn('histórico', e); }
     if (this._on) return this.tick(); this._on = true; // eventos só uma vez
     for (const id of ['noteClock', 'noteTimer', 'libTimer']) { const n = document.getElementById(id); if (n) { n.classList.add('tm-click'); n.addEventListener('click', (e) => { e.stopPropagation(); this.open(n); }); } }
     { const c = document.getElementById('noteClock'); if (c) c.title = 'Horário · toque para o cronômetro de estudo'; }
@@ -54,6 +54,29 @@ const StudyTimer = {
       for (const [k, v] of pos) { if (v < 1000) continue; const x = { id: uid(), s: cur, e: cur + v, n: null, lg: 1 }; if (k.startsWith('f:')) x.f = k.slice(2); else if (k !== '_') x.n = k; S.push(x); cur += v; }
     }
     S.sort((a, b) => a.s - b.s); L.sessions = S; L.v = 2; this.saveLog();
+  },
+  /* v1.10: sessões sobrepostas = tempo contado duas vezes (ex.: histórico antigo convertido em dois aparelhos e juntado pela restauração
+     do Drive, que só compara o id). Varre em ordem: a que está inteira dentro de outra sai; a que entra em parte é cortada. Registro
+     antigo sem horário (lg) cede para sessão real. Antes da 1ª limpeza com mudança guarda uma cópia em meta 'studyLogBak'. */
+  cleanSess() {
+    const L = this.log, S = L.sessions; if (!Array.isArray(S) || !S.length) return { removed: 0, trimmed: 0 };
+    const before = S.length, out = []; let removed = 0, trimmed = 0, end = -Infinity;
+    const list = S.slice().sort((a, b) => a.s - b.s || (b.e - b.s) - (a.e - a.s) || (a.lg ? 1 : 0) - (b.lg ? 1 : 0));
+    for (const x0 of list) {
+      const x = { ...x0 }; if (!(x.e > x.s)) { removed++; continue; }
+      let prev = out[out.length - 1], ch = false;
+      while (prev && prev.lg && !x.lg && prev.e > x.s) { /* registro antigo cede */ if (prev.s >= x.s) { out.pop(); removed++; } else { prev.e = x.s; trimmed++; } ch = true; prev = out[out.length - 1]; }
+      if (ch) end = out.length ? Math.max(...out.slice(-50).map((y) => y.e)) : -Infinity;
+      if (x.s >= end) { out.push(x); end = x.e; continue; }
+      if (x.e <= end) { removed++; continue; }
+      x.s = end; trimmed++; out.push(x); end = x.e;
+    }
+    if (removed || trimmed) {
+      if (!L.cleanedAt) DB.put('meta', clone({ ...L, sessions: S }), 'studyLogBak').catch(() => {});
+      L.sessions = out; L.cleanedAt = Date.now(); this.saveLog();
+      console.info(`histórico: ${removed} sessão(ões) repetida(s) removida(s), ${trimmed} cortada(s) (${before} → ${out.length})`);
+    }
+    return { removed, trimmed };
   },
   addSess(a, b, n, f) {
     const S = this.log.sessions || (this.log.sessions = []), last = S[S.length - 1]; n = n || null; f = f || null;

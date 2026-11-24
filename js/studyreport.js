@@ -53,6 +53,18 @@ const StudyReport = {
     else for (let t = r.a; t < r.b; t = this.addDays(t, 1)) { const d = new Date(t); out.push({ a: t, b: this.addDays(t, 1), lab: this.unit === 'week' ? WD[d.getDay()] + ' ' + d.getDate() : d.getDate() === 1 || d.getDate() % 5 === 0 ? String(d.getDate()) : '', tip: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }), drill: ['day', t], day: 1 }); }
     return out;
   },
+  /* v1.10: sessões "abrangentes" — trechos seguidos da mesma matéria com pausa de até S.sessGap min (padrão 10) viram um bloco.
+     Bloco = {parts, s, e, study (soma dos trechos), pause (soma das pausas), key}. Registros antigos sem horário ficam sozinhos. */
+  gapMs() { const g = Store.settings.sessGap; return (g == null ? 10 : +g) * 60000; },
+  blocks(xs) {
+    const gap = this.gapMs(), out = []; let b = null;
+    for (const x of xs.slice().sort((p, q) => p.s - q.s)) {
+      const key = this.subj(x).key + (this.countable(x) ? '' : '#off');
+      if (b && !x.lg && !b.lg && key === b.key && x.s - b.e <= gap && x.s >= b.e - 1000) { b.parts.push(x); b.pause += Math.max(0, x.s - b.e); b.e = Math.max(b.e, x.e); b.study += x.e - x.s; if (x.live) b.live = 1; continue; }
+      b = { parts: [x], s: x.s, e: x.e, study: x.e - x.s, pause: 0, key, lg: !!x.lg, live: !!x.live }; out.push(b);
+    }
+    return out;
+  },
   /* sessões que tocam [a, b) com o tempo cortado */
   within(a, b, all) { const out = []; for (const x of StudyTimer.allSess()) { if (!all && !this.countable(x)) continue; const v = Math.min(b, x.e) - Math.max(a, x.s); if (v > 0) out.push([x, v]); } return out; },
   bySubj(list) { const m = new Map(); for (const [x, v] of list) { const s = this.subj(x), c = m.get(s.key) || { ...s, v: 0, n: 0 }; c.v += v; c.n++; m.set(s.key, c); } return [...m.values()].sort((p, q) => q.v - p.v); },
@@ -180,7 +192,7 @@ const StudyReport = {
     for (const p of parts) { const L = (p.v / total) * C; svg += `<circle cx="90" cy="90" r="${R}" fill="none" stroke="${p.color}" stroke-width="26" stroke-dasharray="${Math.max(0, L - 1.5).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 90 90)"/>`; off += L; }
     svg += '</svg>'; const donut = el('div', { class: 'rp-dwrap' }); donut.innerHTML = svg; donut.append(el('div', { class: 'rp-dc' }, el('b', {}, T.fmtDur(total)), el('small', {}, `${parts.length} ${parts.length === 1 ? 'matéria' : 'matérias'}`)));
     const rows = el('div', { class: 'rp-list' }, ...parts.map((p) => {
-      const open = this.openSubj === p.key, real = list.filter(([x]) => this.subj(x).key === p.key && !x.lg), ns = real.length;
+      const open = this.openSubj === p.key, real = list.filter(([x]) => this.subj(x).key === p.key && !x.lg), ns = this.blocks(real.map(([x]) => x)).length; /* v1.10: pausas curtas não partem a sessão */
       const row = el('button', { class: 'rp-row link' + (open ? ' open' : ''), onclick: () => { this.openSubj = open ? null : p.key; render(); } }, el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: p.color } }), p.name), el('span', { class: 'rp-track' }, el('i', { style: { width: (p.v / parts[0].v) * 100 + '%', background: p.color } })), el('b', {}, T.fmtDur(p.v)), el('small', {}, Math.round((p.v / total) * 100) + '%'));
       if (!open) return row;
       const notes = new Map(); for (const [x, v] of list) if (this.subj(x).key === p.key) { const k = x.n || '_'; notes.set(k, (notes.get(k) || 0) + v); }
@@ -218,18 +230,31 @@ const StudyReport = {
 
   /* ---------- Sessões (editar / excluir / adicionar) ---------- */
   viewSess(r, render) {
-    const T = StudyTimer, list = this.within(r.a, r.b, true).map(([x]) => x).sort((p, q) => q.s - p.s), groups = new Map();
-    for (const x of list) { const k = T.dayKey(x.s); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); }
+    const T = StudyTimer, S = Store.settings, list = this.within(r.a, r.b, true).map(([x]) => x), groups = new Map();
+    for (const b of this.blocks(list).sort((p, q) => q.s - p.s)) { const k = T.dayKey(b.s); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(b); }
     const hm = (t) => new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const add = el('button', { class: 'btn primary', onclick: () => this.editSess(null, render, r) }, '+ Adicionar sessão');
-    const out = el('div', { class: 'rp-sess' }, el('div', { class: 'rp-shead' }, el('p', { class: 'tm-hint' }, 'Toque numa sessão para mudar a matéria, o horário ou excluir. Use "Adicionar" para um estudo que não foi registrado. Só o tempo de matérias entra no relatório: sessões sem matéria aparecem apagadas — escolha uma matéria para elas contarem.'), add));
+    const cur = S.sessGap == null ? 10 : +S.sessGap;
+    const gapRow = el('div', { class: 'rp-gap' }, el('span', { class: 'tm-hint' }, 'Juntar na mesma sessão pausas de até'), ...[0, 5, 10, 15, 30].map((m) => el('button', { class: 'seg-b' + (cur === m ? ' on' : ''), onclick: () => { S.sessGap = m; Store.saveSettings(); render(); } }, m ? m + ' min' : 'não juntar')));
+    const out = el('div', { class: 'rp-sess' }, el('div', { class: 'rp-shead' }, el('p', { class: 'tm-hint' }, 'Toque numa sessão para mudar a matéria, o horário ou excluir (sessões com pausas abrem os trechos). Use "Adicionar" para um estudo que não foi registrado. Só o tempo de matérias entra no relatório: sessões sem matéria aparecem apagadas.'), add), gapRow);
     if (!list.length) out.append(el('p', { class: 'tm-hint rp-empty' }, 'Nenhuma sessão neste período.'));
-    for (const [k, xs] of groups) {
-      const d = new Date(k + 'T12:00'), tot = xs.filter((x) => this.countable(x)).reduce((a, x) => a + (x.e - x.s), 0);
-      out.append(el('div', { class: 'rp-sday' }, el('div', { class: 'rp-h' }, ((t) => t.charAt(0).toUpperCase() + t.slice(1))(d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })), el('span', { class: 'rp-hs' }, T.fmtDur(tot))),
-        ...xs.map((x) => { const s = this.subj(x); return el('button', { class: 'rp-srow' + (x.live ? ' live' : '') + (this.countable(x) ? '' : ' off'), disabled: !!x.live, onclick: () => this.editSess(x, render, r) },
-          el('span', { class: 'rp-stime' }, x.lg ? 'sem horário' : `${hm(x.s)}–${x.live ? 'agora' : hm(x.e)}`), el('b', {}, T.fmtDur(x.e - x.s)),
-          el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: s.color } }), s.name), el('span', { class: 'rp-snote' }, (this.countable(x) ? '' : 'não conta (sem matéria) · ') + (x.n ? this.noteTitle(x.n) : x.m ? 'adicionada à mão' : x.lg ? 'registro antigo' : '—'))); })));
+    const row = (x, sub) => { const s = this.subj(x); return el('button', { class: 'rp-srow' + (sub ? ' sub' : '') + (x.live ? ' live' : '') + (this.countable(x) ? '' : ' off'), disabled: !!x.live, onclick: () => this.editSess(x, render, r) },
+      el('span', { class: 'rp-stime' }, x.lg ? 'sem horário' : `${hm(x.s)}–${x.live ? 'agora' : hm(x.e)}`), el('b', {}, T.fmtDur(x.e - x.s)),
+      el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: s.color } }), s.name), el('span', { class: 'rp-snote' }, (this.countable(x) ? '' : 'não conta (sem matéria) · ') + (x.n ? this.noteTitle(x.n) : x.m ? 'adicionada à mão' : x.lg ? 'registro antigo' : '—'))); };
+    for (const [k, bs] of groups) {
+      const d = new Date(k + 'T12:00'), tot = bs.reduce((a, b) => a + b.parts.filter((x) => this.countable(x)).reduce((c, x) => c + (x.e - x.s), 0), 0);
+      const items = [];
+      for (const b of bs) {
+        if (b.parts.length === 1) { items.push(row(b.parts[0])); continue; }
+        const x0 = b.parts[0], s = this.subj(x0), id = x0.id, open = this.openBlock === id, notes = new Set(b.parts.map((x) => x.n).filter(Boolean));
+        const note = notes.size > 1 ? `${notes.size} notas` : notes.size ? this.noteTitle([...notes][0]) : x0.m ? 'adicionada à mão' : '';
+        items.push(el('button', { class: 'rp-srow blk' + (open ? ' open' : '') + (b.live ? ' live' : '') + (this.countable(x0) ? '' : ' off'), onclick: () => { this.openBlock = open ? null : id; render(); } },
+          el('span', { class: 'rp-stime' }, `${hm(b.s)}–${b.live ? 'agora' : hm(b.e)}`), el('b', {}, T.fmtDur(b.study)),
+          el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: s.color } }), s.name),
+          el('span', { class: 'rp-snote' }, `${this.countable(x0) ? '' : 'não conta (sem matéria) · '}${note ? note + ' · ' : ''}${b.parts.length} trechos` + (b.pause >= 60000 ? ` · pausas ${T.fmtDur(b.pause)}` : ''))));
+        if (open) for (const x of b.parts) items.push(row(x, true));
+      }
+      out.append(el('div', { class: 'rp-sday' }, el('div', { class: 'rp-h' }, ((t) => t.charAt(0).toUpperCase() + t.slice(1))(d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })), el('span', { class: 'rp-hs' }, T.fmtDur(tot))), ...items));
     }
     return out;
   },

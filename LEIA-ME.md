@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.10.0 — relatório de estudo
+
+- **Tempo repetido removido:** sessões que ocupam o mesmo horário eram contadas duas vezes, e isso aparecia como tempo "espelhado" ou dobrado. Acontecia principalmente depois de restaurar o histórico pelo Drive vindo de outro aparelho. Agora o app tira essas repetições sozinho ao abrir e depois de restaurar: a sessão que está inteira dentro de outra sai, e a que se sobrepõe em parte é cortada. Antes da primeira limpeza ele guarda uma cópia do histórico.
+- **Sessões com pausas:** na aba Sessões, trechos seguidos da mesma matéria com pausas pequenas viram uma sessão só, com o tempo de estudo e o total de pausas ("2 trechos · pausas 3 min"). Toque nela para ver e editar cada trecho. O limite fica no topo da aba: não juntar, 5, 10 (padrão), 15 ou 30 min. A contagem de sessões em Matérias segue a mesma regra.
+
 ## Novidades da v1.9.0 — calibrar a palma
 
 - **Configurações → Caneta e escrita → "Calibrar a palma…":** uma página em 2 passos. Primeiro você escreve normalmente com a mão apoiada, e cada toque da palma aparece em vermelho. Depois você rola e dá zoom só com o dedo, e os toques aparecem em azul.

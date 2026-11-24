@@ -513,7 +513,7 @@ const Drive = {
         if (R.sessions) { const have = new Set((L.sessions || []).map((x) => x.id)); const add = R.sessions.filter((x) => !have.has(x.id)); study += add.length; L.sessions = (L.sessions || []).concat(add).sort((a, b) => a.s - b.s); if (!L.v) L.v = 2; }
         for (const k of ['days', 'away']) if (R[k]) { L[k] = L[k] || {}; for (const [d, v] of Object.entries(R[k])) { if (v && typeof v === 'object') { const o = L[k][d] || (L[k][d] = {}); for (const [kk, ms] of Object.entries(v)) o[kk] = Math.max(o[kk] || 0, ms); } else L[k][d] = Math.max(L[k][d] || 0, v || 0); } }
         if (R.titles) L.titles = { ...R.titles, ...(L.titles || {}) };
-        if (T) T.log = L; await DB.put('meta', L, 'studyLog');
+        if (T) { T.log = L; T.cleanSess(); } await DB.put('meta', L, 'studyLog'); /* v1.10: tira o tempo repetido que a junção trouxe */
       }
     } catch (e) { console.warn('restaurar estudo', e); }
     this.lastRestore = { notes: noteFiles.length, blobs: blobs.length, fail, lib: best, study }; /* v1.0.3: resumo para a mensagem */
