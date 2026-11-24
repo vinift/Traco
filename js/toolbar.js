@@ -228,8 +228,7 @@ const UI = {
     } else if (t === 'text') { groupBtn(); sep(); this.colorDots(sr, 'text'); sep(); tune(); this.widthChips(hb, 'text'); }
     else if (t === 'table') { tune(); }
     else if (t === 'sticky') {
-      for (const c of STICKY_COLORS) { const d = el('button', { class: 'cdot' + (st.bg === c ? ' sel' : ''), style: { background: c, borderRadius: '8px' }, title: 'Cor do post-it', onclick: () => { st.bg = c; this.save(); this.applyStickyBg(c); this.renderOptions(); } }); sr.append(d); }
-      sep(); tune();
+      this.stickyDots(sr); sep(); tune();
     } else if (t === 'eraser') {
       for (const [m, n] of [['stroke', 'Traço'], ['area', 'Área']]) sr.append(el('button', { class: 'wchip' + (st.mode === m ? ' sel' : ''), title: n === 'Traço' ? 'Apaga o traço inteiro' : 'Apaga só a parte tocada', onclick: () => { st.mode = m; this.save(); this.refresh(); } }, el('span', { class: 'n', style: { fontSize: '11px' } }, n)));
       sep(); tune(); this.widthChips(hb, 'eraser');
@@ -433,9 +432,9 @@ const UI = {
       p.append(this.switchRow('Alinhar às linhas do modelo', 'Cada linha do texto fica sobre a pauta, a grade ou os pontos da página', st.ruled, (v) => { st.ruled = v; this.save(); }));
     }
     if (t === 'sticky') {
-      p.append(this.colorSection('Cor do post-it', st.bg, (c) => { st.bg = c; this.save(); this.applyStickyBg(c); this.refresh(); }, STICKY_COLORS, false));
+      p.append(this.colorSection('Cor do post-it', st.bg, (c) => { this.stickyAdd(c); st.bg = c; this.save(); this.applyStickyBg(c); this.refresh(); }, this.stickyList(), false)); /* v1.7: cor nova entra na lista da esquerda */
       p.append(this.colorSection('Cor do texto', st.color, (c) => { st.color = c; this.save(); this.applyTextStyle({ color: c }); this.refresh(); }, PALETTE.slice(0, 14), false));
-      p.append(el('p', { style: { color: 'var(--chmuted)', fontSize: '13px' } }, 'Toque na página para colar um post-it. Você pode escrever dentro com o teclado ou desenhar por cima com a caneta; para mover, use o laço.'));
+      p.append(el('p', { style: { color: 'var(--chmuted)', fontSize: '13px' } }, 'Toque na página para colar um post-it: a ferramenta volta para a caneta e o que você escrever em cima dele passa a fazer parte do post-it (move, apaga e copia junto). Para digitar, toque duas vezes nele.'));
     }
     if (['pen', 'highlighter', 'shape', 'text'].includes(t)) {
       p.append(this.colorSection('Cor', st.color, (c) => { st.color = c; st.fade = null; this.save(); if (t === 'text') this.applyTextStyle({ color: c }); this.refresh(); }, t === 'highlighter' ? HL_PALETTE.concat(PALETTE.slice(4, 14)) : PALETTE, true, t));
@@ -556,6 +555,24 @@ const UI = {
       Editor.opCommit();
     }
   },
+  /* v1.7: cores do post-it na barra da esquerda — lista própria (st.colors), com "+" para adicionar, segurar para remover e arrastar para reordenar */
+  stickyList() { const st = Store.settings.tools.sticky; if (!Array.isArray(st.colors) || !st.colors.length) st.colors = STICKY_COLORS.slice(); return st.colors; },
+  stickyAdd(c) { const list = this.stickyList(); if (!list.some((x) => x.toLowerCase() === c.toLowerCase())) list.push(c); },
+  stickyDots(sr) {
+    const st = Store.settings.tools.sticky, list = this.stickyList(), box = el('div', { class: 'scol' });
+    list.forEach((c, i) => {
+      const d = el('button', { class: 'cdot' + (String(st.bg).toLowerCase() === c.toLowerCase() ? ' sel' : ''), style: { background: c, borderRadius: '8px' }, title: 'Cor do post-it · arraste para reordenar' }); d.dataset.i = i;
+      if (this.editMode) d.append(el('span', { class: 'xbadge', onclick: (e) => { e.stopPropagation(); if (list.length > 1) list.splice(i, 1); this.save(); this.renderOptions(); } }, '×'));
+      box.append(d);
+    });
+    makeSortable(box, '.cdot', list, () => { this.save(); this.renderOptions(); }, {
+      tap: (i) => { if (this.editMode) return; st.bg = list[i]; this.save(); this.applyStickyBg(list[i]); box.querySelectorAll('.cdot').forEach((x) => x.classList.toggle('sel', +x.dataset.i === i)); if (this.panelOpen) this.buildPanel(); },
+      long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) toast('Toque no × para remover', 1500); },
+    });
+    const add = el('button', { class: 'cbtn addb', title: 'Adicionar cor de post-it' }); add.innerHTML = icon('plus');
+    add.onclick = () => colorPop(add, st.bg, (c) => { this.stickyAdd(c); st.bg = c; this.save(); this.applyStickyBg(c); this.refresh(); }, STICKY_COLORS.concat(HL_PALETTE, PALETTE.slice(4, 16)));
+    box.append(add, this.editBtn('cores')); sr.append(box);
+  },
   applyStickyBg(c) {
     if (Editor.textEl && Editor.textCtx.el.sticky) { Editor.textCtx.el = { ...Editor.textCtx.el, bg: c }; Editor.requestRender(); }
     else if (Editor.sel) { const page = Editor.pageById(Editor.sel.pageId); for (const e of Editor.selElements()) if (e.sticky) Editor.recReplace(page, e, { ...e, bg: c }); Editor.opCommit(); }
@@ -572,7 +589,11 @@ const UI = {
       B('copy', 'Copiar', () => Editor.copySel());
       return;
     }
-    const cb = B('palette', 'Mudar cor', () => colorPop(cb, (Editor.selElements()[0] || {}).color || '#000000', (c) => Editor.recolorSel(c), PALETTE, { alpha: true }));
+    const allSticky = Editor.selElements().length && Editor.selElements().every((e) => e.type === 'text' && e.sticky); /* v1.7: só post-its → o botão muda a cor do papel */
+    if (allSticky) { const sb = B('palette', 'Cor do post-it', () => colorPop(sb, Editor.selElements()[0].bg || '#fde68a', (c) => { this.stickyAdd(c); this.save(); this.applyStickyBg(c); this.refresh(); }, this.stickyList().concat(STICKY_COLORS.filter((x) => !this.stickyList().includes(x)), HL_PALETTE, PALETTE.slice(4, 16)))); }
+    else {
+      const cb = B('palette', 'Mudar cor', () => colorPop(cb, (Editor.selElements()[0] || {}).color || '#000000', (c) => Editor.recolorSel(c), PALETTE, { alpha: true }));
+    }
     if (Editor.selElements().some((e) => (e.type === 'stroke' || e.type === 'shape') && !e.lock)) { const wb = B('line', 'Espessura e tipo de linha', () => this.selWidthPop(wb)); }
     { const one = Editor.selElements(); if (one.length === 1 && one[0].type === 'shape') { const vb = B('nodes', 'Editar pontos: vértices, arestas e curvas (a espessura não muda)', () => Editor.toggleVEdit()); if (Editor.vEdit) vb.classList.add('vedit-on'); } }
     if (Editor.selElements().some((e) => (e.type === 'text' && !e.sticky) || e.type === 'image')) { const fb = B('frame', 'Moldura (borda e cantos arredondados)', () => this.framePop(fb)); }

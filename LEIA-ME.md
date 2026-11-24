@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.7.0 — post-it
+
+- **Escrita faz parte do post-it:** o que você escreve em cima dele vai junto ao mover, girar, apagar, copiar, duplicar e trazer para frente. Ao mudar o tamanho do post-it, a escrita fica como está.
+- **Colar e escrever:** ao colar um post-it, a ferramenta volta para a caneta (o teclado não abre mais). Para digitar nele, toque duas vezes.
+- **Aumentar e diminuir:** o post-it agora tem alças também em cima e embaixo, além dos cantos e das laterais.
+- **Cores salvas à esquerda:** as cores do post-it na barra da esquerda viraram uma lista sua. O "+" adiciona uma cor, segurar mostra o × para remover e arrastar reordena. Uma cor escolhida no painel também entra na lista.
+- **Mudar a cor de um post-it:** com o post-it selecionado, o botão de cor da barra de seleção ("Cor do post-it") muda a cor do papel. Antes ele mudava a cor do texto, e por isso parecia não fazer nada.
+
 ## Novidades da v1.6.1
 
 - **A IA integrada saiu.** Com o plano gratuito do Gemini, um único sumário já esgotava a cota. A leitura da escrita e o sumário automático voltaram a funcionar como na v1.5.0, e a chave de API salva foi apagada do aparelho. As páginas já lidas pela IA mantêm o texto até serem alteradas.

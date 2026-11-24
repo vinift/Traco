@@ -249,7 +249,10 @@ Object.assign(Editor, {
     if (hit) return this.openTextEditor(page, hit, false);
     const st = Store.settings.tools.text, sk = Store.settings.tools.sticky, inf = this.note.mode === 'infinite';
     let el;
-    if (this.tool === 'sticky') el = { id: uid(), type: 'text', sticky: true, bg: sk.bg, x: l.x - 20, y: l.y - 20, w: 220, minH: 200, text: '', size: sk.size, color: sk.color, bold: false, font: st.font || 'sys' };
+    if (this.tool === 'sticky') { /* v1.7: cola o post-it vazio e volta para a caneta (escrever por cima); para digitar, toque duas vezes nele */
+      el = { id: uid(), type: 'text', sticky: true, bg: sk.bg, x: l.x - 20, y: l.y - 20, w: 220, minH: 200, text: '', size: sk.size, color: sk.color, bold: false, font: st.font || 'sys' };
+      this.recAdd(page, el); this.opCommit(); UI.setTool('pen'); toast('Post-it colado — escreva com a caneta · toque duas vezes para digitar', 2200); return;
+    }
     else {
       el = { id: uid(), type: 'text', x: l.x, y: l.y - st.size * 0.6, auto: true, maxW: inf ? 600 : Math.max(60, page.w - l.x - 16), w: 20, text: '', size: st.size, color: st.color, bold: !!st.bold, font: st.font || 'sys', align: st.align || 'left' };
       if (st.ruled) this.applyRuled(page, el, true, l.y);

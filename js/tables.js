@@ -101,6 +101,20 @@ const Tables = {
 Object.assign(Editor, {
   guides: null, tsel: null, tPreview: null,
   snapOn(k) { return Store.settings[k] !== false; },
+  /* v1.7: escrita em cima do post-it faz parte dele — itens acima dele (na ordem da página) com o centro dentro do papel */
+  stickyAtt(page, els, exclude = new Set()) {
+    const out = new Set(), sel = new Set(els.filter((s) => s.type === 'text' && s.sticky)); if (!sel.size) return out;
+    const inside = (s, x) => { const b = elBBox(x); let cx = b.x + b.w / 2, cy = b.y + b.h / 2; if (s.rot) { const c = rawCenter(s); [cx, cy] = rotPt(cx, cy, c.x, c.y, -s.rot); } return cx >= s.x && cx <= s.x + s.w && cy >= s.y && cy <= s.y + layoutText(s).h; };
+    const stack = []; /* post-its já vistos (de baixo para cima): cada item pertence ao post-it MAIS ALTO abaixo dele que o contém */
+    for (const x of page.elements) {
+      if (x.type === 'text' && x.sticky) { stack.push(x); continue; }
+      if (!stack.length || exclude.has(x.id) || x.type === 'table' || x.lock) continue;
+      for (let k = stack.length - 1; k >= 0; k--) if (inside(stack[k], x)) { if (sel.has(stack[k])) out.add(x.id); break; }
+    }
+    return out;
+  },
+  /* seleção + escrita dos post-its selecionados, na ordem da página */
+  selWithAtt() { const page = this.pageById(this.sel.pageId), els = this.selElements(), att = this.stickyAtt(page, els, this.sel.ids); return att.size ? page.elements.filter((e) => this.sel.ids.has(e.id) || att.has(e.id)) : els; },
   /* prepara a ação de mover/redimensionar: alvos de alinhamento e escrita presa às tabelas */
   prepSel(a) {
     a.prep = true;
@@ -108,6 +122,7 @@ Object.assign(Editor, {
     a.page = page; a.pi = this.pageIdx(page); a.b0 = bboxUnion(els);
     const attached = new Set();
     for (const e of els) if (e.type === 'table') for (const x of Tables.attached(page, e, this.sel.ids)) attached.add(x.id);
+    for (const id of this.stickyAtt(page, els, this.sel.ids)) attached.add(id); /* v1.7 */
     a.attached = attached;
     const single = els.length === 1 ? els[0] : null; a.el1 = single;
     a.free = !!(single && single.type !== 'stroke' && !(single.type === 'shape' && (single.kind === 'poly' || single.kind === 'path' || single.kind === 'line' || single.kind === 'arrow')) && !single.rot);

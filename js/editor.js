@@ -927,7 +927,7 @@ const Editor = {
     const els = this.selElements(), x1 = box.x, y1 = box.y, x2 = box.x + box.w, y2 = box.y + box.h, xm = (x1 + x2) / 2, ym = (y1 + y2) / 2;
     const H = [['se', x2, y2], ['nw', x1, y1], ['ne', x2, y1], ['sw', x1, y2]];
     if (!els.some((e) => e.rot)) {
-      const onlyText = els.length === 1 && els[0].type === 'text';
+      const onlyText = els.length === 1 && els[0].type === 'text' && !els[0].sticky; /* v1.7: o post-it também tem alças em cima e embaixo */
       if (box.h > 46) H.push(['e', x2, ym], ['w', x1, ym]);
       if (box.w > 64 && !onlyText) H.push(['s', xm, y2], ['n', xm, y1]);
     }
@@ -989,8 +989,8 @@ const Editor = {
     if (len < 14 && ids.length === 1) this._lastTap = { id: ids[0], t: performance.now() };
     this.requestRender();
   },
-  deleteSel() { const page = this.pageById(this.sel.pageId); for (const e of this.selElements()) if (!e.lock) this.recRemove(page, e); this.sel = null; this.opCommit(); },
-  copySel(record = true) { const els = this.selElements(); if (!els.length) return; this.clip = clone(els); if (record) { Clips.add(els); toast(`${els.length} item(ns) copiado(s) · salvo na biblioteca`, 1400); } UI.renderOptions(); },
+  deleteSel() { const page = this.pageById(this.sel.pageId); for (const e of this.selWithAtt()) if (!e.lock) this.recRemove(page, e); this.sel = null; this.opCommit(); }, /* v1.7: a escrita do post-it vai junto */
+  copySel(record = true) { const els = this.selWithAtt(); if (!els.length) return; this.clip = clone(els); if (record) { Clips.add(els); toast(`${els.length} item(ns) copiado(s) · salvo na biblioteca`, 1400); } UI.renderOptions(); },
   cutSel() { this.copySel(); this.deleteSel(); },
   duplicateSel() { const keep = this.clip; this.copySel(false); this.paste(20); this.clip = keep || this.clip; },
   paste(offset) {
@@ -1015,7 +1015,7 @@ const Editor = {
   /* recortar imagem: direto na página (js/crop.js) */
   recolorSel(color) {
     const page = this.pageById(this.sel.pageId);
-    for (const e of this.selElements()) if (!e.lock && ['stroke', 'shape', 'text'].includes(e.type)) { const { fade, ...r } = e; this.recReplace(page, e, { ...r, color }); } /* v0.38: cor nova tira o degradê */
+    for (const e of this.selElements()) if (!e.lock && ['stroke', 'shape', 'text'].includes(e.type) && !e.sticky) { /* v1.7: post-it muda pela cor do papel */ const { fade, ...r } = e; this.recReplace(page, e, { ...r, color }); } /* v0.38: cor nova tira o degradê */
     this.opCommit();
   },
   /* v0.27: moldura de caixas de texto e imagens — fn(moldura atual ou null) → nova moldura (null = sem); cada mudança entra no desfazer */
@@ -1036,7 +1036,7 @@ const Editor = {
     this.opCommit(); this.requestRender();
   },
   orderSel(front) {
-    const page = this.pageById(this.sel.pageId), els = this.selElements();
+    const page = this.pageById(this.sel.pageId), els = this.selWithAtt(); /* v1.7: post-it leva a escrita junto (continua por cima dele) */
     for (const e of els) this.recRemove(page, e);
     els.forEach((e, k) => this.recAdd(page, e, front ? page.elements.length : k));
     this.opCommit();
