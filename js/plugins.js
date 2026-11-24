@@ -63,7 +63,7 @@ Traco.registerTool({
 });`,
   },
   {
-    id: 'ex-texto', name: 'Carimbo de texto', enabled: true, builtin: true, ver: 4,
+    id: 'ex-texto', name: 'Carimbo de texto', enabled: true, builtin: true, ver: 5,
     code: `// Toque na página para inserir o texto do carimbo. Crie vários carimbos (barra de baixo) e ajuste texto, tamanho, cor e fonte no painel de ajustes.
 const NOVO = { txt: 'Importante!', size: 20, color: '#dc2626', font: 'sys', bold: true, i: false, u: false };
 const pad = (n) => String(n).padStart(2, '0');
@@ -80,12 +80,11 @@ function lista(api) {
   return l;
 }
 function atual(api) { const l = lista(api), k = api.store.get('cur'); return l.find((x) => x.id === k) || l[0]; }
-/* encaixa no quadrado tocado: base do texto na linha de baixo do quadrado e começo na linha da esquerda (folha só com linhas: só a altura) */
+/* só na vertical: base do texto na linha de baixo do quadrado tocado; o texto começa onde você tocou */
 function grudar(e, note, page, x, y) {
   const tpl = page.template || note.template; if (!tpl || tpl.type === 'blank') return;
-  const R = Editor.gridLines(tpl, page, 1), C = Editor.gridLines(tpl, page, 0);
+  const R = Editor.gridLines(tpl, page, 1);
   if (R && R.s > 0) { e.ruled = R.s; e.y = R.o + (Math.floor((y - R.o) / R.s) + 1) * R.s - rtLineHeight(e); }
-  if (C && C.s > 0) e.x = C.o + Math.floor((x - C.o) / C.s) * C.s + Math.min(3, C.s * 0.1);
 }
 function elemento(c, x, y, page, note, snap) {
   const text = formatar(c.txt) || ' ';
@@ -173,7 +172,7 @@ Traco.registerTool({
       switchRow('Sublinhado', null, !!c.u, (v) => { c.u = v; upd(); }),
       colorSection('Cor', c.color, (v) => { c.color = v; upd(); }),
       el('div', { class: 'tp-sec' }, 'Fonte'), fl,
-      switchRow('Grudar na grade', 'O texto encaixa no quadrado tocado: em cima da linha de baixo e encostado na linha da esquerda', api.store.get('grudar') !== false, (v) => api.store.set('grudar', v)),
+      switchRow('Grudar na grade', 'O texto fica em cima da linha de baixo do quadrado tocado e começa onde você tocou', api.store.get('grudar') !== false, (v) => api.store.set('grudar', v)),
       del);
     upd();
   },

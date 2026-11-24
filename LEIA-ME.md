@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.11.6 — carimbo de texto gruda só na altura
+
+- O carimbo de texto continua em cima da linha de baixo do quadrado tocado, mas agora começa exatamente onde você tocou: não encosta mais na linha da esquerda.
+
 ## Novidades da v1.11.5 — carimbo de texto gruda na grade
 
 - O carimbo de texto agora encaixa no quadrado em que você toca: as letras ficam em cima da linha de baixo e o texto começa encostado na linha da esquerda. Na folha só com linhas, ele fica em cima da linha e começa onde você tocou.
