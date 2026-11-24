@@ -1,11 +1,11 @@
 /* Service worker: deixa o app funcionando offline */
-const VERSION = 'traco-v1.6.0';
+const VERSION = 'traco-v1.6.1';
 /* backup em segundo plano: o mesmo código do app, rodando sem tela */
 self.window = self;
 self.document = { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], addEventListener() {}, createElement: () => ({ getContext: () => ({}) }), visibilityState: 'hidden' };
 try { importScripts('js/util.js', 'js/store.js', 'js/drive.js', 'js/bg-sync.js'); } catch (e) { console.warn('segundo plano indisponível', e); }
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'css/app.css',
-  'js/util.js', 'js/native.js', 'js/store.js', 'js/geom.js', 'js/render.js', 'js/pdf.js', 'js/tpl-import.js', 'js/drive.js', 'js/editor.js', 'js/toolbar.js', 'js/tables.js', 'js/tiles.js', 'js/navigation.js', 'js/richtext.js', 'js/crop.js', 'js/shapeedit.js', 'js/colorpicker.js', 'js/fade.js', 'js/ui.js', 'js/ocr.js', 'js/ai.js', 'js/beautify.js', 'js/calligraphy.js', 'js/import-notewise.js', 'js/library.js', 'js/plugins.js', 'js/workspace.js', 'js/autotoc.js', 'js/split.js', 'js/timer.js', 'js/studyreport.js', 'js/pdfopen.js', 'js/notemenu.js', 'js/bugreport.js', 'js/bg-sync.js', 'js/app.js', 'vendor/palavras-pt.txt', 'vendor/palavras-en.txt',
+  'js/util.js', 'js/native.js', 'js/store.js', 'js/geom.js', 'js/render.js', 'js/pdf.js', 'js/tpl-import.js', 'js/drive.js', 'js/editor.js', 'js/toolbar.js', 'js/tables.js', 'js/tiles.js', 'js/navigation.js', 'js/richtext.js', 'js/crop.js', 'js/shapeedit.js', 'js/colorpicker.js', 'js/fade.js', 'js/ui.js', 'js/ocr.js', 'js/beautify.js', 'js/calligraphy.js', 'js/import-notewise.js', 'js/library.js', 'js/plugins.js', 'js/workspace.js', 'js/autotoc.js', 'js/split.js', 'js/timer.js', 'js/studyreport.js', 'js/pdfopen.js', 'js/notemenu.js', 'js/bugreport.js', 'js/bg-sync.js', 'js/app.js', 'vendor/palavras-pt.txt', 'vendor/palavras-en.txt',
   'vendor/pdf.min.mjs', 'vendor/pdf-lib.min.js', 'vendor/pdf.worker.min.mjs', 'icons/icon-192.png', 'icons/icon-512.png', 'privacidade.html'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(VERSION).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== VERSION && k !== 'traco-fonts' && k !== 'traco-inbox' && k !== 'traco-recent-pdf').map((k) => caches.delete(k)))).then(() => self.clients.claim())); });

@@ -97,9 +97,7 @@ const Outline = {
     };
     let pdfBox = null;
     /* v0.32: tópicos automáticos (autotoc.js); tocar vai até o ponto e destaca o título */
-    const goTopic = (it) => { closePop(); Editor.flashRects(it.pi, [it.rect], true); };
-    const autoBox = typeof AutoToc !== 'undefined' ? AutoToc.section(n, goTopic) : null;
-    const topicBox = typeof AI !== 'undefined' && (AI.ready() || n.aiToc) ? el('div', {}, AI.tocSection(n, goTopic, autoBox), autoBox) : autoBox; /* v1.6: "Tópicos (IA)" acima dos automáticos (que somem quando já há análise da IA) */
+    const topicBox = typeof AutoToc !== 'undefined' ? AutoToc.section(n, (it) => { closePop(); Editor.flashRects(it.pi, [it.rect], true); }) : null;
     const appendPdf = () => { if (topicBox) list.append(topicBox); if (pdfBox) list.append(pdfBox); };
     renderMarks(); if (topicBox) list.append(topicBox);
     box.append(el('div', { class: 'qs-head' }, el('h3', {}, 'Sumário')), list);

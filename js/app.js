@@ -3,10 +3,11 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '1.6.0',
+  version: '1.6.1',
   async init() {
     hydrateIcons();
     await Store.init();
+    if (Store.settings.ai) { delete Store.settings.ai; Store.saveSettings(); } /* v1.6.1: a IA (v1.6.0) saiu — apaga a chave de API guardada */
     { const M = Store.settings.penMap || {}; let ch = false; for (const k in M) if (M[k] === 'bullet') { M[k] = 'hyphenDirect'; ch = true; } if (ch) Store.saveSettings(); } /* v0.47.1: o botão "só tópico" virou hífen direto */
     Store.purgeOldTrash().catch((e) => console.warn('lixeira', e)); // apaga de vez o que está na lixeira há mais de 30 dias
     this.applyTheme();

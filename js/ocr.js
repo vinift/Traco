@@ -141,7 +141,7 @@ const OCR = {
     for (const p of note.pages) {
       const sig = this.pageSig(p);
       if (sig.startsWith('0:')) continue;
-      if ((!p.ocr || p.ocr.sig !== sig || (p.ocr.v !== this.OCR_V && !p.ocr.ai)) && !this.queue.some((q) => q.pageId === p.id)) this.queue.push({ noteId: note.id, pageId: p.id });
+      if ((!p.ocr || p.ocr.sig !== sig || p.ocr.v !== this.OCR_V) && !this.queue.some((q) => q.pageId === p.id)) this.queue.push({ noteId: note.id, pageId: p.id });
     }
     this.run();
   },
@@ -153,12 +153,11 @@ const OCR = {
         const q = this.queue.shift();
         if (Editor.note && Editor.note.id === q.noteId && Editor.action) { this.queue.push(q); await sleep(1500); continue; }
         let note = await this.live(q.noteId), page = note && note.pages.find((p) => p.id === q.pageId); if (!page) continue;
-        const sig = this.pageSig(page); if (page.ocr && page.ocr.sig === sig && (page.ocr.v === this.OCR_V || page.ocr.ai) && !(q.ai && !page.ocr.ai)) continue;
-        let r; const useAI = typeof AI !== 'undefined' && (q.ai ? AI.ready() : AI.ocrOn()); /* v1.6: com a IA ligada, as páginas novas/alteradas são lidas por ela */
-        if (useAI) { try { r = await AI.readPage(note, page); AI.lastError = null; } catch (e) { console.warn('IA', e); AI.lastError = e.message; if (q.ai) { this.lastError = e.message; this.queue = this.queue.filter((x) => !x.ai); continue; } } }
-        if (!r) { await this.addPdfVocab(note); try { r = await this.recognizeLines(page.elements); } catch (e) { console.warn('OCR', e); this.lastError = e.message; this.queue = []; break; } }
+        const sig = this.pageSig(page); if (page.ocr && page.ocr.sig === sig && page.ocr.v === this.OCR_V) continue;
+        let r; await this.addPdfVocab(note);
+        try { r = await this.recognizeLines(page.elements); } catch (e) { console.warn('OCR', e); this.lastError = e.message; this.queue = []; break; }
         note = await this.live(q.noteId); page = note && note.pages.find((p) => p.id === q.pageId); if (!page || this.pageSig(page) !== sig) continue;
-        page.ocr = { sig, text: r.text, lines: r.lines, v: this.OCR_V, at: Date.now(), ...(r.ai ? { ai: 1 } : {}) };
+        page.ocr = { sig, text: r.text, lines: r.lines, v: this.OCR_V, at: Date.now() };
         if (Editor.note === note) Editor.saveDebounced(); else if (Store.heads[note.id]) await Store.putNote(note); /* v0.30: nota que foi para a Lixeira não volta */
         await sleep(400);
       }

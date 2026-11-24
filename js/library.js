@@ -439,50 +439,6 @@ async function openSettings(focus) {
       try { await OCR.indexAll((i, t) => { ocrStatus.textContent = `Lendo notas… ${i} de ${t}`; }); ocrStatus.textContent = '✅ Todas as notas foram lidas.'; }
       catch (e) { ocrStatus.textContent = '⚠️ Não foi possível ler: ' + e.message; }
     })), ocrStatus));
-  // --- v1.6: Inteligência artificial
-  if (typeof AI !== 'undefined') {
-    const C = AI.cfg(), aiStatus = el('p', { class: 'ai-status' }), dl = el('datalist', { id: 'aiModels' });
-    const prov = el('select', {}, ...Object.entries(AI_PROVIDERS).map(([k, v]) => el('option', { value: k }, v.name))); prov.value = C.provider;
-    const keyIn = el('input', { type: 'password', autocomplete: 'off', spellcheck: 'false', placeholder: 'cole aqui a sua chave de API' });
-    const baseIn = el('input', { type: 'url', autocomplete: 'off', spellcheck: 'false', placeholder: 'ex.: https://openrouter.ai/api/v1' });
-    const mOcr = el('input', { type: 'text', list: 'aiModels', autocomplete: 'off', spellcheck: 'false' }), mToc = el('input', { type: 'text', list: 'aiModels', autocomplete: 'off', spellcheck: 'false' });
-    const rpm = el('input', { type: 'number', min: 1, max: 120, step: 1, style: { width: '90px' } });
-    const keyLink = el('a', { target: '_blank', rel: 'noopener' }, 'Criar uma chave');
-    const baseRow = el('div', { class: 'field' }, el('label', {}, 'Endereço do serviço'), baseIn);
-    const fill = () => {
-      const p = C.provider, P = AI_PROVIDERS[p]; keyIn.value = C.keys[p] || ''; baseIn.value = C.base[p] || P.base || ''; baseRow.style.display = p === 'compat' ? '' : 'none';
-      mOcr.value = C.models[p] || P.ocr || ''; mToc.value = C.tocModels[p] || P.toc || ''; mOcr.placeholder = mToc.placeholder = 'nome do modelo (toque em Carregar modelos)';
-      keyLink.style.display = P.keyUrl ? '' : 'none'; if (P.keyUrl) keyLink.href = P.keyUrl; rpm.value = C.rpm || 10;
-    };
-    const save = () => { const p = C.provider; C.keys[p] = keyIn.value.trim(); if (p === 'compat') C.base[p] = baseIn.value.trim(); C.models[p] = mOcr.value.trim(); C.tocModels[p] = mToc.value.trim(); C.rpm = clamp(+rpm.value || 10, 1, 120); Store.saveSettings(); };
-    prov.addEventListener('change', () => { save(); C.provider = prov.value; Store.saveSettings(); fill(); dl.innerHTML = ''; });
-    for (const i of [keyIn, baseIn, mOcr, mToc, rpm]) i.addEventListener('change', save);
-    const loadModels = async () => {
-      save(); aiStatus.textContent = 'Carregando modelos…';
-      try {
-        const list = await AI.listModels(); dl.innerHTML = ''; for (const m of list) dl.append(el('option', { value: m.id }, m.name || m.id));
-        if (C.provider === 'gemini') { const a = AI.suggest(list, 'ocr'), b = AI.suggest(list, 'toc'); if (a && !list.some((m) => m.id === mOcr.value)) mOcr.value = a; if (b && !list.some((m) => m.id === mToc.value)) mToc.value = b; save(); }
-        aiStatus.textContent = `✅ ${list.length} modelos disponíveis — toque no campo do modelo para escolher.`;
-      } catch (e) { aiStatus.textContent = '⚠️ Não consegui listar os modelos: ' + e.message; }
-    };
-    const test = async () => { save(); if (!AI.key() && C.provider !== 'compat') return (aiStatus.textContent = '⚠️ Falta a chave de API.'); aiStatus.textContent = 'Testando…'; try { const t = await AI.test(); aiStatus.textContent = `✅ Funcionando (${AI.model('ocr')} respondeu "${t}").`; } catch (e) { aiStatus.textContent = '⚠️ ' + e.message; } };
-    fill();
-    body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Inteligência artificial (IA)'),
-      el('p', {}, 'A IA lê a sua escrita (mais precisa que o leitor comum, inclusive em letra corrida e termos técnicos) e monta o sumário com títulos, subtítulos e tópicos (Sumário → "Analisar com IA"). Use a sua própria chave de API: ela fica guardada só neste aparelho e não vai para o backup.'),
-      UI.check('Usar a IA', !!C.on, (v) => { C.on = v; Store.saveSettings(); if (v && Editor.note) OCR.scheduleNote(Editor.note); }),
-      el('div', { class: 'field' }, el('label', {}, 'Provedor'), prov),
-      el('div', { class: 'field' }, el('label', {}, 'Chave de API'), keyIn, keyLink), baseRow,
-      el('h4', { class: 'set-sub' }, 'Modelos'),
-      el('div', { class: 'field' }, el('label', {}, 'Para ler a escrita (rápido)'), mOcr),
-      el('div', { class: 'field' }, el('label', {}, 'Para o sumário (pensa mais)'), mToc), dl,
-      el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, B('Carregar modelos', '', loadModels), B('Testar', 'primary', test)), aiStatus,
-      el('h4', { class: 'set-sub' }, 'Leitura automática'),
-      UI.check('Ler com a IA as páginas novas ou alteradas (em segundo plano)', C.ocr !== false, (v) => { C.ocr = v; Store.saveSettings(); }),
-      el('div', { class: 'field' }, el('label', {}, 'Pedidos por minuto, no máximo'), rpm),
-      el('p', { class: 'hint' }, 'A camada gratuita do Gemini tem limite de pedidos por minuto e por dia; cada página lida é 1 pedido. Se o limite estourar, o app usa o leitor comum por 10 minutos. Para reler com a IA uma nota já lida: ⋯ da nota → "Ler esta nota com a IA".'),
-      el('p', { class: 'hint' }, 'Privacidade: a imagem da escrita e o texto das páginas vão para o provedor escolhido. Pelos termos do Google, no Gemini gratuito o conteúdo pode ser usado para melhorar os produtos deles; nos planos pagos, não.'),
-      AI.lastError ? el('p', { class: 'hint' }, '⚠️ Último erro da IA: ' + AI.lastError) : null));
-  }
   // --- Modelo padrão
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Modelo padrão para novas notas'),
     el('button', { class: 'btn', onclick: async () => {
@@ -548,14 +504,13 @@ async function openSettings(focus) {
     grp('Botões da caneta', [['Botões da caneta (Focus Pen)']], () => { const n = Object.keys(S.penMap || {}).length, d = typeof PEN_DOUBLE_ACTIONS !== 'undefined' && PEN_DOUBLE_ACTIONS.find(([k]) => k === (S.penDouble || 'lassoToggle')); return `${n ? n + (n > 1 ? ' botões configurados' : ' botão configurado') : 'nenhum botão configurado'} · toque duplo: ${S.penTriple === false || S.penDouble === 'none' ? 'desligado' : d ? d[1] : 'padrão'}`; }),
     grp('Tela e zoom', [['Aparência e barras', 'Aparência e barras'], ['Zoom', 'Zoom']], () => `Barras ${{ normal: 'normais', compact: 'compactas', mini: 'bem compactas' }[S.barSize || 'compact'] || 'compactas'} · tema ${{ auto: 'automático', light: 'claro', dark: 'escuro' }[S.theme || 'auto']} · zoom ${+S.zoomMin || 20}–${+S.zoomMax || 800}%`),
     grp('Leitura da escrita (OCR)', [['Leitura da escrita à mão (OCR)']], () => `Leitura automática ${S.ocr.enabled !== false ? 'ligada' : 'desligada'} · ${ocrLang.selectedOptions[0] ? ocrLang.selectedOptions[0].textContent : ''}`),
-    typeof AI !== 'undefined' ? grp('Inteligência artificial', [['Inteligência artificial (IA)']], () => { const C = AI.cfg(); return !C.on ? 'Desligada' : (AI.ready() ? `${AI_PROVIDERS[C.provider].name} · ${AI.model('ocr')}` : 'Falta configurar a chave ou o modelo'); }) : null,
     grp('Backup e dados', [['Backup automático no Google Drive', 'Google Drive'], ['Cópia local', 'Cópia local'], ['Modelo padrão para novas notas', 'Modelo padrão para novas notas']], () => !Drive.configured() ? 'Drive desligado' : (Drive.hasAuth() ? 'Drive conectado' : 'Drive precisa conectar') + (D.lastSync ? ' · último backup ' + new Date(D.lastSync).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '')),
     grp('Avançado', [['Ferramentas próprias (plugins)', 'Ferramentas próprias (plugins)'], ['Diagnóstico', 'Diagnóstico'], ['Sobre', 'Sobre']], () => { const n = readErrors().length; return `${S.plugins.length} plugin${S.plugins.length === 1 ? '' : 's'} · ${n ? n + ' erro' + (n > 1 ? 's' : '') + ' registrado' + (n > 1 ? 's' : '') : 'sem erros'} · versão ${App.version}`; }),
   ];
-  body.innerHTML = ''; body.append(...groups.filter(Boolean));
+  body.innerHTML = ''; body.append(...groups);
   return settingsPage(body, focus, () => { saveDrive(); applyBarSize(); if (Editor.note) { UI.buildToolbar(); UI.renderOptions(); Editor.requestRender(); } });
 }
-const SET_ORDER = [['Caneta e escrita', 'pen'], ['Formas e alinhamento', 'fit'], ['Botões da caneta', 'hand'], ['Tela e zoom', 'palette'], ['Leitura da escrita (OCR)', 'ocr'], ['Inteligência artificial', 'sparkle'], ['Backup e dados', 'cloud'], ['Avançado', 'tune']];
+const SET_ORDER = [['Caneta e escrita', 'pen'], ['Formas e alinhamento', 'fit'], ['Botões da caneta', 'hand'], ['Tela e zoom', 'palette'], ['Leitura da escrita (OCR)', 'ocr'], ['Backup e dados', 'cloud'], ['Avançado', 'tune']];
 function settingsPage(body, focus, onClose) {
   return new Promise((resolve) => {
     const secs = [...body.querySelectorAll(':scope > .set-sec')];

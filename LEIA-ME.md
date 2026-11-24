@@ -153,7 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
-## Novidades da v1.6.0 — IA integrada
+## Novidades da v1.6.1
+
+- **A IA integrada saiu.** Com o plano gratuito do Gemini, um único sumário já esgotava a cota. A leitura da escrita e o sumário automático voltaram a funcionar como na v1.5.0, e a chave de API salva foi apagada do aparelho. As páginas já lidas pela IA mantêm o texto até serem alteradas.
+
+## Novidades da v1.6.0 — IA integrada (removida na v1.6.1)
 
 - **Configurações → Inteligência artificial:** escolha o provedor (Google Gemini, Claude, OpenAI ou qualquer serviço compatível com OpenAI, como OpenRouter, Groq ou Ollama), cole a sua chave de API e toque em "Carregar modelos" e depois em "Testar". A chave fica só neste aparelho: não vai para o Drive, para a cópia local nem para o relatório de problema.
 - **Leitura da escrita pela IA:** com a IA ligada, as páginas novas ou alteradas são lidas por ela em segundo plano. Ela entende melhor letra corrida, siglas e termos técnicos, e a busca e o sumário passam a usar esse texto. Para reler com a IA uma nota já lida: ⋯ da nota → "Ler esta nota com a IA". Se a cota acabar ou a chave for recusada, o app volta ao leitor comum por 10 minutos.
