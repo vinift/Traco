@@ -1543,3 +1543,12 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 .rp-qown{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 12px}
 .rp-qown.hidden{display:none}
 @media (max-width:700px){.rp-qrow{grid-template-columns:1fr 1fr}}
+
+/* v1.13.2 — sessões de questões e parte de questões nos gráficos */
+.rp-kind{display:inline-block;margin-left:8px;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--panel2,#eee);color:var(--muted);vertical-align:middle;white-space:nowrap}
+.rp-kind.q{background:color-mix(in srgb,#ea580c 16%,transparent);color:#ea580c}
+.rp-srow.qs{box-shadow:inset 3px 0 0 #ea580c}
+.rp-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:22px 0 4px}
+.rp-legend span{display:inline-flex;align-items:center;gap:6px}
+.rp-legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.rp-qnote{color:#ea580c;font-weight:600}

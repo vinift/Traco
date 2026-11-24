@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.13.2 — questões em destaque no relatório
+
+- **Gráficos:** em cada barra, a parte de cada matéria aparece em duas cores. A cor normal é o estudo, e o **tom mais escuro da mesma cor** é o tempo de questões. Há uma legenda embaixo do gráfico.
+- **Ao tocar numa barra:** a lista por matéria mostra quanto foi de questões (por exemplo "· ✍️ 20 min"), e a barrinha também fica com a parte escura.
+- **Sessões:** cada sessão leva uma etiqueta **📖 Estudo** ou **✍️ Questões**. As de questões têm uma marca laranja na lateral. Estudo e questões não se juntam mais na mesma sessão.
+- Ao editar uma sessão, dá para trocar o **Tipo** entre Estudo e Questões.
+
 ## Novidades da v1.13.1 — tempo pausado não conta mais
 
 - **Correção importante:** ao tocar em **Continuar** depois de pausar o cronômetro, o tempo em que ele ficou pausado entrava no histórico como estudo (ou como questões). Por isso o relatório mostrava mais tempo do que o cronômetro. O "+5 min" do alarme do temporizador tinha o mesmo problema. Agora só conta o tempo com o cronômetro rodando.
