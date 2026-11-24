@@ -57,12 +57,24 @@ const StudyReport = {
      Bloco = {parts, s, e, study (soma dos trechos), pause (soma das pausas), key}. Registros antigos sem horário ficam sozinhos. */
   gapMs() { const g = Store.settings.sessGap; return (g == null ? 10 : +g) * 60000; },
   blocks(xs) {
-    const gap = this.gapMs(), out = []; let b = null;
+    const gap = this.gapMs(), out = []; let b = null, pend = [];
+    const keyOf = (x) => this.subj(x).key + (this.countable(x) ? '' : '#off');
+    const start = (x) => { b = { parts: [x], s: x.s, e: x.e, study: this.countable(x) ? x.e - x.s : 0, pause: 0, key: keyOf(x), off: !this.countable(x), lg: !!x.lg, live: !!x.live }; out.push(b); };
+    const join = (x) => { b.parts.push(x); b.pause += Math.max(0, x.s - b.e); b.e = Math.max(b.e, x.e); if (this.countable(x)) b.study += x.e - x.s; if (x.live) b.live = 1; };
+    const plain = (x) => { if (b && !x.lg && !b.lg && keyOf(x) === b.key && x.s - b.e <= gap && x.s >= b.e - 1000) join(x); else start(x); };
+    const flush = () => { const P = pend; pend = []; for (const x of P) plain(x); };
     for (const x of xs.slice().sort((p, q) => p.s - q.s)) {
-      const key = this.subj(x).key + (this.countable(x) ? '' : '#off');
-      if (b && !x.lg && !b.lg && key === b.key && x.s - b.e <= gap && x.s >= b.e - 1000) { b.parts.push(x); b.pause += Math.max(0, x.s - b.e); b.e = Math.max(b.e, x.e); b.study += x.e - x.s; if (x.live) b.live = 1; continue; }
-      b = { parts: [x], s: x.s, e: x.e, study: x.e - x.s, pause: 0, key, lg: !!x.lg, live: !!x.live }; out.push(b);
+      /* v1.10.1: trecho que não conta (fora das notas / sem matéria) logo depois de uma sessão fica "em espera"; se a mesma matéria volta
+         dentro do limite de pausa (contado desde o fim da sessão), ele vira pausa dela em vez de partir a sessão */
+      if (b && !b.off && !b.lg && !x.lg && !this.countable(x) && x.s - b.e <= gap) { pend.push(x); continue; }
+      if (pend.length && b && !x.lg && keyOf(x) === b.key && x.s - b.e <= gap) {
+        for (const q of pend) { b.parts.push(q); b.pause += Math.max(0, q.s - b.e) + (q.e - q.s); b.e = Math.max(b.e, q.e); if (q.live) b.live = 1; }
+        pend = []; join(x); continue;
+      }
+      if (pend.length) flush();
+      plain(x);
     }
+    flush();
     return out;
   },
   /* sessões que tocam [a, b) com o tempo cortado */
