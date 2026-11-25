@@ -1675,3 +1675,12 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 .hc-pi.on{border-color:var(--accent)}.hc-pi.on .hc-pn small{color:var(--accent);font-weight:600}
 .hc-prv{align-self:flex-start;border:0;border-radius:999px;padding:7px 14px;background:color-mix(in srgb,#f59e0b 16%,transparent);color:#b45309;font-weight:700;cursor:pointer}
 .tm-kind{grid-template-columns:1fr 1fr 1fr}
+
+/* v1.16 — revisão no plano */
+.tm-kind{grid-template-columns:repeat(4,1fr)}
+.tm-kind .tm-kbtn{font-size:13px;padding-left:4px;padding-right:4px}
+.tm-kbtn.v.on{border-color:#0ea5e9;color:#0369a1;background:color-mix(in srgb,#0ea5e9 14%,transparent)}
+.rp-kind.v{background:color-mix(in srgb,#0ea5e9 18%,transparent);color:#0369a1}
+.pl-rows.hv .pl-row{grid-template-columns:minmax(80px,1.2fr) repeat(3,minmax(64px,1fr)) auto}
+.tm-qday .pl-rows.hv .pl-row{grid-template-columns:minmax(56px,1fr) repeat(3,minmax(54px,1fr))}
+.pl-item.v span{color:#0369a1}

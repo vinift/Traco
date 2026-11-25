@@ -652,6 +652,7 @@ function penMapSection() {
 function subjectOfNote(id) {
   if (id === '_') return { key: '_', name: 'Fora das notas', color: 'var(--muted)' };
   if (id === '_r') return { key: '_r', name: 'Caderno de erros', color: '#f59e0b' }; /* v1.15 */
+  if (id === '_v') return { key: '_v', name: 'Revisão geral', color: '#0ea5e9' }; /* v1.16 */
   if (id.startsWith('f:')) { /* v0.42.1: ajuste manual do relatório gravado direto na matéria */ const ch = Store.folderChain(id.slice(2)) || []; for (let i = ch.length - 1; i >= 0; i--) if (ch[i].subject) return { key: ch[i].id, name: ch[i].name, color: ch[i].color || FOLDER_COLORS[0] }; return { key: '~', name: 'Sem matéria', color: 'var(--muted)' }; }
   const h = Store.heads[id]; if (!h) return { key: '?', name: 'Notas apagadas', color: 'var(--line)' };
   const ch = h.folderId ? Store.folderChain(h.folderId) : [];
@@ -694,16 +695,16 @@ const HomeTop = {
     const P = StudyPlan, T = StudyTimer, now = Date.now(), items = P.dayItems(now); if (!items) return null;
     const d = new Date(); d.setHours(0, 0, 0, 0); const a = d.getTime(), st = new Map((P.stats(a, a + 864e5) || []).map((c) => [c.key, c]));
     const sd = (v) => StudyReport.shortDur(v) || '0m', g = new Map();
-    for (const x of items) { const k = x.k + ':' + (x.k === 'r' ? '*' : x.f), o = g.get(k) || { k: x.k, f: x.k === 'r' ? null : x.f, min: 0 }; o.min += x.min; g.set(k, o); }
+    for (const x of items) { const k = x.k + ':' + (x.k === 'r' ? '*' : x.f), o = g.get(k) || { k: x.k, f: x.k === 'r' || x.f === '*' ? null : x.f, min: 0 }; o.min += x.min; g.set(k, o); }
     let tg = 0, td = 0;
     const rows = [...g.values()].map((o) => {
-      const sb = o.k === 'r' ? RV_SUBJ : subjectOfNote('f:' + o.f), c = st.get(sb.key) || {}, done = o.k === 'q' ? c.q || 0 : c.e || 0, goal = o.min * 60000, hit = done >= goal;
+      const gv = o.k === 'v' && !o.f, sb = o.k === 'r' ? RV_SUBJ : gv ? RW_SUBJ : subjectOfNote('f:' + o.f), c = st.get(sb.key) || {}, done = o.k === 'q' ? c.q || 0 : o.k === 'v' && !gv ? c.v || 0 : c.e || 0, goal = o.min * 60000, hit = done >= goal;
       tg += goal; td += Math.min(done, goal);
-      const on = T.st.running && (o.k === 'r' ? T.st.q === 'r' : (T.st.subj || null) === o.f && (o.k === 'q' ? T.st.q === true : !T.st.q));
+      const on = T.st.running && (o.k === 'r' ? T.st.q === 'r' : gv ? T.st.q === 'v' : (T.st.subj || null) === o.f && (o.k === 'q' ? T.st.q === true : o.k === 'v' ? T.st.q === 'v' : !T.st.q));
       return el('button', { class: 'hc-pi' + (hit ? ' hit' : '') + (on ? ' on' : ''), onclick: (e) => { e.stopPropagation(); this.go(o); } },
-        el('span', { class: 'hc-pk' }, o.k === 'r' ? '🔁' : o.k === 'q' ? '✍️' : '📖'),
-        el('span', { class: 'hc-pn' }, el('b', {}, o.k === 'r' ? 'Caderno de erros' : sb.name), el('small', {}, on ? '● agora' : `${sd(done)} de ${sd(goal)}`)),
-        el('i', { class: 'hc-pb' }, el('em', { style: { width: Math.min(100, (done / goal) * 100) + '%', background: o.k === 'q' ? StudyReport.qColor(sb.color) : sb.color } })),
+        el('span', { class: 'hc-pk' }, o.k === 'r' ? '🔁' : o.k === 'v' ? '🔄' : o.k === 'q' ? '✍️' : '📖'),
+        el('span', { class: 'hc-pn' }, el('b', {}, o.k === 'r' ? 'Caderno de erros' : gv ? 'Revisão geral' : o.k === 'v' ? 'Revisão · ' + sb.name : sb.name), el('small', {}, on ? '● agora' : `${sd(done)} de ${sd(goal)}`)),
+        el('i', { class: 'hc-pb' }, el('em', { style: { width: Math.min(100, (done / goal) * 100) + '%', background: o.k === 'q' ? StudyReport.qColor(sb.color) : o.k === 'v' ? RW_SUBJ.color : sb.color } })),
         el('span', { class: 'hc-pc' }, hit ? '✓' : '▶'));
     });
     const pend = P.pending().length, w = P.week(now);
@@ -714,9 +715,9 @@ const HomeTop = {
       pend ? el('button', { class: 'hc-prv', onclick: () => P.redoPop() }, `🔁 ${pend} ${pend === 1 ? 'erro' : 'erros'} para refazer`) : null);
   },
   go(o) {
-    const T = StudyTimer; T.setSubj(o.k === 'r' ? T.st.subj : o.f); T.setQ(o.k === 'r' ? 'r' : o.k === 'q');
+    const T = StudyTimer; T.setSubj(o.f || T.st.subj); T.setQ(o.k === 'r' ? 'r' : o.k === 'v' ? 'v' : o.k === 'q');
     if (!T.st.running) T.start();
-    toast(`Cronômetro: ${o.k === 'r' ? 'caderno de erros' : subjectOfNote('f:' + o.f).name + (o.k === 'q' ? ' · questões' : ' · estudo')}`, 1600);
+    toast(`Cronômetro: ${o.k === 'r' ? 'caderno de erros' : !o.f ? 'revisão geral' : subjectOfNote('f:' + o.f).name + (o.k === 'q' ? ' · questões' : o.k === 'v' ? ' · revisão' : ' · estudo')}`, 1600);
     if (o.k === 'r') StudyPlan.redoPop(); this.refreshPlan();
   },
   cont() {

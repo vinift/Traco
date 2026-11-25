@@ -50,19 +50,24 @@ const StudyPlan = {
   /* metas × feito por matéria no intervalo [a, b): {key, name, color, e, q, ge, gq, ok, no}; null se o plano não vale no intervalo */
   stats(a, b) {
     const R = StudyReport, m = new Map(); let any = false;
-    const get = (sb) => { let c = m.get(sb.key); if (!c) m.set(sb.key, (c = { ...sb, e: 0, q: 0, ge: 0, gq: 0, ok: 0, no: 0 })); return c; };
-    for (let t = a; t < b; t = R.addDays(t, 1)) { const it = this.dayItems(t + 43200000); if (!it) continue; any = true; for (const x of it) { if (x.k === 'r') { get(RV_SUBJ).ge += x.min * 60000; continue; } const c = get(subjectOfNote('f:' + x.f)); if (x.k === 'q') c.gq += x.min * 60000; else c.ge += x.min * 60000; } }
+    const get = (sb) => { let c = m.get(sb.key); if (!c) m.set(sb.key, (c = { ...sb, e: 0, q: 0, v: 0, ge: 0, gq: 0, gv: 0, ok: 0, no: 0 })); return c; };
+    for (let t = a; t < b; t = R.addDays(t, 1)) { const it = this.dayItems(t + 43200000); if (!it) continue; any = true; for (const x of it) { if (x.k === 'r') { get(RV_SUBJ).ge += x.min * 60000; continue; } if (x.k === 'v' && x.f === '*') { get(RW_SUBJ).ge += x.min * 60000; continue; } if (x.k === 'v') { get(subjectOfNote('f:' + x.f)).gv += x.min * 60000; continue; } const c = get(subjectOfNote('f:' + x.f)); if (x.k === 'q') c.gq += x.min * 60000; else c.ge += x.min * 60000; } }
     if (!any) return null;
-    for (const [x, v] of R.within(a, b)) { if (x.r) { get(RV_SUBJ).e += v; continue; } /* v1.15: o tempo do caderno de erros vai para a linha própria */ const c = get(R.subj(x)); if (x.q) c.q += v; else c.e += v; }
+    let allV = 0; for (const [x, v] of R.within(a, b)) { if (x.r) { get(RV_SUBJ).e += v; continue; } if (x.v) { allV += v; const sb = R.subj(x); if (sb.key !== '_v') get(sb).v += v; continue; } /* v1.16: revisão */ /* v1.15: o tempo do caderno de erros vai para a linha própria */ const c = get(R.subj(x)); if (x.q) c.q += v; else c.e += v; }
+    /* revisão geral = toda a revisão do período menos o que já cumpriu a revisão de matérias específicas */
+    if (allV || m.has('_v')) { let used = 0; for (const c of m.values()) if (c.key !== '_v') used += Math.min(c.v, c.gv); get(RW_SUBJ).e = Math.max(0, allV - used); }
     for (const r of StudyTimer.log.qa || []) if (r[0] >= a && r[0] < b) { const c = m.get(StudyTimer.ansSubj(r).key); if (c) { if (r[1]) c.ok++; else c.no++; } }
-    return [...m.values()].sort((p, q) => q.ge + q.gq - (p.ge + p.gq) || q.e + q.q - (p.e + p.q));
+    return [...m.values()].sort((p, q) => q.ge + q.gq + q.gv - (p.ge + p.gq + p.gv) || q.e + q.q + q.v - (p.e + p.q + p.v));
   },
   /* linhas compactas: matéria · 📖 feito/meta · ✍️ feito/meta (barras finas na cor da matéria e no tom escuro) */
+  has(c) { return !!(c.ge || c.gq || c.gv || c.e || c.q || c.v); },
   rows(list) {
     const T = StudyTimer, sd = (v) => StudyReport.shortDur(v) || '0m';
     const cell = (ic, v, g, col) => el('span', { class: 'pl-cell' + (g && v >= g ? ' hit' : '') + (!g && !v ? ' nil' : '') }, el('small', {}, `${ic} ${sd(v)}${g ? ' / ' + sd(g) : ''}${g && v >= g ? ' ✓' : ''}`), g ? el('i', { class: 'pl-bar' }, el('b', { style: { width: Math.min(100, (v / g) * 100) + '%', background: col } })) : null);
-    return el('div', { class: 'pl-rows' }, ...list.map((c) => el('div', { class: 'pl-row' }, el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: c.color } }), c.name),
-      c.key === '_r' ? cell('🔁', c.e, c.ge, c.color) : cell('📖', c.e, c.ge, c.color), c.key === '_r' ? el('span', { class: 'pl-cell' }, el('small', { class: 'pl-pend' }, `${this.pending().length} para refazer`)) : cell('✍️', c.q, c.gq, StudyReport.qColor(c.color)),
+    const hv = list.some((c) => c.key[0] !== '_' && (c.v || c.gv)), blank = () => el('span', { class: 'pl-cell' });
+    return el('div', { class: 'pl-rows' + (hv ? ' hv' : '') }, ...list.map((c) => el('div', { class: 'pl-row' }, el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: c.color } }), c.name),
+      c.key === '_r' ? cell('🔁', c.e, c.ge, c.color) : c.key === '_v' ? cell('🔄', c.e, c.ge, c.color) : cell('📖', c.e, c.ge, c.color), c.key === '_r' ? el('span', { class: 'pl-cell' }, el('small', { class: 'pl-pend' }, `${this.pending().length} para refazer`)) : c.key === '_v' ? blank() : cell('✍️', c.q, c.gq, StudyReport.qColor(c.color)),
+      hv ? (c.key[0] === '_' || !(c.v || c.gv) ? blank() : cell('🔄', c.v, c.gv, RW_SUBJ.color)) : null,
       el('small', { class: 'pl-ans' }, c.ok + c.no ? `✓${c.ok} ✗${c.no}` : ''))));
   },
   /* "Semana 2/4 · Foco" */
@@ -70,7 +75,7 @@ const StudyPlan = {
   /* painel do cronômetro: hoje no plano */
   todayEl() {
     const d = new Date(); d.setHours(0, 0, 0, 0); const a = d.getTime(), list = this.stats(a, a + 864e5); if (!list) return null;
-    const rows = list.filter((c) => c.ge || c.gq || c.e || c.q), w = this.week(Date.now());
+    const rows = list.filter((c) => this.has(c)), w = this.week(Date.now());
     return el('div', { class: 'tm-qday' }, el('div', { class: 'tm-tot' }, el('span', {}, '📅 Hoje no plano'), el('b', {}, this.label(w))),
       rows.length ? this.rows(rows) : el('p', { class: 'tm-hint' }, 'Nada planejado para hoje.'));
   },
@@ -103,26 +108,28 @@ const StudyPlan = {
       tg.p ? el('button', { class: 'btn ghost', onclick: async () => { const n = await askText('Renomear plano', tg.p.name); if (n) { tg.p.name = n.trim(); this.save(); render(); } } }, 'Renomear') : null,
       tg.p && P.plans.length > 1 ? el('button', { class: 'btn ghost danger', onclick: async () => { if (!(await confirmBox('Excluir plano', `Excluir "${tg.p.name}"? As semanas do ciclo que usam este plano ficam sem meta.`, 'Excluir', true))) return; P.plans = P.plans.filter((x) => x !== tg.p); P.cycle.seq = P.cycle.seq.filter((id) => id !== tg.p.id); this._sel = P.plans[0].id; this.save(); render(); } }, 'Excluir') : null);
     if (!subs.length) return el('div', { class: 'rp-card' }, tabs, head, el('p', { class: 'tm-hint' }, 'Marque pastas como matéria (menu ⋯ da pasta → "Marcar como matéria") para montar o plano.'));
-    const tot = { e: 0, q: 0, r: 0 }, per = new Map();
+    const tot = { e: 0, q: 0, r: 0, v: 0 }, per = new Map();
     const cols = PL_DOW.map((d) => {
       const list = tg.days[d] || [], dt = list.reduce((s, x) => s + x.min, 0);
-      for (const x of list) { tot[x.k] += x.min; const c = per.get(x.f) || { e: 0, q: 0, r: 0 }; c[x.k] += x.min; per.set(x.f, c); }
+      for (const x of list) { tot[x.k] += x.min; const pk = x.k === 'v' && x.f === '*' ? '*v' : x.f, c = per.get(pk) || { e: 0, q: 0, r: 0, v: 0 }; c[x.k] += x.min; per.set(pk, c); }
       const add = el('button', { class: 'pl-add', title: 'Adicionar', onclick: () => { const lf = (list[list.length - 1] || {}).f, x = { id: uid(), f: lf && lf !== '*' ? lf : subs[0].id, k: 'e', min: 60 }; this.change(tg, () => { (tg.days[d] = tg.days[d] || []).push(x); }); render(); this.itemPop(add, tg, d, x, render, true); } }, '+');
       const dh = el('button', { class: 'pl-dh', onclick: () => this.dayPop(dh, tg, d, render) }, el('b', {}, PL_DN[d]), el('small', {}, dt ? sd(dt) : 'livre'));
-      return el('div', { class: 'pl-col' }, dh, ...list.map((x) => { const f = Store.folders.find((y) => y.id === x.f), col = x.k === 'r' ? RV_SUBJ.color : (f && (f.color || FOLDER_COLORS[0])) || 'var(--muted)';
-        const b = el('button', { class: 'pl-item' + (x.k === 'q' ? ' q' : x.k === 'r' ? ' r' : ''), onclick: () => this.itemPop(b, tg, d, x, render) }, el('span', {}, x.k === 'r' ? '🔁 Caderno de erros' : (x.k === 'q' ? '✍️ ' : '📖 ') + (f ? f.name : 'matéria apagada')), el('small', {}, sd(x.min)));
+      return el('div', { class: 'pl-col' }, dh, ...list.map((x) => { const f = Store.folders.find((y) => y.id === x.f), gen = x.k === 'v' && x.f === '*', col = x.k === 'r' ? RV_SUBJ.color : gen ? RW_SUBJ.color : (f && (f.color || FOLDER_COLORS[0])) || 'var(--muted)';
+        const b = el('button', { class: 'pl-item' + (x.k === 'q' ? ' q' : x.k === 'r' ? ' r' : x.k === 'v' ? ' v' : ''), onclick: () => this.itemPop(b, tg, d, x, render) }, el('span', {}, x.k === 'r' ? '🔁 Caderno de erros' : gen ? '🔄 Revisão geral' : (x.k === 'q' ? '✍️ ' : x.k === 'v' ? '🔄 ' : '📖 ') + (f ? f.name : 'matéria apagada')), el('small', {}, sd(x.min)));
         b.style.setProperty('--c', x.k === 'q' ? StudyReport.qColor(col) : col); /* el() não grava variáveis CSS pelo objeto style */
         return b; }), add);
     });
-    const sum = el('div', { class: 'pl-sum' }, el('b', {}, `Semana: ${sd(tot.e + tot.q)}`), el('small', {}, `📖 ${sd(tot.e)} · ✍️ ${sd(tot.q)}${tot.r ? ' · 🔁 ' + sd(tot.r) : ''}`),
-      ...[...per.entries()].map(([fid, c]) => { if (fid === '*') return el('span', { class: 'pl-sumi' }, el('i', { class: 'sr-dot', style: { background: RV_SUBJ.color } }), `Caderno de erros 🔁${sd(c.r)}`); const f = Store.folders.find((y) => y.id === fid); return el('span', { class: 'pl-sumi' }, el('i', { class: 'sr-dot', style: { background: (f && f.color) || FOLDER_COLORS[0] } }), `${f ? f.name : '—'} ${c.e ? '📖' + sd(c.e) : ''} ${c.q ? '✍️' + sd(c.q) : ''}`); }));
+    const sum = el('div', { class: 'pl-sum' }, el('b', {}, `Semana: ${sd(tot.e + tot.q)}`), el('small', {}, `📖 ${sd(tot.e)} · ✍️ ${sd(tot.q)}${tot.v ? ' · 🔄 ' + sd(tot.v) : ''}${tot.r ? ' · 🔁 ' + sd(tot.r) : ''}`),
+      ...[...per.entries()].map(([fid, c]) => { if (fid === '*') return el('span', { class: 'pl-sumi' }, el('i', { class: 'sr-dot', style: { background: RV_SUBJ.color } }), `Caderno de erros 🔁${sd(c.r)}`); if (fid === '*v') return el('span', { class: 'pl-sumi' }, el('i', { class: 'sr-dot', style: { background: RW_SUBJ.color } }), `Revisão geral 🔄${sd(c.v)}`); const f = Store.folders.find((y) => y.id === fid); return el('span', { class: 'pl-sumi' }, el('i', { class: 'sr-dot', style: { background: (f && f.color) || FOLDER_COLORS[0] } }), `${f ? f.name : '—'} ${c.e ? '📖' + sd(c.e) : ''} ${c.q ? '✍️' + sd(c.q) : ''} ${c.v ? '🔄' + sd(c.v) : ''}`); }));
     return el('div', { class: 'rp-card' }, tabs, head, el('div', { class: 'pl-grid' }, ...cols), sum,
       el('p', { class: 'tm-hint' }, tg.week ? 'Mudanças aqui valem só para esta semana.' : 'Toque num item para mudar a matéria, o tipo ou o tempo; toque no dia para copiar ou limpar. Mudanças valem desta semana em diante (as semanas que passaram não mudam).'));
   },
   itemPop(anchor, tg, d, x, render, isNew) {
     const subs = this.subjects(), box = el('div', { class: 'pl-pop' });
-    const sel = el('select', { class: 'rp-in' }, ...subs.map((f) => el('option', { value: f.id }, f.name))); if (x.f !== '*') sel.value = x.f; sel.onchange = () => this.change(tg, () => { x.f = sel.value; });
-    const kind = UI.seg([['e', '📖 Estudo'], ['q', '✍️ Questões'], ['r', '🔁 Caderno de erros']], x.k, (v) => { this.change(tg, () => { x.k = v; x.f = v === 'r' ? '*' : x.f === '*' ? sel.value || subs[0].id : x.f; }); subjL.classList.toggle('hidden', v === 'r'); });
+    const sel = el('select', { class: 'rp-in' }, el('option', { value: '*', class: 'pl-anyopt' }, 'Qualquer matéria (geral)'), ...subs.map((f) => el('option', { value: f.id }, f.name)));
+    const anyOpt = () => { sel.querySelector('.pl-anyopt').hidden = sel.querySelector('.pl-anyopt').disabled = x.k !== 'v'; };
+    sel.value = x.f !== '*' || x.k === 'v' ? x.f : subs[0].id; anyOpt(); sel.onchange = () => this.change(tg, () => { x.f = sel.value; });
+    const kind = UI.seg([['e', '📖 Estudo'], ['q', '✍️ Questões'], ['v', '🔄 Revisão'], ['r', '🔁 Caderno de erros']], x.k, (v) => { this.change(tg, () => { x.k = v; x.f = v === 'r' ? '*' : x.f === '*' && v !== 'v' ? (sel.value !== '*' && sel.value) || subs[0].id : x.f; }); anyOpt(); if (v !== 'r') sel.value = x.f; subjL.classList.toggle('hidden', v === 'r'); });
     const min = el('input', { type: 'number', min: 5, max: 600, step: 5, value: x.min, class: 'sr-goalin', onchange: () => this.change(tg, () => { x.min = clamp(Math.round(+min.value || 30), 5, 600); }) });
     const chips = el('div', { class: 'pl-chips' }, ...[15, 30, 45, 60, 90, 120].map((m) => el('button', { class: 'tm-chip', onclick: () => { min.value = m; this.change(tg, () => { x.min = m; }); } }, StudyReport.shortDur(m * 60000))));
     const subjL = el('label', { class: x.k === 'r' ? 'hidden' : '' }, 'Matéria', sel);

@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.16.0 — tempo de revisão no plano
+
+- **Revisão no plano de estudos:** além de Estudo, Questões e Caderno de erros, um item pode ser 🔄 Revisão. Escolha uma matéria (revisão daquela matéria) ou "Qualquer matéria (geral)".
+- **Modo 🔄 Revisão no cronômetro** (4º botão). Com uma matéria escolhida, o tempo cumpre primeiro a revisão dela no plano; o que sobrar (e a revisão sem matéria) conta para a revisão geral.
+- O cartão "Hoje no plano", o painel do cronômetro e o relatório mostram a revisão (🔄 feito/meta); tocar num item de revisão no cartão já começa o cronômetro no modo certo.
+- Nas sessões do relatório, a revisão tem a etiqueta 🔄 Revisão (dá para trocar o tipo ao editar).
+
 ## Novidades da v1.15.0 — caderno de erros no plano e "Hoje no plano"
 
 - **Caderno de erros nas semanas:** no plano de estudos, um item pode ser 📖 Estudo, ✍️ Questões ou 🔁 Caderno de erros (com o tempo, sem matéria). Ele entra na meta do dia como os outros.

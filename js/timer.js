@@ -79,15 +79,15 @@ const StudyTimer = {
     return { removed, trimmed };
   },
   addSess(a, b, n, f, q) {
-    const S = this.log.sessions || (this.log.sessions = []), last = S[S.length - 1]; n = n || null; f = f || null; q = q === 'r' ? 2 : q ? 1 : 0; /* v1.15: 2 = caderno de erros (q: 1, r: 1) */
-    if (last && !last.lg && !last.m && Math.abs(last.e - a) < 3000 && last.n === n && (last.f || null) === f && (last.r ? 2 : last.q ? 1 : 0) === q) last.e = Math.max(last.e, b);
-    else { const x = { id: uid(), s: a, e: b, n }; if (f) x.f = f; if (q) x.q = 1; /* v1.13: trecho de questões */ if (q === 2) x.r = 1; S.push(x); }
+    const S = this.log.sessions || (this.log.sessions = []), last = S[S.length - 1]; n = n || null; f = f || null; q = q === 'v' ? 3 : q === 'r' ? 2 : q ? 1 : 0; /* v1.15: 2 = caderno de erros (q: 1, r: 1); v1.16: 3 = revisão (v: 1) */
+    if (last && !last.lg && !last.m && Math.abs(last.e - a) < 3000 && last.n === n && (last.f || null) === f && (last.v ? 3 : last.r ? 2 : last.q ? 1 : 0) === q) last.e = Math.max(last.e, b);
+    else { const x = { id: uid(), s: a, e: b, n }; if (f) x.f = f; if (q === 1 || q === 2) x.q = 1; /* v1.13: trecho de questões */ if (q === 2) x.r = 1; if (q === 3) x.v = 1; S.push(x); }
     if (S.length > 8000) S.splice(0, S.length - 8000);
   },
   /* sessões + o trecho em andamento (para o relatório e os painéis) */
   allSess() {
     const s = this.st, out = (this.log.sessions || []).slice();
-    if (s && this.counts() && s.segStart && !s.segAway) { const t = Date.now(); if (t > s.segStart) out.push({ id: '_live', s: s.segStart, e: t, n: s.segNote || null, f: s.segSubj || undefined, q: s.segQ ? 1 : undefined, r: s.segQ === 'r' ? 1 : undefined, live: 1 }); }
+    if (s && this.counts() && s.segStart && !s.segAway) { const t = Date.now(); if (t > s.segStart) out.push({ id: '_live', s: s.segStart, e: t, n: s.segNote || null, f: s.segSubj || undefined, q: s.segQ === true || s.segQ === 'r' ? 1 : undefined, r: s.segQ === 'r' ? 1 : undefined, v: s.segQ === 'v' ? 1 : undefined, live: 1 }); }
     return out;
   },
   sessKey(x) { return x.f ? 'f:' + x.f : x.n || '_'; },
@@ -95,8 +95,8 @@ const StudyTimer = {
   setSubj(v) { const s = this.st; if (s.running) this.boundary(Date.now()); s.subj = v || null; if (!s.running) s.segSubj = s.subj; this.save(); this.renderPanel(); this.paint(); },
   /* v1.13: modo questões — ligado no cronômetro (não pela nota: na mesma nota tem aula e questões). O tempo fica marcado com q: 1
      e, enquanto roda, os botões ✓/✗ (QuizPad) ficam na tela, até em tela cheia. Respostas em log.qa = [[t, 1|0, nota, matéria escolhida]] */
-  setQ(v) { const s = this.st; v = v === 'r' ? 'r' : !!v; /* v1.15: 'r' = refazer o caderno de erros */ if (s.q === v) return; if (s.running) this.boundary(Date.now()); s.q = v; if (!s.running) s.segQ = v; this.save(); this.renderPanel(); this.paint(); },
-  qOn() { const s = this.st; return !!(s && s.q && this.counts()); },
+  setQ(v) { const s = this.st; v = v === 'r' || v === 'v' ? v : !!v; /* v1.16: 'v' = revisão */ /* v1.15: 'r' = refazer o caderno de erros */ if (s.q === v) return; if (s.running) this.boundary(Date.now()); s.q = v; if (!s.running) s.segQ = v; this.save(); this.renderPanel(); this.paint(); },
+  qOn() { const s = this.st; return !!(s && (s.q === true || s.q === 'r') && this.counts()); },
   answer(ok) {
     if (!this.qOn() || this.st.q === 'r') return; const n = this.curNote(), A = this.log.qa || (this.log.qa = []);
     A.push([Date.now(), ok ? 1 : 0, n ? n.id : null, this.st.subj || null]); if (A.length > 30000) A.splice(0, A.length - 30000);
@@ -243,7 +243,7 @@ const StudyTimer = {
       const n = document.getElementById(id); if (!n) continue;
       n.classList.toggle('hidden', !show); if (!show) continue;
       const key = txt + '|' + s.running + '|' + brk + '|' + s.q; if (n._k === key) continue; n._k = key;
-      n.innerHTML = icon('timer') + (s.q ? '<i class="tm-qtag">' + (s.q === 'r' ? 'E' : 'Q') + '</i>' : '') + '<b>' + txt + '</b>'; n.classList.toggle('paused', !s.running); n.classList.toggle('brk', brk); n.classList.toggle('qmode', !!s.q);
+      n.innerHTML = icon('timer') + (s.q ? '<i class="tm-qtag">' + (s.q === 'r' ? 'E' : s.q === 'v' ? 'R' : 'Q') + '</i>' : '') + '<b>' + txt + '</b>'; n.classList.toggle('paused', !s.running); n.classList.toggle('brk', brk); n.classList.toggle('qmode', !!s.q);
       n.title = `${this.phaseName()}${s.running ? '' : ' (pausado)'} · toque para abrir`;
     }
     const ct = document.querySelector('.ch-title'); if (ct) ct.classList.toggle('has-timer', show);
@@ -285,10 +285,11 @@ const StudyTimer = {
         el('button', { class: 'tm-chip' + (s.subj === '~' ? ' on' : ''), onclick: () => pick('~') }, 'Sem matéria'),
         subs.length ? null : el('p', { class: 'tm-hint' }, 'Marque pastas como matéria (menu ⋯ da pasta) para escolher aqui.'));
     }
-    const ck = cs.key, noSubj = s.q !== 'r' && (ck === '_' || ck === '~' || ck === '?'); /* v1.15: caderno de erros conta mesmo sem matéria */
+    const ck = cs.key, noSubj = s.q !== 'r' && s.q !== 'v' && (ck === '_' || ck === '~' || ck === '?'); /* v1.15: caderno de erros conta mesmo sem matéria */
     const kids = [
       el('div', { class: 'tm-tabs' }, tab('stopwatch', 'Cronômetro'), tab('countdown', 'Temporizador'), tab('pomodoro', 'Pomodoro')),
-      el('div', { class: 'tm-kind' }, el('button', { class: 'tm-kbtn' + (!s.q ? ' on' : ''), onclick: () => this.setQ(false) }, '📖 Estudo'), el('button', { class: 'tm-kbtn q' + (s.q === true ? ' on' : ''), onclick: () => this.setQ(true) }, '✍️ Questões'), el('button', { class: 'tm-kbtn r' + (s.q === 'r' ? ' on' : ''), onclick: () => this.setQ('r') }, '🔁 Erros')),
+      el('div', { class: 'tm-kind' }, el('button', { class: 'tm-kbtn' + (!s.q ? ' on' : ''), onclick: () => this.setQ(false) }, '📖 Estudo'), el('button', { class: 'tm-kbtn q' + (s.q === true ? ' on' : ''), onclick: () => this.setQ(true) }, '✍️ Questões'), el('button', { class: 'tm-kbtn r' + (s.q === 'r' ? ' on' : ''), onclick: () => this.setQ('r') }, '🔁 Erros'), el('button', { class: 'tm-kbtn v' + (s.q === 'v' ? ' on' : ''), onclick: () => this.setQ('v') }, '🔄 Revisão')),
+      s.q === 'v' ? el('p', { class: 'tm-hint' }, 'Tempo de revisão. Com uma matéria escolhida, conta para a revisão dela no plano; sem matéria (ou o que sobrar), conta para a revisão geral.') : null,
       s.q === 'r' ? el('div', { class: 'tm-hint tm-rvhint' }, el('span', {}, `Refazendo o caderno de erros (${StudyPlan.pending().length} pendentes). Com o cronômetro rodando, o botão 🔁 fica na tela.`), el('button', { class: 'btn', onclick: () => StudyPlan.redoPop() }, 'Abrir a lista')) : s.q ? el('p', { class: 'tm-hint' }, 'Tempo de questões. Enquanto o cronômetro roda, os botões ✓ e ✗ ficam na tela (até em tela cheia): toque a cada questão. Segure e arraste para mudar o lugar.') : null,
       ring, subjBtn, subjList, noSubj ? el('p', { class: 'tm-hint tm-away' }, 'Sem matéria: este tempo não entra no relatório. Escolha uma matéria acima.') : null,
       el('div', { class: 'tm-ctrl' },

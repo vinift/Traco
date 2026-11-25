@@ -620,6 +620,14 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
   - library.js `HomeTop.plan()` (`.hc-plan`, largura toda, depois do cartão de estudo): itens do dia agrupados por tipo+matéria com feito/meta (de `StudyPlan.stats` do dia), `.on` = o que o cronômetro está contando; toque → `go(o)` (`setSubj`, `setQ`, `start`, toast; 'r' abre o `redoPop`); "Ver plano" e "🔁 N erros para refazer". `refreshPlan()` no intervalo de 60 s e quando o cronômetro termina de carregar.
   - Teste (Playwright): plano com LP e60/q30, Contab q30, Caderno 30 → meta 150 min; sessão `q+r` de 10 min → linha "Caderno de erros 🔁 10m / 30m · 2 para refazer"; cartão com 4 itens (LP estudo ✓); toque no Caderno → cronômetro 'r' rodando + lista; ✓ no 1º → done, ✗ no seguinte → miss 1; pad em `rvmode` com 2; toque em LP questões → `q` true, subj lp; editor do plano com o tipo novo; sem erros.
 
+
+- v1.16.0 — tempo de revisão no plano (pedido: revisão geral, em qualquer matéria, ou de matéria específica).
+  - Plano: item `k: 'v'` com `f` = pasta-matéria ou '*' (geral). `itemPop` com 4 tipos; a opção `*` ("Qualquer matéria (geral)", `.pl-anyopt`) só fica ativa no tipo 'v'.
+  - Cronômetro: `st.q` = false | true | 'r' | 'v'; sessão `v: 1` (sem `q`), `addSess` tipo 3; `qOn()` só com true/'r' (sem ✓/✗ na revisão); 4º botão `.tm-kbtn.v`; chip "R"; sem aviso de "sem matéria" no modo 'v'.
+  - `RW_SUBJ` ({key '_v', 'Revisão geral', #0ea5e9}, studyreport.js; `subjectOfNote('_v')` também): sessão `v` sem matéria. `stats`: meta específica em `c.gv` da matéria, geral na linha `_v`; tempo `x.v` com matéria vai em `c.v`; a linha geral recebe toda a revisão do período menos o que cumpriu as metas específicas (Σ min(v, gv)). `StudyPlan.has(c)` substitui o filtro `ge||gq||e||q` (3 lugares). `rows` ganha a 3ª coluna 🔄 (`.pl-rows.hv`) quando alguma matéria tem revisão.
+  - Relatório: `kindTag(q, r, v)`, `blocks` '#v', `editSess` tipo "Revisão", `dayMap` com chave '_v'. `HomeTop.plan`/`go` com 'v' (geral: mantém a matéria escolhida no cronômetro).
+  - Teste: plano LP e60 + LP v20 + geral v30 + Contab q30 → meta 140; revisão LP 30 + Contab 15 + sem matéria 5 → LP 🔄 30m/20m ✓, geral 30m/30m ✓ (50 − 20), Contab 🔄 15m; cartão com "Revisão · Língua Portuguesa" e "Revisão geral" ✓; toque em "Revisão geral" → cronômetro 'v' sem os botões ✓/✗; editor com "Qualquer matéria (geral)"; trocar para Estudo volta a uma matéria; sem erros.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).
