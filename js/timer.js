@@ -124,10 +124,12 @@ const StudyTimer = {
     this.saveLog();
   },
   /* fecha o trecho atual (troca de nota, pausa, fim de fase ou a cada minuto) e começa outro */
+  /* v1.29: a nota é o caderno de erros do TEC (S.tecErrNote ou note.bank)? */
+  inErrBook(n) { return !!n && (n.id === (Store.settings && Store.settings.tecErrNote) || !!n.bank); },
   boundary(t) {
     const s = this.st;
     if (this.counts() && s.segStart && !s.segAway) this.addLog(s.segStart, t, s.segNote, s.segTitle, s.segSubj, s.segQ);
-    const n = this.curNote(); s.segStart = t; s.segNote = n ? n.id : null; s.segTitle = n ? n.title : ''; s.segSubj = s.subj || null; s.segQ = s.q || false; this.save();
+    const n = this.curNote(), err = this.inErrBook(n); s.segStart = t; s.segNote = n ? n.id : null; s.segTitle = n ? n.title : ''; s.segSubj = err ? null : s.subj || null; s.segQ = err ? 'r' : s.q || false; this.save(); /* v1.29: dentro do caderno de erros do TEC o tempo conta como caderno de erros, sem matéria */
   },
   /* v0.42: fecha o trecho fora da tela [awayAt, t) — só até o fim do temporizador/fase, se acabou nesse meio-tempo */
   closeAway(t) {
@@ -243,7 +245,8 @@ const StudyTimer = {
       const n = document.getElementById(id); if (!n) continue;
       n.classList.toggle('hidden', !show); if (!show) continue;
       const key = txt + '|' + s.running + '|' + brk + '|' + s.q; if (n._k === key) continue; n._k = key;
-      n.innerHTML = icon('timer') + (s.q ? '<i class="tm-qtag">' + (s.q === 'r' ? 'E' : s.q === 'v' ? 'R' : 'Q') + '</i>' : '') + '<b>' + txt + '</b>'; n.classList.toggle('paused', !s.running); n.classList.toggle('brk', brk); n.classList.toggle('qmode', !!s.q);
+      const eq = s.running && s.segQ === 'r' ? 'r' : s.q; /* v1.29: no caderno de erros o chip mostra E */
+      n.innerHTML = icon('timer') + (eq ? '<i class="tm-qtag">' + (eq === 'r' ? 'E' : eq === 'v' ? 'R' : 'Q') + '</i>' : '') + '<b>' + txt + '</b>'; n.classList.toggle('paused', !s.running); n.classList.toggle('brk', brk); n.classList.toggle('qmode', !!s.q);
       n.title = `${this.phaseName()}${s.running ? '' : ' (pausado)'} · toque para abrir`;
     }
     const ct = document.querySelector('.ch-title'); if (ct) ct.classList.toggle('has-timer', show);

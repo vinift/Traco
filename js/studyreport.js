@@ -143,7 +143,7 @@ const StudyReport = {
   },
   /* corta [a, b) na meia-noite */
   split(x, a, b, fn) { while (a < b) { const d = new Date(a); d.setHours(24, 0, 0, 0); const e = Math.min(b, d.getTime()); fn(a, e); a = e; } },
-  subj(x) { const s = subjectOfNote(StudyTimer.sessKey(x)); return (x.r || x.v) && (s.key === '_' || s.key === '~' || s.key === '?') ? (x.r ? RV_SUBJ : RW_SUBJ) : s; },
+  subj(x) { if (x.r && x.n && x.n === (Store.settings && Store.settings.tecErrNote)) return RV_SUBJ; /* v1.29: tempo no caderno de erros do TEC = geral, mesmo numa pasta de matéria */ const s = subjectOfNote(StudyTimer.sessKey(x)); return (x.r || x.v) && (s.key === '_' || s.key === '~' || s.key === '?') ? (x.r ? RV_SUBJ : RW_SUBJ) : s; },
   dayStart(t) { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); },
   addDays(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d.getTime(); },
   /* período atual */

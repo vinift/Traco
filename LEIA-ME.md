@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.29.0 — cronômetro conta o caderno de erros sozinho
+
+- Com o cronômetro rodando, o tempo que você passa **dentro do caderno de erros do TEC** conta automaticamente como **"Caderno de erros"** (o 🔁 do plano e do relatório), **no geral**, sem matéria — mesmo que a nota esteja numa pasta de matéria e mesmo que o cronômetro esteja no modo Estudo ou Questões.
+- Ao sair do caderno de erros, volta a contar como antes (o modo e a matéria escolhidos no cronômetro).
+- Enquanto você está no caderno de erros, o cronômetro do topo mostra a etiqueta **E**.
+
 ## Novidades da v1.28.0 — caderno de erros fixo com botão Atualizar
 
 - **Um caderno de erros só, no lugar que você escolher:** na 1ª vez, Biblioteca → + → "Caderno de erros" pergunta **em qual pasta** ele fica. Depois, o mesmo item **abre o seu caderno** em vez de criar outro (se você já tinha criado um, ele vira o oficial). Dá para mudar de pasta pelo ⋯ → Mover para.
