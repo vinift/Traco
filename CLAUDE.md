@@ -689,6 +689,14 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
   - Texto invisível: o PDF montado contém o texto das páginas de origem inteiras fora dos recortes (o pdf.js extrai mesmo com clip). `Tec.virtLines(ref)` (registro `_virt` por blob, `reg` no `check`/`makeNote`) remonta as linhas a partir dos PDFs de origem por `vis`. É usado no começo de `PdfFind.readPage` (busca, palavras) e de `PdfText.prefetch` (marca-texto que gruda no PDF).
   - Marcas (todos os cadernos): seleção = elipse roxa #7c3aed; correção = pílula `Tec.pill` (texto `auto` com `bg` + `frame` arredondado; render.js agora preenche `bg` com `roundRect` quando a moldura tem `r`) "✓ Acertou"/"✗ Errou · gabarito: …"; a etiqueta `tqr` vira pílula e sai quando a questão é respondida. Faixa `tqh` em lilás.
   - Teste com os 2 PDFs do usuário + uma cópia repetida: 400 questões (cópia descartada), 2 MB, 3 s; as 800 posições de Certo/Errado conferidas pelo texto e pelos pixels (largura da palavra); busca "TCP/IP" = 7 (igual aos originais); responder/errar/dúvida na etiqueta ok; importar pelo seletor (mesmo PDF 2×) → 200 na pasta "Raciocínio Lógico"; reorganizar "só as que não fiz" → 198, números mantidos; sem erros.
+
+- v1.24.0 — pedidos: um jeito de cancelar o que foi feito numa questão ("finge que nunca abri"), sem ter certeza de que o desfazer servia; e saber quais números do TEC vêm embaralhados.
+  - O desfazer tirava as marcas, mas `log.qa`/`errs` ficavam até o próximo toque. Agora o círculo da resposta guarda `e.tqa = {a, ok, d, t, x (entrada do qa), er (erro anotado)}`.
+  - `Tec.reconcile(note)` deixa os dados iguais às marcas: resposta sem círculo → `forget` (tira de `T.ans`, qa e errs); círculo sem resposta → devolve tudo a partir do `tqa`; `T.d` = números com marca `tqd`.
+  - É chamado depois de `Editor.undo/redo` (embrulhados no fim de tec.js), no `check` e no `summary`. `doubt` atualiza `tqa.d/er`.
+  - Pílula `tqx` "↺ limpar" depois da correção (`pillW` mede com `layoutText`). `Tec.tap` a testa antes da faixa: `clear(note, page, num, true)` tira as marcas `tq` + `tqd`, `T.d` e os dados.
+  - `addErr` devolve a entrada. Cabeçalho do caderno montado: "TEC nº <posição original> >" (área de toque de 110 px).
+  - Teste: Q1 errada com dúvida + Q2 certa → qa 2, erros 1; desfazer → qa 1; refazer → qa 2; "limpar" na Q1 → qa 1, erros 0, sem dúvida; desfazer o limpar → tudo de volta, com a dúvida; sem erros.
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

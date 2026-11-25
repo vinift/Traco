@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.24.0 — limpar questão e número original do TEC
+
+- **"↺ limpar"**: toda questão respondida ganha essa pílula ao lado da correção. Toque nela com a caneta e a questão volta ao zero: tira a resposta, a dúvida, o registro no relatório e o erro do caderno de erros, como se você nunca tivesse feito.
+- **Desfazer e refazer** agora acompanham tudo: desfazer uma resposta também a tira do relatório e do caderno de erros; refazer devolve. Desfazer o "limpar" traz a resposta de volta.
+- **Número original do TEC:** no caderno montado, o botão da direita do cabeçalho mostra a posição da questão no caderno impresso do TEC (ex.: **"TEC nº 10 >"**). O número roxo é o da ordem embaralhada. Tocar em "TEC nº…" abre a questão no site.
+- Só os cadernos montados a partir de agora mostram o "TEC nº"; para os de antes, use ⋯ → Reorganizar questões → Todas.
+
 ## Novidades da v1.23.0 — importar questões do TEC num caderno próprio
 
 - **Biblioteca → + → "Importar questões do TEC":** escolha um ou mais PDFs impressos do TEC. O Traço junta as questões, **tira as repetidas**, **embaralha** e cria uma nota nova, já na pasta da matéria se houver uma com o mesmo nome.

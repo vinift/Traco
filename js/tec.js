@@ -14,7 +14,7 @@ const Tec = {
   /* reconhece (uma vez por nota) — barato: lê a 1ª e a última página com PDF */
   async check(note) {
     if (!note || this._no.has(note.id) || this._busy.has(note.id)) return;
-    if (note.tec) { this.reg(note); if (!(note.tec.v >= 2)) await this.upgrade(note); this.repeats(note); return; } if (note.tec !== undefined) return;
+    if (note.tec) { this.reg(note); this.reconcile(note); if (!(note.tec.v >= 2)) await this.upgrade(note); this.repeats(note); return; } if (note.tec !== undefined) return;
     const P = note.pages.filter((p) => p.pdf); if (!P.length) return;
     this._busy.add(note.id);
     try {
@@ -79,9 +79,11 @@ const Tec = {
     const T = note && note.tec; if (!T || !page.pdf || page.pdf.blobId !== T.blob) return false;
     const idx = page.pdf.index, pad = Math.max(3, 7 / Editor.cam.z);
     const hid = page.elements.find((e) => e.tqh && e.type === 'shape' && x >= e.x1 && x <= e.x2 && y >= e.y1 && y <= e.y2); /* v1.22: faixa "já acertada" → mostra a questão */
+    const cx = page.elements.find((e) => e.tqx != null && (() => { const b = elBBox(e); return b && x >= b.x - 4 && x <= b.x + b.w + 4 && y >= b.y - 4 && y <= b.y + b.h + 4; })()); /* v1.24: "↺ limpar" */
+    if (cx) { const num = String(cx.tqx); this.clear(note, page, num, true); toast(`Questão ${num} limpa — como se nunca tivesse sido feita`, 2200); return true; }
     if (hid) { const num = String(hid.tqh); for (const e of this.marks(page, num, 'tqh')) Editor.recRemove(page, e); Editor.opCommit(); (T.shown || (T.shown = {}))[num] = 1; Editor.markChanged(); return true; }
     for (const [num, q] of Object.entries(T.q)) {
-      if (q.hd && q.hd[0] === idx && x >= q.hd[1] + q.hd[3] - 90 && x <= q.hd[1] + q.hd[3] && y >= q.hd[2] && y <= q.hd[2] + q.hd[4]) { window.open(this.url(q.id), '_blank'); return true; } /* v1.23: "abrir no TEC" da faixa */
+      if (q.hd && q.hd[0] === idx && x >= q.hd[1] + q.hd[3] - 110 && x <= q.hd[1] + q.hd[3] && y >= q.hd[2] && y <= q.hd[2] + q.hd[4]) { window.open(this.url(q.id), '_blank'); return true; } /* v1.23: "abrir no TEC" da faixa */
       if (q.c && q.c[0] === idx && this.near(q.c, x, y, pad)) { this.answer(note, page, num, 'C'); return true; }
       if (q.e && q.e[0] === idx && this.near(q.e, x, y, pad)) { this.answer(note, page, num, 'E'); return true; }
       if (q.nr && q.nr[0] === idx && this.near(q.nr, x, y, pad)) { this.doubt(note, page, num); return true; }
@@ -102,33 +104,54 @@ const Tec = {
       this.clear(note, page, num); if (had && A.a === v) return; /* tocou de novo na mesma: só apagou */
     }
     const g = T.gab[num], d = !!T.d[num], ok = g === 'C' || g === 'E' ? g === v : null, t = Date.now();
-    /* v1.23: seleção e correção separadas — a sua resposta é sempre um círculo azul; o resultado vem numa etiqueta ao lado
-       ("✓ Acertou" verde / "✗ Errou · gabarito: …" vermelho). A etiqueta "já feita" (tqr) sai: a resposta nova substitui. */
-    for (const e of this.marks(page, num, 'tqr')) Editor.recRemove(page, e);
-    const c = q.c, e2 = q.e, lab = ok == null ? 'sem gabarito' : ok ? '✓ Acertou' : `✗ Errou · gabarito: ${g === 'C' ? 'Certo' : 'Errado'}`;
-    const els = [this.ring(v === 'C' ? c : e2, '#7c3aed', num, { tq: num, width: 2.2 }), this.pill(c[1] + Math.max(c[3], e2[3]) + 24, c[2] + (e2[2] + e2[4] - c[2]) / 2 - 8, lab, ok == null ? 'gray' : ok ? 'ok' : 'no', { tq: num })];
-    for (const x of els) this.recAdd(page, x); Editor.opCommit();
-    T.ans[num] = { a: v, ok, d: d ? 1 : 0, t }; Editor.markChanged();
+    /* dados primeiro: a resposta, o registro (log.qa) e o erro anotado ficam também no círculo (e.tqa) — assim o desfazer/refazer
+       do editor mantém tudo em sincronia (Tec.reconcile) */
+    let x = null, er = null;
     if (ok != null && typeof StudyTimer !== 'undefined' && StudyTimer.log) {
-      const L = StudyTimer.log, QA = L.qa || (L.qa = []), x = [t, ok ? 1 : 0, note.id, this.subjFor(note), q.ass || q.mat || null, d ? 1 : 0, 'tec', num, q.id]; this._seen = null; QA.push(x); if (QA.length > 30000) QA.splice(0, QA.length - 30000);
-      if (!ok || d) this.addErr(note, num, x);
+      const L = StudyTimer.log, QA = L.qa || (L.qa = []); x = [t, ok ? 1 : 0, note.id, this.subjFor(note), q.ass || q.mat || null, d ? 1 : 0, 'tec', num, q.id]; this._seen = null; QA.push(x); if (QA.length > 30000) QA.splice(0, QA.length - 30000);
+      if (!ok || d) er = this.addErr(note, num, x);
       StudyTimer.saveLog(); if (typeof QuizPad !== 'undefined') QuizPad.sync(true);
     }
+    T.ans[num] = { a: v, ok, d: d ? 1 : 0, t }; Editor.markChanged();
+    /* v1.23: seleção e correção separadas — a sua resposta é sempre um círculo roxo; o resultado vem numa pílula ao lado.
+       v1.24: + pílula "↺ limpar" (tqx). A etiqueta "já feita" (tqr) sai: a resposta nova substitui. */
+    for (const e of this.marks(page, num, 'tqr')) Editor.recRemove(page, e);
+    const c = q.c, e2 = q.e, lab = ok == null ? 'sem gabarito' : ok ? '✓ Acertou' : `✗ Errou · gabarito: ${g === 'C' ? 'Certo' : 'Errado'}`, px = c[1] + Math.max(c[3], e2[3]) + 24, py = c[2] + (e2[2] + e2[4] - c[2]) / 2 - 8;
+    const els = [this.ring(v === 'C' ? c : e2, '#7c3aed', num, { tq: num, width: 2.2, tqa: { a: v, ok, d: d ? 1 : 0, t, x, er } }), this.pill(px, py, lab, ok == null ? 'gray' : ok ? 'ok' : 'no', { tq: num }),
+      this.pill(px + this.pillW(lab) + 14, py, '↺ limpar', 'gray', { tq: num, tqx: num, size: 11 })];
+    for (const el2 of els) this.recAdd(page, el2); Editor.opCommit();
     try { navigator.vibrate && navigator.vibrate(ok === false ? [18, 50, 18] : 8); } catch (_) {}
     if (ok == null) toast(`Questão ${num} sem gabarito (anulada ou desatualizada)`, 2200); else if (!ok) toast(`✗ Questão ${num}: gabarito ${g === 'C' ? 'Certo' : 'Errado'} — foi para o caderno de erros`, 2400); else if (d) toast('✓ Acertou, mas com dúvida — foi para a revisão', 1800);
   },
   recAdd(page, e) { Editor.recAdd(page, e); },
   addErr(note, num, x) {
     const L = StudyTimer.log, E = L.errs || (L.errs = []), q = note.tec.q[num], sb = StudyTimer.ansSubj(x);
-    E.push({ id: uid(), t: x[0], f: sb.key, n: note.id, aula: null, q: num, txt: q.ass || q.mat || 'TEC', tec: { id: q.id, num, blob: note.tec.blob, pg: (q.c || q.nr || [0])[0] }, duv: x[1] ? 1 : 0, done: false }); if (E.length > 5000) E.splice(0, E.length - 5000);
+    const er = { id: uid(), t: x[0], f: sb.key, n: note.id, aula: null, q: num, txt: q.ass || q.mat || 'TEC', tec: { id: q.id, num, blob: note.tec.blob, pg: (q.c || q.nr || [0])[0] }, duv: x[1] ? 1 : 0, done: false }; E.push(er); if (E.length > 5000) E.splice(0, E.length - 5000); return er;
   },
   /* tira a resposta: marcas da página, o registro em log.qa e a anotação no caderno de erros */
-  clear(note, page, num) {
-    const T = note.tec, A = T.ans[num]; if (!A) return; const ms = this.marks(page, num);
+  clear(note, page, num, full) {
+    const T = note.tec, A = T.ans[num]; if (!A && !full) return; const ms = [...this.marks(page, num), ...(full ? this.marks(page, num, 'tqd') : [])];
     if (ms.length) { for (const e of ms) Editor.recRemove(page, e); Editor.opCommit(); }
-    delete T.ans[num]; Editor.markChanged();
-    if (typeof StudyTimer !== 'undefined' && StudyTimer.log) { const L = StudyTimer.log; if (L.qa) L.qa = L.qa.filter((x) => !(x[0] === A.t && x[6] === 'tec')); if (L.errs) L.errs = L.errs.filter((x) => !(x.t === A.t && x.tec)); StudyTimer.saveLog(); if (typeof QuizPad !== 'undefined') QuizPad.sync(true); }
+    if (full) delete T.d[num];
+    this.forget(note, num, A); Editor.requestRender();
   },
+  /* tira a resposta dos dados (sem mexer nas marcas): T.ans, log.qa e o caderno de erros */
+  forget(note, num, A) {
+    const T = note.tec; delete T.ans[num]; Editor.markChanged(); this._seen = null; if (!A || typeof StudyTimer === 'undefined' || !StudyTimer.log) return;
+    const L = StudyTimer.log; if (L.qa) L.qa = L.qa.filter((x) => !(x[0] === A.t && x[6] === 'tec')); if (L.errs) L.errs = L.errs.filter((x) => !(x.t === A.t && x.tec)); StudyTimer.saveLog(); if (typeof QuizPad !== 'undefined') QuizPad.sync(true);
+  },
+  /* v1.24: deixa os dados iguais às marcas da página — o desfazer tira o círculo → a resposta some do relatório e do caderno de
+     erros; o refazer devolve o círculo (com e.tqa) → volta tudo. Chamado depois de desfazer/refazer, ao abrir e no resumo. */
+  reconcile(note) {
+    const T = note && note.tec; if (!T) return; const seen = new Map();
+    const dv = new Set(); for (const p of note.pages) for (const e of p.elements) { if (e.tqa && e.tq != null) seen.set(String(e.tq), e.tqa); if (e.tqd != null) dv.add(String(e.tqd)); }
+    let ch = 0; for (const k of Object.keys(T.d)) if (!dv.has(k)) { delete T.d[k]; ch++; } for (const k of dv) if (!T.d[k]) { T.d[k] = 1; ch++; } /* dúvida = marca laranja */
+    for (const num of Object.keys(T.ans)) { const r = seen.get(num); if (!r || r.t !== T.ans[num].t) { if (r) continue; this.forget(note, num, T.ans[num]); ch++; } }
+    for (const [num, r] of seen) if (!T.ans[num]) { T.ans[num] = { a: r.a, ok: r.ok, d: r.d, t: r.t }; ch++;
+      if (typeof StudyTimer !== 'undefined' && StudyTimer.log) { const L = StudyTimer.log; if (r.x && !(L.qa || []).some((y) => y[0] === r.t && y[6] === 'tec')) (L.qa = L.qa || []).push(r.x); if (r.er && !(L.errs || []).some((y) => y.id === r.er.id)) (L.errs = L.errs || []).push(r.er); StudyTimer.saveLog(); } }
+    if (ch) { this._seen = null; Editor.markChanged(); if (typeof QuizPad !== 'undefined') QuizPad.sync(true); }
+  },
+  pillW(t) { try { return layoutText(this.pill(0, 0, t, 'gray')).w + 10; } catch (_) { return [...t].length * 7.1; } },
   /* dúvida: elipse laranja no número; vale para a resposta já dada também (acerto com dúvida vai para a revisão) */
   doubt(note, page, num) {
     const T = note.tec, q = T.q[num], on = !T.d[num], ms = this.marks(page, num, 'tqd');
@@ -138,6 +161,7 @@ const Tec = {
     if (A && A.ok != null && typeof StudyTimer !== 'undefined' && StudyTimer.log) {
       A.d = on ? 1 : 0; const L = StudyTimer.log, x = (L.qa || []).find((y) => y[0] === A.t && y[6] === 'tec'); if (x) x[5] = A.d;
       if (A.ok) { if (on && x) this.addErr(note, num, x); else if (!on && L.errs) L.errs = L.errs.filter((y) => !(y.t === A.t && y.tec)); }
+      const ring = this.marks(page, num).find((e) => e.tqa); if (ring) { ring.tqa.d = A.d; ring.tqa.er = (L.errs || []).find((y) => y.t === A.t && y.tec) || null; } /* v1.24: o círculo guarda o estado atual */
       StudyTimer.saveLog();
     }
     toast(on ? `Questão ${num}: dúvida marcada${A ? '' : ' — agora responda'}` : `Questão ${num}: sem dúvida`, 1400);
@@ -188,6 +212,7 @@ const Tec = {
   },
   /* resumo (menu ⋯ da nota) */
   summary(note) {
+    this.reconcile(note);
     const T = note.tec, all = Object.keys(T.q).filter((k) => T.q[k].c && T.q[k].e), A = T.ans, done = all.filter((k) => A[k]);
     const ok = done.filter((k) => A[k].ok === true).length, no = done.filter((k) => A[k].ok === false).length, dv = done.filter((k) => A[k].d).length;
     const R = T.rep || {}, hid = (k) => R[k] && R[k].ok && !R[k].d && !(T.shown && T.shown[k]) && Store.settings.tecHideOk !== false, next = all.map((k) => [k, T.q[k]]).find(([k]) => !A[k] && !hid(k));
@@ -249,7 +274,7 @@ const Tec = {
       const nT = n, nW = bold.widthOfTextAtSize(nT, 9), bW = nW + 14, bx = cx + 10, by = hdY + 3.5, bH = hdH - 7;
       page.drawSvgPath(rr(0, 0, bW, bH, bH / 2), { x: bx, y: H - by, color: ACC });
       page.drawText(nT, { x: bx + 7, y: H - by - bH + 3.6, size: 9, font: bold, color: PL.rgb(1, 1, 1) });
-      const bs = (q.banca || '').split(' ')[0] + ' · ' + ((q.banca || '').split(' - ').slice(1).join(' - ').split('/').slice(-2).join('/')), tecT = 'abrir no TEC  >', tecW = font.widthOfTextAtSize(tecT, 8);
+      const bs = (q.banca || '').split(' ')[0] + ' · ' + ((q.banca || '').split(' - ').slice(1).join(' - ').split('/').slice(-2).join('/')), tecT = `TEC nº ${num}  >`, /* v1.24: posição da questão no caderno impresso do TEC (o número original) */ tecW = font.widthOfTextAtSize(tecT, 8);
       page.drawText(fit(`${q.ass || q.mat}  ·  ${bs}`, font, 8.5, cw - bW - tecW - 50), { x: bx + bW + 9, y: H - hdY - hdH + 6.6, size: 8.5, font, color: PL.rgb(0.29, 0.33, 0.39) });
       page.drawText(tecT, { x: cx + cw - 14 - tecW, y: H - hdY - hdH + 6.6, size: 8, font: bold, color: ACC });
       const badge = [pgN, Math.round(bx / K * 10) / 10, Math.round(by / K * 10) / 10, Math.round(bW / K * 10) / 10, Math.round(bH / K * 10) / 10];
@@ -340,3 +365,6 @@ const Tec = {
     openPop(anchor, box);
   },
 };
+
+/* v1.24: desfazer/refazer no editor → as respostas do TEC acompanham as marcas (Tec.reconcile) */
+(() => { for (const k of ['undo', 'redo']) { const f = Editor[k]; if (typeof f !== 'function') continue; Editor[k] = function (...a) { const r = f.apply(this, a); try { if (this.note && this.note.tec) Tec.reconcile(this.note); } catch (e) { console.warn(e); } return r; }; } })();
