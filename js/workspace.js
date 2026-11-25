@@ -157,7 +157,8 @@ const PdfText = {
       if (o.x1 > w.x && o.x1 < w.x + w.w) o.x1 = w.x; if (o.x2 > w.x && o.x2 < w.x + w.w) o.x2 = w.x + w.w; }
     /* v1.17.2: pedaços da mesma linha com o centro um pouco diferente (palavras lidas em linhas separadas) viram uma faixa só */
     out.sort((p, q) => p.x1 - q.x1); for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) { const p = out[i], q = out[j]; if (Math.abs(p.y - q.y) < Math.max(p.h, q.h) * 0.6) { const lp = p.x2 - p.x1, lq = q.x2 - q.x1; p.y = (p.y * lp + q.y * lq) / (lp + lq); p.h = Math.max(p.h, q.h); p.x1 = Math.min(p.x1, q.x1); p.x2 = Math.max(p.x2, q.x2); out.splice(j--, 1); } }
-    for (const o of out) o.ink = 1; /* v1.17.1: na escrita a espessura é a do marca-texto (só a posição gruda) */
+    for (const o of out) o.ink = 1;
+    try { this._last = { t: Date.now(), stroke: [Math.round(x1), Math.round(y1), Math.round(x2), Math.round(y2)], words: B.map((b) => [Math.round(b.x), Math.round(b.y + b.h / 2), Math.round(b.w), Math.round(b.h)]), out: out.map((o) => [Math.round(o.x1), Math.round(o.x2), Math.round(o.y * 10) / 10]), ink: page.elements.filter((e) => e.type === 'stroke' && e.tool === 'pen').map((e) => [elBBox(e), e.color]).filter(([b]) => b.x + b.w >= x1 - 60 && b.x <= x2 + 60 && b.y + b.h >= y1 - 80 && b.y <= y2 + 80).slice(0, 400).map(([b, c]) => [Math.round(b.x), Math.round(b.y), Math.round(b.w), Math.round(b.h), c]) }; } catch (_) {} /* v1.18.1: vai no relatório de problema */ /* v1.17.1: na escrita a espessura é a do marca-texto (só a posição gruda) */
     const cov = out.reduce((s, o) => s + o.x2 - o.x1, 0); return cov >= (x2 - x1) * 0.5 ? out : null; /* a faixa tem de cobrir boa parte do traço */
   },
   snapBoxes(B, pts) {

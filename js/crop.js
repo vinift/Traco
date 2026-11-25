@@ -562,7 +562,17 @@ Object.assign(Editor, {
     const els = page.elements, sig = els.length + ':' + (els.length ? els[els.length - 1].id : ''); this._wc = this._wc || new WeakMap();
     const c = this._wc.get(page); if (c && c.sig === sig) return c.words;
     const words = [];
-    for (const L of OCR.groupLines(els.filter((e) => e.type === 'stroke' && e.tool === 'pen' && !e.lock))) {
+    /* v1.18.1: a linha do OCR pode juntar duas linhas visuais (ex.: anotação pequena logo embaixo) — separa pelos centros dos traços de altura de letra baixa (salto > 0,9 × corpo da letra) */
+    const rows = []; for (const L0 of OCR.groupLines(els.filter((e) => e.type === 'stroke' && e.tool === 'pen' && !e.lock))) {
+      const it = L0.items, hh0 = it.map((o) => o.b.h).sort((a, b) => a - b), hm0 = hh0[hh0.length >> 1] || L0.h, h2 = hh0.filter((h) => h > hm0 * 0.35), xh0 = h2[Math.floor(h2.length * 0.25)] || hm0;
+      const big = it.filter((o) => o.b.h > hm0 * 0.35 && o.b.h <= xh0 * 1.6).sort((a, b) => (a.b.y + a.b.h / 2) - (b.b.y + b.b.h / 2)), G = []; let g = [];
+      for (const o of big) { const c = o.b.y + o.b.h / 2; if (g.length && c - g.cMax > xh0 * 0.9) { G.push(g); g = []; } g.push(o); g.cMax = c; } if (g.length) G.push(g);
+      if (G.length < 2) { rows.push(L0); continue; }
+      const mid = (gr) => { const c = gr.map((o) => o.b.y + o.b.h / 2).sort((a, b) => a - b); return c[c.length >> 1]; }, M = G.map(mid);
+      for (const o of it) if (!(o.b.h > hm0 * 0.35 && o.b.h <= xh0 * 1.6)) { /* pontos, acentos e traços altos (hastes, setas que ligam as linhas) vão para a linha mais perto */ const c = o.b.y + o.b.h / 2; let bi = 0; M.forEach((m, i) => { if (Math.abs(c - m) < Math.abs(c - M[bi])) bi = i; }); G[bi].push(o); }
+      for (const gr of G) { gr.sort((a, b) => a.b.x - b.b.x); const y1 = Math.min(...gr.map((o) => o.b.y)), y2 = Math.max(...gr.map((o) => o.b.y + o.b.h)); rows.push({ items: gr, y: y1, h: y2 - y1 }); }
+    }
+    for (const L of rows) {
       const hs = L.items.map((o) => o.b.h).filter((h) => h > L.h * 0.3).sort((a, b) => a - b), hm = hs[hs.length >> 1] || L.h, thr = Math.max(hm * 0.42, 2);
       const hh = L.items.map((o) => o.b.h).sort((a, b) => a - b), hmed = hh[hh.length >> 1] || L.h, hs2 = hh.filter((h) => h > hmed * 0.35), xh = hs2[Math.floor(hs2.length * 0.25)] || hmed;
       /* v1.17.3: centro do corpo das letras pelas letras "baixas" (a, e, o, s…: altura perto do 1º quartil das alturas). Antes o filtro usava a altura da LINHA

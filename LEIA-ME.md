@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.18.1 — marca-texto com anotação logo embaixo
+
+- Quando há uma anotação pequena logo abaixo da linha (ex.: "↳ causava falta de reparação"), o app às vezes lia as duas como uma linha só, e a faixa do marca-texto descia para perto da anotação. Agora as duas linhas são separadas antes (setas e hastes que ligam uma à outra não atrapalham).
+- O relatório de problema (toque com 4 dedos) agora guarda os dados da última marcação grudada na escrita — se a faixa sair torta, mande um relatório logo depois.
+
 ## Novidades da v1.18.0 — palavras separadas, seleção em todas as ferramentas e colar com dois dedos
 
 - **Palavras próximas:** o app separa as palavras olhando os espaços da própria linha (os espaços entre letras e entre palavras), em vez de uma medida fixa. Palavras escritas perto não viram mais uma só — vale para o marca-texto e para a seleção com o dedo.

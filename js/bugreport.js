@@ -65,6 +65,7 @@ const BugRec = {
       memoria: m, nos: document.getElementsByTagName('*').length, heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null, barras: this.bars(),
       config: { zoomQuality: S.zoomQuality || 'eco', barSize: S.barSize, barScale: S.barScale, hideWhileWriting: S.hideWhileWriting !== false, writeHideSec: S.writeHideSec, lowLatency: !!S.lowLatency, palmGuard: S.palmGuard, theme: S.theme },
       erros: typeof readErrors === 'function' ? readErrors().slice(-10) : [],
+      marcaTexto: typeof PdfText !== 'undefined' && PdfText._last ? PdfText._last : undefined, /* v1.18.1: última marcação grudada na escrita (palavras + traços em volta) */
       tinta: typeof Native !== 'undefined' && Native.on ? Native.inkReport() : undefined, /* v1.2.3: últimos traços da tinta nativa × da página */
     };
   },
