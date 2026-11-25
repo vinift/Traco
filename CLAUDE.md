@@ -710,6 +710,19 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
   - `bankBar` (pílula `#tecBank`, no `check` e removida no `closeNote`) → `bankPop` (chips de matéria com contagem, situação, Montar).
   - `parse`: a banca vai até a linha que termina em "/AAAA" (antes `hdr[0]`; banca em 2 linhas virava matéria).
   - Teste: nota com o PDF de Informática (reconhecido) + RL montado → caderno de 400 (Informática 200, RL 200); responder 2 + traço no cartão da Q3; "Informática · não feitas" → 199, com o traço; "todas" → 400, traço de volta na mesma questão (topo + 40); sem erros.
+
+- v1.27.0 — o usuário esclareceu: não queria "caderno de respostas"; queria que o **caderno de erros** fosse a nota inteligente. Os cadernos importados continuam separados, cada um com nome. Certo/Errado como botões. A–E só quando ele avisar.
+  - `build`: Certo/Errado cobertos de branco e redesenhados como 2 pílulas brancas com borda (`mk`, 9 pt bold, 15 pt de altura); `c`/`e` = retângulos dos botões (com um 6º valor 1) e `q.btn = 1`.
+  - `answer`: com `q.btn`, a seleção é um texto "Certo"/"Errado" branco com `pbox` (render.js: fundo `roundRect` do tamanho exato do botão, roxo `#7c3aed`), em vez da elipse. Pílula de correção à direita do botão mais à direita.
+  - Filtros novos no `build`: `'redo'` (última resposta errada ou com dúvida) e `'everwrong'` (algum qa errado ou dúvida). `matCount` agora já conta com o filtro de situação.
+  - Caderno de erros = o mesmo `note.bank` da v1.26:
+    - `bankCreate` usa `redo` e o título "Caderno de erros";
+    - `bankPop` só tem "Para refazer"/"Todas que já errei";
+    - a pílula usa 📕;
+    - `repeats` não roda em `note.bank`;
+    - `answer` num `bank` marca os `errs` com o mesmo id do TEC: acerto sem dúvida → `done`, senão `miss++`.
+  - `importFlow` pergunta o nome (`askText`, sugestão "<matéria> — N questões (dd/mm)").
+  - Teste (toque CDP): importar com o nome "Informática — bloco 1" → botões (`btn` 1); Q1 errada, Q2 dúvida + certa, Q3 certa → caderno de erros com 2; refazer a Q1 certo → errs da Q1 `done`; remontar "para refazer" → 1; sem erros.
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

@@ -153,6 +153,16 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.27.0 — botões Certo/Errado, nome do caderno e caderno de erros inteligente
+
+- **Certo e Errado viram botões** nos cadernos montados pelo "Importar questões do TEC": toque (caneta ou dedo) no botão, que fica **roxo cheio**; o resultado aparece ao lado (**✓** ou **✗ Errado**) e o **↺** limpa.
+- **Nome do caderno:** ao importar um ou mais PDFs, o Traço pergunta o nome (já vem uma sugestão). Cada importação vira o caderno que você quiser, e você vai criando outros conforme avança nas matérias.
+- **Caderno de erros (questões do TEC)** — Biblioteca → + → "Caderno de erros": junta, de **todos** os cadernos do TEC, as questões que você **errou ou acertou com dúvida** e ainda não refez certo. Pílula no alto: escolha **matérias** (uma, várias ou todas) e **Para refazer** / **Todas que já errei**, e toque em **Montar**: a mesma nota se refaz, embaralhada.
+  - Acertou (sem dúvida) refazendo ali? Sai da lista de refazer (e do 🔁 do caderno de erros do plano).
+  - O que você escrever em cada questão fica guardado com ela.
+- O "Caderno de respostas" da v1.26 foi um mal-entendido: virou este caderno de erros. Se você chegou a criar um, pode excluí-lo ou montá-lo de novo pela pílula.
+- A–E: quando você começar a importar questões de múltipla escolha, me avise para fazer os botões delas.
+
 ## Novidades da v1.26.0 — caderno de respostas (todas as questões do TEC numa nota só)
 
 - **Biblioteca → + → "Caderno de respostas":** cria uma nota que junta as questões de **todos os seus cadernos do TEC** (os PDFs que você abriu e os montados pelo "Importar questões"), sem repetidas.

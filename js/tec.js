@@ -15,7 +15,7 @@ const Tec = {
   async check(note) {
     if (!note || this._no.has(note.id) || this._busy.has(note.id)) return;
     this.bankBar(note && note.bank ? note : null); /* v1.26 */
-    if (note.tec) { this.reg(note); this.reconcile(note); if (!(note.tec.v >= 2)) await this.upgrade(note); this.repeats(note); return; } if (note.tec !== undefined) return;
+    if (note.tec) { this.reg(note); this.reconcile(note); if (!(note.tec.v >= 2)) await this.upgrade(note); if (!note.bank) this.repeats(note); return; } /* v1.27: no caderno de erros tudo já foi feito — sem etiquetas */ if (note.tec !== undefined) return;
     const P = note.pages.filter((p) => p.pdf); if (!P.length) return;
     this._busy.add(note.id);
     try {
@@ -115,11 +115,14 @@ const Tec = {
       StudyTimer.saveLog(); if (typeof QuizPad !== 'undefined') QuizPad.sync(true);
     }
     T.ans[num] = { a: v, ok, d: d ? 1 : 0, t }; Editor.markChanged();
+    if (note.bank && ok != null && typeof StudyTimer !== 'undefined' && StudyTimer.log) { for (const y of StudyTimer.log.errs || []) if (y.tec && y.tec.id === q.id && !y.done && y.t !== t) { if (ok && !d) { y.done = true; y.doneAt = t; } else { y.miss = (y.miss || 0) + 1; y.tryAt = t; } } StudyTimer.saveLog(); } /* v1.27: refez no caderno de erros → acertou sai da lista de refazer */
     /* v1.23: seleção e correção separadas — a sua resposta é sempre um círculo roxo; o resultado vem numa pílula ao lado.
        v1.24: + pílula "↺ limpar" (tqx). A etiqueta "já feita" (tqr) sai: a resposta nova substitui. */
     for (const e of this.marks(page, num, 'tqr')) Editor.recRemove(page, e);
-    const c = q.c, e2 = q.e, lab = ok == null ? 'sem gabarito' : ok ? '✓' : `✗ ${g === 'C' ? 'Certo' : 'Errado'}`, px = c[1] + Math.max(c[3], e2[3]) + 16, py = c[2] + (e2[2] + e2[4] - c[2]) / 2 - 7; /* v1.25: só ✓ / ✗ + o gabarito */
-    const els = [this.ring(v === 'C' ? c : e2, '#7c3aed', num, { tq: num, width: 2.2, tqa: { a: v, ok, d: d ? 1 : 0, t, x, er } }), this.pill(px, py, lab, ok == null ? 'gray' : ok ? 'ok' : 'no', { tq: num }),
+    const c = q.c, e2 = q.e, lab = ok == null ? 'sem gabarito' : ok ? '✓' : `✗ ${g === 'C' ? 'Certo' : 'Errado'}`, top0 = Math.min(c[2], e2[2]), bot0 = Math.max(c[2] + c[4], e2[2] + e2[4]), px = Math.max(c[1] + c[3], e2[1] + e2[3]) + (q.btn ? 10 : 16), py = top0 + (bot0 - top0) / 2 - 7; /* v1.25: só ✓ / ✗ + o gabarito */
+    const tqa = { a: v, ok, d: d ? 1 : 0, t, x, er }, R0 = v === 'C' ? c : e2;
+    const sel = q.btn ? (() => { const lab2 = v === 'C' ? 'Certo' : 'Errado', base = { type: 'text', text: lab2, size: 12, bold: true, auto: true, w: 200, x: 0, y: 0 }, L = layoutText(base); return { ...base, id: uid(), x: R0[1] + (R0[3] - L.w) / 2, y: R0[2] + (R0[4] - L.h) / 2, color: '#ffffff', bg: '#7c3aed', pbox: [R0[1], R0[2], R0[3], R0[4]], tq: num, tqa }; })() : this.ring(R0, '#7c3aed', num, { tq: num, width: 2.2, tqa }); /* v1.27: botão vira roxo cheio */
+    const els = [sel, this.pill(px, py, lab, ok == null ? 'gray' : ok ? 'ok' : 'no', { tq: num }),
       this.pill(px + this.pillW(lab) + 8, py, '↺', 'gray', { tq: num, tqx: num })];
     for (const el2 of els) this.recAdd(page, el2); Editor.opCommit();
     try { navigator.vibrate && navigator.vibrate(ok === false ? [18, 50, 18] : 8); } catch (_) {}
@@ -250,8 +253,11 @@ const Tec = {
       for (const [num, q] of Object.entries(R.q)) { if (byId.has(q.id)) continue; byId.add(q.id); items.push({ q, num, g: R.gab[num] || null, R, pdl, doc, si }); }
       doc.destroy && doc.destroy();
     }
-    const matCount = {}; for (const { q } of items) matCount[q.mat || '—'] = (matCount[q.mat || '—'] || 0) + 1; /* v1.26: matérias de todas as fontes (para os chips do caderno de respostas) */
-    let list = items.filter(({ q }) => { if (mats && mats.length && !mats.includes(q.mat || '—')) return false; const s = seen.get(q.id); return filter === 'new' ? !s : filter === 'newwrong' ? !s || !s.ok || s.d : true; });
+    /* v1.27: 'redo' = última resposta errada ou com dúvida (caderno de erros); 'everwrong' = já errou alguma vez */
+    const ever = new Set(); if (filter === 'everwrong') for (const x of (StudyTimer.log && StudyTimer.log.qa) || []) if (x[6] === 'tec' && x[8] && !x[1]) ever.add(x[8]);
+    const stOk = ({ q }) => { const s = seen.get(q.id); return filter === 'new' ? !s : filter === 'newwrong' ? !s || !s.ok || s.d : filter === 'redo' ? !!s && (!s.ok || !!s.d) : filter === 'everwrong' ? ever.has(q.id) || (!!s && !!s.d) : true; };
+    const matCount = {}; for (const it of items) if (stOk(it)) matCount[it.q.mat || '—'] = (matCount[it.q.mat || '—'] || 0) + 1; /* v1.26: matérias (para os chips do caderno de erros), já com o filtro de situação */
+    let list = items.filter((it) => { if (mats && mats.length && !mats.includes(it.q.mat || '—')) return false; return stOk(it); });
     if (keep) list.sort((a, b) => (keep[a.q.id] || 1e9) - (keep[b.q.id] || 1e9)); else for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
     if (!list.length) return { matCount, n: 0, empty: true };
     const ansi = (t) => String(t || '').replace(/[–—]/g, '-').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[^\x20-\x7e\xa0-\xff]/g, '?');
@@ -293,7 +299,14 @@ const Tec = {
       }
       const onr = put(q.nr); if (onr) { const [, x, yy, w, h] = onr; page.drawRectangle({ x: x * K - 1, y: H - (yy + h) * K, width: w * K + 3, height: h * K, color: PL.rgb(1, 1, 1) }); } /* o número antigo some: o novo está na etiqueta */
       const nr = badge;
-      tq[n] = { bot: Math.round((yTop + cardH) / K * 10) / 10, id: q.id, banca: q.banca, mat: q.mat, ass: q.ass, c: put(q.c), e: put(q.e), nr, top: [pgN, Math.round(yTop / K * 10) / 10], hd: [pgN, (cx + 5) / K, hdY / K, (cw - 10) / K, hdH / K], on: num }; if (Tec._dbg) tq[n]._d = { parts, src: [q.nr, q.c, q.e], map: JSON.parse(JSON.stringify(map)) };
+      /* v1.27: Certo/Errado viram dois botões lado a lado (pílulas brancas com borda); c/e passam a ser os retângulos dos botões */
+      let cB = put(q.c), eB = put(q.e);
+      if (cB && eB && cB[0] === eB[0]) {
+        const x0 = cB[1], y0 = cB[2], hh = eB[2] + eB[4] - y0; page.drawRectangle({ x: x0 * K - 2, y: H - (y0 + hh) * K - 1, width: Math.max(cB[3], eB[3]) * K + 4, height: hh * K + 2, color: PL.rgb(1, 1, 1) });
+        const bh = 15, by0 = (y0 + hh / 2) * K - bh / 2, mk = (lab, bx) => { const tw = bold.widthOfTextAtSize(lab, 9), bw = tw + 22; page.drawSvgPath(rr(0, 0, bw, bh, 7.5), { x: bx, y: H - by0, color: PL.rgb(1, 1, 1), borderColor: PL.rgb(0.78, 0.8, 0.85), borderWidth: 0.9 }); page.drawText(lab, { x: bx + 11, y: H - by0 - bh + 4.4, size: 9, font: bold, color: PL.rgb(0.2, 0.24, 0.3) }); return [pgN, Math.round(bx / K * 10) / 10, Math.round(by0 / K * 10) / 10, Math.round(bw / K * 10) / 10, Math.round(bh / K * 10) / 10]; };
+        cB = mk('Certo', x0 * K - 2); eB = mk('Errado', cB[1] * K + cB[3] * K + 8); cB.push(1); eB.push(1);
+      }
+      tq[n] = { bot: Math.round((yTop + cardH) / K * 10) / 10, id: q.id, banca: q.banca, mat: q.mat, ass: q.ass, c: cB, e: eB, btn: cB && cB[5] ? 1 : 0, nr, top: [pgN, Math.round(yTop / K * 10) / 10], hd: [pgN, (cx + 5) / K, hdY / K, (cw - 10) / K, hdH / K], on: num }; if (Tec._dbg) tq[n]._d = { parts, src: [q.nr, q.c, q.e], map: JSON.parse(JSON.stringify(map)) };
       gab[n] = g; y = yTop + cardH + GAP;
     }
     return { matCount, bytes: await out.save(), tec: { v: 3, built: 1, gab, q: tq, ans: {}, d: {}, gb: null, vis, mx: M / K, srcs: srcs.map((x) => ({ name: x.name, blobId: x.blobId })) }, total: items.length, n: list.length };
@@ -323,7 +336,8 @@ const Tec = {
       for (const f of files) srcs.push({ name: f.name.replace(/\.pdf$/i, ''), blobId: await Store.putBlob(new Blob([await f.arrayBuffer()], { type: 'application/pdf' })) });
       const R = await this.build(srcs, {}, (m) => toast(m, 60000)); if (!R || R.empty) { toast('Nenhuma questão encontrada', 3000); return; }
       const mats = {}; for (const q of Object.values(R.tec.q)) mats[q.mat] = (mats[q.mat] || 0) + 1; const mat = Object.entries(mats).sort((a, b) => b[1] - a[1])[0][0];
-      const d = new Date(), title = `${mat || 'Questões'} — ${R.n} questões (${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })})`;
+      const d = new Date(), def = `${mat || 'Questões'} — ${R.n} questões (${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })})`; toast('', 1);
+      const title = (await askText('Nome do caderno', def, `${R.n} questões de ${srcs.length} PDF(s), sem repetidas e embaralhadas`)) || def; /* v1.27: o usuário dá o nome */
       const note = await this.makeNote(R, title, this.folderFor(mat)); toast(`📝 ${R.n} questões${R.total > R.n ? '' : ''} de ${srcs.length} PDF(s), sem repetidas e embaralhadas`, 4000);
       if (typeof Library !== 'undefined') Library.render(); App.openNote(note.id);
     } catch (e) { logError(e, 'importar questões do TEC'); toast('Não deu para montar o caderno: ' + e.message, 6000); }
@@ -359,9 +373,9 @@ const Tec = {
   async bankCreate() {
     try {
       toast('Juntando os cadernos do TEC…', 60000); const srcs = await this.bankSources(); if (!srcs.length) { toast('Nenhum caderno do TEC ainda — importe ou abra um PDF do TEC primeiro', 4000); return; }
-      const R = await this.build(srcs, {}, (m) => toast(m, 60000)); if (R.empty) { toast('Nenhuma questão encontrada', 3000); return; }
-      const note = await this.makeNote(R, 'Caderno de respostas', typeof Library !== 'undefined' ? Library.folder : null);
-      note.bank = { mats: null, st: 'all', all: R.matCount, ink: {} }; await Store.putNote(note); toast(`📚 Caderno de respostas: ${R.n} questões de ${srcs.length} PDF(s)`, 3500);
+      const R = await this.build(srcs, { filter: 'redo' }, (m) => toast(m, 60000)); if (R.empty) { toast('Nenhum erro para refazer nos cadernos do TEC 🎉', 3500); return; }
+      const note = await this.makeNote(R, 'Caderno de erros', typeof Library !== 'undefined' ? Library.folder : null);
+      note.bank = { mats: null, st: 'redo', all: R.matCount, ink: {} }; await Store.putNote(note); toast(`📕 Caderno de erros: ${R.n} questões para refazer`, 3500);
       if (typeof Library !== 'undefined') Library.render(); App.openNote(note.id);
     } catch (e) { logError(e, 'caderno de respostas'); toast('Não deu para montar: ' + e.message, 6000); }
   },
@@ -376,7 +390,7 @@ const Tec = {
         if (q) (ink[q.id] = ink[q.id] || []).push(transformEl(e, { sx: 1, sy: 1, ox: 0, oy: 0, dx: 0, dy: -q.top[1] })); else loose.push(e); } });
       const srcs = await this.bankSources(); toast('Montando o caderno…', 60000);
       const R = await this.build(srcs, { filter: st, mats }, (m) => toast(m, 60000));
-      if (R.empty) { B.all = R.matCount; await Store.putNote(note); toast('Nenhuma questão nesse filtro — você já fez todas 🎉', 3500); return; }
+      if (R.empty) { B.all = R.matCount; await Store.putNote(note); toast('Nenhuma questão nesse filtro 🎉', 3500); return; }
       const oldBlob = T.blob, file = new File([R.bytes], 'caderno.pdf', { type: 'application/pdf' }), pages = await importPdfFile(file);
       const T2 = { ...R.tec, blob: pages[0].pdf.blobId };
       for (const q of Object.values(T2.q)) { const els = ink[q.id]; if (!els || !pages[q.top[0]]) continue; for (const e of els) pages[q.top[0]].elements.push(transformEl(e, { sx: 1, sy: 1, ox: 0, oy: 0, dx: 0, dy: q.top[1] })); delete ink[q.id]; }
@@ -384,28 +398,28 @@ const Tec = {
       await Editor.close();
       note.pages = pages; note.tec = T2; note.bank = { mats: mats && mats.length ? mats : null, st, all: R.matCount, ink }; this.reg(note);
       await Store.putNote(note); try { await DB.del('blobs', oldBlob); } catch (_) {}
-      App._busy = false; await App.openNote(note.id); toast(`📚 ${R.n} questões no caderno`, 2500);
+      App._busy = false; await App.openNote(note.id); toast(`📕 ${R.n} questões no caderno de erros`, 2500);
     } catch (e) { logError(e, 'remontar caderno de respostas'); toast('Não deu para remontar: ' + e.message, 6000); }
     finally { this._mounting = false; }
   },
   /* barra do caderno de respostas: pílula no alto ("📚 Informática · não feitas · 120 ▾") → janela com os filtros */
   bankBar(note) {
     let bar = document.getElementById('tecBank'); if (!note || !note.bank) { if (bar) bar.remove(); return; }
-    const B = note.bank, ST = { all: 'todas', new: 'não feitas', newwrong: 'não feitas + erradas' }, n = Object.keys(note.tec.q).length;
+    const B = note.bank, ST = { all: 'todas', new: 'não feitas', newwrong: 'não feitas + erradas', redo: 'para refazer', everwrong: 'todas que já errei' }, n = Object.keys(note.tec.q).length;
     if (!bar) { bar = el('button', { id: 'tecBank', class: 'tec-bank' }); $('#editor').append(bar); }
-    bar.textContent = `📚 ${B.mats ? B.mats.join(' + ') : 'Todas as matérias'} · ${ST[B.st] || 'todas'} · ${n} ▾`;
+    bar.textContent = `📕 ${B.mats ? B.mats.join(' + ') : 'Todas as matérias'} · ${ST[B.st] || 'todas'} · ${n} ▾`;
     bar.onclick = () => this.bankPop(note, bar);
   },
   bankPop(note, anchor) {
-    const B = note.bank, all = B.all || {}, names = Object.keys(all).sort((a, b) => a.localeCompare(b)), sel = new Set(B.mats || []); let st = B.st || 'all';
+    const B = note.bank, all = B.all || {}, names = Object.keys(all).sort((a, b) => a.localeCompare(b)), sel = new Set(B.mats || []); let st = B.st === 'everwrong' ? 'everwrong' : 'redo';
     const box = el('div', { class: 'tec-bpop' }), paint = () => {
       box.innerHTML = '';
       const chip = (lab, on, fn, sub) => el('button', { class: 'tm-chip' + (on ? ' on' : ''), onclick: () => { fn(); paint(); } }, lab, sub != null ? el('small', {}, ' ' + sub) : null);
-      box.append(el('div', { class: 'er-head' }, el('b', {}, '📚 Caderno de respostas'), el('small', {}, 'junta todos os cadernos do TEC')),
+      box.append(el('div', { class: 'er-head' }, el('b', {}, '📕 Caderno de erros'), el('small', {}, 'as questões que você errou ou acertou com dúvida, de todos os cadernos do TEC')),
         el('div', { class: 'tm-hint' }, 'Matérias'),
         el('div', { class: 'pl-chips' }, chip('Todas', !sel.size, () => sel.clear(), names.reduce((s, k) => s + all[k], 0)), ...names.map((k) => chip(k, sel.has(k), () => (sel.has(k) ? sel.delete(k) : sel.add(k)), all[k]))),
         el('div', { class: 'tm-hint' }, 'Situação'),
-        el('div', { class: 'pl-chips' }, ...[['new', 'Não feitas'], ['newwrong', 'Não feitas + erradas'], ['all', 'Todas']].map(([k, l]) => chip(l, st === k, () => { st = k; }))),
+        el('div', { class: 'pl-chips' }, ...[['redo', 'Para refazer'], ['everwrong', 'Todas que já errei']].map(([k, l]) => chip(l, st === k, () => { st = k; }))),
         el('div', { class: 'pl-btns' }, el('button', { class: 'btn ghost', onclick: () => closePop() }, 'Cancelar'), el('button', { class: 'btn primary', onclick: () => { closePop(); this.bankMount(note, [...sel], st); } }, 'Montar (embaralhado)')),
         el('small', { class: 'tm-hint' }, 'O que você escreveu em cada questão fica guardado e volta quando ela aparecer de novo.'));
     };
