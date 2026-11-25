@@ -79,15 +79,15 @@ const StudyTimer = {
     return { removed, trimmed };
   },
   addSess(a, b, n, f, q) {
-    const S = this.log.sessions || (this.log.sessions = []), last = S[S.length - 1]; n = n || null; f = f || null; q = q ? 1 : 0;
-    if (last && !last.lg && !last.m && Math.abs(last.e - a) < 3000 && last.n === n && (last.f || null) === f && (last.q ? 1 : 0) === q) last.e = Math.max(last.e, b);
-    else { const x = { id: uid(), s: a, e: b, n }; if (f) x.f = f; if (q) x.q = 1; /* v1.13: trecho de questões */ S.push(x); }
+    const S = this.log.sessions || (this.log.sessions = []), last = S[S.length - 1]; n = n || null; f = f || null; q = q === 'r' ? 2 : q ? 1 : 0; /* v1.15: 2 = caderno de erros (q: 1, r: 1) */
+    if (last && !last.lg && !last.m && Math.abs(last.e - a) < 3000 && last.n === n && (last.f || null) === f && (last.r ? 2 : last.q ? 1 : 0) === q) last.e = Math.max(last.e, b);
+    else { const x = { id: uid(), s: a, e: b, n }; if (f) x.f = f; if (q) x.q = 1; /* v1.13: trecho de questões */ if (q === 2) x.r = 1; S.push(x); }
     if (S.length > 8000) S.splice(0, S.length - 8000);
   },
   /* sessões + o trecho em andamento (para o relatório e os painéis) */
   allSess() {
     const s = this.st, out = (this.log.sessions || []).slice();
-    if (s && this.counts() && s.segStart && !s.segAway) { const t = Date.now(); if (t > s.segStart) out.push({ id: '_live', s: s.segStart, e: t, n: s.segNote || null, f: s.segSubj || undefined, q: s.segQ ? 1 : undefined, live: 1 }); }
+    if (s && this.counts() && s.segStart && !s.segAway) { const t = Date.now(); if (t > s.segStart) out.push({ id: '_live', s: s.segStart, e: t, n: s.segNote || null, f: s.segSubj || undefined, q: s.segQ ? 1 : undefined, r: s.segQ === 'r' ? 1 : undefined, live: 1 }); }
     return out;
   },
   sessKey(x) { return x.f ? 'f:' + x.f : x.n || '_'; },
@@ -95,10 +95,10 @@ const StudyTimer = {
   setSubj(v) { const s = this.st; if (s.running) this.boundary(Date.now()); s.subj = v || null; if (!s.running) s.segSubj = s.subj; this.save(); this.renderPanel(); this.paint(); },
   /* v1.13: modo questões — ligado no cronômetro (não pela nota: na mesma nota tem aula e questões). O tempo fica marcado com q: 1
      e, enquanto roda, os botões ✓/✗ (QuizPad) ficam na tela, até em tela cheia. Respostas em log.qa = [[t, 1|0, nota, matéria escolhida]] */
-  setQ(v) { const s = this.st; v = !!v; if (s.q === v) return; if (s.running) this.boundary(Date.now()); s.q = v; if (!s.running) s.segQ = v; this.save(); this.renderPanel(); this.paint(); },
+  setQ(v) { const s = this.st; v = v === 'r' ? 'r' : !!v; /* v1.15: 'r' = refazer o caderno de erros */ if (s.q === v) return; if (s.running) this.boundary(Date.now()); s.q = v; if (!s.running) s.segQ = v; this.save(); this.renderPanel(); this.paint(); },
   qOn() { const s = this.st; return !!(s && s.q && this.counts()); },
   answer(ok) {
-    if (!this.qOn()) return; const n = this.curNote(), A = this.log.qa || (this.log.qa = []);
+    if (!this.qOn() || this.st.q === 'r') return; const n = this.curNote(), A = this.log.qa || (this.log.qa = []);
     A.push([Date.now(), ok ? 1 : 0, n ? n.id : null, this.st.subj || null]); if (A.length > 30000) A.splice(0, A.length - 30000);
     this.saveLog(); QuizPad.sync(true); if (this.pop && this.pop.isConnected) this._statT = 0;
     if (!ok && typeof StudyPlan !== 'undefined') StudyPlan.askErr(A[A.length - 1]); /* v1.14: caderno de erros */
@@ -127,7 +127,7 @@ const StudyTimer = {
   boundary(t) {
     const s = this.st;
     if (this.counts() && s.segStart && !s.segAway) this.addLog(s.segStart, t, s.segNote, s.segTitle, s.segSubj, s.segQ);
-    const n = this.curNote(); s.segStart = t; s.segNote = n ? n.id : null; s.segTitle = n ? n.title : ''; s.segSubj = s.subj || null; s.segQ = !!s.q; this.save();
+    const n = this.curNote(); s.segStart = t; s.segNote = n ? n.id : null; s.segTitle = n ? n.title : ''; s.segSubj = s.subj || null; s.segQ = s.q || false; this.save();
   },
   /* v0.42: fecha o trecho fora da tela [awayAt, t) — só até o fim do temporizador/fase, se acabou nesse meio-tempo */
   closeAway(t) {
@@ -242,8 +242,8 @@ const StudyTimer = {
     for (const id of ['noteTimer', 'libTimer']) {
       const n = document.getElementById(id); if (!n) continue;
       n.classList.toggle('hidden', !show); if (!show) continue;
-      const key = txt + '|' + s.running + '|' + brk + '|' + !!s.q; if (n._k === key) continue; n._k = key;
-      n.innerHTML = icon('timer') + (s.q ? '<i class="tm-qtag">Q</i>' : '') + '<b>' + txt + '</b>'; n.classList.toggle('paused', !s.running); n.classList.toggle('brk', brk); n.classList.toggle('qmode', !!s.q);
+      const key = txt + '|' + s.running + '|' + brk + '|' + s.q; if (n._k === key) continue; n._k = key;
+      n.innerHTML = icon('timer') + (s.q ? '<i class="tm-qtag">' + (s.q === 'r' ? 'E' : 'Q') + '</i>' : '') + '<b>' + txt + '</b>'; n.classList.toggle('paused', !s.running); n.classList.toggle('brk', brk); n.classList.toggle('qmode', !!s.q);
       n.title = `${this.phaseName()}${s.running ? '' : ' (pausado)'} · toque para abrir`;
     }
     const ct = document.querySelector('.ch-title'); if (ct) ct.classList.toggle('has-timer', show);
@@ -285,11 +285,11 @@ const StudyTimer = {
         el('button', { class: 'tm-chip' + (s.subj === '~' ? ' on' : ''), onclick: () => pick('~') }, 'Sem matéria'),
         subs.length ? null : el('p', { class: 'tm-hint' }, 'Marque pastas como matéria (menu ⋯ da pasta) para escolher aqui.'));
     }
-    const ck = cs.key, noSubj = ck === '_' || ck === '~' || ck === '?';
+    const ck = cs.key, noSubj = s.q !== 'r' && (ck === '_' || ck === '~' || ck === '?'); /* v1.15: caderno de erros conta mesmo sem matéria */
     const kids = [
       el('div', { class: 'tm-tabs' }, tab('stopwatch', 'Cronômetro'), tab('countdown', 'Temporizador'), tab('pomodoro', 'Pomodoro')),
-      el('div', { class: 'tm-kind' }, el('button', { class: 'tm-kbtn' + (!s.q ? ' on' : ''), onclick: () => this.setQ(false) }, '📖 Estudo'), el('button', { class: 'tm-kbtn q' + (s.q ? ' on' : ''), onclick: () => this.setQ(true) }, '✍️ Questões')),
-      s.q ? el('p', { class: 'tm-hint' }, 'Tempo de questões. Enquanto o cronômetro roda, os botões ✓ e ✗ ficam na tela (até em tela cheia): toque a cada questão. Segure e arraste para mudar o lugar.') : null,
+      el('div', { class: 'tm-kind' }, el('button', { class: 'tm-kbtn' + (!s.q ? ' on' : ''), onclick: () => this.setQ(false) }, '📖 Estudo'), el('button', { class: 'tm-kbtn q' + (s.q === true ? ' on' : ''), onclick: () => this.setQ(true) }, '✍️ Questões'), el('button', { class: 'tm-kbtn r' + (s.q === 'r' ? ' on' : ''), onclick: () => this.setQ('r') }, '🔁 Erros')),
+      s.q === 'r' ? el('div', { class: 'tm-hint tm-rvhint' }, el('span', {}, `Refazendo o caderno de erros (${StudyPlan.pending().length} pendentes). Com o cronômetro rodando, o botão 🔁 fica na tela.`), el('button', { class: 'btn', onclick: () => StudyPlan.redoPop() }, 'Abrir a lista')) : s.q ? el('p', { class: 'tm-hint' }, 'Tempo de questões. Enquanto o cronômetro roda, os botões ✓ e ✗ ficam na tela (até em tela cheia): toque a cada questão. Segure e arraste para mudar o lugar.') : null,
       ring, subjBtn, subjList, noSubj ? el('p', { class: 'tm-hint tm-away' }, 'Sem matéria: este tempo não entra no relatório. Escolha uma matéria acima.') : null,
       el('div', { class: 'tm-ctrl' },
         s.running ? btn('Pausar', () => this.pause()) : btn(s.acc > 0 ? 'Continuar' : 'Iniciar', () => this.start(), 'primary'),
@@ -415,8 +415,9 @@ const QuizPad = {
   build() {
     const B = (cls, html, title) => { const b = el('button', { class: 'qz-b ' + cls, title }); b.innerHTML = html; return b; };
     this.ok = B('ok', '<span>✓</span><b>0</b>', 'Acertei'); this.no = B('no', '<span>✗</span><b>0</b>', 'Errei'); this.undo = B('undo', '↶', 'Desfazer a última');
+    this.rv = B('rv', '<span>🔁</span><b>0</b>', 'Refazer erros'); /* v1.15 */
     this.info = el('div', { class: 'qz-info' });
-    const box = el('div', { class: 'qz-pad' }, this.info, el('div', { class: 'qz-row' }, this.ok, this.no, this.undo));
+    const box = el('div', { class: 'qz-pad' }, this.info, el('div', { class: 'qz-row' }, this.ok, this.no, this.undo, this.rv));
     let st = null;
     box.addEventListener('pointerdown', (e) => { e.stopPropagation(); st = { id: e.pointerId, x: e.clientX, y: e.clientY, r: box.getBoundingClientRect(), drag: false, b: e.target.closest('.qz-b') }; try { box.setPointerCapture(e.pointerId); } catch (_) {} });
     box.addEventListener('pointermove', (e) => {
@@ -429,7 +430,7 @@ const QuizPad = {
       if (s0.drag) { const r = box.getBoundingClientRect(); Store.settings.qzPos = { x: r.left / innerWidth, y: r.top / innerHeight }; Store.saveSettings(); return; }
       if (e.type !== 'pointerup' || !s0.b) return;
       const b = s0.b; b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse'); if (navigator.vibrate) navigator.vibrate(8);
-      if (b === this.ok) StudyTimer.answer(true); else if (b === this.no) StudyTimer.answer(false); else if (!StudyTimer.undoAnswer()) toast('Nada para desfazer hoje', 1200);
+      if (b === this.rv) StudyPlan.redoPop(); else if (b === this.ok) StudyTimer.answer(true); else if (b === this.no) StudyTimer.answer(false); else if (!StudyTimer.undoAnswer()) toast('Nada para desfazer hoje', 1200);
     };
     box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
     box.addEventListener('click', (e) => e.stopPropagation());
@@ -445,8 +446,10 @@ const QuizPad = {
     if (!on) { if (this.el) this.el.classList.add('hidden'); return; }
     if (!this.el) { this.build(); addEventListener('resize', () => this.place()); }
     this.el.classList.remove('hidden');
-    const A = T.log.qa || [], cs = T.curSubj(), key = A.length + '|' + cs.key + '|' + T.dayKey(Date.now());
+    const A = T.log.qa || [], cs = T.curSubj(), rv = T.st.q === 'r', P = rv ? StudyPlan.pending() : null, key = A.length + '|' + cs.key + '|' + T.dayKey(Date.now()) + '|' + (rv ? P.length : '');
     if (!force && key === this._k) return; this._k = key;
+    this.el.classList.toggle('rvmode', rv);
+    if (rv) { this.rv.querySelector('b').textContent = P.length; this.info.textContent = P.length ? 'Caderno de erros' : 'Caderno de erros · tudo refeito ✓'; return; }
     const d = new Date(); d.setHours(0, 0, 0, 0); const a = d.getTime(); let ok = 0, no = 0;
     for (let i = A.length - 1; i >= 0 && A[i][0] >= a; i--) if (T.ansSubj(A[i]).key === cs.key) { if (A[i][1]) ok++; else no++; }
     this.ok.querySelector('b').textContent = ok; this.no.querySelector('b').textContent = no;

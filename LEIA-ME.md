@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.15.0 — caderno de erros no plano e "Hoje no plano"
+
+- **Caderno de erros nas semanas:** no plano de estudos, um item pode ser 📖 Estudo, ✍️ Questões ou 🔁 Caderno de erros (com o tempo, sem matéria). Ele entra na meta do dia como os outros.
+- **Modo 🔁 Erros no cronômetro:** ao lado de Estudo e Questões. O tempo nesse modo conta para o item "Caderno de erros" do plano (mesmo sem matéria escolhida). Com o cronômetro rodando, o botão 🔁 fica na tela no lugar do ✓/✗, com o número de erros pendentes.
+- **Lista para refazer:** tocar no 🔁 abre os erros pendentes (mais antigos primeiro, com filtro por matéria). ✓ acertei = sai da lista; ✗ errei de novo = continua e marca quantas vezes você errou.
+- **"Hoje no plano" na tela inicial:** um cartão com o que fazer hoje (matéria, tipo, feito/meta e ✓ quando cumpre). Tocar num item já escolhe a matéria e o modo no cronômetro e começa a contar; o item do caderno de erros também abre a lista. Embaixo, "🔁 N erros para refazer".
+- No relatório, as sessões de caderno de erros aparecem com a etiqueta 🔁 Erros (dá para trocar o tipo ao editar uma sessão).
+
 ## Novidades da v1.14.0 — plano de estudos (cronograma) e caderno de erros
 
 - **Plano de estudos:** no relatório (Visão geral → "Montar plano de estudos…") você monta o cronograma da semana com as suas matérias: em cada dia, itens de 📖 estudo ou ✍️ questões com o tempo. Toque num item para trocar a matéria, o tipo ou o tempo; toque no dia para copiar para outros dias ou limpar.

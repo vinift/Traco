@@ -4,6 +4,7 @@
    com ‹ › para andar e "Hoje". Abas: Visão geral (resumo + gráfico empilhado por matéria; tocar numa barra mostra o detalhe e abre o
    dia/mês), Calendário (mapa de calor pela meta), Matérias (rosca + lista; tocar abre as notas), Horários (por hora e dia × hora),
    Sessões (lista editável: matéria, horário, excluir, adicionar) e Notas. Registros antigos (antes da v0.43) não têm horário (lg). */
+const RV_SUBJ = { key: '_r', name: 'Caderno de erros', color: '#f59e0b' }; /* v1.15 */
 const StudyReport = {
   unit: 'week', anchor: null, tab: 'geral', sel: null, openSubj: null,
   /* v0.50: meta de segunda a sexta (S.studyGoal, mín. 5) e de sábado (S.studyGoalWE) e domingo (S.studyGoalSun, v0.50.1); vazio = igual; 0 = descanso.
@@ -89,7 +90,7 @@ const StudyReport = {
     return el('div', { class: 'rp-quest' }, tiles, table, typeof StudyPlan !== 'undefined' ? StudyPlan.errCard(r.a, r.b, render) : null);
   },
   /* v1.13.2: tom mais escuro da matéria para o tempo de questões */
-  kindTag(q) { return el('span', { class: 'rp-kind' + (q ? ' q' : '') }, q ? '✍️ Questões' : '📖 Estudo'); },
+  kindTag(q, r) { return el('span', { class: 'rp-kind' + (r ? ' r' : q ? ' q' : '') }, r ? '🔁 Erros' : q ? '✍️ Questões' : '📖 Estudo'); },
   qColor(c) { return `color-mix(in srgb, ${c} 58%, #000)`; },
   /* v1.12: total da barra (soma das matérias) — dentro do topo da barra se couber, senão logo acima */
   shortDur(ms) { const m = Math.round(ms / 60000); if (m < 1) return ms > 0 ? '<1m' : ''; const h = Math.floor(m / 60); return h ? h + 'h' + (m % 60 ? String(m % 60).padStart(2, '0') : '') : m + 'm'; },
@@ -125,15 +126,15 @@ const StudyReport = {
   subjectOf(id) { return subjectOfNote(id); },
   /* dia → { chave: ms } (chave = nota, 'f:<pasta>' se a matéria foi escolhida, '_' fora das notas) — usado também pela tela inicial */
   /* v0.43.1: só o tempo de MATÉRIAS entra no relatório (fora das notas, sem matéria e notas apagadas ficam de fora) */
-  countable(x) { const k = this.subj(x).key; return k !== '_' && k !== '~' && k !== '?'; },
+  countable(x) { const k = this.subj(x).key; /* v1.15: caderno de erros sem matéria tem a chave '_r' (conta) */ return k !== '_' && k !== '~' && k !== '?'; },
   dayMap() {
     const T = StudyTimer, out = {};
-    for (const x of T.allSess()) if (this.countable(x)) this.split(x, x.s, x.e, (a, b) => { const k = T.dayKey(a), d = out[k] || (out[k] = {}), key = T.sessKey(x); d[key] = (d[key] || 0) + (b - a); });
+    for (const x of T.allSess()) if (this.countable(x)) this.split(x, x.s, x.e, (a, b) => { const k = T.dayKey(a), d = out[k] || (out[k] = {}), key = x.r && this.subj(x).key === '_r' ? '_r' : T.sessKey(x); d[key] = (d[key] || 0) + (b - a); });
     return out;
   },
   /* corta [a, b) na meia-noite */
   split(x, a, b, fn) { while (a < b) { const d = new Date(a); d.setHours(24, 0, 0, 0); const e = Math.min(b, d.getTime()); fn(a, e); a = e; } },
-  subj(x) { return subjectOfNote(StudyTimer.sessKey(x)); },
+  subj(x) { const s = subjectOfNote(StudyTimer.sessKey(x)); return x.r && (s.key === '_' || s.key === '~' || s.key === '?') ? RV_SUBJ : s; },
   dayStart(t) { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); },
   addDays(t, n) { const d = new Date(t); d.setDate(d.getDate() + n); return d.getTime(); },
   /* período atual */
@@ -161,7 +162,7 @@ const StudyReport = {
   gapMs() { const g = Store.settings.sessGap; return (g == null ? 10 : +g) * 60000; },
   blocks(xs) {
     const gap = this.gapMs(), out = []; let b = null, pend = [];
-    const keyOf = (x) => this.subj(x).key + (this.countable(x) ? '' : '#off') + (x.q ? '#q' : ''); /* v1.13.2: questões e estudo em sessões separadas */
+    const keyOf = (x) => this.subj(x).key + (this.countable(x) ? '' : '#off') + (x.r ? '#r' : x.q ? '#q' : ''); /* v1.13.2: questões e estudo em sessões separadas */
     const start = (x) => { b = { parts: [x], s: x.s, e: x.e, study: this.countable(x) ? x.e - x.s : 0, pause: 0, key: keyOf(x), off: !this.countable(x), lg: !!x.lg, live: !!x.live }; out.push(b); };
     const join = (x) => { b.parts.push(x); b.pause += Math.max(0, x.s - b.e); b.e = Math.max(b.e, x.e); if (this.countable(x)) b.study += x.e - x.s; if (x.live) b.live = 1; };
     const plain = (x) => { if (b && !x.lg && !b.lg && keyOf(x) === b.key && x.s - b.e <= gap && x.s >= b.e - 1000) join(x); else start(x); };
@@ -359,7 +360,7 @@ const StudyReport = {
     if (!list.length) out.append(el('p', { class: 'tm-hint rp-empty' }, 'Nenhuma sessão neste período.'));
     const row = (x, sub) => { const s = this.subj(x); return el('button', { class: 'rp-srow' + (sub ? ' sub' : '') + (x.q ? ' qs' : '') + (x.live ? ' live' : '') + (this.countable(x) ? '' : ' off'), disabled: !!x.live, onclick: () => this.editSess(x, render, r) },
       el('span', { class: 'rp-stime' }, x.lg ? 'sem horário' : `${hm(x.s)}–${x.live ? 'agora' : hm(x.e)}`), el('b', {}, T.fmtDur(x.e - x.s)),
-      el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: x.q ? this.qColor(s.color) : s.color } }), s.name, this.kindTag(x.q)), el('span', { class: 'rp-snote' }, (this.countable(x) ? '' : 'não conta (sem matéria) · ') + (x.n ? this.noteTitle(x.n) : x.m ? 'adicionada à mão' : x.lg ? 'registro antigo' : '—'))); };
+      el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: x.q ? this.qColor(s.color) : s.color } }), s.name, this.kindTag(x.q, x.r)), el('span', { class: 'rp-snote' }, (this.countable(x) ? '' : 'não conta (sem matéria) · ') + (x.n ? this.noteTitle(x.n) : x.m ? 'adicionada à mão' : x.lg ? 'registro antigo' : '—'))); };
     for (const [k, bs] of groups) {
       const d = new Date(k + 'T12:00'), tot = bs.reduce((a, b) => a + b.parts.filter((x) => this.countable(x)).reduce((c, x) => c + (x.e - x.s), 0), 0);
       const items = [];
@@ -369,7 +370,7 @@ const StudyReport = {
         const note = notes.size > 1 ? `${notes.size} notas` : notes.size ? this.noteTitle([...notes][0]) : x0.m ? 'adicionada à mão' : '';
         items.push(el('button', { class: 'rp-srow blk' + (x0.q ? ' qs' : '') + (open ? ' open' : '') + (b.live ? ' live' : '') + (this.countable(x0) ? '' : ' off'), onclick: () => { this.openBlock = open ? null : id; render(); } },
           el('span', { class: 'rp-stime' }, `${hm(b.s)}–${b.live ? 'agora' : hm(b.e)}`), el('b', {}, T.fmtDur(b.study)),
-          el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: x0.q ? this.qColor(s.color) : s.color } }), s.name, this.kindTag(x0.q)),
+          el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: x0.q ? this.qColor(s.color) : s.color } }), s.name, this.kindTag(x0.q, x0.r)),
           el('span', { class: 'rp-snote' }, `${this.countable(x0) ? '' : 'não conta (sem matéria) · '}${note ? note + ' · ' : ''}${b.parts.length} trechos` + (b.pause >= 60000 ? ` · pausas ${T.fmtDur(b.pause)}` : ''))));
         if (open) for (const x of b.parts) items.push(row(x, true));
       }
@@ -391,7 +392,7 @@ const StudyReport = {
     const lg = x && x.lg, fields = [el('label', {}, 'Dia', dIn)];
     if (lg) fields.push(el('label', {}, 'Minutos', mIn)); else fields.push(el('label', {}, 'Início', sIn), el('label', {}, 'Fim', eIn));
     fields.push(el('label', {}, 'Matéria', sel));
-    const kSel = el('select', { class: 'rp-in' }, el('option', { value: '' }, '📖 Estudo'), el('option', { value: 'q' }, '✍️ Questões')); kSel.value = x && x.q ? 'q' : ''; fields.push(el('label', {}, 'Tipo', kSel)); /* v1.13.2 */
+    const kSel = el('select', { class: 'rp-in' }, el('option', { value: '' }, '📖 Estudo'), el('option', { value: 'q' }, '✍️ Questões'), el('option', { value: 'r' }, '🔁 Caderno de erros')); kSel.value = x && x.r ? 'r' : x && x.q ? 'q' : ''; fields.push(el('label', {}, 'Tipo', kSel)); /* v1.13.2 */
     const body = el('div', { class: 'rp-edit' }, x && x.n ? el('p', { class: 'tm-hint' }, 'Nota: ' + this.noteTitle(x.n)) : null, lg ? el('p', { class: 'tm-hint' }, 'Registro de antes desta versão: só tem a duração do dia, sem horário.') : null, ...fields);
     const save = () => {
       const [y, m, d] = dIn.value.split('-').map(Number); if (!y) { toast('Escolha o dia'); return false; }
@@ -400,7 +401,7 @@ const StudyReport = {
       else { const [sh, sm] = sIn.value.split(':').map(Number), [eh, em] = eIn.value.split(':').map(Number); s = new Date(y, m - 1, d, sh, sm).getTime(); e = new Date(y, m - 1, d, eh, em).getTime(); if (e <= s) e += 86400000; }
       if (!(e > s) || e - s > 16 * 3600000) { toast('Horário inválido'); return false; }
       if (e > now + 60000) { toast('A sessão não pode terminar no futuro'); return false; }
-      const o = x || { id: uid(), n: null, m: 1 }; o.s = s; o.e = e; delete o.f; if (kSel.value === 'q') o.q = 1; else delete o.q;
+      const o = x || { id: uid(), n: null, m: 1 }; o.s = s; o.e = e; delete o.f; if (kSel.value) o.q = 1; else delete o.q; if (kSel.value === 'r') o.r = 1; else delete o.r;
       if (sel.value.startsWith('f:')) o.f = sel.value.slice(2); else if (sel.value === '_') o.n = o.m ? null : o.n;
       if (isNew) L.sessions.push(o); L.sessions.sort((p, q) => p.s - q.s); T.saveLog();
       toast(isNew ? 'Sessão adicionada' : 'Sessão alterada', 1500); render();

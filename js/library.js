@@ -651,6 +651,7 @@ function penMapSection() {
 /* v0.35: matéria de uma nota = a pasta-matéria mais próxima acima dela ('_' = cronômetro fora de uma nota) */
 function subjectOfNote(id) {
   if (id === '_') return { key: '_', name: 'Fora das notas', color: 'var(--muted)' };
+  if (id === '_r') return { key: '_r', name: 'Caderno de erros', color: '#f59e0b' }; /* v1.15 */
   if (id.startsWith('f:')) { /* v0.42.1: ajuste manual do relatório gravado direto na matéria */ const ch = Store.folderChain(id.slice(2)) || []; for (let i = ch.length - 1; i >= 0; i--) if (ch[i].subject) return { key: ch[i].id, name: ch[i].name, color: ch[i].color || FOLDER_COLORS[0] }; return { key: '~', name: 'Sem matéria', color: 'var(--muted)' }; }
   const h = Store.heads[id]; if (!h) return { key: '?', name: 'Notas apagadas', color: 'var(--line)' };
   const ch = h.folderId ? Store.folderChain(h.folderId) : [];
@@ -682,9 +683,41 @@ const HomeTop = {
     h1.textContent = d.charAt(0).toUpperCase() + d.slice(1);
     const doy = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 864e5); q.textContent = HOME_QUOTES[doy % HOME_QUOTES.length];
     box.classList.toggle('hidden', !full); if (!full) return;
-    box.innerHTML = ''; try { const c = this.cont(); if (c) box.append(c); const st = this.study(); if (st) box.append(st); } catch (e) { logError(e, 'tela inicial'); }
+    box.innerHTML = ''; try { const c = this.cont(); if (c) box.append(c); const st = this.study(); if (st) box.append(st); const pl = this.plan(); if (pl) box.append(pl); } catch (e) { logError(e, 'tela inicial'); }
     if (!box.children.length) box.classList.add('hidden');
-    clearInterval(this._t); this._t = setInterval(() => { if ($('#library') && !$('#library').classList.contains('hidden') && document.visibilityState === 'visible' && !$('#homeCards').classList.contains('hidden')) { const s2 = this.study(), old = $('#homeCards .hc-study'); if (s2 && old) old.replaceWith(s2); } }, 60000);
+    clearInterval(this._t); this._t = setInterval(() => { if ($('#library') && !$('#library').classList.contains('hidden') && document.visibilityState === 'visible' && !$('#homeCards').classList.contains('hidden')) { const s2 = this.study(), old = $('#homeCards .hc-study'); if (s2 && old) old.replaceWith(s2); this.refreshPlan(); } }, 60000);
+  },
+  /* v1.15: "Hoje no plano" — o que fazer hoje pelo plano de estudos; tocar num item escolhe a matéria e o modo no cronômetro e começa */
+  refreshPlan() { const box = $('#homeCards'); if (!box || box.classList.contains('hidden')) return; const p2 = this.plan(), old = $('#homeCards .hc-plan'); if (old && p2) old.replaceWith(p2); else if (old) old.remove(); else if (p2) box.append(p2); },
+  plan() {
+    if (typeof StudyPlan === 'undefined' || typeof StudyTimer === 'undefined' || !StudyTimer.st || !StudyTimer.log) return null;
+    const P = StudyPlan, T = StudyTimer, now = Date.now(), items = P.dayItems(now); if (!items) return null;
+    const d = new Date(); d.setHours(0, 0, 0, 0); const a = d.getTime(), st = new Map((P.stats(a, a + 864e5) || []).map((c) => [c.key, c]));
+    const sd = (v) => StudyReport.shortDur(v) || '0m', g = new Map();
+    for (const x of items) { const k = x.k + ':' + (x.k === 'r' ? '*' : x.f), o = g.get(k) || { k: x.k, f: x.k === 'r' ? null : x.f, min: 0 }; o.min += x.min; g.set(k, o); }
+    let tg = 0, td = 0;
+    const rows = [...g.values()].map((o) => {
+      const sb = o.k === 'r' ? RV_SUBJ : subjectOfNote('f:' + o.f), c = st.get(sb.key) || {}, done = o.k === 'q' ? c.q || 0 : c.e || 0, goal = o.min * 60000, hit = done >= goal;
+      tg += goal; td += Math.min(done, goal);
+      const on = T.st.running && (o.k === 'r' ? T.st.q === 'r' : (T.st.subj || null) === o.f && (o.k === 'q' ? T.st.q === true : !T.st.q));
+      return el('button', { class: 'hc-pi' + (hit ? ' hit' : '') + (on ? ' on' : ''), onclick: (e) => { e.stopPropagation(); this.go(o); } },
+        el('span', { class: 'hc-pk' }, o.k === 'r' ? '🔁' : o.k === 'q' ? '✍️' : '📖'),
+        el('span', { class: 'hc-pn' }, el('b', {}, o.k === 'r' ? 'Caderno de erros' : sb.name), el('small', {}, on ? '● agora' : `${sd(done)} de ${sd(goal)}`)),
+        el('i', { class: 'hc-pb' }, el('em', { style: { width: Math.min(100, (done / goal) * 100) + '%', background: o.k === 'q' ? StudyReport.qColor(sb.color) : sb.color } })),
+        el('span', { class: 'hc-pc' }, hit ? '✓' : '▶'));
+    });
+    const pend = P.pending().length, w = P.week(now);
+    return el('div', { class: 'hc-card hc-plan' },
+      el('div', { class: 'hc-ph' }, el('small', {}, '📅 Hoje no plano'), el('b', {}, P.label(w)), tg ? el('span', { class: 'hc-meta' }, `${sd(td)} de ${sd(tg)} · ${rows.filter((r) => r.classList.contains('hit')).length} de ${rows.length} feitos`) : null,
+        el('button', { class: 'hc-plink', onclick: () => P.open(() => this.refreshPlan()) }, 'Ver plano')),
+      rows.length ? el('div', { class: 'hc-plist' }, ...rows) : el('p', { class: 'hc-meta' }, w && w.name === 'Descanso' ? 'Semana de descanso 😌' : 'Nada planejado para hoje.'),
+      pend ? el('button', { class: 'hc-prv', onclick: () => P.redoPop() }, `🔁 ${pend} ${pend === 1 ? 'erro' : 'erros'} para refazer`) : null);
+  },
+  go(o) {
+    const T = StudyTimer; T.setSubj(o.k === 'r' ? T.st.subj : o.f); T.setQ(o.k === 'r' ? 'r' : o.k === 'q');
+    if (!T.st.running) T.start();
+    toast(`Cronômetro: ${o.k === 'r' ? 'caderno de erros' : subjectOfNote('f:' + o.f).name + (o.k === 'q' ? ' · questões' : ' · estudo')}`, 1600);
+    if (o.k === 'r') StudyPlan.redoPop(); this.refreshPlan();
   },
   cont() {
     const id = (Store.settings.recent || []).find((x) => Store.heads[x]); if (!id) return null;
@@ -707,7 +740,7 @@ const HomeTop = {
   },
   study() {
     if (typeof StudyReport === 'undefined' || typeof StudyTimer === 'undefined') return null;
-    if (!StudyTimer.st) { clearTimeout(this._w); this._w = setTimeout(() => { const s2 = this.study(), old = $('#homeCards .hc-study'); if (s2 && old) old.replaceWith(s2); }, 1200); return el('div', { class: 'hc-card hc-study' }); } /* cronômetro ainda carregando */
+    if (!StudyTimer.st) { clearTimeout(this._w); this._w = setTimeout(() => { const s2 = this.study(), old = $('#homeCards .hc-study'); if (s2 && old) old.replaceWith(s2); this.refreshPlan(); }, 1200); return el('div', { class: 'hc-card hc-study' }); } /* cronômetro ainda carregando */
     const R = StudyReport, T = StudyTimer, map = R.dayMap(), goal = R.goalMs(), day = (back) => { const x = new Date(); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - back); return T.dayKey(x.getTime()); };
     const today = R.sum(map[day(0)]), frac = goal ? Math.min(1, today / goal) : today > 0 ? 1 : 0;
     const streak = R.streaks(map).cur; /* v0.50: meta de dias úteis/fim de semana e dias de pausa */
