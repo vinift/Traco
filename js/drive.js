@@ -530,6 +530,8 @@ const Drive = {
         if (R.sessions) { const have = new Set((L.sessions || []).map((x) => x.id)); const add = R.sessions.filter((x) => !have.has(x.id)); study += add.length; L.sessions = (L.sessions || []).concat(add).sort((a, b) => a.s - b.s); if (!L.v) L.v = 2; }
         for (const k of ['days', 'away']) if (R[k]) { L[k] = L[k] || {}; for (const [d, v] of Object.entries(R[k])) { if (v && typeof v === 'object') { const o = L[k][d] || (L[k][d] = {}); for (const [kk, ms] of Object.entries(v)) o[kk] = Math.max(o[kk] || 0, ms); } else L[k][d] = Math.max(L[k][d] || 0, v || 0); } }
         if (R.titles) L.titles = { ...R.titles, ...(L.titles || {}) };
+        if (R.plan && !L.plan) L.plan = R.plan; /* v1.14: plano de estudos */
+        if (R.errs) { const have = new Map((L.errs || []).map((x) => [x.id, x])); for (const x of R.errs) { const h = have.get(x.id); if (h) h.done = h.done || x.done; else (L.errs = L.errs || []).push(x); } }
         if (R.qa) { const have = new Set((L.qa || []).map((x) => x[0] + ':' + x[1])); L.qa = (L.qa || []).concat(R.qa.filter((x) => !have.has(x[0] + ':' + x[1]))).sort((a, b) => a[0] - b[0]); } /* v1.13: respostas ✓/✗ */
         if (T) { T.log = L; T.cleanSess(); } await DB.put('meta', L, 'studyLog'); /* v1.10: tira o tempo repetido que a junção trouxe */
       }

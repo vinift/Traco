@@ -153,6 +153,15 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.14.0 — plano de estudos (cronograma) e caderno de erros
+
+- **Plano de estudos:** no relatório (Visão geral → "Montar plano de estudos…") você monta o cronograma da semana com as suas matérias: em cada dia, itens de 📖 estudo ou ✍️ questões com o tempo. Toque num item para trocar a matéria, o tipo ou o tempo; toque no dia para copiar para outros dias ou limpar.
+- **Ciclo:** já vêm os planos "Foco" e "Recuperação" com a ordem Foco, Foco, Foco, Recuperação (dá para criar outros, renomear e mudar a ordem). Escolha a segunda-feira em que o ciclo começa e o app calcula sozinho em que semana você está.
+- **Flexível:** "Esta semana é a…" muda a posição no ciclo (falhou uma semana ou precisa descansar antes); "Plano só desta semana" troca o plano ou põe descanso; "Editar só esta semana" muda dias só dela. Mudar um plano vale da semana atual em diante — as semanas que passaram não mudam.
+- **Metas pelo plano:** com o plano valendo, a meta do dia, a sequência, o painel do cronômetro ("Hoje no plano") e o relatório (dia e semana) mostram, por matéria, 📖 feito/meta e ✍️ feito/meta. Sem plano, continuam as metas antigas.
+- **Caderno de erros:** a cada ✗ no modo questões, aparece um tecladinho para anotar a aula e o número da questão (a aula vem preenchida com a última da matéria), ou "Outro…" para escrever (ex.: "Simulado 3, Q15"). "Pular" não anota; desfazer o ✗ apaga a anotação. A lista fica na aba Questões do relatório, por matéria, para marcar como refeita (✓) no fim da semana.
+- O plano e o caderno de erros vão junto do histórico de estudo no backup do Drive.
+
 ## Novidades da v1.13.4 — meta de questões na semana e no mês
 
 - Antes, na semana e no mês, a meta de questões aparecia somada. Uma matéria estudada em 2 dias mostrava "de 1h" (30 min × 2), o que parecia errado.

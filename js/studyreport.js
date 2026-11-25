@@ -11,6 +11,7 @@ const StudyReport = {
   goalMs(t = Date.now()) {
     const S = Store.settings, d = typeof t === 'string' ? new Date(t + 'T12:00') : new Date(t), k = StudyTimer.dayKey(d.getTime());
     if ((S.pauseDays || []).includes(k)) return 0; /* v0.50: dia de pausa (feriado etc.) = descanso */
+    { const it = typeof StudyPlan !== 'undefined' ? StudyPlan.dayItems(k) : null; if (it) return it.reduce((s, x) => s + x.min, 0) * 60000; } /* v1.14: com plano de estudos, a meta do dia é a soma dos itens do dia */
     /* v1.12: mudar a meta vale de amanhã em diante — hoje e os dias anteriores usam a meta guardada em S.goalHist [{until: 'AAAA-MM-DD', g, we, sun}] */
     const h = (S.goalHist || []).find((x) => k <= x.until);
     return this.goalOf(h ? { studyGoal: h.g, studyGoalWE: h.we, studyGoalSun: h.sun } : S, d);
@@ -18,7 +19,7 @@ const StudyReport = {
   /* ---------- v1.13: questões ----------
      Tempo de questões = sessões com q: 1 (modo "Questões" do cronômetro); respostas em StudyTimer.log.qa [[t, 1|0, nota, matéria]].
      Meta de questões POR MATÉRIA: S.qGoal = {each: min (para cada matéria estudada no dia), subj: {idDaPasta: min}} (0 = sem meta). */
-  qGoalFor(key) { const G = Store.settings.qGoal || {}, v = G.subj && G.subj[key] != null ? G.subj[key] : G.each; return +v > 0 ? +v * 60000 : 0; },
+  qGoalFor(key, t) { if (t != null && typeof StudyPlan !== 'undefined') { const g = StudyPlan.goalFor(key, t, 'q'); if (g != null) return g; } const G = Store.settings.qGoal || {}, v = G.subj && G.subj[key] != null ? G.subj[key] : G.each; return +v > 0 ? +v * 60000 : 0; },
   qStats(a, b) {
     const m = new Map(), get = (sb) => { let c = m.get(sb.key); if (!c) m.set(sb.key, (c = { ...sb, study: 0, q: 0, ok: 0, no: 0 })); return c; };
     for (const [x, v] of this.within(a, b)) { const c = get(this.subj(x)); c.study += v; if (x.q) c.q += v; }
@@ -32,7 +33,7 @@ const StudyReport = {
        mostra "meta em H de D dias" (antes somava as metas dos dias: 2 dias × 30 min = "de 1h", que parecia errado) */
     const multi = b - a > 90000000;
     for (let t = a; t < b; ) { const d = new Date(t); d.setHours(24, 0, 0, 0); const e = Math.min(b, d.getTime());
-      for (const c of this.qStats(t, e)) { const g = this.qGoalFor(c.key); if (!(c.study > 0 && g && this.countableKey(c.key))) continue; const o = out[c.key] || (out[c.key] = { goal: g, days: 0, hit: 0, multi }); o.days++; if (c.q >= g) o.hit++; }
+      for (const c of this.qStats(t, e)) { const g = this.qGoalFor(c.key, t + 43200000); if (!(c.study > 0 && g && this.countableKey(c.key))) continue; const o = out[c.key] || (out[c.key] = { goal: g, days: 0, hit: 0, multi }); o.days++; if (c.q >= g) o.hit++; }
       t = e; }
     return out;
   },
@@ -56,10 +57,10 @@ const StudyReport = {
   /* bloco "Questões hoje" no painel do cronômetro */
   qTodayEl() {
     const T = StudyTimer, d = new Date(); d.setHours(0, 0, 0, 0); const a = d.getTime(), list = this.qStats(a, a + 86400000);
-    const rows = list.filter((c) => c.q > 0 || c.ok + c.no > 0 || (c.study > 0 && this.countableKey(c.key) && this.qGoalFor(c.key)));
+    const rows = list.filter((c) => c.q > 0 || c.ok + c.no > 0 || (c.study > 0 && this.countableKey(c.key) && this.qGoalFor(c.key, a + 43200000)));
     if (!rows.length && !T.st.q) return null;
     return el('div', { class: 'tm-qday' }, el('div', { class: 'tm-tot' }, el('span', {}, '✍️ Questões hoje'), el('b', {}, T.fmtDur(rows.reduce((s, c) => s + c.q, 0)))),
-      rows.length ? el('div', { class: 'rp-qlist' }, ...rows.map((c) => this.qRow(c, this.countableKey(c.key) ? this.qGoalFor(c.key) : 0))) : el('p', { class: 'tm-hint' }, 'Ligue "Questões" e inicie o cronômetro para contar.'));
+      rows.length ? el('div', { class: 'rp-qlist' }, ...rows.map((c) => this.qRow(c, this.countableKey(c.key) ? this.qGoalFor(c.key, a + 43200000) : 0))) : el('p', { class: 'tm-hint' }, 'Ligue "Questões" e inicie o cronômetro para contar.'));
   },
   /* v1.13.3: meta de questões compacta, na mesma linha das metas de estudo (Visão geral): um valor para cada matéria
      estudada no dia + "Por matéria" abre uma janelinha com um campo por matéria (vazio = igual, 0 = sem meta) */
@@ -85,7 +86,7 @@ const StudyReport = {
     const rows = list.filter((c) => c.q > 0 || c.ok + c.no > 0 || goals[c.key]);
     const table = el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Por matéria', el('span', { class: 'rp-hs' }, this.unit === 'day' ? 'meta = para cada matéria estudada no dia' : this.unit === 'year' ? '' : 'meta = dias em que bateu a meta de questões / dias em que estudou a matéria')),
       rows.length ? el('div', { class: 'rp-qlist' }, ...rows.map((c) => this.qRow(c, goals[c.key] || 0))) : el('p', { class: 'tm-hint' }, 'Sem questões neste período. No cronômetro, toque em "✍️ Questões" e inicie: os botões ✓ e ✗ aparecem na tela.'));
-    return el('div', { class: 'rp-quest' }, tiles, table, el('p', { class: 'tm-hint' }, 'A meta de questões fica na Visão geral, junto da meta de estudo.'));
+    return el('div', { class: 'rp-quest' }, tiles, table, typeof StudyPlan !== 'undefined' ? StudyPlan.errCard(r.a, r.b, render) : null);
   },
   /* v1.13.2: tom mais escuro da matéria para o tempo de questões */
   kindTag(q) { return el('span', { class: 'rp-kind' + (q ? ' q' : '') }, q ? '✍️ Questões' : '📖 Estudo'); },
@@ -234,34 +235,36 @@ const StudyReport = {
     const tiles = el('div', { class: 'rp-tiles' },
       tile('Total', T.fmtDur(total), cmp == null ? (studied ? `em ${studied} ${studied === 1 ? 'dia' : 'dias'}` : 'nada ainda') : `${cmp >= 0 ? '▲' : '▼'} ${Math.abs(cmp)}% vs. período anterior`, cmp == null ? '' : cmp >= 0 ? 'up' : 'down'),
       this.unit === 'day' ? (goal ? tile('Meta do dia', `${Math.min(999, Math.round((total / goal) * 100))}%`, `${T.fmtDur(total)} de ${T.fmtDur(goal)}`, total >= goal ? 'up' : '') : tile('Meta do dia', 'Descanso', total ? `${T.fmtDur(total)} estudados (conta na sequência)` : 'não quebra a sequência', total ? 'up' : '')) : tile('Média por dia', T.fmtDur(days.length ? total / days.length : 0), studied ? `${T.fmtDur(total / Math.max(1, studied))} nos dias estudados` : ''),
-      this.unit === 'day' ? tile('Sessões', String(nSess), nSess ? `média ${T.fmtDur(real / nSess)}` : '') : tile('Dias na meta', `${hit} de ${nGoal}`, this.goalTxt()),
+      this.unit === 'day' ? tile('Sessões', String(nSess), nSess ? `média ${T.fmtDur(real / nSess)}` : '') : tile('Dias na meta', `${hit} de ${nGoal}`, (typeof StudyPlan !== 'undefined' && StudyPlan.week(r.a + 43200000)) ? 'meta pelo plano' : this.goalTxt()),
       tile('Sequência', `${st.cur} ${st.cur === 1 ? 'dia' : 'dias'}`, `melhor: ${st.best} ${st.best === 1 ? 'dia' : 'dias'}`),
       awTot >= 60000 ? tile('Não contado', T.fmtDur(awTot), 'app fora da tela', 'down') : this.unit === 'day' ? null : tile('Sessões', String(nSess), nSess ? `média ${T.fmtDur(real / nSess)}` : ''));
     /* gráfico empilhado por matéria */
     const B = this.buckets(r); for (const b of B) { b.list = list.filter(([x]) => x.e > b.a && x.s < b.b).map(([x]) => [x, Math.min(b.b, x.e) - Math.max(b.a, x.s)]); b.v = b.list.reduce((a, [, v]) => a + v, 0); b.parts = this.bySubj(b.list); }
-    for (const b of B) if (b.day) b.g = this.goalMs(b.a + 43200000); const gl = B[0].day ? this.goalCur(Date.parse('2024-01-03T12:00')) : 0, max = Math.max(...B.map((b) => b.v), ...B.map((b) => (b.g || 0) * 1.1), gl * 1.1, this.unit === 'day' ? 3600000 : 1); /* linha tracejada = meta de seg–sex; fim de semana com meta própria ganha um tracinho na coluna */
+    for (const b of B) if (b.day) b.g = this.goalMs(b.a + 43200000); const planOn = typeof StudyPlan !== 'undefined' && !!StudyPlan.week(r.a + 43200000), gl = B[0].day && !planOn ? this.goalCur(Date.parse('2024-01-03T12:00')) : 0, max = Math.max(...B.map((b) => b.v), ...B.map((b) => (b.g || 0) * 1.1), gl * 1.1, this.unit === 'day' ? 3600000 : 1); /* linha tracejada = meta de seg–sex; fim de semana com meta própria ganha um tracinho na coluna */
     const detail = el('div', { class: 'rp-detail' });
     const showB = (b, i) => {
       this.sel = i; detail.innerHTML = '';
       detail.append(el('div', { class: 'rp-dhead' }, el('b', {}, `${b.tip}: ${T.fmtDur(b.v)}${b.day && b.g === 0 ? ' · descanso' : b.day && b.v >= b.g ? ' ✓ meta' : ''}`), b.drill ? el('button', { class: 'btn ghost', onclick: () => this.go(b.drill[0], b.drill[1]) }, b.drill[0] === 'day' ? 'Abrir o dia →' : 'Abrir o mês →') : null));
-      detail.append(b.parts.length ? this.subjRows(b.parts, b.v, b.day ? this.qGoalSum(b.a, b.b) : null) : el('p', { class: 'tm-hint' }, 'Nada registrado.'));
+      const pl = b.day && planOn ? StudyPlan.stats(b.a, b.b) : null; detail.append(pl ? StudyPlan.rows(pl.filter((c) => c.ge || c.gq || c.e || c.q)) : b.parts.length ? this.subjRows(b.parts, b.v, b.day ? this.qGoalSum(b.a, b.b) : null) : el('p', { class: 'tm-hint' }, 'Nada registrado.'));
       if (b.day && aw[T.dayKey(b.a + 43200000)] >= 30000) detail.append(el('p', { class: 'tm-hint rp-warn' }, `Não contado (app fora da tela com o cronômetro rodando): ${T.fmtDur(aw[T.dayKey(b.a + 43200000)])}`));
       [...plot.querySelectorAll('.rp-col.on')].forEach((c) => c.classList.remove('on')); plot.children[i + (gl ? 1 : 0)] && plot.children[i + (gl ? 1 : 0)].classList.add('on');
     };
     const plot = el('div', { class: 'rp-plot' + (B.length > 14 ? ' dense' : '') }, gl ? el('div', { class: 'rp-goal', style: { bottom: `calc(20px + (100% - 20px) * ${gl / max})` } }, el('span', {}, 'meta')) : null,
       ...B.map((b, i) => el('button', { class: 'rp-col' + (b.day && (b.g === 0 ? b.v > 0 : b.v >= b.g) ? ' hit' : '') + (b.day && b.g === 0 ? ' rest' : '') + (now >= b.a && now < b.b ? ' now' : ''), title: `${b.tip}: ${T.fmtDur(b.v)}`, onclick: () => showB(b, i) },
         b.day && b.g !== gl && b.g > 0 ? el('i', { class: 'rp-gtick', style: { bottom: `calc(${(b.g / max) * 100}% - 1px)` } }) : null, el('div', { class: 'rp-stack', style: { height: b.v ? Math.max(1.5, (b.v / max) * 100) + '%' : '0' } }, ...b.parts.flatMap((p) => [p.v - p.q > 0 ? el('i', { style: { flex: String(p.v - p.q), background: p.color } }) : null, p.q > 0 ? el('i', { class: 'qpart', style: { flex: String(p.q), background: this.qColor(p.color) } }) : null].filter(Boolean))), this.totLabel(b.v, max, B.length > 14), el('small', {}, b.lab))));
-    const side = el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Matérias no período'), list.length ? this.subjRows(this.bySubj(list), total, this.unit === 'year' ? null : this.qGoalSum(r.a, r.b)) : el('p', { class: 'tm-hint' }, 'Sem tempo registrado. O tempo conta com o cronômetro rodando e o app na tela.'));
+    const side = el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Matérias no período'), (() => { const pl = planOn && this.unit !== 'year' ? StudyPlan.stats(r.a, r.b) : null; return pl ? StudyPlan.rows(pl.filter((c) => c.ge || c.gq || c.e || c.q)) : null; })() || (list.length ? this.subjRows(this.bySubj(list), total, this.unit === 'year' ? null : this.qGoalSum(r.a, r.b)) : null) || el('p', { class: 'tm-hint' }, 'Sem tempo registrado. O tempo conta com o cronômetro rodando e o app na tela.'));
     const S = Store.settings, goalIn = el('input', { type: 'number', min: 5, max: 900, step: 15, value: Math.round(Math.max(5, +S.studyGoal || 60)), class: 'sr-goalin', onchange: () => { this.keepGoal(); S.studyGoal = clamp(Math.round(+goalIn.value || 60), 5, 900); Store.saveSettings(); toast(S.goalFrom === 'today' ? 'Meta nova já vale hoje — os dias anteriores não mudam' : 'Meta nova vale a partir de amanhã — a sequência não quebra', 2200); render(); } });
     const dayIn = (key) => { const v = S[key] === undefined && key === 'studyGoalSun' ? S.studyGoalWE : S[key], i = el('input', { type: 'number', min: 0, max: 900, step: 15, value: v != null && v !== '' ? v : '', placeholder: 'igual', class: 'sr-goalin', onchange: () => { const t = i.value.trim(); this.keepGoal(); S[key] = t === '' ? null : clamp(Math.round(+t || 0), 0, 900); Store.saveSettings(); toast(S.goalFrom === 'today' ? 'Meta nova já vale hoje — os dias anteriores não mudam' : 'Meta nova vale a partir de amanhã — a sequência não quebra', 2200); render(); } }); return i; };
     const satIn = dayIn('studyGoalWE'), sunIn = dayIn('studyGoalSun');
     const fromSeg = UI.seg([['today', 'Hoje'], ['tomorrow', 'Amanhã']], S.goalFrom === 'today' ? 'today' : 'tomorrow', (v) => { S.goalFrom = v; Store.saveSettings(); });
     const hint = !Store.folders.some((f) => f.subject) ? el('p', { class: 'tm-hint' }, 'Dica: marque pastas como matéria (menu ⋯ da pasta → "Marcar como matéria") para ver o tempo por matéria.') : null;
     const pauseRow = this.unit === 'day' ? el('div', { class: 'rp-pause' }, el('button', { class: 'btn' + (this.isPause(r.a + 43200000) ? ' primary' : ''), onclick: () => { const on = this.togglePause(r.a + 43200000); toast(on ? 'Dia de pausa: não quebra a sequência' : 'Dia de pausa removido', 1800); render(); } }, this.isPause(r.a + 43200000) ? '⏸ Dia de pausa (tocar para tirar)' : '⏸ Marcar como dia de pausa'), el('small', {}, 'Feriado, viagem… o dia não quebra a sequência; se estudar, conta.')) : null;
-    const out = el('div', { class: 'rp-geral' }, tiles, pauseRow,
+    const wk = typeof StudyPlan !== 'undefined' && (this.unit === 'day' || this.unit === 'week') ? StudyPlan.week(r.a + 43200000) : null;
+    const planBar = wk ? el('button', { class: 'pl-bar-top', onclick: () => StudyPlan.open(render) }, '📅 ', el('b', {}, StudyPlan.label(wk)), el('span', {}, 'editar plano')) : null;
+    const out = el('div', { class: 'rp-geral' }, planBar, tiles, pauseRow,
       el('div', { class: 'rp-grid' }, el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, this.unit === 'day' ? 'Tempo por hora' : this.unit === 'year' ? 'Tempo por mês' : 'Tempo por dia', el('span', { class: 'rp-hs' }, 'toque numa barra')), plot,
           list.some(([x]) => x.q) ? el('div', { class: 'rp-legend' }, el('span', {}, el('i', { style: { background: 'var(--accent)' } }), 'estudo'), el('span', {}, el('i', { style: { background: this.qColor('var(--accent)') } }), 'questões (tom mais escuro da matéria)')) : null, detail,
-        el('div', { class: 'rp-goalrow' }, el('label', {}, 'Meta seg–sex', goalIn, 'min'), el('label', {}, 'Sábado', satIn, 'min'), el('label', {}, 'Domingo', sunIn, 'min'), el('label', { class: 'rp-from' }, 'Mudança vale a partir de', fromSeg), el('small', {}, 'vazio = igual a seg–sex · 0 = descanso (não quebra a sequência) · os dias que já passaram nunca mudam'), this.qGoalEl(render))), side), hint);
+        planOn || (typeof StudyPlan !== 'undefined' && StudyPlan.active()) ? el('div', { class: 'rp-goalrow pl-goalrow' }, el('span', {}, '📅 Metas pelo plano de estudos'), el('button', { class: 'btn', onclick: () => StudyPlan.open(render) }, 'Abrir o plano')) : el('div', { class: 'rp-goalrow' }, el('button', { class: 'btn ghost pl-start', onclick: () => StudyPlan.open(render) }, '📅 Montar plano de estudos (cronograma da semana)…'), el('label', {}, 'Meta seg–sex', goalIn, 'min'), el('label', {}, 'Sábado', satIn, 'min'), el('label', {}, 'Domingo', sunIn, 'min'), el('label', { class: 'rp-from' }, 'Mudança vale a partir de', fromSeg), el('small', {}, 'vazio = igual a seg–sex · 0 = descanso (não quebra a sequência) · os dias que já passaram nunca mudam'), this.qGoalEl(render))), side), hint);
     const ci = B.findIndex((b) => now >= b.a && now < b.b), si = this.sel != null && B[this.sel] ? this.sel : ci >= 0 ? ci : B.length - 1;
     if (B[si]) showB(B[si], si); /* v0.43.1: na hora (antes num setTimeout → a tela mudava depois de aparecer) */
     return out;

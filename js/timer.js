@@ -101,10 +101,11 @@ const StudyTimer = {
     if (!this.qOn()) return; const n = this.curNote(), A = this.log.qa || (this.log.qa = []);
     A.push([Date.now(), ok ? 1 : 0, n ? n.id : null, this.st.subj || null]); if (A.length > 30000) A.splice(0, A.length - 30000);
     this.saveLog(); QuizPad.sync(true); if (this.pop && this.pop.isConnected) this._statT = 0;
+    if (!ok && typeof StudyPlan !== 'undefined') StudyPlan.askErr(A[A.length - 1]); /* v1.14: caderno de erros */
   },
   undoAnswer() {
     const A = this.log.qa || [], last = A[A.length - 1]; if (!last || this.dayKey(last[0]) !== this.dayKey(Date.now())) return false;
-    A.pop(); this.saveLog(); QuizPad.sync(true); return true;
+    A.pop(); if (!last[1] && typeof StudyPlan !== 'undefined') StudyPlan.dropErr(last[0]); this.saveLog(); QuizPad.sync(true); return true;
   },
   /* matéria de uma resposta (como a das sessões: a escolhida no cronômetro ou a da nota) */
   ansSubj(x) { return subjectOfNote(x[3] ? 'f:' + x[3] : x[2] || '_'); },
@@ -335,7 +336,7 @@ const StudyTimer = {
         /* v0.50: dia de pausa (feriado etc.) — não quebra a sequência */
         el('button', { class: 'tm-pausebtn' + (R.isPause(t) ? ' on' : ''), onclick: () => { const on = R.togglePause(t); toast(on ? 'Hoje é dia de pausa: não quebra a sequência' : 'Dia de pausa removido', 1800); this.renderPanel(); } }, R.isPause(t) ? '⏸ Hoje é dia de pausa · tirar' : '⏸ Marcar hoje como dia de pausa'),
         aw >= 60000 ? el('small', { class: 'tm-away' }, `${this.fmtDur(aw)} hoje com o app fora da tela não contaram`) : null),
-      StudyReport.qTodayEl(),
+      (typeof StudyPlan !== 'undefined' && StudyPlan.dayItems(t) ? StudyPlan.todayEl() : StudyReport.qTodayEl()),
       el('div', { class: 'tm-tot' }, el('span', {}, 'Últimos 7 dias'), el('b', {}, this.fmtDur(week))),
       el('div', { class: 'tm-bars' }, el('div', { class: 'tm-gl', style: { bottom: `calc(14px + (100% - 14px) * ${gl / max})` } }), ...days.map((x, i) => el('div', { class: 'tm-bar' + (i === 6 ? ' today' : '') + (R.dayHit(x.k, vals[i]) === 1 ? ' hit' : ''), title: `${x.d.toLocaleDateString('pt-BR')}: ${this.fmtDur(vals[i])}` }, el('i', { style: { height: Math.round((vals[i] / max) * 100) + '%' } }), el('small', {}, WD[x.d.getDay()])))),
       top.length ? el('div', { class: 'tm-notes' }, ...top.map((x) => el('div', { class: 'tm-row' }, el('span', { class: 'tm-subj' }, el('i', { class: 'sr-dot', style: { background: x.color } }), x.name), el('b', {}, this.fmtDur(x.v))))) : el('p', { class: 'tm-hint' }, 'O tempo estudado aparece aqui, por dia e por matéria.'),
