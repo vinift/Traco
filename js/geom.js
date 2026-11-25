@@ -208,6 +208,7 @@ function elBBox(e) {
     for (const [px, py] of [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]) { const q = rotPt(px, py, c.x, c.y, e.rot); x1 = Math.min(x1, q[0]); x2 = Math.max(x2, q[0]); y1 = Math.min(y1, q[1]); y2 = Math.max(y2, q[1]); }
     b = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
   }
+  if (e.pbox && b) { const [px, py, pw, ph] = e.pbox, x1 = Math.min(b.x, px), y1 = Math.min(b.y, py); b = { x: x1, y: y1, w: Math.max(b.x + b.w, px + pw) - x1, h: Math.max(b.y + b.h, py + ph) - y1 }; } /* v1.29.1: o fundo do botão do TEC entra na caixa — senão a parte fora do texto não era pintada nos blocos da tela */
   _bboxCache.set(e, b); return b;
 }
 function bboxUnion(list) {
