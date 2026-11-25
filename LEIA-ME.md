@@ -153,6 +153,15 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.23.0 — importar questões do TEC num caderno próprio
+
+- **Biblioteca → + → "Importar questões do TEC":** escolha um ou mais PDFs impressos do TEC. O Traço junta as questões, **tira as repetidas**, **embaralha** e cria uma nota nova, já na pasta da matéria se houver uma com o mesmo nome.
+- **Visual no estilo do app:** cada questão num cartão arredondado, com um cabeçalho lilás (número numa etiqueta roxa, assunto, banca/ano e "abrir no TEC >"). Sem as 3 linhas do TEC em cima. As questões continuam nítidas em qualquer zoom e o arquivo fica leve (400 questões ≈ 2 MB).
+- **Responder:** toque em Certo ou Errado, como antes. **Dúvida:** toque na etiqueta roxa do número. **"abrir no TEC >":** abre a questão no site.
+- **Seleção e correção separadas** (vale em todos os cadernos do TEC): a sua resposta fica circulada em **roxo**, e o resultado aparece numa pílula ao lado, **"✓ Acertou"** (verde) ou **"✗ Errou · gabarito: Errado"** (vermelha).
+- **⋯ da nota → "Reorganizar questões":** cria outro caderno com **só as que não fiz**, **as que não fiz + as que errei** ou **todas embaralhadas de novo**. O caderno atual fica como está.
+- **Dica para o TEC:** na tela Imprimir, use **"Início da impressão: A partir da questão"** (1, depois 201…) em vez de "Aleatoriamente": assim nada se repete entre as impressões. Deixe o cabeçalho **"Com matéria e assunto"** e o gabarito **"No fim do caderno"**. **Tamanho da fonte "Grande"** deixa a letra maior.
+
 ## Novidades da v1.22.0 — questões repetidas do TEC
 
 - O Traço agora **lembra de cada questão do TEC que você respondeu**, pelo número da questão no site, em qualquer caderno. A lista vai junto no backup do estudo.

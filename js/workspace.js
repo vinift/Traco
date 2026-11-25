@@ -128,6 +128,8 @@ const PdfText = {
   prefetch(ref) {
     const k = this.key(ref); if (this.cache.has(k)) return;
     const job = (async () => {
+      const vl = typeof Tec !== 'undefined' && (await Tec.virtLines(ref)); /* v1.23: caderno montado do TEC — só o texto visível */
+      if (vl) { const out = []; for (const [, y, h, segs] of vl) for (const s of segs) out.push({ x: s[1], y, w: s[2], h }); this.cache.set(k, out); return out; }
       const doc = await PdfCache.doc(ref.blobId), pg = await doc.getPage(ref.index + 1), vp = pg.getViewport({ scale: 96 / 72 }), tc = await pg.getTextContent();
       const lib = await PdfCache.loadLib(), out = [];
       for (const it of tc.items) {
@@ -192,14 +194,20 @@ const PdfFind = {
   },
   async save(blobId) { const I = this.idx.get(blobId); if (!I || !I.dirty) return; I.dirty = 0; const { dirty, ...data } = I; try { await DB.put('meta', data, 'pdftxt:' + blobId); } catch (e) { logError(e, 'índice do PDF'); } },
   async readPage(ref) {
+    if (typeof Tec !== 'undefined') { const v = await Tec.virtLines(ref); if (v) return v; } /* v1.23: caderno montado do TEC */
     const I = await this.index(ref.blobId); if (I.pages[ref.index]) return I.pages[ref.index];
-    const doc = await PdfCache.doc(ref.blobId), pg = await doc.getPage(ref.index + 1), vp = pg.getViewport({ scale: 96 / 72 }), tc = await pg.getTextContent(), lib = await PdfCache.loadLib();
+    const doc = await PdfCache.doc(ref.blobId), pg = await doc.getPage(ref.index + 1), out = await this.pageLines(pg);
+    I.pages[ref.index] = out; I.dirty++; if (I.dirty >= 40) this.save(ref.blobId); return out;
+  },
+  /* v1.23: linhas de texto de uma página do pdf.js (também usado por Tec.build, com PDFs que ainda não são nota) */
+  async pageLines(pg) {
+    const vp = pg.getViewport({ scale: 96 / 72 }), tc = await pg.getTextContent(), lib = await PdfCache.loadLib();
     const items = [];
     for (const it of tc.items) { if (!it.str || !it.str.trim()) continue; const t = lib.Util.transform(vp.transform, it.transform), h = Math.hypot(t[2], t[3]); if (Math.abs(t[1]) > 0.01 * h) continue; items.push({ s: it.str, x: t[4], y: t[5] - h * 0.86, w: it.width * vp.scale, h: h * 1.12 }); }
     items.sort((a, b) => a.y - b.y || a.x - b.x); const lines = [];
     for (const it of items) { const L = lines.find((l) => Math.abs(l.cy - (it.y + it.h / 2)) < Math.min(l.h, it.h) * 0.5); if (L) { L.its.push(it); L.h = Math.max(L.h, it.h); L.y = Math.min(L.y, it.y); } else lines.push({ cy: it.y + it.h / 2, y: it.y, h: it.h, its: [it] }); }
     const out = lines.map((L) => { L.its.sort((a, b) => a.x - b.x); let t = '', segs = [], end = -Infinity; for (const it of L.its) { if (t && it.x - end > L.h * 0.2 && !t.endsWith(' ')) t += ' '; segs.push([t.length, Math.round(it.x * 10) / 10, Math.round(it.w * 10) / 10, it.s.length]); t += it.s; end = it.x + it.w; } return [t, Math.round(L.y * 10) / 10, Math.round(L.h * 10) / 10, segs]; });
-    I.pages[ref.index] = out; I.dirty++; if (I.dirty >= 40) this.save(ref.blobId); return out;
+    return out;
   },
   /* ocorrências de q numa página lida: [{rect, line}] */
   findIn(lines, q) {

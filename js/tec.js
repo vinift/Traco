@@ -14,7 +14,7 @@ const Tec = {
   /* reconhece (uma vez por nota) — barato: lê a 1ª e a última página com PDF */
   async check(note) {
     if (!note || this._no.has(note.id) || this._busy.has(note.id)) return;
-    if (note.tec) { if (!(note.tec.v >= 2)) await this.upgrade(note); this.repeats(note); return; } if (note.tec !== undefined) return;
+    if (note.tec) { this.reg(note); if (!(note.tec.v >= 2)) await this.upgrade(note); this.repeats(note); return; } if (note.tec !== undefined) return;
     const P = note.pages.filter((p) => p.pdf); if (!P.length) return;
     this._busy.add(note.id);
     try {
@@ -30,30 +30,39 @@ const Tec = {
   },
   /* lê todas as páginas e monta as questões + gabarito */
   async scan(note) {
-    const P = note.pages.filter((p) => p.pdf), blob = P[0].pdf.blobId, q = {}, gab = {}; let cur = null, inGab = false, gabBox = null;
-    const skip = (t) => /^\d{2}\/\d{2}\/\d{4},\s*\d{1,2}:\d{2}/.test(t) || /^https?:\/\/www\.tecconcursos\.com\.br\/questoes\/cadernos/.test(t);
+    const P = note.pages.filter((p) => p.pdf), blob = P[0].pdf.blobId, pages = [];
+    for (const p of P) { if (p.pdf.blobId !== blob) continue; let lines; try { lines = await PdfFind.readPage(p.pdf); } catch (e) { lines = []; } pages.push({ pg: p.pdf.index, lines }); }
+    const R = this.parse(pages);
+    return { v: 2, blob, gab: R.gab, q: R.q, ans: {}, d: {}, gb: R.gb };
+  },
+  /* v1.23: lê as linhas ([{pg, lines}] na ordem) → {q, gab, gb, pm: {pg: {hb, ft}}} — hb = fim do cabeçalho da página
+     (data/hora), ft = começo do rodapé (link do caderno); cada questão tem top (linha do link), nr (número) e end (última linha) */
+  parse(pages) {
+    const q = {}, gab = {}, pm = {}; let cur = null, inGab = false, gabBox = null;
     const rect = (pg, L, k0 = 0, k1) => { const [t, y, h, segs] = L, at = (i) => { let sg = segs[0]; for (const s of segs) if (s[0] <= i) sg = s; const f = Math.min(1, Math.max(0, (i - sg[0]) / Math.max(1, sg[3]))); return sg[1] + sg[2] * f; }; const x1 = at(k0), x2 = at(k1 == null ? t.length : k1); return [pg, Math.round(x1 * 10) / 10, Math.round(y * 10) / 10, Math.round((x2 - x1) * 10) / 10, Math.round(h * 10) / 10]; };
     const finish = () => {
       if (cur && cur.num) { const hd = cur.hdr.filter(Boolean), ms = hd.slice(1).join(' '), k = ms.indexOf(' - ');
-        q[cur.num] = { id: cur.id, banca: hd[0] || '', mat: k > 0 ? ms.slice(0, k).trim() : ms.trim(), ass: k > 0 ? ms.slice(k + 3).trim() : '', c: cur.c || null, e: cur.e || null, nr: cur.nr || null, top: cur.top }; }
+        q[cur.num] = { id: cur.id, banca: hd[0] || '', mat: k > 0 ? ms.slice(0, k).trim() : ms.trim(), ass: k > 0 ? ms.slice(k + 3).trim() : '', c: cur.c || null, e: cur.e || null, nr: cur.nr || null, top: cur.top, end: cur.end }; }
       cur = null;
     };
-    for (let i = 0; i < P.length; i++) {
-      if (P[i].pdf.blobId !== blob) continue;
-      const pg = P[i].pdf.index; let lines; try { lines = await PdfFind.readPage(P[i].pdf); } catch (e) { lines = []; }
+    for (const { pg, lines } of pages) {
+      const M = pm[pg] = { hb: 0, ft: Infinity };
       for (const L of lines) {
-        const t = L[0].trim(); if (!t || skip(t)) continue;
+        const t = L[0].trim(); if (!t) continue;
+        if (/^\d{2}\/\d{2}\/\d{4},\s*\d{1,2}:\d{2}/.test(t)) { M.hb = Math.max(M.hb, L[1] + L[2]); continue; }
+        if (/^https?:\/\/www\.tecconcursos\.com\.br\/questoes\/cadernos/.test(t)) { M.ft = Math.min(M.ft, L[1]); continue; }
         if (inGab) { let hit = 0; for (const m of t.matchAll(/(\d+)\)\s*(Certo|Errado|Anulada|Desatualizada|[A-E])\b/g)) { gab[m[1]] = /^(Anulada|Desatualizada)$/.test(m[2]) ? 'X' : m[2][0]; hit++; }
           if (hit && pg === gabBox.pg) { const sg = L[3][L[3].length - 1]; gabBox.y2 = Math.max(gabBox.y2, L[1] + L[2]); gabBox.x1 = Math.min(gabBox.x1, L[3][0][1]); gabBox.x2 = Math.max(gabBox.x2, sg[1] + sg[2]); } continue; }
         if (/^Gabarito$/.test(t)) { finish(); inGab = true; gabBox = { pg, x1: L[3][0][1], y1: L[1], x2: L[3][0][1] + 200, y2: L[1] + L[2] }; continue; }
         const m = t.match(/^www\.tecconcursos\.com\.br\/questoes\/(\d+)/); if (m) { finish(); cur = { id: m[1], hdr: [], top: [pg, Math.round(L[1] * 10) / 10] }; continue; }
         if (!cur) continue;
-        if (!cur.num) { const n = t.match(/^(\d+)\)\s?/); if (n && cur.hdr.length >= 2) { cur.num = n[1]; cur.nr = rect(pg, L, 0, n[1].length + 1); } else if (cur.hdr.length < 4) cur.hdr.push(t); continue; }
+        if (cur.num) cur.end = [pg, Math.round((L[1] + L[2]) * 10) / 10];
+        if (!cur.num) { const n = t.match(/^(\d+)\)\s?/); if (n && cur.hdr.length >= 2) { cur.num = n[1]; cur.nr = rect(pg, L, 0, n[1].length + 1); cur.end = [pg, Math.round((L[1] + L[2]) * 10) / 10]; } else if (cur.hdr.length < 4) cur.hdr.push(t); continue; }
         if (t === 'Certo' && !cur.c) cur.c = rect(pg, L); else if (t === 'Errado' && !cur.e) { cur.e = rect(pg, L); if (cur.c) finish(); }
       }
     }
     finish();
-    return { v: 2, blob, gab, q, ans: {}, d: {}, gb: gabBox ? [gabBox.pg, gabBox.x1 - 8, gabBox.y1 - 6, gabBox.x2 - gabBox.x1 + 16, gabBox.y2 - gabBox.y1 + 12] : null };
+    return { q, gab, pm, gb: gabBox ? [gabBox.pg, gabBox.x1 - 8, gabBox.y1 - 6, gabBox.x2 - gabBox.x1 + 16, gabBox.y2 - gabBox.y1 + 12] : null };
   },
   /* página da nota que mostra a página `idx` do PDF do caderno */
   pageOf(note, idx) { const T = note.tec; return note.pages.find((p) => p.pdf && p.pdf.blobId === T.blob && p.pdf.index === idx) || null; },
@@ -72,6 +81,7 @@ const Tec = {
     const hid = page.elements.find((e) => e.tqh && e.type === 'shape' && x >= e.x1 && x <= e.x2 && y >= e.y1 && y <= e.y2); /* v1.22: faixa "já acertada" → mostra a questão */
     if (hid) { const num = String(hid.tqh); for (const e of this.marks(page, num, 'tqh')) Editor.recRemove(page, e); Editor.opCommit(); (T.shown || (T.shown = {}))[num] = 1; Editor.markChanged(); return true; }
     for (const [num, q] of Object.entries(T.q)) {
+      if (q.hd && q.hd[0] === idx && x >= q.hd[1] + q.hd[3] - 90 && x <= q.hd[1] + q.hd[3] && y >= q.hd[2] && y <= q.hd[2] + q.hd[4]) { window.open(this.url(q.id), '_blank'); return true; } /* v1.23: "abrir no TEC" da faixa */
       if (q.c && q.c[0] === idx && this.near(q.c, x, y, pad)) { this.answer(note, page, num, 'C'); return true; }
       if (q.e && q.e[0] === idx && this.near(q.e, x, y, pad)) { this.answer(note, page, num, 'E'); return true; }
       if (q.nr && q.nr[0] === idx && this.near(q.nr, x, y, pad)) { this.doubt(note, page, num); return true; }
@@ -79,6 +89,9 @@ const Tec = {
     return false;
   },
   ring(r, color, num, extra = {}) { const px = 7, py = 3; return { id: uid(), type: 'shape', kind: 'ellipse', x1: r[1] - px, y1: r[2] - py, x2: r[1] + r[3] + px, y2: r[2] + r[4] + py, color, width: 2, fill: null, ...extra }; },
+  /* v1.23: etiqueta em pílula (texto com fundo e moldura arredondados, como as pílulas do app) */
+  PILL: { ok: ['#dcfce7', '#15803d', '#86efac'], no: ['#fee2e2', '#b91c1c', '#fca5a5'], warn: ['#ffedd5', '#c2410c', '#fdba74'], gray: ['#f1f5f9', '#475569', '#cbd5e1'] },
+  pill(x, y, text, kind, extra = {}) { const [bg, fg, bd] = this.PILL[kind] || this.PILL.gray; return { id: uid(), type: 'text', x, y, w: 300, auto: true, text, size: 12, color: fg, bold: true, bg, frame: { color: bd, w: 1, r: 9, pad: 5 }, ...extra }; },
   marks(page, num, key = 'tq') { return page.elements.filter((e) => String(e[key]) === String(num)); },
   subjFor(note) { const sb = subjectOfNote(note.id), st = typeof StudyTimer !== 'undefined' && StudyTimer.st; return /^[_~?]/.test(sb.key) && st && st.subj ? st.subj : null; },
   async answer(note, page, num, v) {
@@ -89,9 +102,12 @@ const Tec = {
       this.clear(note, page, num); if (had && A.a === v) return; /* tocou de novo na mesma: só apagou */
     }
     const g = T.gab[num], d = !!T.d[num], ok = g === 'C' || g === 'E' ? g === v : null, t = Date.now();
-    const els = [this.ring(v === 'C' ? q.c : q.e, ok == null ? '#64748b' : ok ? '#16a34a' : '#dc2626', num, { tq: num })];
-    if (ok === false) els.push(this.ring(v === 'C' ? q.e : q.c, '#16a34a', num, { tq: num, dash: 'dash', width: 1.6 }));
-    for (const e of els) this.recAdd(page, e); Editor.opCommit();
+    /* v1.23: seleção e correção separadas — a sua resposta é sempre um círculo azul; o resultado vem numa etiqueta ao lado
+       ("✓ Acertou" verde / "✗ Errou · gabarito: …" vermelho). A etiqueta "já feita" (tqr) sai: a resposta nova substitui. */
+    for (const e of this.marks(page, num, 'tqr')) Editor.recRemove(page, e);
+    const c = q.c, e2 = q.e, lab = ok == null ? 'sem gabarito' : ok ? '✓ Acertou' : `✗ Errou · gabarito: ${g === 'C' ? 'Certo' : 'Errado'}`;
+    const els = [this.ring(v === 'C' ? c : e2, '#7c3aed', num, { tq: num, width: 2.2 }), this.pill(c[1] + Math.max(c[3], e2[3]) + 24, c[2] + (e2[2] + e2[4] - c[2]) / 2 - 8, lab, ok == null ? 'gray' : ok ? 'ok' : 'no', { tq: num })];
+    for (const x of els) this.recAdd(page, x); Editor.opCommit();
     T.ans[num] = { a: v, ok, d: d ? 1 : 0, t }; Editor.markChanged();
     if (ok != null && typeof StudyTimer !== 'undefined' && StudyTimer.log) {
       const L = StudyTimer.log, QA = L.qa || (L.qa = []), x = [t, ok ? 1 : 0, note.id, this.subjFor(note), q.ass || q.mat || null, d ? 1 : 0, 'tec', num, q.id]; this._seen = null; QA.push(x); if (QA.length > 30000) QA.splice(0, QA.length - 30000);
@@ -152,12 +168,12 @@ const Tec = {
       const page = this.pageOf(note, q.e[0]); if (!page) continue; touched.add(page);
       if (hide && s.ok && !s.d && q.top && q.top[0] === q.e[0] && !(T.shown && T.shown[num])) {
         const pw = page.pdfW || page.w, x1 = Math.max(4, q.nr ? q.nr[1] - 10 : 20), y1 = q.top[1] - 6, y2 = q.e[2] + q.e[4] + 6;
-        Editor.recAdd(page, { id: uid(), type: 'shape', kind: 'rect', x1, y1, x2: pw - x1, y2, color: '#cbd5e1', width: 1, fill: '#f1f5f9', tqh: num });
-        Editor.recAdd(page, { id: uid(), type: 'text', x: x1 + 12, y: (y1 + y2) / 2 - 10, w: pw - 2 * x1 - 24, text: `✓ Questão ${num} já acertada em ${fd(s.t)} — toque para mostrar`, size: 13, color: '#64748b', bold: false, tqh: num });
+        Editor.recAdd(page, { id: uid(), type: 'shape', kind: 'rect', x1, y1, x2: pw - x1, y2, color: '#ddd6fe', width: 1, fill: '#faf8ff', tqh: num });
+        Editor.recAdd(page, { id: uid(), type: 'text', x: x1 + 12, y: (y1 + y2) / 2 - 10, w: pw - 2 * x1 - 24, text: `✓ Questão ${num} já acertada em ${fd(s.t)} — toque para mostrar`, size: 13, color: '#6d28d9', bold: false, tqh: num });
         nh++;
       } else {
         const c = q.c, txt = `↺ já feita em ${fd(s.t)} · ${s.ok ? (s.d ? 'acertou com dúvida' : 'acertou') : 'errou'}`;
-        Editor.recAdd(page, { id: uid(), type: 'text', x: c[1] + Math.max(c[3], q.e[3]) + 22, y: c[2] + (q.e[2] + q.e[4] - c[2]) / 2 - 9, w: 260, text: txt, size: 12, color: s.ok ? (s.d ? '#b45309' : '#15803d') : '#b91c1c', bold: true, tqr: num });
+        Editor.recAdd(page, this.pill(c[1] + Math.max(c[3], q.e[3]) + 24, c[2] + (q.e[2] + q.e[4] - c[2]) / 2 - 8, txt, s.ok ? (s.d ? 'warn' : 'ok') : 'no', { tqr: num }));
       }
     }
     if (touched.size) { Editor.opCommit(); Editor.markChanged(); Editor.requestRender(); }
@@ -187,6 +203,116 @@ const Tec = {
       ...(note.pages.some((p) => p.elements.some((e) => e.tqh)) ? [{ label: 'Mostrar as acertadas escondidas', action: () => { const n = this.showHidden(note); toast(`${n} questões mostradas`, 1500); return true; } }] : []),
       ...(next ? [{ label: `Ir para a ${next[0]}`, cls: 'primary', action: () => { this.goTo(note.id, next[1], note.tec.blob); return true; } }] : []),
       { label: 'Fechar', action: () => true }] });
+  },
+  /* ===== v1.23: montar um caderno novo a partir de PDFs do TEC =====
+     srcs = [{name, blobId}] (PDFs guardados como blob). Junta as questões, tira repetidas (id do TEC), embaralha (ou mantém a
+     ordem de `keep` = {id: número}), aplica o filtro ('all' | 'new' = nunca respondidas | 'newwrong' = nunca respondidas ou a
+     última resposta errada/com dúvida) e gera um PDF: cada questão recortada do original (embedPage, continua vetor) com uma
+     faixa de cabeçalho própria (número · assunto · banca) e o número novo por cima do antigo. Devolve {bytes, tec} — tec já
+     com os retângulos no PDF novo (não precisa reconhecer de novo). */
+  async build(srcs, { filter = 'all', keep = null } = {}, onStep = () => {}) {
+    const lib = await PdfCache.loadLib(), PL = await loadPdfLib(), out = await PL.PDFDocument.create(), seen = this.seen();
+    const font = await out.embedFont(PL.StandardFonts.Helvetica), bold = await out.embedFont(PL.StandardFonts.HelveticaBold);
+    const items = [], byId = new Set();
+    for (let si = 0; si < srcs.length; si++) {
+      const S0 = srcs[si], blob = await Store.getBlob(S0.blobId); if (!blob) throw new Error(`o PDF "${S0.name}" não está mais no aparelho`);
+      const buf = await blob.arrayBuffer(), doc = await lib.getDocument({ data: new Uint8Array(buf.slice(0)) }).promise, pages = [];
+      for (let i = 0; i < doc.numPages; i++) { onStep(`Lendo ${S0.name}: página ${i + 1} de ${doc.numPages}`); pages.push({ pg: i, lines: await PdfFind.pageLines(await doc.getPage(i + 1)) }); }
+      const R = this.parse(pages); if (!Object.keys(R.q).length) throw new Error(`"${S0.name}" não parece um caderno impresso do TEC (precisa do cabeçalho "Com matéria e assunto")`);
+      const pdl = await PL.PDFDocument.load(buf, { ignoreEncryption: true });
+      for (const [num, q] of Object.entries(R.q)) { if (byId.has(q.id)) continue; byId.add(q.id); items.push({ q, num, g: R.gab[num] || null, R, pdl, doc, si }); }
+      doc.destroy && doc.destroy();
+    }
+    let list = items.filter(({ q }) => { const s = seen.get(q.id); return filter === 'new' ? !s : filter === 'newwrong' ? !s || !s.ok || s.d : true; });
+    if (keep) list.sort((a, b) => (keep[a.q.id] || 1e9) - (keep[b.q.id] || 1e9)); else for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
+    if (!list.length) return null;
+    const ansi = (t) => String(t || '').replace(/[–—]/g, '-').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[^\x20-\x7e\xa0-\xff]/g, '?');
+    const fit = (t, f, sz, w) => { t = ansi(t); if (f.widthOfTextAtSize(t, sz) <= w) return t; while (t.length > 3 && f.widthOfTextAtSize(t + '...', sz) > w) t = t.slice(0, -1); return t + '...'; };
+    const K = 0.75, M = 22, HB = 24, GAP = 14, TOP = 24;
+    /* largura útil: a do original (margem esquerda do número espelhada) */
+    const p0 = list[0].pdl.getPage(list[0].q.nr[0]).getSize(), left0 = Math.max(8, list[0].q.nr[1] - 8), cwPt = p0.width - 2 * left0 * K, W = cwPt + 2 * M, H = Math.round(W * 1.414);
+    let page = null, pgN = -1, y = 0; const embC = new Map(), vis = {}, tq = {}, gab = {}, newPage = () => { page = out.addPage([W, H]); pgN++; y = TOP; };
+    for (let k = 0; k < list.length; k++) {
+      const { q, num, g, R, pdl } = list[k], n = keep ? String(keep[q.id] || k + 1) : String(k + 1); if (k % 10 === 0) onStep(`Montando a questão ${k + 1} de ${list.length}`);
+      const PH = (pg) => pdl.getPage(pg).getSize().height / K, pm = (pg) => R.pm[pg] || { hb: 0, ft: PH(pg) }, ftOf = (pg) => Math.min(PH(pg), pm(pg).ft) - 4, hbOf = (pg) => pm(pg).hb + 4;
+      const a = q.nr, z = q.e || q.end || a, y0 = a[2] - 6, y1 = (q.e ? z[2] + z[4] : z[1]) + 7, parts = [];
+      if (a[0] === z[0]) parts.push([a[0], y0, y1]); else { parts.push([a[0], y0, ftOf(a[0])]); for (let pg = a[0] + 1; pg < z[0]; pg++) parts.push([pg, hbOf(pg), ftOf(pg)]); parts.push([z[0], hbOf(z[0]), y1]); }
+      const left = Math.max(8, a[1] - 8), hTot = HB + 6 + parts.reduce((s, [, u, v]) => s + (v - u) * K, 0);
+      if (!page || (y + hTot + 18 > H - 24 && y > TOP)) newPage();
+      /* v1.23: cartão no estilo do app — borda suave arredondada, cabeçalho em pílula lilás, número em etiqueta roxa
+         (tocar nela = dúvida), assunto · banca e "abrir no TEC ›" em roxo */
+      const yTop = y, cx = M - 8, cw = cwPt + 16, hdY = yTop + 5, hdH = HB - 2, ACC = PL.rgb(0.486, 0.227, 0.929);
+      const rr = (x0, y0, w, h, r) => `M ${x0 + r} ${y0} H ${x0 + w - r} Q ${x0 + w} ${y0} ${x0 + w} ${y0 + r} V ${y0 + h - r} Q ${x0 + w} ${y0 + h} ${x0 + w - r} ${y0 + h} H ${x0 + r} Q ${x0} ${y0 + h} ${x0} ${y0 + h - r} V ${y0 + r} Q ${x0} ${y0} ${x0 + r} ${y0} Z`;
+      const cardH = HB + 10 + parts.reduce((s2, [, u, v]) => s2 + (v - u) * K, 0) + 8;
+      page.drawSvgPath(rr(0, 0, cw, cardH, 10), { x: cx, y: H - yTop, color: PL.rgb(1, 1, 1), borderColor: PL.rgb(0.88, 0.89, 0.92), borderWidth: 0.8 });
+      page.drawSvgPath(rr(0, 0, cw - 10, hdH, 7), { x: cx + 5, y: H - hdY, color: PL.rgb(0.953, 0.937, 0.992) });
+      const nT = n, nW = bold.widthOfTextAtSize(nT, 9), bW = nW + 14, bx = cx + 10, by = hdY + 3.5, bH = hdH - 7;
+      page.drawSvgPath(rr(0, 0, bW, bH, bH / 2), { x: bx, y: H - by, color: ACC });
+      page.drawText(nT, { x: bx + 7, y: H - by - bH + 3.6, size: 9, font: bold, color: PL.rgb(1, 1, 1) });
+      const bs = (q.banca || '').split(' ')[0] + ' · ' + ((q.banca || '').split(' - ').slice(1).join(' - ').split('/').slice(-2).join('/')), tecT = 'abrir no TEC  >', tecW = font.widthOfTextAtSize(tecT, 8);
+      page.drawText(fit(`${q.ass || q.mat}  ·  ${bs}`, font, 8.5, cw - bW - tecW - 50), { x: bx + bW + 9, y: H - hdY - hdH + 6.6, size: 8.5, font, color: PL.rgb(0.29, 0.33, 0.39) });
+      page.drawText(tecT, { x: cx + cw - 14 - tecW, y: H - hdY - hdH + 6.6, size: 8, font: bold, color: ACC });
+      const badge = [pgN, Math.round(bx / K * 10) / 10, Math.round(by / K * 10) / 10, Math.round(bW / K * 10) / 10, Math.round(bH / K * 10) / 10];
+      y += HB + 10;
+      const map = {}, put = (r) => { if (!r) return null; const P = map[r[0]]; if (!P) return null; for (const [u, v, yy] of P) if (r[2] >= u - 2 && r[2] <= v + 2) return [pgN, Math.round((M / K + r[1] - left) * 10) / 10, Math.round((yy / K + r[2] - u) * 10) / 10, r[3], r[4]]; return null; };
+      for (const [pg, u, v] of parts) {
+        /* a página de origem é embutida UMA vez (cache por documento) e só o recorte aparece (clip) — embutir por recorte repetia a página inteira (30 MB) */
+        const sp = pdl.getPage(pg), Hs = sp.getSize().height, emb = (embC.get(pdl) || (embC.set(pdl, await out.embedPages(pdl.getPages())), embC.get(pdl)))[pg], hp = (v - u) * K, by = H - y - hp;
+        page.pushOperators(PL.pushGraphicsState(), PL.rectangle(M, by, cwPt, hp), PL.clip(), PL.endPath());
+        page.drawPage(emb, { x: M - left * K, y: by - (Hs - v * K) });
+        page.pushOperators(PL.popGraphicsState());
+        (map[pg] = map[pg] || []).push([u, v, y]); (vis[pgN] = vis[pgN] || []).push([list[k].si, pg, u, v, left, Math.round(y / K * 10) / 10]); y += (v - u) * K;
+      }
+      const onr = put(q.nr); if (onr) { const [, x, yy, w, h] = onr; page.drawRectangle({ x: x * K - 1, y: H - (yy + h) * K, width: w * K + 3, height: h * K, color: PL.rgb(1, 1, 1) }); } /* o número antigo some: o novo está na etiqueta */
+      const nr = badge;
+      tq[n] = { id: q.id, banca: q.banca, mat: q.mat, ass: q.ass, c: put(q.c), e: put(q.e), nr, top: [pgN, Math.round(yTop / K * 10) / 10], hd: [pgN, (cx + 5) / K, hdY / K, (cw - 10) / K, hdH / K], on: num }; if (Tec._dbg) tq[n]._d = { parts, src: [q.nr, q.c, q.e], map: JSON.parse(JSON.stringify(map)) };
+      gab[n] = g; y = yTop + cardH + GAP;
+    }
+    return { bytes: await out.save(), tec: { v: 3, built: 1, gab, q: tq, ans: {}, d: {}, gb: null, vis, mx: M / K, srcs: srcs.map((x) => ({ name: x.name, blobId: x.blobId })) }, total: items.length, n: list.length };
+  },
+  /* cria a nota com o PDF montado (pasta: a pasta-matéria com o nome da matéria, senão a pasta aberta) */
+  async makeNote(R, title, folderId) {
+    const file = new File([R.bytes], (title || 'caderno') + '.pdf', { type: 'application/pdf' }), pages = await importPdfFile(file);
+    const note = newNote({ title, folderId, mode: 'pages', template: { ...Store.settings.template, type: 'blank' } });
+    note.pages = pages; note.tec = { ...R.tec, blob: pages[0].pdf.blobId }; this.reg(note); await Store.putNote(note); return note;
+  },
+  /* v1.23: o PDF montado guarda, fora dos recortes, o texto invisível das páginas de origem — a busca e o marca-texto leem
+     o texto pelos recortes (vis: página nova → [origem, página, y0, y1, esquerda, y na página nova]) direto dos PDFs de origem */
+  _virt: new Map(),
+  reg(note) { const T = note && note.tec; if (T && T.built && T.vis && T.srcs) this._virt.set(T.blob, T); },
+  async virtLines(ref) {
+    const T = this._virt.get(ref.blobId); if (!T) return null; const out = [];
+    for (const [si, pg, u, v, left, yy] of T.vis[ref.index] || []) { const S0 = T.srcs[si]; if (!S0) continue; let L; try { L = await PdfFind.readPage({ blobId: S0.blobId, index: pg }); } catch (e) { continue; }
+      for (const [t, y, h, segs] of L) if (y >= u - 1 && y + h <= v + 1) out.push([t, Math.round((y - u + yy) * 10) / 10, h, segs.map(([st, x, w, n]) => [st, Math.round((x - left + T.mx) * 10) / 10, w, n])]); }
+    return out.sort((a, b) => a[1] - b[1]);
+  },
+  folderFor(mat) { const m = String(mat || '').toLowerCase(); const f = m && Store.folders.find((x) => x.subject && x.name.toLowerCase() === m) || Store.folders.find((x) => m && x.name.toLowerCase() === m); return f ? f.id : (typeof Library !== 'undefined' ? Library.folder : null); },
+  /* biblioteca → "Importar questões do TEC": escolhe 1 ou mais PDFs */
+  async importFlow() {
+    const files = await pickFile('application/pdf', true); if (!files || !files.length) return;
+    try {
+      toast('Lendo os PDFs…', 60000); const srcs = [];
+      for (const f of files) srcs.push({ name: f.name.replace(/\.pdf$/i, ''), blobId: await Store.putBlob(new Blob([await f.arrayBuffer()], { type: 'application/pdf' })) });
+      const R = await this.build(srcs, {}, (m) => toast(m, 60000)); if (!R) { toast('Nenhuma questão encontrada', 3000); return; }
+      const mats = {}; for (const q of Object.values(R.tec.q)) mats[q.mat] = (mats[q.mat] || 0) + 1; const mat = Object.entries(mats).sort((a, b) => b[1] - a[1])[0][0];
+      const d = new Date(), title = `${mat || 'Questões'} — ${R.n} questões (${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })})`;
+      const note = await this.makeNote(R, title, this.folderFor(mat)); toast(`📝 ${R.n} questões${R.total > R.n ? '' : ''} de ${srcs.length} PDF(s), sem repetidas e embaralhadas`, 4000);
+      if (typeof Library !== 'undefined') Library.render(); App.openNote(note.id);
+    } catch (e) { logError(e, 'importar questões do TEC'); toast('Não deu para montar o caderno: ' + e.message, 6000); }
+  },
+  /* ⋯ da nota → "Reorganizar questões": monta OUTRO caderno com um filtro, a partir dos mesmos PDFs (o atual não muda) */
+  reorgPop(note, anchor) {
+    const T = note.tec, srcs = T.srcs || [{ name: note.title, blobId: T.blob }], keep = {}; if (T.built) for (const [n, q] of Object.entries(T.q)) keep[q.id] = +n;
+    const go = async (filter, lab) => {
+      closePop();
+      try { const R = await this.build(srcs, { filter, keep: T.built ? keep : null }, (m) => toast(m, 60000)); if (!R) { toast('Nenhuma questão nesse filtro — você já fez todas 🎉', 3500); return; }
+        const title = `${note.title.replace(/ — .*$/, '')} — ${lab} (${R.n})`, nn = await this.makeNote(R, title, note.folderId); toast(`${R.n} questões no caderno novo`, 2500); App.openNote(nn.id);
+      } catch (e) { logError(e, 'reorganizar caderno'); toast('Não deu para reorganizar: ' + e.message, 6000); }
+    };
+    const M = this.seen(), ids = Object.values(T.q).map((q) => q.id), nNew = ids.filter((id) => !M.get(id)).length, nWrong = ids.filter((id) => { const s = M.get(id); return s && (!s.ok || s.d); }).length;
+    const b = (lab, sub, fn) => { const x = el('button', { class: 'nm-item', onclick: fn }); x.append(iconEl('refresh'), el('span', {}, lab, el('small', {}, sub))); return x; };
+    openPop(anchor, el('div', { class: 'nmenu' }, el('div', { class: 'nm-head' }, el('div', {}, el('b', {}, 'Reorganizar questões'), el('small', {}, 'cria um caderno novo; este continua como está'))),
+      el('div', { class: 'nm-list' }, b('Só as que não fiz', `${nNew} questões`, () => go('new', 'não feitas')), b('As que não fiz + as que errei', `${nNew + nWrong} questões (erradas ou com dúvida: ${nWrong})`, () => go('newwrong', 'não feitas e erradas')), b('Todas, embaralhadas de novo', `${ids.length} questões`, () => go('all', 'embaralhado')))));
   },
   /* do caderno de erros: abre a nota na questão */
   async goErr(x) { if (!Store.heads[x.n]) return toast('A nota deste caderno não existe mais', 2000); if (!Editor.note || Editor.note.id !== x.n) await App.openNote(x.n); const T = Editor.note && Editor.note.tec, q = T && T.q[x.tec.num]; if (q) this.goTo(x.n, q, T.blob); },

@@ -111,7 +111,7 @@ function drawElement(ctx, e) {
       ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + e.w, e.y); ctx.lineTo(e.x + e.w, e.y + h - f); ctx.lineTo(e.x + e.w - f, e.y + h); ctx.lineTo(e.x, e.y + h); ctx.closePath(); ctx.fill(); ctx.restore();
       ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.beginPath(); ctx.moveTo(e.x + e.w, e.y + h - f); ctx.lineTo(e.x + e.w - f, e.y + h - f); ctx.lineTo(e.x + e.w - f, e.y + h); ctx.closePath(); ctx.fill();
       ctx.fillStyle = e.color; tx += STICKY_PAD; ty += STICKY_PAD;
-    } else if (e.bg) { ctx.fillStyle = e.bg; ctx.fillRect(e.x - 4, e.y - 2, L.w + 8, L.h + 4); }
+    } else if (e.bg) { ctx.fillStyle = e.bg; if (e.frame && e.frame.r) { const pd = e.frame.pad ?? 8, w = e.auto ? L.w : e.w; ctx.beginPath(); ctx.roundRect(e.x - pd, e.y - pd, w + 2 * pd, L.h + 2 * pd, Math.min(e.frame.r, (L.h + 2 * pd) / 2)); ctx.fill(); } else ctx.fillRect(e.x - 4, e.y - 2, L.w + 8, L.h + 4); } /* v1.23: fundo arredondado quando a moldura é arredondada (pílulas do TEC) */
     if (e.frame && !e.sticky) { const f = e.frame, pd = f.pad ?? 8, w = e.auto ? L.w : e.w; strokeFrame(ctx, f, e.x - pd, e.y - pd, w + 2 * pd, L.h + 2 * pd, false); } /* v0.27: moldura da caixa de texto */
     drawRichText(ctx, e, L, tx, ty);
   } else if (e.type === 'image') {

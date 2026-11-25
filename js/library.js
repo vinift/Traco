@@ -265,6 +265,7 @@ const Library = {
       { label: 'Nova matéria', icon: 'timer', run: () => this.newFolder(this.folder, true) },
       '-',
       { label: 'Importar PDF', icon: 'file', run: () => this.importPdf() },
+      { label: 'Importar questões do TEC', icon: 'check', run: () => Tec.importFlow() }, /* v1.23 */
       { label: 'Importar do Notewise', icon: 'layers', run: () => this.importNotewise() },
       { label: 'Restaurar cópia do Traço (.json)', icon: 'download', run: () => importAll() },
     ]);
