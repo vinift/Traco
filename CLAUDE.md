@@ -637,6 +637,9 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v1.17.2 — prints do usuário: (1) marcar só o texto preto pegou "do orgão" azul — `wordsOf` juntava palavras de cores diferentes com vão pequeno, e a ponta do traço "dentro da palavra" estendia até o azul; agora cor diferente = palavra nova (`cur.color`). (2) "ser" e "episódica…" viraram duas faixas com um vão — palavras da mesma linha com `cy` diferente (> 0,45·h, lidas em linhas separadas) davam 2 linhas no `snapBoxes`; o `snapInk` agora junta pedaços com |Δy| < 0,6·h numa faixa só (y pela média ponderada pelo comprimento). Teste: azul colado no preto → faixa começa no preto (antes 202, agora 256); 2 palavras com cy 392/401 → antes 2 faixas, agora 1 (y 398,4); testes da v1.17 iguais.
 
+
+- v1.17.3 — print do usuário (395%): a faixa do marca-texto ficava ~meio corpo de letra acima. `wordsOf` (`cy` da linha) usava o filtro `h > 0,3·L.h` com `L.h` = altura da linha inteira (hastes + pernas): letras baixas um pouco menores saíam, o `hm` subia e letras com haste entravam na mediana. Agora `xh` = 1º quartil das alturas dos traços (sem os < 0,35·mediana, acentos/pontos) e `cy` = mediana dos centros dos traços com altura 0,7–1,3·xh, se houver ≥ 3 e `xh ≤ 0,6·L.h`; senão (escrita ligada, só letras baixas) meio da faixa de altura 0,9·xh com mais tinta (janela deslizante nos pontos ponderados pelo comprimento). Comparação num script com letras sintéticas (corpo 186–200): caso do print (corpo pequeno, linha alta) antigo −9 → 0; letras soltas 0; escrita ligada com hastes −10 → −5; só letras baixas ~+1. Testes da v1.17 iguais.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.17.3 — marca-texto centrado nas letras
+
+- A faixa do marca-texto sobre a sua escrita ficava alta demais (puxada pelas letras com haste, como A, l, t, d). Agora ela é centrada no corpo das letras (a altura das letras "baixas": a, e, o, s…).
+
 ## Novidades da v1.17.2 — marca-texto na escrita: correções
 
 - Palavras de cores diferentes coladas (ex.: "orgão" em azul encostado em "Aquele" em preto) não são mais tratadas como uma só: marcar o texto preto não pega mais a palavra azul.

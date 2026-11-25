@@ -564,7 +564,14 @@ Object.assign(Editor, {
     const words = [];
     for (const L of OCR.groupLines(els.filter((e) => e.type === 'stroke' && e.tool === 'pen' && !e.lock))) {
       const hs = L.items.map((o) => o.b.h).filter((h) => h > L.h * 0.3).sort((a, b) => a - b), hm = hs[hs.length >> 1] || L.h, thr = Math.max(hm * 0.42, 2);
-      const cs = L.items.filter((o) => o.b.h > L.h * 0.3 && o.b.h <= hm * 1.3).map((o) => o.b.y + o.b.h / 2).sort((a, b) => a - b), cy = cs.length ? cs[cs.length >> 1] : L.y + L.h / 2; /* v1.17: centro do miolo das letras (sem pernas/hastes) — usado pelo marca-texto */
+      const hh = L.items.map((o) => o.b.h).sort((a, b) => a - b), hmed = hh[hh.length >> 1] || L.h, hs2 = hh.filter((h) => h > hmed * 0.35), xh = hs2[Math.floor(hs2.length * 0.25)] || hmed;
+      /* v1.17.3: centro do corpo das letras pelas letras "baixas" (a, e, o, s…: altura perto do 1º quartil das alturas). Antes o filtro usava a altura da LINHA
+         (com hastes e pernas), letras baixas um pouco menores saíam e as altas (A, l, t) entravam — a faixa do marca-texto subia. Sem 3 letras baixas (escrita
+         ligada): meio da faixa de altura xh com mais tinta. */
+      const cs = L.items.filter((o) => o.b.h >= xh * 0.7 && o.b.h <= xh * 1.3).map((o) => o.b.y + o.b.h / 2).sort((a, b) => a - b); let cy = L.y + L.h / 2;
+      if (cs.length >= 3 && xh <= L.h * 0.6) cy = cs[cs.length >> 1]; /* letras baixas bem menores que a linha; senão (escrita ligada / só letras baixas) a densidade */
+      else { const yw = []; for (const o of L.items) { const P = o.e.pts; if (!P) continue; for (let i = 3; i < P.length; i += 3) { const w = Math.hypot(P[i] - P[i - 3], P[i + 1] - P[i - 2]); if (w > 0) yw.push([(P[i + 1] + P[i - 2]) / 2, w]); } }
+        yw.sort((a, b) => a[0] - b[0]); let best = -1, acc = 0, lo = 0, W = xh * 0.9; for (let hi = 0; hi < yw.length; hi++) { acc += yw[hi][1]; while (yw[hi][0] - yw[lo][0] > W) acc -= yw[lo++][1]; if (acc > best) { best = acc; cy = (yw[lo][0] + yw[hi][0]) / 2; } } } /* v1.17: centro do miolo das letras (sem pernas/hastes) — usado pelo marca-texto */
       let cur = null, maxX = -Infinity;
       for (const o of L.items) {
         if (!cur || o.b.x - maxX > thr || (o.e.color || '') !== cur.color) { /* v1.17.2: cor diferente = outra palavra (ex.: título azul colado no texto preto) */ cur = { ids: [], x1: Infinity, y1: Infinity, x2: -Infinity, y2: -Infinity, hm, cy, color: o.e.color || '' }; words.push(cur); }
