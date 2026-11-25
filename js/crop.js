@@ -280,7 +280,7 @@ Object.assign(Editor, {
   quickOpt() {
     const S = Store.settings, pc = (v, d, a, b) => clamp((v ?? d) / 100, a, b), hd = S.hyphenDrop ?? 10;
     return { hL: pc(S.hyphenLen, 25, 0.05, 0.95), hD: pc(S.hyphenDrop, 10, -0.45, 0.45), bS: pc(S.bulletSize, 30, 0.05, 0.95), bD: pc(S.bulletDrop, hd, -0.45, 0.45),
-      rH: pc(S.romanSize, 50, 0.15, 0.95), rD: pc(S.romanDrop, hd, -0.45, 0.45), rSuf: S.romanSuffix ?? '.', rSS: pc(S.romanSufSize, 100, 0.1, 2.5), rGap: pc(S.romanGap, 30, 0.05, 0.8), rSty: S.romanStyle || 'serif',
+      rH: pc(S.romanSize, 50, 0.15, 0.95), rD: pc(S.romanDrop, hd, -0.45, 0.45), rSuf: S.romanSuffix ?? '.', rSS: pc(S.romanSufSize, 100, 0.1, 2.5), rGap: pc(S.romanGap, 30, 0.05, 0.8), rSty: S.romanStyle || 'hand',
       aL: pc(S.arrowLen, 70, 0.2, 1.6), aD: pc(S.arrowDrop, hd, -0.45, 0.45), xS: pc(S.boxSize, 55, 0.15, 0.95), xD: pc(S.boxDrop, hd, -0.45, 0.45) };
   },
   /* v0.53: cor salva POR TIPO de atalho (S.quickColors / S.quickSufColors = {tipo: cor|null}); tipo sem entrada usa a cor geral antiga (S.quickColor / S.quickSufColor) */
@@ -326,15 +326,17 @@ Object.assign(Editor, {
     }
     /* v0.45: número romano com serifas; centralizado no quadrado, mais largo que ele → começa na borda esquerda e cresce para a direita */
     const H = s * o.rH, gap = o.rGap, txt = this.romanStr(n || 1), suf = this.seqSuffix('roman'), k = o.rSS;
-    const gl = [...txt].map((ch) => this.romanGlyph(ch)); let W = gl.reduce((a, g) => a + g.w, 0) + gap * (gl.length - 1);
-    const sufW = suf === '.' ? 0.22 * k : suf === '-' ? 0.55 * k : suf === ')' ? 0.32 * k : 0, sGap = 0.3; if (suf) W += sGap + sufW;
+    const gl = [...txt].map((ch) => this.romanGlyph(ch, o.rSty === 'hand')), gp = o.rSty === 'hand' ? gap * 1.35 : gap /* v1.19: I sem largura → espaço 30% vira 0,4 entre as hastes */; let W = gl.reduce((a, g) => a + g.w, 0) + gp * (gl.length - 1);
+    const hand = o.rSty === 'hand', hPad = hand ? Math.max(0.09, (0.36 - W) / 2) : 0; if (hand) W += 2 * hPad;
+    const sufW = suf === '.' ? 0.22 * k : suf === '-' ? 0.55 * k : suf === ')' ? 0.32 * k : 0, sGap = hand ? 0.22 : 0.3; if (suf) W += sGap + sufW;
     const cy = (c.rows ? c.cy + s * o.rD : c.cy), left = c.left != null ? c.left : c.cx - s / 2;
     const Wpx = W * H, x0 = Wpx <= s * 0.92 && Store.settings.seqAlign !== 'left' ? c.cx - Wpx / 2 : left + s * 0.04 /* v0.47.4: S.seqAlign 'left' = sempre a partir da borda esquerda do quadrado */, top = cy - H / 2, X = (u) => r2(x0 + u * H), Y = (v) => r2(top + v * H);
     const line = (a, b, cc, d) => els.push({ id: uid(), type: 'shape', kind: 'line', x1: X(a), y1: Y(b), x2: X(cc), y2: Y(d), color: st.color, width: lw, fill: null });
-    let u = 0;
+    let u = hPad; /* v1.19: no 'hand' a barra passa das pontas — o número começa depois dela */
     /* v0.46: estilo — 'serif' (serifa em cada letra), 'bar' (uma barra só em cima e embaixo do número inteiro), 'sans' (sem serifa) */
-    gl.forEach((g, i) => { const m = u + g.w / 2; for (const [a, b, cc, d, isS] of g.L) if (!isS || o.rSty === 'serif') line(m + a, b, m + cc, d); u += g.w + (i < gl.length - 1 ? gap : 0); });
+    gl.forEach((g, i) => { const m = u + g.w / 2; for (const [a, b, cc, d, isS] of g.L) if (!isS || o.rSty === 'serif') line(m + a, b, m + cc, d); u += g.w + (i < gl.length - 1 ? gp : 0); });
     if (o.rSty === 'bar') { const pad = 0.04; line(-pad, 0, u + pad, 0); line(-pad, 1, u + pad, 1); }
+    if (o.rSty === 'hand') { /* v1.19: modelo do usuário — letras juntas (I sem largura) e uma barra em cima e outra embaixo passando um pouco das pontas */ line(0, 0, u + hPad, 0); line(0, 1, u + hPad, 1); u += hPad; }
     if (suf) {
       u += sGap;
       if (suf === '.') { /* v0.47.4: sem piso pela espessura da caneta — o contorno acompanha o raio, senão o ponto não diminuía */ const D = Math.max(0.5, (2 * Math.max(lw * 0.75, H * 0.06) + lw) * k), R = D / 2, ow = Math.min(lw, D * 0.4), dx = X(u + sufW / 2), dy = Y(1) - R; /* D = diâmetro visível; em 100% igual ao de antes */ els.push({ id: uid(), type: 'shape', kind: 'ellipse', x1: r2(dx - R + ow / 2), y1: r2(dy - R + ow / 2), x2: r2(dx + R - ow / 2), y2: r2(dy + R - ow / 2), color: sc, width: r2(ow), fill: sc }); }
@@ -417,8 +419,14 @@ Object.assign(Editor, {
     return els;
   },
   /* linhas de cada letra em unidades da altura H (y 0 = topo, 1 = base); serifa = tracinho horizontal de meia largura `sf` */
-  romanGlyph(ch) {
+  romanGlyph(ch, hand) {
     const sf = 0.17, L = [];
+    if (hand) { /* v1.19 'Manuscrito': sem serifa nem folga lateral (as barras de cima/baixo fazem esse papel); I = só a haste */
+      if (ch === 'I') return { L: [[0, 0, 0, 1]], w: 0 };
+      if (ch === 'V') { const a = 0.26; return { L: [[-a, 0, 0, 1], [a, 0, 0, 1]], w: 2 * a }; }
+      if (ch === 'X') { const a = 0.24; return { L: [[-a, 0, a, 1], [a, 0, -a, 1]], w: 2 * a }; }
+      if (ch === 'L') return { L: [[-0.16, 0, -0.16, 1], [-0.16, 1, 0.16, 1], [0.16, 1, 0.16, 0.8]], w: 0.32 };
+    }
     const serif = (x, y) => L.push([x - sf, y, x + sf, y, 1]); /* 5º valor = é serifa */
     if (ch === 'I') { L.push([0, 0, 0, 1]); serif(0, 0); serif(0, 1); return { L, w: 2 * sf }; }
     if (ch === 'V') { const a = 0.34; L.push([-a, 0, 0, 1], [a, 0, 0, 1]); serif(-a, 0); serif(a, 0); return { L, w: 2 * (a + sf) }; }
@@ -532,7 +540,7 @@ Object.assign(Editor, {
         body.append(info('O que vem depois do número ou da letra, e onde ele começa no quadrado.'),
           el('div', { class: 'qk-row' }, el('span', {}, 'Depois'), ...[['', 'nada'], ['.', ex + '.'], ['-', ex + ' -'], [')', ex + ')']].map(([v, lb]) => chip(lb, suf === v, () => { S[this.SEQ[k][2]] = v; Store.saveSettings(); draw(); }))),
           el('div', { class: 'qk-row' }, el('span', {}, 'Posição'), ...[['center', 'Centralizado', 'No meio do quadrado (largo demais → começa na borda e cresce p/ direita)'], ['left', 'À esquerda', 'Começa na borda esquerda do quadrado']].map(([v, lb, t]) => chip(lb, (S.seqAlign || 'center') === v, () => { S.seqAlign = v; Store.saveSettings(); draw(); }, t))));
-        if (k === 'roman') body.append(el('div', { class: 'qk-row' }, el('span', {}, 'Estilo'), ...[['serif', 'Serifado', 'Serifa em cada letra'], ['bar', 'Serifa única', 'Uma barra em cima e outra embaixo do número inteiro'], ['sans', 'Sem serifa', 'Só os traços']].map(([v, lb, t]) => chip(lb, (S.romanStyle || 'serif') === v, () => { S.romanStyle = v; Store.saveSettings(); draw(); }, t))));
+        if (k === 'roman') body.append(el('div', { class: 'qk-row' }, el('span', {}, 'Estilo'), ...[['hand', 'Manuscrito', 'Letras juntas com uma barra em cima e outra embaixo, como escrito à mão'], ['serif', 'Serifado', 'Serifa em cada letra'], ['bar', 'Serifa única', 'Uma barra em cima e outra embaixo do número inteiro'], ['sans', 'Sem serifa', 'Só os traços']].map(([v, lb, t]) => chip(lb, (S.romanStyle || 'hand') === v, () => { S.romanStyle = v; Store.saveSettings(); draw(); }, t))));
         body.append(sl('Tamanho do sinal (ponto, hífen, parêntese)', 'romanSufSize', 10, 250, 100, (v) => v + '%'));
       } else {
         const BRK = ['brCurve', 'brTop', 'brLines', 'bracketDrop', 'brTip'], bs = this.brStyle(k);

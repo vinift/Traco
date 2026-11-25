@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.19.0 — número romano no estilo manuscrito
+
+- O atalho do número romano ganhou o estilo **Manuscrito**, no modelo que você fazia à mão: as hastes juntas e uma barra em cima e outra embaixo do número inteiro, passando um pouco das pontas. Ele agora é o padrão.
+- Os estilos antigos (Serifado, Serifa única, Sem serifa) continuam na telinha do atalho → aba **Sinal** → Estilo. Se você já tinha escolhido um deles, toque em "Manuscrito" para trocar.
+- O "Espaço entre letras" continua valendo: no Manuscrito, 30% deixa as hastes do III a 0,4 da altura umas das outras.
+
 ## Novidades da v1.18.1 — marca-texto com anotação logo embaixo
 
 - Quando há uma anotação pequena logo abaixo da linha (ex.: "↳ causava falta de reparação"), o app às vezes lia as duas como uma linha só, e a faixa do marca-texto descia para perto da anotação. Agora as duas linhas são separadas antes (setas e hastes que ligam uma à outra não atrapalham).
