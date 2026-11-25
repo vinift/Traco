@@ -155,6 +155,8 @@ const PdfText = {
     const out = this.snapBoxes(B, pts); if (!out) return null;
     for (const o of out) for (const w of B) { if (Math.abs(w.y + w.h / 2 - o.y) > w.h * 0.45) continue; /* começa/termina no meio de uma palavra → pega a palavra inteira */
       if (o.x1 > w.x && o.x1 < w.x + w.w) o.x1 = w.x; if (o.x2 > w.x && o.x2 < w.x + w.w) o.x2 = w.x + w.w; }
+    /* v1.17.2: pedaços da mesma linha com o centro um pouco diferente (palavras lidas em linhas separadas) viram uma faixa só */
+    out.sort((p, q) => p.x1 - q.x1); for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) { const p = out[i], q = out[j]; if (Math.abs(p.y - q.y) < Math.max(p.h, q.h) * 0.6) { const lp = p.x2 - p.x1, lq = q.x2 - q.x1; p.y = (p.y * lp + q.y * lq) / (lp + lq); p.h = Math.max(p.h, q.h); p.x1 = Math.min(p.x1, q.x1); p.x2 = Math.max(p.x2, q.x2); out.splice(j--, 1); } }
     for (const o of out) o.ink = 1; /* v1.17.1: na escrita a espessura é a do marca-texto (só a posição gruda) */
     const cov = out.reduce((s, o) => s + o.x2 - o.x1, 0); return cov >= (x2 - x1) * 0.5 ? out : null; /* a faixa tem de cobrir boa parte do traço */
   },

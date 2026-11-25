@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.17.2 — marca-texto na escrita: correções
+
+- Palavras de cores diferentes coladas (ex.: "orgão" em azul encostado em "Aquele" em preto) não são mais tratadas como uma só: marcar o texto preto não pega mais a palavra azul.
+- Palavras da mesma linha que ficaram um pouco mais altas ou mais baixas não partem mais a marcação em duas faixas (o vão entre "ser" e "episódica").
+
 ## Novidades da v1.17.1 — espessura do marca-texto na escrita
 
 - Ao grudar na sua escrita, a faixa agora usa a espessura escolhida no marca-texto (fina, média, grossa…), centrada nas letras. Antes ela sempre tinha a altura da letra.

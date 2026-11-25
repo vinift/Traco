@@ -567,7 +567,7 @@ Object.assign(Editor, {
       const cs = L.items.filter((o) => o.b.h > L.h * 0.3 && o.b.h <= hm * 1.3).map((o) => o.b.y + o.b.h / 2).sort((a, b) => a - b), cy = cs.length ? cs[cs.length >> 1] : L.y + L.h / 2; /* v1.17: centro do miolo das letras (sem pernas/hastes) — usado pelo marca-texto */
       let cur = null, maxX = -Infinity;
       for (const o of L.items) {
-        if (!cur || o.b.x - maxX > thr) { cur = { ids: [], x1: Infinity, y1: Infinity, x2: -Infinity, y2: -Infinity, hm, cy }; words.push(cur); }
+        if (!cur || o.b.x - maxX > thr || (o.e.color || '') !== cur.color) { /* v1.17.2: cor diferente = outra palavra (ex.: título azul colado no texto preto) */ cur = { ids: [], x1: Infinity, y1: Infinity, x2: -Infinity, y2: -Infinity, hm, cy, color: o.e.color || '' }; words.push(cur); }
         cur.ids.push(o.e.id); cur.x1 = Math.min(cur.x1, o.b.x); cur.y1 = Math.min(cur.y1, o.b.y); cur.x2 = Math.max(cur.x2, o.b.x + o.b.w); cur.y2 = Math.max(cur.y2, o.b.y + o.b.h); maxX = Math.max(maxX, o.b.x + o.b.w);
       }
     }
