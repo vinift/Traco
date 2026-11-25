@@ -153,6 +153,17 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.26.0 — caderno de respostas (todas as questões do TEC numa nota só)
+
+- **Biblioteca → + → "Caderno de respostas":** cria uma nota que junta as questões de **todos os seus cadernos do TEC** (os PDFs que você abriu e os montados pelo "Importar questões"), sem repetidas.
+- No alto da nota aparece a pílula **"📚 Todas as matérias · todas · 400 ▾"**. Tocando nela você escolhe:
+  - **Matérias:** Todas, ou uma ou várias (Informática, Raciocínio Lógico…), com a quantidade de cada;
+  - **Situação:** Não feitas, Não feitas + erradas, ou Todas;
+  - **Montar:** a mesma nota se refaz com as questões do filtro, embaralhadas.
+- **O que você escreveu fica com a questão:** rascunho e anotações dentro do cartão de uma questão são guardados e voltam junto quando ela aparecer de novo, em qualquer filtro.
+- As questões que você já fez aparecem com a etiqueta "já feita" (ou escondidas, se acertou sem dúvida), como nos outros cadernos.
+- Correção: a banca que quebrava em duas linhas no PDF virava uma matéria estranha ("…/2020 Raciocínio Lógico"); agora é lida certo.
+
 ## Novidades da v1.25.0 — correção mais limpa e resposta com o dedo
 
 - **Correção mais discreta:** ao lado de Certo/Errado fica só **✓** (acertou) ou **✗ Certo** / **✗ Errado** (errou, com o gabarito), em pílulas pequenas, e o limpar virou um **↺** pequeno. A etiqueta das repetidas também encurtou ("já feita 25/11 · errada").

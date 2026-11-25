@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '1.25.0',
+  version: '1.26.0',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -87,7 +87,7 @@ const App = {
     if (this._busy) return; this._busy = true;
     try { localStorage.removeItem('traco-last-note'); } catch (_) {}
     try { await Editor.close(); } catch (e) { logError(e, 'fechar nota'); }
-    finally { this._busy = false; Library.show(); }
+    finally { this._busy = false; Library.show(); if (typeof Tec !== 'undefined') Tec.bankBar(null); /* v1.26 */ }
   },
   wire() {
     on(['btnNewNote2'], async () => { const n = await newNoteDialog(Library.folder); if (n) this.openNote(n.id); });

@@ -266,6 +266,7 @@ const Library = {
       '-',
       { label: 'Importar PDF', icon: 'file', run: () => this.importPdf() },
       { label: 'Importar questões do TEC', icon: 'check', run: () => Tec.importFlow() }, /* v1.23 */
+      { label: 'Caderno de respostas (todas as questões do TEC)', icon: 'layers', run: () => Tec.bankCreate() }, /* v1.26 */
       { label: 'Importar do Notewise', icon: 'layers', run: () => this.importNotewise() },
       { label: 'Restaurar cópia do Traço (.json)', icon: 'download', run: () => importAll() },
     ]);

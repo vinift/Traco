@@ -699,6 +699,17 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
   - Teste: Q1 errada com dúvida + Q2 certa → qa 2, erros 1; desfazer → qa 1; refazer → qa 2; "limpar" na Q1 → qa 1, erros 0, sem dúvida; desfazer o limpar → tudo de volta, com a dúvida; sem erros.
 
 - v1.25.0 — pedidos: a correção estava "grande, suja demais"; responder com o dedo. `Tec.pill` com 10,5 px, folga 3, borda 0,8 e raio 7; correção = '✓' | '✗ Certo/Errado'; limpar = '↺' (área de toque de ±8 un.); etiqueta `tqr` "já feita dd/mm · certa|certa c/ dúvida|errada". `Editor.fingerTap` (richtext.js) chama `Tec.tap` depois do post-it recolhido. Teste (toque CDP): dedo em Certo da Q1 e em Errado da Q2 → respondidas; 2 PDFs juntos → as 20 primeiras alternando Informática/Raciocínio; sem erros.
+
+- v1.26.0 — caderno de respostas, uma nota "inteligente" (pedido: escolher só Informática, só RL… ou todas embaralhadas). Escolhas: juntar os cadernos que já existem; remontar na MESMA nota; filtros matéria + situação.
+  - `note.bank = {mats|null, st 'all'|'new'|'newwrong', all {matéria: nº}, ink {idTEC: [elementos com y relativo ao topo do cartão]}}`.
+  - `Tec.bankSources()` lê o meta de cada nota (`DB.get('notes', id)`, sem carregar as páginas) e junta, sem repetir blob, `T.srcs` (montados) ou `T.blob` (PDF reconhecido); ignora outros cadernos de respostas.
+  - `bankCreate` (+ da biblioteca). `bankMount(note, mats, st)`:
+    - faz `reconcile` e guarda a escrita que não é marca (`isTag`: tq/tqd/tqr/tqh/tqx/tqg) pelo cartão onde está o centro (`q.top`..`q.bot`; `bot` novo no `build`), em y relativo; o que está fora de cartão vai para a 1ª página;
+    - roda `build({filter, mats})` (novo `mats`; devolve `matCount` de todas as fontes e `{empty}` em vez de null), `importPdfFile`, põe a escrita de volta pelo `q.top` novo, `Editor.close`, troca páginas/tec/bank, `putNote`, apaga o blob antigo e reabre.
+  - `repeats` no caderno de respostas também considera respostas da própria nota (montagens anteriores).
+  - `bankBar` (pílula `#tecBank`, no `check` e removida no `closeNote`) → `bankPop` (chips de matéria com contagem, situação, Montar).
+  - `parse`: a banca vai até a linha que termina em "/AAAA" (antes `hdr[0]`; banca em 2 linhas virava matéria).
+  - Teste: nota com o PDF de Informática (reconhecido) + RL montado → caderno de 400 (Informática 200, RL 200); responder 2 + traço no cartão da Q3; "Informática · não feitas" → 199, com o traço; "todas" → 400, traço de volta na mesma questão (topo + 40); sem erros.
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

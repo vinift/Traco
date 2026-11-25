@@ -1697,3 +1697,9 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 .tec-sum{display:flex;flex-direction:column;gap:12px;min-width:min(520px,80vw)}
 .rv-b.go{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);width:auto;padding:0 10px;font-size:12.5px;font-weight:600}
 .tec-scr .pl-chips{padding:4px 2px 2px}
+/* v1.26: caderno de respostas */
+.tec-bank{position:absolute;left:50%;transform:translateX(-50%);top:calc(var(--sat,0px) + 62px);z-index:30;border:0;border-radius:999px;padding:7px 14px;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.12);cursor:pointer;max-width:70vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#editor.writing .tec-bank,#editor.immersive .tec-bank{opacity:0;pointer-events:none}
+.tec-bpop{display:flex;flex-direction:column;gap:8px;min-width:min(440px,86vw);max-width:520px}
+.tec-bpop .tm-chip small{opacity:.65;font-weight:600}
+.tec-bpop .er-head b{color:var(--accent)}
