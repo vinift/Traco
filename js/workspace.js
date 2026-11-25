@@ -142,8 +142,22 @@ const PdfText = {
   },
   boxes(ref) { const v = this.cache.get(this.key(ref)); return Array.isArray(v) ? v : null; },
   /* devolve as faixas retas (uma por linha de texto) ou null se não der para grudar */
-  snap(page, pts) {
-    const B = this.boxes(page.pdf); if (!B || !B.length) return null;
+  snap(page, pts) { const B = this.boxes(page.pdf); return B && B.length ? this.snapBoxes(B, pts) : null; },
+  /* v1.17: mesma conta para a escrita à mão — caixas = palavras da caneta (Editor.wordsOf), na altura do miolo das letras */
+  snapInk(page, pts) {
+    if (typeof Editor === 'undefined' || !Editor.wordsOf) return null;
+    let x1 = Infinity, x2 = -Infinity, y1 = Infinity, y2 = -Infinity; for (let i = 0; i < pts.length; i += 3) { x1 = Math.min(x1, pts[i]); x2 = Math.max(x2, pts[i]); y1 = Math.min(y1, pts[i + 1]); y2 = Math.max(y2, pts[i + 1]); }
+    if (x2 - x1 < (y2 - y1) * 1.2) return null; /* só traços deitados (circular/riscar na vertical continua livre) */
+    const B = Editor.wordsOf(page).filter((w) => w.x2 >= x1 - 40 && w.x1 <= x2 + 40 && w.y2 >= y1 - 40 && w.y1 <= y2 + 40).map((w) => { const h = w.hm * 1.25; return { x: w.x1, w: w.x2 - w.x1, y: w.cy - h / 2, h }; });
+    if (!B.length) return null;
+    const n = pts.length, close = Math.hypot(pts[0] - pts[n - 3], pts[1] - pts[n - 2]) < (x2 - x1) * 0.3; let len = 0; for (let i = 3; i < n; i += 3) len += Math.hypot(pts[i] - pts[i - 3], pts[i + 1] - pts[i - 2]);
+    if (close && len > (x2 - x1) * 2) return null; /* contorno fechado (circulou a palavra): fica como desenhado */
+    const out = this.snapBoxes(B, pts); if (!out) return null;
+    for (const o of out) for (const w of B) { if (Math.abs(w.y + w.h / 2 - o.y) > w.h * 0.45) continue; /* começa/termina no meio de uma palavra → pega a palavra inteira */
+      if (o.x1 > w.x && o.x1 < w.x + w.w) o.x1 = w.x; if (o.x2 > w.x && o.x2 < w.x + w.w) o.x2 = w.x + w.w; }
+    const cov = out.reduce((s, o) => s + o.x2 - o.x1, 0); return cov >= (x2 - x1) * 0.5 ? out : null; /* a faixa tem de cobrir boa parte do traço */
+  },
+  snapBoxes(B, pts) {
     const P = []; for (let i = 0; i < pts.length; i += 3) P.push([pts[i], pts[i + 1]]);
     const hit = B.filter((b) => P.some(([x, y]) => x >= b.x - 2 && x <= b.x + b.w + 2 && y >= b.y - b.h * 0.15 && y <= b.y + b.h * 1.15)); if (!hit.length) return null;
     // agrupa por linha (mesma altura)

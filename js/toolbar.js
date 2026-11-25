@@ -421,6 +421,7 @@ const UI = {
       p.append(this.switchRow('Segure para ficar reto', 'Segure a caneta parada no fim do traço', S.hlHold !== false, (v) => { S.hlHold = v; this.save(); }));
       p.append(this.switchRow('Sempre reto', 'Cada traço vira uma faixa reta do início ao fim', S.hlStraight, (v) => { S.hlStraight = v; this.save(); }));
       p.append(this.switchRow('Grudar no texto do PDF', 'Em páginas de PDF, a marcação fica reta e na altura exata da linha', S.hlSnapPdf !== false, (v) => { S.hlSnapPdf = v; this.save(); }));
+      p.append(this.switchRow('Grudar na escrita', 'Sobre a sua letra (caneta), a marcação fica reta e na altura das palavras', S.hlSnapInk !== false, (v) => { S.hlSnapInk = v; this.save(); }));
       p.append(this.switchRow('Alinhar a cada 15°', 'Faixas retas grudam em 0°, 15°, 30°, 45°…', S.angleSnap !== false, (v) => { S.angleSnap = v; this.save(); }));
     }
     if (t === 'pen') { const pt = st.type || 'ball', nm = (PEN_TYPES.find((x) => x[0] === pt) || [, 'caneta'])[1];

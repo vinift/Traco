@@ -839,8 +839,8 @@ const Editor = {
       const targets = scribbleTargets(page.elements, sp, this.cam.z, scr);
       if (targets.length) { for (const e of targets) this.recRemove(page, e); this.sel = null; this.opCommit(); return; }
     }
-    if (a.tool === 'highlighter' && !a.snap && page.pdf && Store.settings.hlSnapPdf !== false) { // marca-texto no PDF: vira faixa reta exatamente sobre as linhas do texto
-      const segs = PdfText.snap(page, a.pts);
+    if (a.tool === 'highlighter' && !a.snap && ((page.pdf && Store.settings.hlSnapPdf !== false) || Store.settings.hlSnapInk !== false)) { // marca-texto no PDF: vira faixa reta exatamente sobre as linhas do texto
+      const segs = (page.pdf && Store.settings.hlSnapPdf !== false ? PdfText.snap(page, a.pts) : null) || (Store.settings.hlSnapInk !== false ? PdfText.snapInk(page, a.pts) : null);
       if (segs) { for (const s of segs) { const k = Math.min(s.h * 0.4, (s.x2 - s.x1) / 2 - 0.5); this.recAdd(page, { id: uid(), type: 'stroke', tool: 'highlighter', color: a.color, width: r2(s.h), opacity: a.opacity, cap: 'round', pts: [r2(s.x1 + k), r2(s.y), 0.5, r2(s.x2 - k), r2(s.y), 0.5] }); } /* pontas redondas, como o marca-texto à mão */ this.opCommit(); this.requestRender(); return; }
     }
     if (!a.snap) { /* v0.23: caneta → "melhorar escrita" automático (alisa por distância e guarda os cantos); marca-texto → alisamento leve de antes */
