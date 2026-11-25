@@ -105,7 +105,17 @@ class MainActivity : ComponentActivity() {
             }
         }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() { if (web.canGoBack()) web.goBack() else moveTaskToBack(true) }
+            /* v1.20.1: o voltar pergunta primeiro à página (Nav.nativeBack): sem entradas no histórico (nota reaberta sozinha
+               ao voltar para o app) o canGoBack era falso e o app ia para o fundo em vez de fechar a nota */
+            override fun handleOnBackPressed() {
+                web.evaluateJavascript("(function(){try{return window.__tracoBack?window.__tracoBack():'none'}catch(e){return 'none'}})()") { r ->
+                    when (r?.trim('"')) {
+                        "ok" -> {}
+                        "exit" -> moveTaskToBack(true)
+                        else -> if (web.canGoBack()) web.goBack() else moveTaskToBack(true)
+                    }
+                }
+            }
         })
 
         handleIntent(intent)

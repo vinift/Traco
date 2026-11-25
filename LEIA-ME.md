@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.20.1 — voltar depois de reabrir o app
+
+- Quando você saía do app e voltava, ele reabria a nota, mas o botão voltar saía do aplicativo em vez de fechar a nota. Agora o voltar fecha a nota e depois volta para a pasta e para a tela inicial. Só na tela inicial ele avisa "Volte de novo para sair".
+- A correção é do **Traço Nativo** e vem num APK novo, que já está sendo gerado: baixe e instale por cima pelo link em Configurações → Sobre.
+
 ## Novidades da v1.20.0 — cor nova em todos os grupos
 
 - Ao tocar no **+** das cores (caneta ou marca-texto), a janela da cor tem embaixo a opção **"Adicionar também aos outros grupos"**. Marcada, a cor escolhida entra no grupo atual e em todos os outros grupos e subgrupos, sem repetir onde ela já existe.

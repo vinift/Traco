@@ -90,6 +90,7 @@ const Nav = {
   depth() { const st = history.state; return st && st.traco === 'guard' ? st.n || 1 : 0; },
   init() {
     try { history.replaceState({ traco: 'base' }, '', /[?&]atualizar=/.test(location.search) ? location.pathname + location.hash : undefined); } catch (_) { return; }
+    window.__tracoBack = () => this.nativeBack();
     window.addEventListener('popstate', () => { if (this.ignore > 0) { this.ignore--; return; } this.onBack(); });
     const arm = () => { if (this.exitT) { clearTimeout(this.exitT); this.exitT = null; } this.arm(); }; // tocou em algo: cancela a saída e repõe a reserva
     window.addEventListener('pointerup', arm, true); window.addEventListener('keydown', arm, true);
@@ -105,6 +106,14 @@ const Nav = {
     toast('Volte de novo para sair', 2000);
     const d = this.depth(); if (d > 0) { this.ignore = 1; history.go(-d); }
     this.exitT = setTimeout(() => { this.exitT = null; }, 2000);
+  },
+  /* v1.20.1: chamado pelo app nativo no botão voltar (window.__tracoBack) — não depende das entradas do histórico, que faltam
+     quando a nota é reaberta sozinha (reopenLast) e nada foi tocado ainda. 'ok' = tratado; 'exit' = o app pode ir para o fundo. */
+  nativeBack() {
+    let h = false; try { h = this.closeTop(); } catch (e) { logError(e, 'voltar'); h = true; }
+    if (h) { clearTimeout(this.exitT); this.exitT = null; return 'ok'; }
+    if (this.exitT) { clearTimeout(this.exitT); this.exitT = null; return 'exit'; }
+    toast('Volte de novo para sair', 2000); this.exitT = setTimeout(() => { this.exitT = null; }, 2000); return 'ok';
   },
   closeTop() {
     const pop = $('#popRoot'); if (pop && pop.firstChild) { closePop(); return true; }
