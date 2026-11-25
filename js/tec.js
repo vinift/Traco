@@ -79,7 +79,7 @@ const Tec = {
     const T = note && note.tec; if (!T || !page.pdf || page.pdf.blobId !== T.blob) return false;
     const idx = page.pdf.index, pad = Math.max(3, 7 / Editor.cam.z);
     const hid = page.elements.find((e) => e.tqh && e.type === 'shape' && x >= e.x1 && x <= e.x2 && y >= e.y1 && y <= e.y2); /* v1.22: faixa "já acertada" → mostra a questão */
-    const cx = page.elements.find((e) => e.tqx != null && (() => { const b = elBBox(e); return b && x >= b.x - 4 && x <= b.x + b.w + 4 && y >= b.y - 4 && y <= b.y + b.h + 4; })()); /* v1.24: "↺ limpar" */
+    const cx = page.elements.find((e) => e.tqx != null && (() => { const b = elBBox(e); return b && x >= b.x - 8 && x <= b.x + b.w + 8 && y >= b.y - 8 && y <= b.y + b.h + 8; })()); /* v1.24: "↺ limpar" (v1.25: área maior) */
     if (cx) { const num = String(cx.tqx); this.clear(note, page, num, true); toast(`Questão ${num} limpa — como se nunca tivesse sido feita`, 2200); return true; }
     if (hid) { const num = String(hid.tqh); for (const e of this.marks(page, num, 'tqh')) Editor.recRemove(page, e); Editor.opCommit(); (T.shown || (T.shown = {}))[num] = 1; Editor.markChanged(); return true; }
     for (const [num, q] of Object.entries(T.q)) {
@@ -92,8 +92,9 @@ const Tec = {
   },
   ring(r, color, num, extra = {}) { const px = 7, py = 3; return { id: uid(), type: 'shape', kind: 'ellipse', x1: r[1] - px, y1: r[2] - py, x2: r[1] + r[3] + px, y2: r[2] + r[4] + py, color, width: 2, fill: null, ...extra }; },
   /* v1.23: etiqueta em pílula (texto com fundo e moldura arredondados, como as pílulas do app) */
-  PILL: { ok: ['#dcfce7', '#15803d', '#86efac'], no: ['#fee2e2', '#b91c1c', '#fca5a5'], warn: ['#ffedd5', '#c2410c', '#fdba74'], gray: ['#f1f5f9', '#475569', '#cbd5e1'] },
-  pill(x, y, text, kind, extra = {}) { const [bg, fg, bd] = this.PILL[kind] || this.PILL.gray; return { id: uid(), type: 'text', x, y, w: 300, auto: true, text, size: 12, color: fg, bold: true, bg, frame: { color: bd, w: 1, r: 9, pad: 5 }, ...extra }; },
+  PILL: { ok: ['#dcfce7', '#15803d', '#86efac'], no: ['#fee2e2', '#b91c1c', '#fca5a5'], warn: ['#ffedd5', '#c2410c', '#fdba74'], gray: ['#f1f5f9', '#64748b', '#e2e8f0'] },
+  /* v1.25: pílulas menores (o usuário achou a correção grande e "suja") — 10,5 px e folga 3 */
+  pill(x, y, text, kind, extra = {}) { const [bg, fg, bd] = this.PILL[kind] || this.PILL.gray; return { id: uid(), type: 'text', x, y, w: 300, auto: true, text, size: 10.5, color: fg, bold: true, bg, frame: { color: bd, w: 0.8, r: 7, pad: 3 }, ...extra }; },
   marks(page, num, key = 'tq') { return page.elements.filter((e) => String(e[key]) === String(num)); },
   subjFor(note) { const sb = subjectOfNote(note.id), st = typeof StudyTimer !== 'undefined' && StudyTimer.st; return /^[_~?]/.test(sb.key) && st && st.subj ? st.subj : null; },
   async answer(note, page, num, v) {
@@ -116,9 +117,9 @@ const Tec = {
     /* v1.23: seleção e correção separadas — a sua resposta é sempre um círculo roxo; o resultado vem numa pílula ao lado.
        v1.24: + pílula "↺ limpar" (tqx). A etiqueta "já feita" (tqr) sai: a resposta nova substitui. */
     for (const e of this.marks(page, num, 'tqr')) Editor.recRemove(page, e);
-    const c = q.c, e2 = q.e, lab = ok == null ? 'sem gabarito' : ok ? '✓ Acertou' : `✗ Errou · gabarito: ${g === 'C' ? 'Certo' : 'Errado'}`, px = c[1] + Math.max(c[3], e2[3]) + 24, py = c[2] + (e2[2] + e2[4] - c[2]) / 2 - 8;
+    const c = q.c, e2 = q.e, lab = ok == null ? 'sem gabarito' : ok ? '✓' : `✗ ${g === 'C' ? 'Certo' : 'Errado'}`, px = c[1] + Math.max(c[3], e2[3]) + 16, py = c[2] + (e2[2] + e2[4] - c[2]) / 2 - 7; /* v1.25: só ✓ / ✗ + o gabarito */
     const els = [this.ring(v === 'C' ? c : e2, '#7c3aed', num, { tq: num, width: 2.2, tqa: { a: v, ok, d: d ? 1 : 0, t, x, er } }), this.pill(px, py, lab, ok == null ? 'gray' : ok ? 'ok' : 'no', { tq: num }),
-      this.pill(px + this.pillW(lab) + 14, py, '↺ limpar', 'gray', { tq: num, tqx: num, size: 11 })];
+      this.pill(px + this.pillW(lab) + 8, py, '↺', 'gray', { tq: num, tqx: num })];
     for (const el2 of els) this.recAdd(page, el2); Editor.opCommit();
     try { navigator.vibrate && navigator.vibrate(ok === false ? [18, 50, 18] : 8); } catch (_) {}
     if (ok == null) toast(`Questão ${num} sem gabarito (anulada ou desatualizada)`, 2200); else if (!ok) toast(`✗ Questão ${num}: gabarito ${g === 'C' ? 'Certo' : 'Errado'} — foi para o caderno de erros`, 2400); else if (d) toast('✓ Acertou, mas com dúvida — foi para a revisão', 1800);
@@ -151,7 +152,7 @@ const Tec = {
       if (typeof StudyTimer !== 'undefined' && StudyTimer.log) { const L = StudyTimer.log; if (r.x && !(L.qa || []).some((y) => y[0] === r.t && y[6] === 'tec')) (L.qa = L.qa || []).push(r.x); if (r.er && !(L.errs || []).some((y) => y.id === r.er.id)) (L.errs = L.errs || []).push(r.er); StudyTimer.saveLog(); } }
     if (ch) { this._seen = null; Editor.markChanged(); if (typeof QuizPad !== 'undefined') QuizPad.sync(true); }
   },
-  pillW(t) { try { return layoutText(this.pill(0, 0, t, 'gray')).w + 10; } catch (_) { return [...t].length * 7.1; } },
+  pillW(t) { try { return layoutText(this.pill(0, 0, t, 'gray')).w + 6; } catch (_) { return [...t].length * 6.2; } },
   /* dúvida: elipse laranja no número; vale para a resposta já dada também (acerto com dúvida vai para a revisão) */
   doubt(note, page, num) {
     const T = note.tec, q = T.q[num], on = !T.d[num], ms = this.marks(page, num, 'tqd');
@@ -196,8 +197,8 @@ const Tec = {
         Editor.recAdd(page, { id: uid(), type: 'text', x: x1 + 12, y: (y1 + y2) / 2 - 10, w: pw - 2 * x1 - 24, text: `✓ Questão ${num} já acertada em ${fd(s.t)} — toque para mostrar`, size: 13, color: '#6d28d9', bold: false, tqh: num });
         nh++;
       } else {
-        const c = q.c, txt = `↺ já feita em ${fd(s.t)} · ${s.ok ? (s.d ? 'acertou com dúvida' : 'acertou') : 'errou'}`;
-        Editor.recAdd(page, this.pill(c[1] + Math.max(c[3], q.e[3]) + 24, c[2] + (q.e[2] + q.e[4] - c[2]) / 2 - 8, txt, s.ok ? (s.d ? 'warn' : 'ok') : 'no', { tqr: num }));
+        const c = q.c, txt = `já feita ${fd(s.t)} · ${s.ok ? (s.d ? 'certa c/ dúvida' : 'certa') : 'errada'}`;
+        Editor.recAdd(page, this.pill(c[1] + Math.max(c[3], q.e[3]) + 16, c[2] + (q.e[2] + q.e[4] - c[2]) / 2 - 7, txt, s.ok ? (s.d ? 'warn' : 'ok') : 'no', { tqr: num }));
       }
     }
     if (touched.size) { Editor.opCommit(); Editor.markChanged(); Editor.requestRender(); }

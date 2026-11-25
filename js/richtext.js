@@ -466,6 +466,7 @@ Object.assign(Editor, {
     const { page, l, hit } = this.hitAt(p, this.tableFingerLock()); /* v1.4.1: no zoom alto o dedo não seleciona tabela */
     if (!page) { this.sel = null; return this.requestRender(); }
     if (this.tapFolded(page, l.x, l.y)) { this.sel = null; return; } /* v1.8 */
+    if (this.note && this.note.tec && typeof Tec !== 'undefined' && Tec.tap(this.note, page, l.x, l.y)) { this.sel = null; return; } /* v1.25: responder/dúvida/limpar com o dedo também */
     const ck = this.checkAt(page, l); if (ck) return this.toggleCheck(page, ck.e, ck.ci);
     const now = performance.now();
     if (!hit) { // toque duplo numa área vazia: v0.29 liga/desliga a tela cheia (antes era zoom rápido)

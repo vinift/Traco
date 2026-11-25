@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.25.0 — correção mais limpa e resposta com o dedo
+
+- **Correção mais discreta:** ao lado de Certo/Errado fica só **✓** (acertou) ou **✗ Certo** / **✗ Errado** (errou, com o gabarito), em pílulas pequenas, e o limpar virou um **↺** pequeno. A etiqueta das repetidas também encurtou ("já feita 25/11 · errada").
+- **Responder com o dedo:** tocar em Certo ou Errado com o dedo também responde (e no número marca dúvida; no ↺ limpa). Útil quando você está com a caneta escrevendo em outro lugar.
+- Lembrete: em "Importar questões do TEC" dá para escolher **vários PDFs de uma vez**: as questões de todos se misturam numa ordem embaralhada, sem repetidas.
+
 ## Novidades da v1.24.0 — limpar questão e número original do TEC
 
 - **"↺ limpar"**: toda questão respondida ganha essa pílula ao lado da correção. Toque nela com a caneta e a questão volta ao zero: tira a resposta, a dúvida, o registro no relatório e o erro do caderno de erros, como se você nunca tivesse feito.

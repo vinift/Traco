@@ -697,6 +697,8 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
   - Pílula `tqx` "↺ limpar" depois da correção (`pillW` mede com `layoutText`). `Tec.tap` a testa antes da faixa: `clear(note, page, num, true)` tira as marcas `tq` + `tqd`, `T.d` e os dados.
   - `addErr` devolve a entrada. Cabeçalho do caderno montado: "TEC nº <posição original> >" (área de toque de 110 px).
   - Teste: Q1 errada com dúvida + Q2 certa → qa 2, erros 1; desfazer → qa 1; refazer → qa 2; "limpar" na Q1 → qa 1, erros 0, sem dúvida; desfazer o limpar → tudo de volta, com a dúvida; sem erros.
+
+- v1.25.0 — pedidos: a correção estava "grande, suja demais"; responder com o dedo. `Tec.pill` com 10,5 px, folga 3, borda 0,8 e raio 7; correção = '✓' | '✗ Certo/Errado'; limpar = '↺' (área de toque de ±8 un.); etiqueta `tqr` "já feita dd/mm · certa|certa c/ dúvida|errada". `Editor.fingerTap` (richtext.js) chama `Tec.tap` depois do post-it recolhido. Teste (toque CDP): dedo em Certo da Q1 e em Errado da Q2 → respondidas; 2 PDFs juntos → as 20 primeiras alternando Informática/Raciocínio; sem erros.
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).
