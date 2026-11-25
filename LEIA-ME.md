@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.20.0 — cor nova em todos os grupos
+
+- Ao tocar no **+** das cores (caneta ou marca-texto), a janela da cor tem embaixo a opção **"Adicionar também aos outros grupos"**. Marcada, a cor escolhida entra no grupo atual e em todos os outros grupos e subgrupos, sem repetir onde ela já existe.
+- A escolha fica lembrada: deixe marcada se quiser sempre assim, ou desmarque para voltar a adicionar só no grupo atual.
+- Vale também para o "+ barra" das paletas e para o "+" de salvar a cor atual no painel da ferramenta.
+- A opção só aparece quando você tem mais de um grupo.
+
 ## Novidades da v1.19.0 — número romano no estilo manuscrito
 
 - O atalho do número romano ganhou o estilo **Manuscrito**, no modelo que você fazia à mão: as hastes juntas e uma barra em cima e outra embaixo do número inteiro, passando um pouco das pontas. Ele agora é o padrão.

@@ -1684,3 +1684,6 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 .pl-rows.hv .pl-row{grid-template-columns:minmax(80px,1.2fr) repeat(3,minmax(64px,1fr)) auto}
 .tm-qday .pl-rows.hv .pl-row{grid-template-columns:minmax(56px,1fr) repeat(3,minmax(54px,1fr))}
 .pl-item.v span{color:#0369a1}
+/* v1.20: seletor de cor — adicionar também aos outros grupos */
+.cpk-allg{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;cursor:pointer;user-select:none}
+.cpk-allg input{width:18px;height:18px;margin:0}

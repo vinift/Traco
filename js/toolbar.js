@@ -136,6 +136,19 @@ const UI = {
   group() { return Store.activeGroup(Editor.note); },
   colorList(t) { const g = this.group(); const k = t === 'highlighter' ? 'highlighter' : 'pen'; g.colors = g.colors || {}; return g.colors[k] || (g.colors[k] = []); },
   /* v0.28: cores do grupo atual (caneta + marca-texto), para aparecerem em todos os seletores de cor */
+  /* v1.20: adicionar cor à barra — com S.colorAllGroups liga, entra também em todos os outros grupos/subgrupos (mesma ferramenta) */
+  addColorTo(t, c, all = Store.settings.colorAllGroups) {
+    const k = t === 'highlighter' ? 'highlighter' : 'pen', has = (l) => l.some((x) => x.toLowerCase() === c.toLowerCase()); let n = 0;
+    const cur = this.colorList(t); if (!has(cur)) { cur.push(c); n++; }
+    if (all && t !== 'text') for (const g of Store.settings.presetGroups || []) { g.colors = g.colors || {}; const l = g.colors[k] || (g.colors[k] = []); if (l !== cur && !has(l)) { l.push(c); n++; } }
+    return n;
+  },
+  /* linha "também nos outros grupos" para o seletor de cor (só com mais de 1 grupo) */
+  allGroupsRow() {
+    const S = Store.settings; if ((S.presetGroups || []).length < 2) return null;
+    const cb = el('input', { type: 'checkbox' }); cb.checked = !!S.colorAllGroups; cb.onchange = () => { S.colorAllGroups = cb.checked; Store.saveSettings(); };
+    return el('label', { class: 'cpk-allg' }, cb, el('span', {}, 'Adicionar também aos outros grupos (' + (S.presetGroups.length - 1) + ')'));
+  },
   groupColors() { try { return [...new Set([...this.colorList('pen'), ...this.colorList('highlighter')].filter((c) => !Fades.isKey(c)).map((c) => c.toLowerCase()))]; } catch (_) { return []; } },
   widthList(t) { const g = this.group(); g.widths = g.widths || {}; return g.widths[t] || (g.widths[t] = (Store.settings.widthPresets[t] || []).slice()); },
   /* grupos em árvore: um grupo pode ter subgrupos (ex.: Direito › Constitucional) */
@@ -346,7 +359,7 @@ const UI = {
       long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) toast('Toque no × para remover', 1500); },
     });
     const add = el('button', { class: 'cbtn addb', title: 'Adicionar cor' }); add.innerHTML = icon('plus');
-    add.onclick = () => colorPop(add, st.color, (c) => { if (!list.some((x) => x.toLowerCase() === c.toLowerCase())) list.push(c); st.color = c; st.fade = null; this.save(); this.refresh(); }, t === 'highlighter' ? HL_PALETTE.concat(PALETTE.slice(4, 14)) : PALETTE, { alpha: t !== 'highlighter', tool: t });
+    add.onclick = () => colorPop(add, st.color, (c) => { const n = this.addColorTo(t, c); st.color = c; st.fade = null; this.save(); this.refresh(); if (Store.settings.colorAllGroups && n > 1) toast('Cor adicionada a todos os grupos', 1500); }, t === 'highlighter' ? HL_PALETTE.concat(PALETTE.slice(4, 14)) : PALETTE, { alpha: t !== 'highlighter', tool: t, allGroups: true });
     box.append(add);
     if (t === 'pen') { const fb = el('button', { class: 'cbtn addb fd-new', title: 'Nova cor em degradê', onclick: () => { const id = Fades.create(st.color); list.push('fade:' + id); Fades.select(st, id); this.save(); this.refresh(); Fades.edit(id, () => this.renderOptions()).then((r) => { if (r === 'del') { list.splice(list.indexOf('fade:' + id), 1); delete Fades.all()[id]; st.fade = null; st.color = st.fadeBase || st.color; } this.save(); this.renderOptions(); }); } }); fb.append(el('span', { class: 'fd-ico' }), el('b', {}, '+')); box.append(fb); } /* v0.38 */
     box.append(this.editBtn('cores'));
@@ -528,7 +541,7 @@ const UI = {
     const box = el('div', {});
     const head = el('div', { class: 'tp-sec' }, label, el('span', { class: 'sp' }));
     if (withAdd) {
-      const add = el('button', { class: 'cbtn', title: 'Salvar a cor atual nas predefinições', style: { width: '34px', height: '34px' }, onclick: () => { const list = this.colorList(tool); const c = Store.settings.tools[tool].color; if (!list.some((x) => x.toLowerCase() === c.toLowerCase())) { list.push(c); this.save(); this.renderOptions(); toast('Cor salva nas predefinições', 1200); } } });
+      const add = el('button', { class: 'cbtn', title: 'Salvar a cor atual nas predefinições', style: { width: '34px', height: '34px' }, onclick: () => { const c = Store.settings.tools[tool].color; if (this.addColorTo(tool, c)) { this.save(); this.renderOptions(); toast(Store.settings.colorAllGroups && tool !== 'text' ? 'Cor salva em todos os grupos' : 'Cor salva nas predefinições', 1200); } } });
       add.innerHTML = icon('plus'); head.append(add);
     }
     const gc = this.groupColors().filter((c) => !palette.some((x) => x.toLowerCase() === c));

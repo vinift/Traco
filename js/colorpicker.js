@@ -84,7 +84,7 @@ function colorPop(anchor, current, onPick, palette = PALETTE, opts = {}) {
       for (const [name, cols] of READY_PALETTES) {
         const row = el('div', { class: 'cpk-sw' }); for (const c of cols) row.append(el('button', { class: 'cdot', style: { background: c }, title: c, onclick: () => pick(c) }));
         const head = el('div', { class: 'cpk-pal' }, el('span', { class: 'lbl-sm' }, name));
-        if (opts.tool && UI.colorList) head.append(el('button', { class: 'btn ghost cpk-addall', title: 'Adicionar todas estas cores à barra', onclick: () => { const list = UI.colorList(opts.tool); let n = 0; for (const c of cols) if (!list.some((x) => x.toLowerCase() === c)) { list.push(c); n++; } UI.save(); UI.renderOptions(); toast(n ? `${n} cor(es) adicionadas à barra` : 'Essas cores já estão na barra', 1500); } }, '+ barra'));
+        if (opts.tool && UI.colorList) head.append(el('button', { class: 'btn ghost cpk-addall', title: 'Adicionar todas estas cores à barra', onclick: () => { let n = 0; for (const c of cols) n += UI.addColorTo(opts.tool, c) ? 1 : 0; UI.save(); UI.renderOptions(); toast(n ? `${n} cor(es) adicionadas à barra` : 'Essas cores já estão na barra', 1500); } }, '+ barra'));
         body.append(head, row);
       }
     } else if (tab === 'spec') {
@@ -127,6 +127,7 @@ function colorPop(anchor, current, onPick, palette = PALETTE, opts = {}) {
   }
   function ring(c, x, y, r = 8) { c.save(); c.lineWidth = 3; c.strokeStyle = '#fff'; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.stroke(); c.lineWidth = 1.2; c.strokeStyle = 'rgba(0,0,0,.6)'; c.beginPath(); c.arc(x, y, r + 1.8, 0, Math.PI * 2); c.stroke(); c.restore(); }
   build();
+  if (opts.allGroups && UI.allGroupsRow) { const r = UI.allGroupsRow(); if (r) root.append(r); } /* v1.20 */
   return openPop(anchor, root);
 }
 
