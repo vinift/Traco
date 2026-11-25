@@ -370,12 +370,21 @@ const Tec = {
   },
   TAGS: ['tq', 'tqd', 'tqr', 'tqh', 'tqx', 'tqg'],
   isTag(e) { return this.TAGS.some((k) => e[k] != null); },
+  /* v1.28: um caderno de erros fixo (S.tecErrNote) — o + da biblioteca abre o mesmo; na 1ª vez pergunta a pasta. Um caderno
+     criado nas versões 1.26/1.27 (note.bank) é adotado. */
+  async bankFind() {
+    const S = Store.settings, id = S.tecErrNote; if (id && Store.heads[id]) return id;
+    for (const k of Object.keys(Store.heads)) { let n; try { n = await DB.get('notes', k); } catch (_) { n = null; } if (n && n.bank) { S.tecErrNote = k; Store.saveSettings(); return k; } }
+    return null;
+  },
   async bankCreate() {
+    const have = await this.bankFind(); if (have) { App.openNote(have); return; }
+    const folder = typeof Library !== 'undefined' ? await Library.folderPicker('Onde fica o caderno de erros?', new Set(), Library.folder) : null; if (folder === undefined) return;
     try {
       toast('Juntando os cadernos do TEC…', 60000); const srcs = await this.bankSources(); if (!srcs.length) { toast('Nenhum caderno do TEC ainda — importe ou abra um PDF do TEC primeiro', 4000); return; }
       const R = await this.build(srcs, { filter: 'redo' }, (m) => toast(m, 60000)); if (R.empty) { toast('Nenhum erro para refazer nos cadernos do TEC 🎉', 3500); return; }
-      const note = await this.makeNote(R, 'Caderno de erros', typeof Library !== 'undefined' ? Library.folder : null);
-      note.bank = { mats: null, st: 'redo', all: R.matCount, ink: {} }; await Store.putNote(note); toast(`📕 Caderno de erros: ${R.n} questões para refazer`, 3500);
+      const note = await this.makeNote(R, 'Caderno de erros', folder);
+      note.bank = { mats: null, st: 'redo', all: R.matCount, ink: {} }; await Store.putNote(note); Store.settings.tecErrNote = note.id; Store.saveSettings(); toast(`📕 Caderno de erros: ${R.n} questões para refazer`, 3500);
       if (typeof Library !== 'undefined') Library.render(); App.openNote(note.id);
     } catch (e) { logError(e, 'caderno de respostas'); toast('Não deu para montar: ' + e.message, 6000); }
   },
@@ -404,7 +413,9 @@ const Tec = {
   },
   /* barra do caderno de respostas: pílula no alto ("📚 Informática · não feitas · 120 ▾") → janela com os filtros */
   bankBar(note) {
-    let bar = document.getElementById('tecBank'); if (!note || !note.bank) { if (bar) bar.remove(); return; }
+    let bar = document.getElementById('tecBank'), rf = document.getElementById('tecBankRf'); if (!note || !note.bank) { if (bar) bar.remove(); if (rf) rf.remove(); return; }
+    if (!rf) { rf = el('button', { id: 'tecBankRf', class: 'tec-bank-rf', title: 'Atualizar: tira as que você já acertou de novo e traz os erros novos' }); rf.innerHTML = icon('refresh') + '<span>Atualizar</span>'; $('#editor').append(rf); }
+    rf.onclick = () => this.bankMount(note, note.bank.mats, note.bank.st === 'everwrong' ? 'everwrong' : 'redo'); /* v1.28 */
     const B = note.bank, ST = { all: 'todas', new: 'não feitas', newwrong: 'não feitas + erradas', redo: 'para refazer', everwrong: 'todas que já errei' }, n = Object.keys(note.tec.q).length;
     if (!bar) { bar = el('button', { id: 'tecBank', class: 'tec-bank' }); $('#editor').append(bar); }
     bar.textContent = `📕 ${B.mats ? B.mats.join(' + ') : 'Todas as matérias'} · ${ST[B.st] || 'todas'} · ${n} ▾`;

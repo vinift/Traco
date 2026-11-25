@@ -1703,3 +1703,7 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 .tec-bpop{display:flex;flex-direction:column;gap:8px;min-width:min(440px,86vw);max-width:520px}
 .tec-bpop .tm-chip small{opacity:.65;font-weight:600}
 .tec-bpop .er-head b{color:var(--accent)}
+/* v1.28: botão Atualizar do caderno de erros (embaixo dos botões do canto) */
+.tec-bank-rf{position:absolute;right:max(10px,var(--sar,0px));top:calc(max(10px,var(--sat,0px)) + 56px);z-index:30;display:flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:7px 13px 7px 10px;background:var(--panel,#fff);color:var(--accent);font-weight:700;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.12);cursor:pointer}
+.tec-bank-rf svg{width:16px;height:16px}
+#editor.writing .tec-bank-rf,#editor.immersive .tec-bank-rf{opacity:0;pointer-events:none}
