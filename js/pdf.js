@@ -162,12 +162,15 @@ async function exportNotePdf(note, onProgress, { shouldStop, dpi = PDF_DPI, jpeg
         }
         const list = src && src.get(page.pdf.index), cp = list && list.shift();
         if (cp && !(cp.getRotation().angle % 360)) {
-          const pg = out.addPage(cp), box = pg.getCropBox ? pg.getCropBox() : { x: 0, y: 0, ...pg.getSize() };
+          const pg = out.addPage(cp); let box = pg.getCropBox ? pg.getCropBox() : { x: 0, y: 0, ...pg.getSize() };
+          const pw = page.pdfW && page.pdfW < page.w ? page.pdfW : 0; /* v1.21: margem de rascunho — a página do PDF fica mais larga e a margem vira imagem */
+          if (pw) { const W = box.width * page.w / pw; pg.setMediaBox(box.x, box.y, W, box.height); if (pg.setCropBox) pg.setCropBox(box.x, box.y, W, box.height); box = { x: box.x, y: box.y, width: W, height: box.height };
+            await bands(pg, { x: pw, y: 0, w: page.w - pw, h: page.h }, false, png ? 'image/png' : 'image/jpeg', jpegQ, (a) => ({ x: box.x + a.x * box.width / page.w, y: box.y + (page.h - a.y - a.h) * box.height / page.h, width: a.w * box.width / page.w, height: a.h * box.height / page.h })); }
           const full = page.template && page.template.type !== 'blank';
           const bb = full ? { x: 0, y: 0, w: page.w, h: page.h } : bboxUnion(page.elements);
           if (bb) {
             // só o retângulo onde há escrita (não a página inteira), e a imagem é gravada já compactada (embed) para não acumular memória
-            const m = 6, ax = Math.max(0, Math.floor(bb.x - m)), ay = Math.max(0, Math.floor(bb.y - m)), area = { x: ax, y: ay, w: Math.min(page.w, Math.ceil(bb.x + bb.w + m)) - ax, h: Math.min(page.h, Math.ceil(bb.y + bb.h + m)) - ay };
+            const m = 6, xr = pw || page.w, ax = Math.max(0, Math.floor(bb.x - m)), ay = Math.max(0, Math.floor(bb.y - m)), area = { x: ax, y: ay, w: Math.min(xr, Math.ceil(bb.x + bb.w + m)) - ax, h: Math.min(page.h, Math.ceil(bb.y + bb.h + m)) - ay };
             if (area.w > 0 && area.h > 0) {
               const kx = box.width / page.w, ky = box.height / page.h;
               await bands(pg, area, true, 'image/png', undefined, (a) => ({ x: box.x + a.x * kx, y: box.y + (page.h - a.y - a.h) * ky, width: a.w * kx, height: a.h * ky }));

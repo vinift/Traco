@@ -154,6 +154,8 @@ const NoteMenu = {
         note.mode === 'infinite' ? item('home', 'Voltar ao centro', () => Editor.goHome(), 'volta ao ponto onde a tela começa') : null,
         note.mode !== 'infinite' ? item('pages', 'Vá para página', () => GoPage.open(anchor), 'página ' + (Editor.currentPageIndex() + 1) + ' de ' + note.pages.length) : null,
         item('list', 'Sumário', () => Outline.open(anchor), 'marcadores e índice do PDF'),
+        note.tec ? item('check', 'Caderno do TEC', () => Tec.summary(note), (() => { const T = note.tec, n = Object.keys(T.ans).length; return `${n} de ${Object.keys(T.q).length} respondidas`; })()) : null,
+        note.pages.some((p) => p.pdf) ? item('edit', 'Rascunho ao lado', () => Tec.scratchPop(anchor), (() => { const p = note.pages.find((x) => x.pdf); return p.pdfW && p.pdfW < p.w ? Math.round(((p.w - p.pdfW) / p.pdfW) * 100) + '% da página' : 'faixa em branco para contas'; })()) : null,
         item('grid', 'Alterar modelo', () => templateModal()),
         item('search', 'Zoom', () => zoomMenu(anchor), Math.round(Editor.cam.z * 100) + '%'),
         item('settings', 'Definições', () => openSettings()),

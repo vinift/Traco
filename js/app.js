@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '1.20.1',
+  version: '1.21.0',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -77,6 +77,7 @@ const App = {
       await new Promise((r) => requestAnimationFrame(r));
       if (!(await Editor.open(id))) return Library.show();
       Nav.push('note'); QuickSwitch.touch(id); SplitView.visible(true);
+      if (typeof Tec !== 'undefined') Tec.check(Editor.note); /* v1.21: reconhece caderno do TEC Concursos */
       try { localStorage.setItem('traco-last-note', id); } catch (_) {} // ao voltar para o app, reabre aqui
       if (focus) setTimeout(() => Editor.focusElement(focus[0], focus[1]), 60);
     } catch (e) { logError(e, 'abrir nota'); toast('Erro ao abrir a nota: ' + e.message, 4000); Editor.note = null; Library.show(); }

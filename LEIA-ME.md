@@ -153,6 +153,19 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.21.0 — cadernos do TEC Concursos e rascunho ao lado
+
+- **O Traço reconhece sozinho os cadernos impressos do TEC Concursos.** Abra o PDF como nota (de preferência numa pasta de matéria) e o app lê as questões e o gabarito do final em menos de um segundo.
+- **Responder:** toque com a caneta em **Certo** ou **Errado**. O app corrige na hora: verde se acertou; se errou, vermelho na sua resposta e verde tracejado na certa. Errou? A questão vai sozinha para o caderno de erros.
+- **Dúvida (chute):** toque no **número da questão** ("10)") para marcar dúvida, que fica em laranja. Acerto com dúvida também vai para o caderno de erros, para revisar.
+- **Mudar de ideia:** toque de novo na resposta para apagá-la. O desfazer também funciona.
+- O **gabarito** do PDF fica coberto por um bloco cinza, para você não ver sem querer. Se quiser ver, apague o bloco.
+- Cada resposta entra no ✓/✗ do dia, na matéria da pasta. Não precisa ligar o modo Questões nem usar os botões flutuantes. O **tempo** continua contando só pelo cronômetro.
+- **Relatório → Questões → Por assunto:** acertos de cada assunto do TEC (ex.: "Protocolos de Redes 4/9"), com os piores primeiro.
+- **Refazer erros:** as questões do TEC aparecem como "Q10 · assunto", com o botão **Ver** (abre a nota na questão, destacada) e o botão **TEC** (abre a questão no site, com os comentários).
+- ⋯ da nota → **Caderno do TEC:** quantas você já respondeu, o acerto, as dúvidas, os acertos por assunto e um botão para ir à próxima questão sem resposta.
+- ⋯ da nota → **Rascunho ao lado:** uma faixa em branco à direita de cada página do PDF (40%, 60%, 80% ou 100% da largura), com as linhas ou a grade da nota. Serve para qualquer PDF, e você liga só nos cadernos que quiser. A faixa sai junto ao exportar o PDF.
+
 ## Novidades da v1.20.1 — voltar depois de reabrir o app
 
 - Quando você saía do app e voltava, ele reabria a nota, mas o botão voltar saía do aplicativo em vez de fechar a nota. Agora o voltar fecha a nota e depois volta para a pasta e para a tela inicial. Só na tela inicial ele avisa "Volte de novo para sair".

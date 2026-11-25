@@ -168,8 +168,11 @@ function drawPageContent(ctx, note, page, vis, z, opts = {}) {
   if (opts.annot || opts.noBg) { /* fundo já tratado */ }
   else if (page.pdf) {
     const bmp = opts.pdfBitmap || PdfCache.bitmap(page.pdf, z * (opts.dpr || 1));
-    if (bmp) ctx.drawImage(bmp, 0, 0, page.w, page.h);
+    const pw = page.pdfW && page.pdfW < page.w ? page.pdfW : page.w; /* v1.21: margem de rascunho à direita (page.pdfW = largura do PDF) */
+    if (bmp) ctx.drawImage(bmp, 0, 0, pw, page.h);
     if (page.template && page.template.type !== 'blank') drawTemplate(ctx, page.template, vis, z, bounded, page.w, page.h, opts.dpr || 1);
+    else if (pw < page.w) { ctx.save(); ctx.beginPath(); ctx.rect(pw, 0, page.w - pw, page.h); ctx.clip(); drawTemplate(ctx, scratchTpl(note), vis, z, bounded, page.w, page.h, opts.dpr || 1); ctx.restore();
+      ctx.save(); ctx.strokeStyle = 'rgba(100,116,139,.35)'; ctx.lineWidth = Math.max(1 / z, 1); ctx.beginPath(); ctx.moveTo(pw, 0); ctx.lineTo(pw, page.h); ctx.stroke(); ctx.restore(); }
   } else drawTemplate(ctx, tpl, vis, z, bounded, page.w, page.h, opts.dpr || 1);
   const els = opts.range ? page.elements.slice(opts.range[0], opts.range[1]) : page.elements;
   for (const e of els) {
@@ -221,3 +224,6 @@ function arrowHead(e) {
   p.moveTo(e.x2 - L * Math.cos(a - 0.45), e.y2 - L * Math.sin(a - 0.45)); p.lineTo(e.x2, e.y2); p.lineTo(e.x2 - L * Math.cos(a + 0.45), e.y2 - L * Math.sin(a + 0.45));
   return p;
 }
+
+/* v1.21: modelo da margem de rascunho — o da nota se tiver linhas/grade, senão a grade do Notewise */
+function scratchTpl(note) { const n = note || (typeof Editor !== 'undefined' && Editor.note), t = n && n.template; return t && t.type && t.type !== 'blank' ? t : NOTEWISE_TEMPLATES.grid; }

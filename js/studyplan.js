@@ -199,15 +199,17 @@ const StudyPlan = {
       const L = flt ? P.filter((x) => x.f === flt) : P;
       const chip = (k, lab, n) => el('button', { class: 'tm-chip' + (flt === k ? ' on' : ''), onclick: () => { flt = k; paint(); } }, `${lab} ${n}`);
       box.innerHTML = '';
-      box.append(el('div', { class: 'er-head' }, el('b', { class: 'rv-t' }, '🔁 Refazer erros'), el('small', {}, P.length ? `${P.length} pendentes` : 'tudo refeito ✓')),
+      box.append(...[el('div', { class: 'er-head' }, el('b', { class: 'rv-t' }, '🔁 Refazer erros'), el('small', {}, P.length ? `${P.length} pendentes` : 'tudo refeito ✓')),
         keys.length > 1 ? el('div', { class: 'pl-chips' }, chip('', 'Todas', P.length), ...keys.map((k) => chip(k, sb(k).name, P.filter((x) => x.f === k).length))) : null,
         L.length ? el('div', { class: 'rv-list' }, ...L.map((x) => el('div', { class: 'rv-row' },
           el('span', { class: 'rv-lab' }, el('i', { class: 'sr-dot', style: { background: sb(x.f).color } }), el('b', {}, this.errLabel(x) || 'sem número'),
-            el('small', {}, `${flt ? '' : sb(x.f).name + ' · '}${new Date(x.t).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}${x.miss ? ` · errou de novo ${x.miss}×` : ''}`)),
+            el('small', {}, `${flt ? '' : sb(x.f).name + ' · '}${new Date(x.t).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}${x.miss ? ` · errou de novo ${x.miss}×` : ''}${x.duv ? ' · acertou com dúvida' : ''}`)),
+          x.tec && typeof Tec !== 'undefined' ? el('button', { class: 'rv-b go', title: 'Ver a questão no caderno', onclick: () => { closePop(); Tec.goErr(x); } }, 'Ver') : null,
+          x.tec ? el('button', { class: 'rv-b go', title: 'Abrir no TEC (comentários e explicação)', onclick: () => window.open(Tec.url(x.tec.id), '_blank') }, 'TEC') : null,
           el('button', { class: 'rv-b ok', title: 'Acertei (sai da lista)', onclick: () => { x.done = true; x.doneAt = Date.now(); T.saveLog(); QuizPad.sync(true); paint(); } }, '✓'),
           el('button', { class: 'rv-b no', title: 'Errei de novo (continua na lista)', onclick: () => { x.miss = (x.miss || 0) + 1; x.tryAt = Date.now(); T.saveLog(); paint(); toast('Continua na lista', 900); } }, '✗'))))
           : el('p', { class: 'tm-hint' }, 'Nenhum erro para refazer. Os erros entram aqui quando você toca em ✗ no modo Questões.'),
-        el('div', { class: 'pl-btns' }, el('button', { class: 'btn primary', onclick: () => closePop() }, 'Pronto')));
+        el('div', { class: 'pl-btns' }, el('button', { class: 'btn primary', onclick: () => closePop() }, 'Pronto'))].filter(Boolean)); /* v1.21: append nativo escrevia "null" */
     };
     paint();
     const a = anchor || (QuizPad.el && !QuizPad.el.classList.contains('hidden') ? QuizPad.el : null), r = a ? a.getBoundingClientRect() : { left: innerWidth / 2, right: innerWidth / 2, top: innerHeight / 3, bottom: innerHeight / 3, width: 0, height: 0 };
@@ -215,7 +217,7 @@ const StudyPlan = {
   },
   /* desfazer o último ✗ também tira a anotação dele */
   dropErr(t) { const L = StudyTimer.log; if (L.errs) L.errs = L.errs.filter((x) => x.t !== t); },
-  errLabel(x) { return x.txt ? x.txt + (x.aula || x.q ? ` · ${x.aula ? 'Aula ' + x.aula : ''}${x.q ? ' Q' + x.q : ''}` : '') : `${x.aula ? 'Aula ' + x.aula : ''}${x.aula && x.q ? ' · ' : ''}${x.q ? 'Questão ' + x.q : ''}`; },
+  errLabel(x) { if (x.tec) return `Q${x.q} · ${x.txt}`; /* v1.21: caderno do TEC */ return x.txt ? x.txt + (x.aula || x.q ? ` · ${x.aula ? 'Aula ' + x.aula : ''}${x.q ? ' Q' + x.q : ''}` : '') : `${x.aula ? 'Aula ' + x.aula : ''}${x.aula && x.q ? ' · ' : ''}${x.q ? 'Questão ' + x.q : ''}`; },
   /* lista do caderno de erros no período (aba Questões): por matéria, com ✓ refeita e ✕ */
   errCard(a, b, render) {
     const L = StudyTimer.log, E = (L.errs || []).filter((x) => x.t >= a && x.t < b); if (!E.length) return el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Caderno de erros'), el('p', { class: 'tm-hint' }, 'Nenhum erro anotado neste período. Ao tocar em ✗, o app pergunta a aula e o número da questão.'));

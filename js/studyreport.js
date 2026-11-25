@@ -88,7 +88,15 @@ const StudyReport = {
     const rows = list.filter((c) => c.q > 0 || c.ok + c.no > 0 || goals[c.key]);
     const table = el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Por matéria', el('span', { class: 'rp-hs' }, this.unit === 'day' ? 'meta = para cada matéria estudada no dia' : this.unit === 'year' ? '' : 'meta = dias em que bateu a meta de questões / dias em que estudou a matéria')),
       rows.length ? el('div', { class: 'rp-qlist' }, ...rows.map((c) => this.qRow(c, goals[c.key] || 0))) : el('p', { class: 'tm-hint' }, 'Sem questões neste período. No cronômetro, toque em "✍️ Questões" e inicie: os botões ✓ e ✗ aparecem na tela.'));
-    return el('div', { class: 'rp-quest' }, tiles, table, typeof StudyPlan !== 'undefined' ? StudyPlan.errCard(r.a, r.b, render) : null);
+    return el('div', { class: 'rp-quest' }, tiles, table, this.assCard(r.a, r.b), typeof StudyPlan !== 'undefined' ? StudyPlan.errCard(r.a, r.b, render) : null);
+  },
+  /* v1.21: acertos por assunto (respostas dos cadernos do TEC guardam o assunto em qa[4] e a dúvida em qa[5]) — piores primeiro */
+  assCard(a, b) {
+    const by = new Map(); for (const x of StudyTimer.log.qa || []) { if (x[0] < a || x[0] >= b || !x[4]) continue; const sb = StudyTimer.ansSubj(x), k = sb.key + '|' + x[4], o = by.get(k) || { sb, ass: x[4], ok: 0, n: 0, d: 0 }; o.n++; if (x[1]) o.ok++; if (x[5]) o.d++; by.set(k, o); }
+    if (!by.size) return null;
+    const L = [...by.values()].sort((p, q) => p.ok / p.n - q.ok / q.n || q.n - p.n).slice(0, 40);
+    return el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Por assunto', el('span', { class: 'rp-hs' }, 'cadernos do TEC · piores primeiro')),
+      el('div', { class: 'tec-ass' }, ...L.map((o) => { const p = o.ok / o.n; return el('div', { class: 'tec-arow' }, el('i', { class: 'sr-dot', style: { background: o.sb.color } }), el('span', {}, o.ass, el('small', {}, ` ${o.sb.name}${o.d ? ` · ${o.d} com dúvida` : ''}`)), el('b', { class: p < 0.6 ? 'bad' : p >= 0.8 ? 'good' : '' }, `${o.ok}/${o.n} · ${Math.round(p * 100)}%`)); })));
   },
   /* v1.13.2: tom mais escuro da matéria para o tempo de questões */
   kindTag(q, r, v) { return el('span', { class: 'rp-kind' + (v ? ' v' : r ? ' r' : q ? ' q' : '') }, v ? '🔄 Revisão' : r ? '🔁 Erros' : q ? '✍️ Questões' : '📖 Estudo'); },

@@ -1687,3 +1687,13 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 /* v1.20: seletor de cor — adicionar também aos outros grupos */
 .cpk-allg{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;cursor:pointer;user-select:none}
 .cpk-allg input{width:18px;height:18px;margin:0}
+/* v1.21: caderno do TEC */
+.tec-ass{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+.tec-arow{display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:1px solid var(--line);font-size:13.5px}
+.tec-arow>span{flex:1;min-width:0}
+.tec-arow small{color:var(--muted)}
+.tec-arow b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.tec-arow b.bad{color:#dc2626}.tec-arow b.good{color:#16a34a}
+.tec-sum{display:flex;flex-direction:column;gap:12px;min-width:min(520px,80vw)}
+.rv-b.go{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);width:auto;padding:0 10px;font-size:12.5px;font-weight:600}
+.tec-scr .pl-chips{padding:4px 2px 2px}

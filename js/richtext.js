@@ -494,6 +494,7 @@ Object.assign(Editor, {
     const b = bboxUnion([{ type: 'stroke', tool: 'pen', width: 0, pts: a.pts }]); if (!b || Math.max(b.w, b.h) * this.cam.z > 4) return false;
     const x = a.pts[0], y = a.pts[1];
     if (this.tapFolded(page, x, y)) return true; /* v1.8: toque da caneta abre o post-it recolhido (sem deixar ponto) */
+    if (this.note && this.note.tec && typeof Tec !== 'undefined' && Tec.tap(this.note, page, x, y)) return true; /* v1.21: Certo/Errado do caderno do TEC */
     const ck = this.checkAt(page, { x, y }); if (ck) { this.toggleCheck(page, ck.e, ck.ci); return true; }
     const hit = [...page.elements].reverse().find((e) => e.type === 'text' && !e.lock && hitElement(e, x, y, 2)); if (!hit) return false;
     const now = performance.now(), last = this._penDot;
