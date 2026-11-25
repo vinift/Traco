@@ -640,6 +640,9 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v1.17.3 — print do usuário (395%): a faixa do marca-texto ficava ~meio corpo de letra acima. `wordsOf` (`cy` da linha) usava o filtro `h > 0,3·L.h` com `L.h` = altura da linha inteira (hastes + pernas): letras baixas um pouco menores saíam, o `hm` subia e letras com haste entravam na mediana. Agora `xh` = 1º quartil das alturas dos traços (sem os < 0,35·mediana, acentos/pontos) e `cy` = mediana dos centros dos traços com altura 0,7–1,3·xh, se houver ≥ 3 e `xh ≤ 0,6·L.h`; senão (escrita ligada, só letras baixas) meio da faixa de altura 0,9·xh com mais tinta (janela deslizante nos pontos ponderados pelo comprimento). Comparação num script com letras sintéticas (corpo 186–200): caso do print (corpo pequeno, linha alta) antigo −9 → 0; letras soltas 0; escrita ligada com hastes −10 → −5; só letras baixas ~+1. Testes da v1.17 iguais.
 
+
+- v1.17.4 — 2º print: a faixa melhorou mas ainda ficava alta. O desenho estava certo (teste de pixels: amarelo 188–197,8 e tinta 185,3–200,5, centros iguais); a causa era o `snapBoxes`: ao agrupar caixas na mesma linha (|Δcy| < 0,45·h), `L.cy` ficava o da 1ª caixa — e a lista vem ordenada por y, então era a MAIS ALTA (palavras lidas pelo `OCR.groupLines` em sub-linhas com `cy` um pouco diferente). Agora `L.cy` = média dos centros pesada pela largura (`L.sw/L.sy`). Vale também para o PDF (lá as caixas da mesma linha têm o mesmo centro, sem mudança). Teste: palavras com cy 189/195/196 → antes 189, agora 193,4; testes da v1.17 iguais.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

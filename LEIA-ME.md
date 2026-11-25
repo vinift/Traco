@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.17.4 — marca-texto: altura da faixa
+
+- Quando a linha escrita tem palavras um pouco mais altas e outras mais baixas, a faixa usava a altura das mais altas e ficava acima das letras. Agora ela usa a média da linha.
+
 ## Novidades da v1.17.3 — marca-texto centrado nas letras
 
 - A faixa do marca-texto sobre a sua escrita ficava alta demais (puxada pelas letras com haste, como A, l, t, d). Agora ela é centrada no corpo das letras (a altura das letras "baixas": a, e, o, s…).

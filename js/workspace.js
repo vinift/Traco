@@ -165,7 +165,7 @@ const PdfText = {
     const hit = B.filter((b) => P.some(([x, y]) => x >= b.x - 2 && x <= b.x + b.w + 2 && y >= b.y - b.h * 0.15 && y <= b.y + b.h * 1.15)); if (!hit.length) return null;
     // agrupa por linha (mesma altura)
     hit.sort((a, b) => a.y - b.y); const lines = [];
-    for (const b of hit) { const L = lines.find((l) => Math.abs(l.cy - (b.y + b.h / 2)) < Math.min(l.h, b.h) * 0.45); if (L) { L.items.push(b); L.h = Math.max(L.h, b.h); } else lines.push({ cy: b.y + b.h / 2, h: b.h, items: [b] }); }
+    for (const b of hit) { const L = lines.find((l) => Math.abs(l.cy - (b.y + b.h / 2)) < Math.min(l.h, b.h) * 0.45); if (L) { L.items.push(b); L.h = Math.max(L.h, b.h); L.sw += b.w; L.sy += (b.y + b.h / 2) * b.w; L.cy = L.sy / L.sw; } else lines.push({ cy: b.y + b.h / 2, h: b.h, items: [b], sw: b.w, sy: (b.y + b.h / 2) * b.w }); } /* v1.17.4: altura da linha = média das caixas (pela largura); antes ficava a da 1ª caixa, a MAIS ALTA (lista em ordem de y) */
     const out = [];
     for (const L of lines) {
       const band = P.filter(([, y]) => Math.abs(y - L.cy) <= L.h * 0.7); if (band.length < 2 && lines.length > 1) continue;
