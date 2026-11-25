@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.17.1 — espessura do marca-texto na escrita
+
+- Ao grudar na sua escrita, a faixa agora usa a espessura escolhida no marca-texto (fina, média, grossa…), centrada nas letras. Antes ela sempre tinha a altura da letra.
+- No texto dos PDFs continua como antes (altura da linha do texto).
+
 ## Novidades da v1.17.0 — marca-texto alinhado à sua escrita
 
 - O marca-texto passado por cima da sua letra (escrita com a caneta) vira uma faixa reta, na altura das letras, como já acontecia com o texto dos PDFs.

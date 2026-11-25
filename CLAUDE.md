@@ -631,6 +631,9 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 - v1.17.0 — marca-texto alinhado à escrita à mão (pedido: "como faz com textos de PDF"). `PdfText.snap` virou `snap(page, pts)` (caixas do PDF) + `snapBoxes(B, pts)` (a conta antiga) + `snapInk(page, pts)` (workspace.js): caixas = `Editor.wordsOf(page)` (crop.js, palavras da caneta da v0.49) perto do traço, com altura `hm·1,25` centrada em `w.cy` (novo em `wordsOf`: mediana dos centros das letras da linha sem hastes/pernas, `h ≤ 1,3·hm`). Só para traço deitado (largura ≥ 1,2·altura); contorno fechado (início perto do fim e caminho > 2× largura = circular) e faixa que cobre < 50% da largura do traço ficam como desenhados; ponta dentro de uma palavra → estende até a palavra inteira. `endDraw`: PDF primeiro (`hlSnapPdf`), depois a escrita (`S.hlSnapInk`, padrão ligado; interruptor "Grudar na escrita" no painel do marca-texto). Teste (palavras sintéticas de altura 14, base 200): traço torto 272→360 → faixa reta y 193 (miolo), 277–371 (palavras 2–3 inteiras), largura 21,6; 2 linhas num traço → 2 faixas; fora da escrita → livre; círculo em volta → livre; caneta CDP pelo editor → mesma faixa; sem erros.
 
+
+- v1.17.1 — pedido: no marca-texto grudado na escrita, a espessura é a do marca-texto, não a da letra. `snapInk` marca os pedaços com `ink: 1`; o `endDraw` usa `sw = s.ink ? a.width : s.h` (largura e pontas redondas `k`). No PDF continua `s.h`. Teste: marca-texto 18 e 8 → faixas de 18 e 8 no centro do miolo (y 193), mesmas pontas de palavra.
+
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
 - "Melhorar escrita" na página inteira de uma vez (agora com o caderno de caligrafia, v0.36).

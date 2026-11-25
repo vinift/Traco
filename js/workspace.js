@@ -155,6 +155,7 @@ const PdfText = {
     const out = this.snapBoxes(B, pts); if (!out) return null;
     for (const o of out) for (const w of B) { if (Math.abs(w.y + w.h / 2 - o.y) > w.h * 0.45) continue; /* começa/termina no meio de uma palavra → pega a palavra inteira */
       if (o.x1 > w.x && o.x1 < w.x + w.w) o.x1 = w.x; if (o.x2 > w.x && o.x2 < w.x + w.w) o.x2 = w.x + w.w; }
+    for (const o of out) o.ink = 1; /* v1.17.1: na escrita a espessura é a do marca-texto (só a posição gruda) */
     const cov = out.reduce((s, o) => s + o.x2 - o.x1, 0); return cov >= (x2 - x1) * 0.5 ? out : null; /* a faixa tem de cobrir boa parte do traço */
   },
   snapBoxes(B, pts) {
