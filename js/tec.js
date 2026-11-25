@@ -13,7 +13,8 @@ const Tec = {
   url(id) { return 'https://www.tecconcursos.com.br/questoes/' + id; },
   /* reconhece (uma vez por nota) — barato: lê a 1ª e a última página com PDF */
   async check(note) {
-    if (!note || note.tec !== undefined || this._no.has(note.id) || this._busy.has(note.id)) return;
+    if (!note || this._no.has(note.id) || this._busy.has(note.id)) return;
+    if (note.tec) { if (!(note.tec.v >= 2)) await this.upgrade(note); this.repeats(note); return; } if (note.tec !== undefined) return;
     const P = note.pages.filter((p) => p.pdf); if (!P.length) return;
     this._busy.add(note.id);
     try {
@@ -22,8 +23,8 @@ const Tec = {
       const T = await this.scan(note); if (!T || !Object.keys(T.q).length) { this._no.add(note.id); return; }
       if (Editor.note !== note) return; /* fechou no meio: tenta de novo na próxima vez */
       note.tec = T; this.cover(note); Editor.markChanged(); Editor.requestRender();
-      const n = Object.keys(T.q).length, ce = Object.values(T.q).filter((q) => q.c && q.e).length;
-      toast(`📝 Caderno do TEC: ${n} questões${ce < n ? ` (${ce} de Certo/Errado)` : ''}. Toque em Certo ou Errado com a caneta para responder; no número da questão para marcar dúvida.`, 6500);
+      const n = Object.keys(T.q).length, ce = Object.values(T.q).filter((q) => q.c && q.e).length, r = this.repeats(note, true);
+      toast(`📝 Caderno do TEC: ${n} questões${ce < n ? ` (${ce} de Certo/Errado)` : ''}.${r ? ` ${r}` : ''} Toque em Certo ou Errado com a caneta para responder; no número da questão para marcar dúvida.`, r ? 8000 : 6500);
     } catch (e) { logError(e, 'caderno do TEC'); this._no.add(note.id); }
     finally { this._busy.delete(note.id); }
   },
@@ -34,7 +35,7 @@ const Tec = {
     const rect = (pg, L, k0 = 0, k1) => { const [t, y, h, segs] = L, at = (i) => { let sg = segs[0]; for (const s of segs) if (s[0] <= i) sg = s; const f = Math.min(1, Math.max(0, (i - sg[0]) / Math.max(1, sg[3]))); return sg[1] + sg[2] * f; }; const x1 = at(k0), x2 = at(k1 == null ? t.length : k1); return [pg, Math.round(x1 * 10) / 10, Math.round(y * 10) / 10, Math.round((x2 - x1) * 10) / 10, Math.round(h * 10) / 10]; };
     const finish = () => {
       if (cur && cur.num) { const hd = cur.hdr.filter(Boolean), ms = hd.slice(1).join(' '), k = ms.indexOf(' - ');
-        q[cur.num] = { id: cur.id, banca: hd[0] || '', mat: k > 0 ? ms.slice(0, k).trim() : ms.trim(), ass: k > 0 ? ms.slice(k + 3).trim() : '', c: cur.c || null, e: cur.e || null, nr: cur.nr || null }; }
+        q[cur.num] = { id: cur.id, banca: hd[0] || '', mat: k > 0 ? ms.slice(0, k).trim() : ms.trim(), ass: k > 0 ? ms.slice(k + 3).trim() : '', c: cur.c || null, e: cur.e || null, nr: cur.nr || null, top: cur.top }; }
       cur = null;
     };
     for (let i = 0; i < P.length; i++) {
@@ -45,14 +46,14 @@ const Tec = {
         if (inGab) { let hit = 0; for (const m of t.matchAll(/(\d+)\)\s*(Certo|Errado|Anulada|Desatualizada|[A-E])\b/g)) { gab[m[1]] = /^(Anulada|Desatualizada)$/.test(m[2]) ? 'X' : m[2][0]; hit++; }
           if (hit && pg === gabBox.pg) { const sg = L[3][L[3].length - 1]; gabBox.y2 = Math.max(gabBox.y2, L[1] + L[2]); gabBox.x1 = Math.min(gabBox.x1, L[3][0][1]); gabBox.x2 = Math.max(gabBox.x2, sg[1] + sg[2]); } continue; }
         if (/^Gabarito$/.test(t)) { finish(); inGab = true; gabBox = { pg, x1: L[3][0][1], y1: L[1], x2: L[3][0][1] + 200, y2: L[1] + L[2] }; continue; }
-        const m = t.match(/^www\.tecconcursos\.com\.br\/questoes\/(\d+)/); if (m) { finish(); cur = { id: m[1], hdr: [] }; continue; }
+        const m = t.match(/^www\.tecconcursos\.com\.br\/questoes\/(\d+)/); if (m) { finish(); cur = { id: m[1], hdr: [], top: [pg, Math.round(L[1] * 10) / 10] }; continue; }
         if (!cur) continue;
         if (!cur.num) { const n = t.match(/^(\d+)\)\s?/); if (n && cur.hdr.length >= 2) { cur.num = n[1]; cur.nr = rect(pg, L, 0, n[1].length + 1); } else if (cur.hdr.length < 4) cur.hdr.push(t); continue; }
         if (t === 'Certo' && !cur.c) cur.c = rect(pg, L); else if (t === 'Errado' && !cur.e) { cur.e = rect(pg, L); if (cur.c) finish(); }
       }
     }
     finish();
-    return { v: 1, blob, gab, q, ans: {}, d: {}, gb: gabBox ? [gabBox.pg, gabBox.x1 - 8, gabBox.y1 - 6, gabBox.x2 - gabBox.x1 + 16, gabBox.y2 - gabBox.y1 + 12] : null };
+    return { v: 2, blob, gab, q, ans: {}, d: {}, gb: gabBox ? [gabBox.pg, gabBox.x1 - 8, gabBox.y1 - 6, gabBox.x2 - gabBox.x1 + 16, gabBox.y2 - gabBox.y1 + 12] : null };
   },
   /* página da nota que mostra a página `idx` do PDF do caderno */
   pageOf(note, idx) { const T = note.tec; return note.pages.find((p) => p.pdf && p.pdf.blobId === T.blob && p.pdf.index === idx) || null; },
@@ -68,6 +69,8 @@ const Tec = {
   tap(note, page, x, y) {
     const T = note && note.tec; if (!T || !page.pdf || page.pdf.blobId !== T.blob) return false;
     const idx = page.pdf.index, pad = Math.max(3, 7 / Editor.cam.z);
+    const hid = page.elements.find((e) => e.tqh && e.type === 'shape' && x >= e.x1 && x <= e.x2 && y >= e.y1 && y <= e.y2); /* v1.22: faixa "já acertada" → mostra a questão */
+    if (hid) { const num = String(hid.tqh); for (const e of this.marks(page, num, 'tqh')) Editor.recRemove(page, e); Editor.opCommit(); (T.shown || (T.shown = {}))[num] = 1; Editor.markChanged(); return true; }
     for (const [num, q] of Object.entries(T.q)) {
       if (q.c && q.c[0] === idx && this.near(q.c, x, y, pad)) { this.answer(note, page, num, 'C'); return true; }
       if (q.e && q.e[0] === idx && this.near(q.e, x, y, pad)) { this.answer(note, page, num, 'E'); return true; }
@@ -91,7 +94,7 @@ const Tec = {
     for (const e of els) this.recAdd(page, e); Editor.opCommit();
     T.ans[num] = { a: v, ok, d: d ? 1 : 0, t }; Editor.markChanged();
     if (ok != null && typeof StudyTimer !== 'undefined' && StudyTimer.log) {
-      const L = StudyTimer.log, QA = L.qa || (L.qa = []), x = [t, ok ? 1 : 0, note.id, this.subjFor(note), q.ass || q.mat || null, d ? 1 : 0, 'tec', num]; QA.push(x); if (QA.length > 30000) QA.splice(0, QA.length - 30000);
+      const L = StudyTimer.log, QA = L.qa || (L.qa = []), x = [t, ok ? 1 : 0, note.id, this.subjFor(note), q.ass || q.mat || null, d ? 1 : 0, 'tec', num, q.id]; this._seen = null; QA.push(x); if (QA.length > 30000) QA.splice(0, QA.length - 30000);
       if (!ok || d) this.addErr(note, num, x);
       StudyTimer.saveLog(); if (typeof QuizPad !== 'undefined') QuizPad.sync(true);
     }
@@ -123,17 +126,65 @@ const Tec = {
     }
     toast(on ? `Questão ${num}: dúvida marcada${A ? '' : ' — agora responda'}` : `Questão ${num}: sem dúvida`, 1400);
   },
+  /* v1.22: questões do TEC já respondidas, em qualquer caderno — id do TEC → última resposta {t, ok, d, n (nota)}.
+     Lê log.qa (qa[8] = id do TEC, a partir da v1.22); para respostas da v1.21 (sem id), procura o id na nota quando ela é a aberta. */
+  seen() {
+    const QA = (typeof StudyTimer !== 'undefined' && StudyTimer.log && StudyTimer.log.qa) || []; if (this._seen && this._seen.len === QA.length) return this._seen.m;
+    const m = new Map(); for (const x of QA) { if (x[6] !== 'tec' || !x[8]) continue; const o = m.get(x[8]); if (!o || o.t < x[0]) m.set(x[8], { t: x[0], ok: x[1], d: x[5] ? 1 : 0, n: x[2] }); }
+    this._seen = { len: QA.length, m }; return m;
+  },
+  /* v1.21 → v1.22: lê de novo para guardar o topo de cada questão (top) e põe o id do TEC nas respostas já dadas */
+  async upgrade(note) {
+    try { const T2 = await this.scan(note), T = note.tec; for (const [k, q] of Object.entries(T.q)) if (T2.q[k]) q.top = T2.q[k].top; T.v = 2;
+      const QA = (StudyTimer.log && StudyTimer.log.qa) || []; for (const x of QA) if (x[6] === 'tec' && x[2] === note.id && !x[8] && T.q[x[7]]) x[8] = T.q[x[7]].id; this._seen = null; StudyTimer.saveLog(); Editor.markChanged();
+    } catch (e) { logError(e, 'caderno do TEC'); }
+  },
+  /* v1.22: repetidas — questões deste caderno que já foram respondidas em OUTRO caderno: etiqueta "já feita em …" ao lado de
+     Certo/Errado; as acertadas sem dúvida ficam atrás de uma faixa (S.tecHideOk, padrão ligado; tocar mostra). Uma vez por
+     questão (T.rep). Devolve o texto do aviso (ou '') quando `say`. */
+  repeats(note, say) {
+    const T = note.tec; if (!T || Editor.note !== note) return ''; const M = this.seen(); if (!M.size) return '';
+    const R = T.rep || (T.rep = {}), hide = Store.settings.tecHideOk !== false, fd = (t) => new Date(t).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    let n = 0, nok = 0, nno = 0, nh = 0; const touched = new Set();
+    for (const [num, q] of Object.entries(T.q)) {
+      const s = M.get(q.id); if (!s || s.n === note.id) continue; n++; if (s.ok) nok++; else nno++;
+      if (R[num] || T.ans[num] || !q.c || !q.e) continue; R[num] = { t: s.t, ok: s.ok, d: s.d };
+      const page = this.pageOf(note, q.e[0]); if (!page) continue; touched.add(page);
+      if (hide && s.ok && !s.d && q.top && q.top[0] === q.e[0] && !(T.shown && T.shown[num])) {
+        const pw = page.pdfW || page.w, x1 = Math.max(4, q.nr ? q.nr[1] - 10 : 20), y1 = q.top[1] - 6, y2 = q.e[2] + q.e[4] + 6;
+        Editor.recAdd(page, { id: uid(), type: 'shape', kind: 'rect', x1, y1, x2: pw - x1, y2, color: '#cbd5e1', width: 1, fill: '#f1f5f9', tqh: num });
+        Editor.recAdd(page, { id: uid(), type: 'text', x: x1 + 12, y: (y1 + y2) / 2 - 10, w: pw - 2 * x1 - 24, text: `✓ Questão ${num} já acertada em ${fd(s.t)} — toque para mostrar`, size: 13, color: '#64748b', bold: false, tqh: num });
+        nh++;
+      } else {
+        const c = q.c, txt = `↺ já feita em ${fd(s.t)} · ${s.ok ? (s.d ? 'acertou com dúvida' : 'acertou') : 'errou'}`;
+        Editor.recAdd(page, { id: uid(), type: 'text', x: c[1] + Math.max(c[3], q.e[3]) + 22, y: c[2] + (q.e[2] + q.e[4] - c[2]) / 2 - 9, w: 260, text: txt, size: 12, color: s.ok ? (s.d ? '#b45309' : '#15803d') : '#b91c1c', bold: true, tqr: num });
+      }
+    }
+    if (touched.size) { Editor.opCommit(); Editor.markChanged(); Editor.requestRender(); }
+    if (!say || !n) return '';
+    const pl = (k, a, b) => `${k} ${k === 1 ? a : b}`;
+    return `${n} de ${Object.keys(T.q).length} você já fez em outros cadernos (${pl(nok, 'certa', 'certas')}, ${pl(nno, 'errada', 'erradas')})${nh ? ` — ${pl(nh, 'acertada ficou escondida', 'acertadas ficaram escondidas')}` : ''}.`;
+  },
+  /* mostra todas as acertadas escondidas deste caderno */
+  showHidden(note) {
+    const T = note.tec; let n = 0; for (const p of note.pages) { const hs = p.elements.filter((e) => e.tqh); for (const e of hs) { Editor.recRemove(p, e); (T.shown || (T.shown = {}))[e.tqh] = 1; n++; } }
+    if (n) { Editor.opCommit(); Editor.markChanged(); Editor.requestRender(); } return n / 2;
+  },
   /* resumo (menu ⋯ da nota) */
   summary(note) {
     const T = note.tec, all = Object.keys(T.q).filter((k) => T.q[k].c && T.q[k].e), A = T.ans, done = all.filter((k) => A[k]);
     const ok = done.filter((k) => A[k].ok === true).length, no = done.filter((k) => A[k].ok === false).length, dv = done.filter((k) => A[k].d).length;
-    const next = all.map((k) => [k, T.q[k]]).find(([k]) => !A[k]);
+    const R = T.rep || {}, hid = (k) => R[k] && R[k].ok && !R[k].d && !(T.shown && T.shown[k]) && Store.settings.tecHideOk !== false, next = all.map((k) => [k, T.q[k]]).find(([k]) => !A[k] && !hid(k));
+    const rep = Object.keys(R).length, hcb = el('input', { type: 'checkbox' }); hcb.checked = Store.settings.tecHideOk !== false; hcb.onchange = () => { Store.settings.tecHideOk = hcb.checked; Store.saveSettings(); };
     const by = new Map(); for (const k of done) { const a = T.q[k].ass || T.q[k].mat || '—', o = by.get(a) || { ok: 0, n: 0 }; if (A[k].ok != null) { o.n++; if (A[k].ok) o.ok++; } by.set(a, o); }
     const rows = [...by.entries()].filter(([, o]) => o.n).sort((a, b) => a[1].ok / a[1].n - b[1].ok / b[1].n);
     const body = el('div', { class: 'tec-sum' },
+      rep ? el('p', { class: 'tm-hint' }, `↺ ${rep} ${rep === 1 ? 'questão já feita' : 'questões já feitas'} em outros cadernos.`) : null,
+      el('label', { class: 'cpk-allg' }, hcb, el('span', {}, 'Esconder as repetidas que já acertei (nos próximos cadernos)')),
       el('div', { class: 'rp-tiles' }, ...[['Respondidas', `${done.length} de ${all.length}`], ['Acertos', ok + no ? Math.round((ok / (ok + no)) * 100) + '%' : '—', `✓ ${ok} · ✗ ${no}`], ['Com dúvida', String(dv)]].map(([l, v, s]) => el('div', { class: 'rp-tile' }, el('small', {}, l), el('b', {}, v), s ? el('span', {}, s) : null))),
       rows.length ? el('div', { class: 'tec-ass' }, el('div', { class: 'rp-h' }, 'Por assunto (piores primeiro)'), ...rows.map(([a, o]) => el('div', { class: 'tec-arow' }, el('span', {}, a), el('b', { class: o.ok / o.n < 0.6 ? 'bad' : o.ok / o.n >= 0.8 ? 'good' : '' }, `${o.ok}/${o.n}`)))) : el('p', { class: 'tm-hint' }, 'Toque em Certo ou Errado com a caneta para responder. Tocar no número da questão marca dúvida.'));
     openModal({ title: '📝 Caderno do TEC', body, buttons: [
+      ...(note.pages.some((p) => p.elements.some((e) => e.tqh)) ? [{ label: 'Mostrar as acertadas escondidas', action: () => { const n = this.showHidden(note); toast(`${n} questões mostradas`, 1500); return true; } }] : []),
       ...(next ? [{ label: `Ir para a ${next[0]}`, cls: 'primary', action: () => { this.goTo(note.id, next[1], note.tec.blob); return true; } }] : []),
       { label: 'Fechar', action: () => true }] });
   },

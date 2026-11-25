@@ -153,6 +153,15 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.22.0 — questões repetidas do TEC
+
+- O Traço agora **lembra de cada questão do TEC que você respondeu**, pelo número da questão no site, em qualquer caderno. A lista vai junto no backup do estudo.
+- Ao abrir um caderno novo, ele avisa quantas você já fez em outros cadernos (ex.: "23 de 200 você já fez: 15 certas, 8 erradas").
+- **As que você errou ou acertou com dúvida** ganham uma etiqueta ao lado de Certo/Errado: "↺ já feita em 25/11 · errou". Vale responder de novo.
+- **As que você acertou sem dúvida** ficam atrás de uma faixa cinza ("✓ Questão 10 já acertada em 25/11 — toque para mostrar") para você pular direto. Toque na faixa para ver a questão.
+- ⋯ da nota → **Caderno do TEC:** mostra quantas são repetidas, tem o botão **"Mostrar as acertadas escondidas"** e a opção de desligar o esconder nos próximos cadernos. O "Ir para a próxima" pula as escondidas.
+- Só contam as respostas a partir da v1.21.
+
 ## Novidades da v1.21.0 — cadernos do TEC Concursos e rascunho ao lado
 
 - **O Traço reconhece sozinho os cadernos impressos do TEC Concursos.** Abra o PDF como nota (de preferência numa pasta de matéria) e o app lê as questões e o gabarito do final em menos de um segundo.
