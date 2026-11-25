@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.18.0 — palavras separadas, seleção em todas as ferramentas e colar com dois dedos
+
+- **Palavras próximas:** o app separa as palavras olhando os espaços da própria linha (os espaços entre letras e entre palavras), em vez de uma medida fixa. Palavras escritas perto não viram mais uma só — vale para o marca-texto e para a seleção com o dedo.
+- **Seleção de palavras com o dedo em todas as ferramentas:** segurar o dedo parado numa palavra (0,4 s) seleciona; arrastando, junta as palavras tocadas. Antes só funcionava com a caneta selecionada.
+- **Colar da biblioteca com dois dedos:** segure **dois dedos parados** por meio segundo para abrir o "colar aqui" (antes era um dedo com o laço, que agora seleciona palavras). Um toque rápido com dois dedos continua desfazendo.
+
 ## Novidades da v1.17.4 — marca-texto: altura da faixa
 
 - Quando a linha escrita tem palavras um pouco mais altas e outras mais baixas, a faixa usava a altura das mais altas e ficava acima das letras. Agora ela usa a média da linha.

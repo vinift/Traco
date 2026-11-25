@@ -574,12 +574,14 @@ const Editor = {
     g.atEnd = !!(this.note && this.note.mode !== 'infinite' && !this._inertia && this.cam.y >= this.camMaxBase() - 4 / this.cam.z); // já parado no fim da nota
     /* v0.22: com o laço, segurar o dedo parado abre o painel de colar da biblioteca */
     /* v0.49: com a caneta, segurar o dedo parado 0,4 s numa palavra seleciona a palavra; arrastando, a faixa junta as palavras tocadas */
-    if (this.tool === 'pen' && !this.readOnly && !this.crop && !this.textEl && g.p0 && g.n === 1) g.holdT = setTimeout(() => { if (this.gesture === g && !g.moved && g.n === 1 && g.max === 1) this.wordSelStart(g); }, 400);
-    if (this.tool === 'lasso' && !this.readOnly && !this.crop && g.p0 && g.n === 1) g.holdT = setTimeout(() => { if (this.gesture === g && !g.moved && g.n === 1 && g.max === 1) { g.held = true; this.lassoHoldPaste(g.p0); } }, 550);
+    /* v1.18: seleção de palavras com o dedo em TODAS as ferramentas; colar da biblioteca = segurar DOIS dedos parados (em rebaseGesture) */
+    if (!this.readOnly && !this.crop && !this.textEl && g.p0 && g.n === 1) g.holdT = setTimeout(() => { if (this.gesture === g && !g.moved && g.n === 1 && g.max === 1) this.wordSelStart(g); }, 400);
   },
   rebaseGesture() {
     const g = this.gesture; if (!g) return;
     const ids = this.touchIds(); g.max = Math.max(g.max, ids.length); if (ids.length > 1) clearTimeout(g.holdT);
+    if (ids.length === 2 && g.max === 2 && !g.moved && !this.readOnly && !this.crop && !this.textEl) { const Q = ids.map((id) => this.pointers.get(id)), at = { x: (Q[0].x + Q[1].x) / 2, y: (Q[0].y + Q[1].y) / 2 };
+      g.holdT = setTimeout(() => { if (this.gesture === g && !g.moved && g.n === 2 && g.max === 2) { g.held = true; this.lassoHoldPaste(at); } }, 550); } /* v1.18: 2 dedos parados 0,55 s → colar da biblioteca (no meio dos dedos) */
     const P = ids.map((id) => this.pointers.get(id));
     for (const q of P) { g.minX = Math.min(g.minX ?? Infinity, q.sx ?? q.x); g.maxX = Math.max(g.maxX ?? -Infinity, q.sx ?? q.x); } /* onde os dedos encostaram (destro/canhoto) */
     g.cam = { ...this.cam }; g.n = P.length;
@@ -629,7 +631,7 @@ const Editor = {
     this.commitText();
     let tool = this.tool;
     if (e.pointerType === 'pen') { const h = this.penHoldTool(e.buttons); if (h) tool = h; }
-    if (this._wordSel && this.sel && tool === 'pen') { if (this.selHit(p)) tool = 'lasso'; else { this.sel = null; this._wordSel = false; this.requestRender(); } } /* v0.49: seleção de palavras com a caneta ativa — caneta na seleção move; fora, desfaz e escreve */
+    if (this._wordSel && this.sel && tool !== 'lasso') { if (this.selHit(p)) tool = 'lasso'; else { this.sel = null; this._wordSel = false; this.requestRender(); } } /* v0.49: seleção de palavras com a caneta ativa — caneta na seleção move; fora, desfaz e escreve */
     const w = this.toWorld(p.x, p.y);
     const base = { pid: e.pointerId, ptype: e.pointerType, tool, sx: p.x, sy: p.y };
     if (tool === 'pen' || tool === 'highlighter') return this.startDraw(base, e, p, w);

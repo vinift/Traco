@@ -572,9 +572,17 @@ Object.assign(Editor, {
       if (cs.length >= 3 && xh <= L.h * 0.6) cy = cs[cs.length >> 1]; /* letras baixas bem menores que a linha; senão (escrita ligada / só letras baixas) a densidade */
       else { const yw = []; for (const o of L.items) { const P = o.e.pts; if (!P) continue; for (let i = 3; i < P.length; i += 3) { const w = Math.hypot(P[i] - P[i - 3], P[i + 1] - P[i - 2]); if (w > 0) yw.push([(P[i + 1] + P[i - 2]) / 2, w]); } }
         yw.sort((a, b) => a[0] - b[0]); let best = -1, acc = 0, lo = 0, W = xh * 0.9; for (let hi = 0; hi < yw.length; hi++) { acc += yw[hi][1]; while (yw[hi][0] - yw[lo][0] > W) acc -= yw[lo++][1]; if (acc > best) { best = acc; cy = (yw[lo][0] + yw[hi][0]) / 2; } } } /* v1.17: centro do miolo das letras (sem pernas/hastes) — usado pelo marca-texto */
+      /* v1.18: vão que separa palavras, pela própria linha — os vãos entre letras e entre palavras formam 2 grupos (Otsu); se não há 2 grupos claros,
+         0,5·corpo da letra. Antes era fixo em 0,42 × altura típica (com hastes), e palavras próximas viravam uma só (marca-texto e seleção com o dedo). */
+      const G = []; { let mx = -Infinity; for (const o of L.items.slice().sort((a, b) => a.b.x - b.b.x)) { if (mx > -Infinity) G.push(Math.max(0, o.b.x - mx)); /* letras encostadas/sobrepostas = vão 0 (grupo das letras) */ mx = Math.max(mx, o.b.x + o.b.w); } }
+      let wthr = Math.min(thr, xh * 0.5);
+      if (G.length >= 3) { G.sort((a, b) => a - b); const n = G.length, tot = G.reduce((s, v) => s + v, 0); let best = -1, bk = 0, sl = 0;
+        for (let k = 1; k < n; k++) { sl += G[k - 1]; const m1 = sl / k, m2 = (tot - sl) / (n - k), v = k * (n - k) * (m1 - m2) * (m1 - m2); if (v > best) { best = v; bk = k; } }
+        const lo = G.slice(0, bk), hi = G.slice(bk), m1 = lo.reduce((s, v) => s + v, 0) / lo.length, m2 = hi.reduce((s, v) => s + v, 0) / hi.length;
+        if (m2 >= m1 * 2.2 + 0.5 && G[bk] >= G[bk - 1] * 1.4 + 0.5) wthr = clamp((G[bk - 1] + G[bk]) / 2, xh * 0.18, thr); }
       let cur = null, maxX = -Infinity;
       for (const o of L.items) {
-        if (!cur || o.b.x - maxX > thr || (o.e.color || '') !== cur.color) { /* v1.17.2: cor diferente = outra palavra (ex.: título azul colado no texto preto) */ cur = { ids: [], x1: Infinity, y1: Infinity, x2: -Infinity, y2: -Infinity, hm, cy, color: o.e.color || '' }; words.push(cur); }
+        if (!cur || o.b.x - maxX > wthr || (o.e.color || '') !== cur.color) { /* v1.17.2: cor diferente = outra palavra (ex.: título azul colado no texto preto) */ cur = { ids: [], x1: Infinity, y1: Infinity, x2: -Infinity, y2: -Infinity, hm, cy, color: o.e.color || '' }; words.push(cur); }
         cur.ids.push(o.e.id); cur.x1 = Math.min(cur.x1, o.b.x); cur.y1 = Math.min(cur.y1, o.b.y); cur.x2 = Math.max(cur.x2, o.b.x + o.b.w); cur.y2 = Math.max(cur.y2, o.b.y + o.b.h); maxX = Math.max(maxX, o.b.x + o.b.w);
       }
     }

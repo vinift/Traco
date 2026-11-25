@@ -163,7 +163,7 @@ Não confirmado (não deu para ler a doc do PWABuilder daqui): se há uma opçã
 - 2 dedos = desfazer, 3 = refazer (toque rápido). `S.hand` ('right' padrão): destro só aceita esses toques na **metade esquerda** da tela (a palma apoia na direita).
 - Proteção de palma (`S.palmGuard`): toques ignorados na folha até 500 ms depois da caneta. v0.28: `Palm` (navigation.js) barra na CAPTURA do `window` todo toque com contato ≥ `S.palmSize` (padrão 40 px; `pointerdown` width/height e `touchstart`/`touchmove` radius×2) e todo toque com a caneta encostada — não chega ao editor, barras, biblioteca, lado passivo; o `click` seguinte (500 ms) e a rolagem nativa também são cancelados. Toque que cresce no meio → `Palm.cancel` (Editor.onUp cancelado + `stopInertia`; `svPane.pts`). Configurações mostram `Palm.last` (tamanho do último toque) para calibrar.
 - Rolagem rápida (`#vscroll`): v0.27 de volta à DIREITA (à esquerda, v0.25–v0.26, ficou estranho), na borda do lado ativo na tela dividida (`placeScroll`); ignora toque com contato > 34 px e toques até 1,5 s depois da caneta; tocar no trilho não pula (só arrastar o marcador).
-- Laço + segurar o dedo parado 550 ms → painel "colar" da biblioteca (`lassoHoldPaste`, cola no ponto com `pasteAt`).
+- Segurar DOIS dedos parados 550 ms (qualquer ferramenta; v1.18 — antes 1 dedo com o laço) → painel "colar" da biblioteca (`lassoHoldPaste`, cola no meio dos dedos com `pasteAt`). 1 dedo parado 400 ms = seleção de palavras (todas as ferramentas desde a v1.18).
 
 ### Seleção
 - Alças: 4 cantos (proporcional, ancorado no canto oposto) + 4 lados (estica um eixo); texto só tem laterais; itens girados só cantos. Alça de girar em cima. Seleção pequena (caixa < 70 px na tela): tocar dentro sempre move; alças só por fora, raio 20 px (`selHit`).
@@ -642,6 +642,12 @@ Imagem no Traço: `{type:'image', x, y, w, h, blobId, rot?, crop?: {x,y,w,h}}` �
 
 
 - v1.17.4 — 2º print: a faixa melhorou mas ainda ficava alta. O desenho estava certo (teste de pixels: amarelo 188–197,8 e tinta 185,3–200,5, centros iguais); a causa era o `snapBoxes`: ao agrupar caixas na mesma linha (|Δcy| < 0,45·h), `L.cy` ficava o da 1ª caixa — e a lista vem ordenada por y, então era a MAIS ALTA (palavras lidas pelo `OCR.groupLines` em sub-linhas com `cy` um pouco diferente). Agora `L.cy` = média dos centros pesada pela largura (`L.sw/L.sy`). Vale também para o PDF (lá as caixas da mesma linha têm o mesmo centro, sem mudança). Teste: palavras com cy 189/195/196 → antes 189, agora 193,4; testes da v1.17 iguais.
+
+
+- v1.18.0 — pedidos: palavras separadas mas próximas viravam uma só (marca-texto e seleção com o dedo); seleção de palavras com o dedo em todas as ferramentas; colar da biblioteca com 2 dedos (sem conflito).
+  - `wordsOf` (crop.js): vão que separa palavras por linha — `G` = vãos entre traços vizinhos em x (encostados/sobrepostos = 0); Otsu em 2 grupos; se o grupo alto tem média ≥ 2,2·baixo + 0,5 e o salto ≥ 1,4× + 0,5, `wthr` = meio do salto, limitado a [0,18·xh, 0,42·hm]; senão `min(0,42·hm, 0,5·xh)`. Antes era fixo `0,42·hm`.
+  - editor.js `startGesture`: o `wordSelStart` (1 dedo parado 400 ms) vale em qualquer ferramenta (antes só 'pen'); `startAction`: com `_wordSel`, a caneta que bate na seleção a move em qualquer ferramenta menos o laço. O colar (`lassoHoldPaste`) saiu do 1 dedo com o laço e foi para `rebaseGesture`: 2 dedos (`g.max === 2`) parados 550 ms → painel no meio dos dedos (`g.held`, então o `endGesture` não desfaz).
+  - Teste (toque CDP, palavras de letras encostadas com vãos 6/15/6): antes 2 palavras, agora 4; segurar 1 dedo com o marca-texto ativo → seleciona só a 2ª palavra; 2 dedos parados 700 ms → abre o colar (biblioteca vazia → aviso); 2 dedos rápidos → desfaz; testes do marca-texto da v1.17 iguais.
 
 ### Ideias ainda não feitas
 - Importar moldura/cantos arredondados das imagens do Notewise (campos 7 e 9) — agora dá para mapear para `e.frame` (v0.27).
