@@ -1701,6 +1701,6 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 /* v1.36 — barras de ferramentas em vidro transparente na tela cheia (S.glassBars; #editor.noglass desliga) */
 #editor.immersive:not(.noglass) :is(.rail,.subrail,.hbar){background:color-mix(in srgb,var(--ch) 26%,transparent)!important;
   -webkit-backdrop-filter:blur(10px) saturate(1.35);backdrop-filter:blur(10px) saturate(1.35);
-  border-color:color-mix(in srgb,#fff 38%,transparent)!important;box-shadow:0 8px 26px rgba(0,0,0,.13),inset 0 1px 0 rgba(255,255,255,.35)!important}
-#editor.immersive:not(.noglass) :is(.rail,.subrail,.hbar) :is(svg.ic,.wchip,.cdot,b,span){filter:drop-shadow(0 0 1.5px color-mix(in srgb,var(--ch) 85%,transparent)) drop-shadow(0 1px 1px rgba(0,0,0,.12))}
+  border-color:color-mix(in srgb,#fff 38%,transparent)!important;box-shadow:0 4px 18px rgba(0,0,0,.07),inset 0 1px 0 rgba(255,255,255,.4)!important}
+#editor.immersive:not(.noglass) :is(.rail,.subrail,.hbar) svg.ic{filter:drop-shadow(0 0 1.5px color-mix(in srgb,var(--ch) 80%,transparent))} /* v1.36.2: só um halo claro nos ícones (sem sombra escura); espessuras e números limpos */
 #editor.immersive:not(.noglass) :is(.rail,.subrail) .sep{background:color-mix(in srgb,var(--chfg,#111) 22%,transparent)}

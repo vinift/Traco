@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.36.2
+
+- Barras em vidro da tela cheia mais "clean": tirei a sombra escura das espessuras, números e cores; os ícones ficam só com um halo claro e a sombra em volta da barra ficou bem mais leve. Continua só na tela cheia.
+
 ## Novidades da v1.36.1
 
 - **Sair da tela cheia tocando no topo:** na tela cheia (a do toque duplo), um toque com o dedo na faixa de cima — onde ficam os botões normalmente — sai dela, como já acontecia com a tela cheia de quando você escreve. Arrastar a partir do topo continua rolando normalmente, e tocar no relógio/tempo de estudo continua abrindo o cronômetro.
