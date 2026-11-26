@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.38.0
+
+- **Dúvida mais bonita nos cadernos de questões:** tocar no número da questão agora pinta o número de **amarelo** (no lugar do círculo laranja). Tocar de novo tira.
+- **"Por que a dúvida?"** — ao marcar, aparece uma telinha ao lado do número com respostas rápidas: *Não tenho certeza*, *Não lembro*, *Chutei*, *Fiquei entre duas*, *Não entendi o enunciado*, ou **+ Outro…** (o que você escrever vira opção rápida). Pode ignorar e fechar.
+- O motivo aparece no caderno de erros (lista para refazer), ao lado do assunto.
+- **Cadernos que você já tem também mudam:** ao abrir, as dúvidas marcadas com o círculo antigo viram o número amarelo sozinhas.
+
 ## Novidades da v1.37.1
 
 - **Vários PDFs de uma vez no Traço Nativo:** escolher 2 ou mais PDFs no seletor não fazia nada, porque o app só sabia receber um arquivo. Agora recebe todos. **Precisa do APK novo** (baixe em Configurações → Sobre, ou pelo link de sempre).

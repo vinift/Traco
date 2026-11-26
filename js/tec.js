@@ -15,7 +15,7 @@ const Tec = {
   async check(note) {
     if (!note || this._no.has(note.id) || this._busy.has(note.id)) return;
     this.bankBar(note && note.bank ? note : null); /* v1.26 */
-    if (note.tec) { this.reg(note); this.reconcile(note); if (!(note.tec.v >= 2)) await this.upgrade(note); if (!note.bank) this.repeats(note); return; } /* v1.27: no caderno de erros tudo já foi feito — sem etiquetas */ if (note.tec !== undefined) return;
+    if (note.tec) { this.reg(note); try { this.upDoubt(note); } catch (e) { logError(e, 'dúvidas antigas'); } this.reconcile(note); if (!(note.tec.v >= 2)) await this.upgrade(note); if (!note.bank) this.repeats(note); return; } /* v1.27: no caderno de erros tudo já foi feito — sem etiquetas */ if (note.tec !== undefined) return;
     const P = note.pages.filter((p) => p.pdf); if (!P.length) return;
     this._busy.add(note.id);
     try {
@@ -131,7 +131,7 @@ const Tec = {
   recAdd(page, e) { Editor.recAdd(page, e); },
   addErr(note, num, x) {
     const L = StudyTimer.log, E = L.errs || (L.errs = []), q = note.tec.q[num], sb = StudyTimer.ansSubj(x);
-    const er = { id: uid(), t: x[0], f: sb.key, n: note.id, aula: null, q: num, txt: q.ass || q.mat || 'TEC', tec: { id: q.id, num, blob: note.tec.blob, pg: (q.c || q.nr || [0])[0] }, duv: x[1] ? 1 : 0, done: false }; E.push(er); if (E.length > 5000) E.splice(0, E.length - 5000); return er;
+    const er = { id: uid(), t: x[0], f: sb.key, n: note.id, aula: null, q: num, txt: q.ass || q.mat || 'TEC', tec: { id: q.id, num, blob: note.tec.blob, pg: (q.c || q.nr || [0])[0] }, duv: x[1] ? 1 : 0, done: false }; { const w = this.whyOf(note, num); if (w) er.why = w; } E.push(er); if (E.length > 5000) E.splice(0, E.length - 5000); return er;
   },
   /* tira a resposta: marcas da página, o registro em log.qa e a anotação no caderno de erros */
   clear(note, page, num, full) {
@@ -160,7 +160,7 @@ const Tec = {
   /* dúvida: elipse laranja no número; vale para a resposta já dada também (acerto com dúvida vai para a revisão) */
   doubt(note, page, num) {
     const T = note.tec, q = T.q[num], on = !T.d[num], ms = this.marks(page, num, 'tqd');
-    if (on) { T.d[num] = 1; Editor.recAdd(page, this.ring(q.nr, '#f59e0b', num, { tqd: num, width: 2.2 })); } else { delete T.d[num]; for (const e of ms) Editor.recRemove(page, e); }
+    if (on) { T.d[num] = 1; Editor.recAdd(page, this.dMark(note, num)); } else { delete T.d[num]; for (const e of ms) Editor.recRemove(page, e); }
     Editor.opCommit(); Editor.markChanged();
     const A = T.ans[num];
     if (A && A.ok != null && typeof StudyTimer !== 'undefined' && StudyTimer.log) {
@@ -169,7 +169,45 @@ const Tec = {
       const ring = this.marks(page, num).find((e) => e.tqa); if (ring) { ring.tqa.d = A.d; ring.tqa.er = (L.errs || []).find((y) => y.t === A.t && y.tec) || null; } /* v1.24: o círculo guarda o estado atual */
       StudyTimer.saveLog();
     }
-    toast(on ? `Questão ${num}: dúvida marcada${A ? '' : ' — agora responda'}` : `Questão ${num}: sem dúvida`, 1400);
+    if (on) this.whyPop(note, page, num);
+  },
+  /* v1.38: dúvida = o número da questão fica AMARELO (selo por cima, do tamanho do número) em vez da elipse laranja; guarda o motivo em `why` */
+  dMark(note, num, why) {
+    const q = note.tec.q[num], r = q.nr, built = !!note.tec.built, lab = built ? String(num) : `${num})`;
+    const base = { type: 'text', text: lab, size: Math.max(8, Math.min(16, r[4] * (built ? 0.62 : 0.8))), bold: true, auto: true, w: 200, x: 0, y: 0 }, L = layoutText(base);
+    const pb = built ? [r[1] - 0.6, r[2] - 0.6, r[3] + 1.2, r[4] + 1.2] : [r[1] - 3, r[2] - 1.5, Math.max(r[3], L.w) + 6, r[4] + 3];
+    return { ...base, id: uid(), x: pb[0] + (pb[2] - L.w) / 2, y: pb[1] + (pb[3] - L.h) / 2, color: '#3b2600', bg: '#fbbf24', pbox: pb, tqd: num, ...(why ? { why } : {}) };
+  },
+  whyOf(note, num) { for (const p of note.pages) for (const e of p.elements) if (e.tqd != null && String(e.tqd) === String(num)) return e.why || null; return null; },
+  WHY: ['Não tenho certeza', 'Não lembro', 'Chutei', 'Fiquei entre duas', 'Não entendi o enunciado'],
+  whyList() { const S = Store.settings; return Array.isArray(S.tecWhy) && S.tecWhy.length ? S.tecWhy : this.WHY.slice(); },
+  /* grava o motivo na marca e nos registros do caderno de erros desta questão */
+  setWhy(note, num, why) {
+    const T = note.tec, q = T.q[num]; let m = null;
+    for (const p of note.pages) for (const e of p.elements) if (e.tqd != null && String(e.tqd) === String(num)) m = e;
+    if (!m) return; if (why) m.why = why; else delete m.why; Editor.markChanged();
+    const A = T.ans[num], L = typeof StudyTimer !== 'undefined' && StudyTimer.log;
+    if (L && A) { for (const y of L.errs || []) if (y.tec && y.tec.id === q.id && y.t === A.t) { if (why) y.why = why; else delete y.why; } StudyTimer.saveLog(); }
+  },
+  /* telinha "por que a dúvida?" ao lado do número (toques rápidos; "Outro…" escreve e guarda na lista) */
+  whyPop(note, page, num) {
+    try {
+      const q = note.tec.q[num], r = q.nr, pi = note.pages.indexOf(page), o = Editor.layout && Editor.layout[pi]; if (!o) return;
+      const st = $('#stage').getBoundingClientRect(), a = Editor.toScreen(r[1] + o.x, r[2] + o.y), b = Editor.toScreen(r[1] + r[3] + o.x, r[2] + r[4] + o.y);
+      const anc = el('div', { class: 'tq-why-anchor', style: { position: 'fixed', left: st.left + a.x + 'px', top: st.top + a.y + 'px', width: Math.max(4, b.x - a.x) + 'px', height: Math.max(4, b.y - a.y) + 'px', pointerEvents: 'none' } });
+      document.body.append(anc);
+      const cur = this.whyOf(note, num), pick = (w) => { this.setWhy(note, num, w); closePop(); };
+      const chip = (w) => el('button', { class: 'tq-why-chip' + (w === cur ? ' on' : ''), onclick: () => pick(w === cur ? null : w) }, w);
+      const other = el('button', { class: 'tq-why-chip add', onclick: async () => { closePop(); const t = await askText('Por que a dúvida?', '', 'Fica guardado como opção rápida'); if (!t) return; const S = Store.settings, L = this.whyList().filter((x) => x !== t); L.push(t); S.tecWhy = L.slice(-10); Store.saveSettings(); this.setWhy(note, num, t); } }, '+ Outro…');
+      const box = el('div', { class: 'tq-why' }, el('div', { class: 'tq-why-h' }, `🤔 Questão ${num} — por que a dúvida?`), el('div', { class: 'tq-why-list' }, ...this.whyList().map(chip), other));
+      openPop(anc, box, { onClose: () => anc.remove() });
+    } catch (e) { logError(e, 'motivo da dúvida'); }
+  },
+  /* v1.38: cadernos antigos — a elipse laranja da dúvida vira o selo amarelo (sem passo no desfazer) */
+  upDoubt(note) {
+    const T = note.tec; if (!T || !T.q) return; let n = 0;
+    for (const p of note.pages) { const els = p.elements; for (let i = 0; i < els.length; i++) { const e = els[i]; if (e.tqd == null || e.type !== 'shape' || !T.q[e.tqd]) continue; const m = this.dMark(note, String(e.tqd)); m.id = e.id; Editor.recReplace(p, e, m); n++; } }
+    if (n) { const op = Editor.curOp; Editor.opCommit(); const U = Editor.undoStack; if (op && U[U.length - 1] === op) U.pop(); }
   },
   /* v1.22: questões do TEC já respondidas, em qualquer caderno — id do TEC → última resposta {t, ok, d, n (nota)}.
      Lê log.qa (qa[8] = id do TEC, a partir da v1.22); para respostas da v1.21 (sem id), procura o id na nota quando ela é a aberta. */

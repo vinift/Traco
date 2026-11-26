@@ -216,7 +216,7 @@ const StudyPlan = {
   },
   /* desfazer o último ✗ também tira a anotação dele */
   dropErr(t) { const L = StudyTimer.log; if (L.errs) L.errs = L.errs.filter((x) => x.t !== t); },
-  errLabel(x) { if (x.tec) return `Q${x.q} · ${x.txt}`; /* v1.21: caderno do TEC */ return x.txt ? x.txt + (x.aula || x.q ? ` · ${x.aula ? 'Aula ' + x.aula : ''}${x.q ? ' Q' + x.q : ''}` : '') : `${x.aula ? 'Aula ' + x.aula : ''}${x.aula && x.q ? ' · ' : ''}${x.q ? 'Questão ' + x.q : ''}`; },
+  errLabel(x) { if (x.tec) return `Q${x.q} · ${x.txt}${x.why ? ' · 🤔 ' + x.why : ''}`; /* v1.21: caderno do TEC */ return x.txt ? x.txt + (x.aula || x.q ? ` · ${x.aula ? 'Aula ' + x.aula : ''}${x.q ? ' Q' + x.q : ''}` : '') : `${x.aula ? 'Aula ' + x.aula : ''}${x.aula && x.q ? ' · ' : ''}${x.q ? 'Questão ' + x.q : ''}`; },
   /* lista do caderno de erros no período (aba Questões): por matéria, com ✓ refeita e ✕ */
   errCard(a, b, render) {
     const L = StudyTimer.log, E = (L.errs || []).filter((x) => x.t >= a && x.t < b); if (!E.length) return el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Caderno de erros'), el('p', { class: 'tm-hint' }, 'Nenhum erro anotado neste período. Ao tocar em ✗, o app pergunta a aula e o número da questão.'));
