@@ -471,6 +471,19 @@ const Tec = {
     if (!need) return; const k = [0.4, 0.6, 0.8, 1, 1.5].find((v) => v >= need) || 1.5;
     for (const p of pages) { if (!p.pdf) continue; const w0 = p.pdfW || p.w; if (p.pdfW && p.w >= Math.round(w0 * (1 + k))) continue; p.pdfW = w0; p.w = Math.round(w0 * (1 + k)); }
   },
+  /* v1.32: caderno de questões da matéria — criado junto com a pasta-matéria (f.qNote), vazio até o 1º PDF */
+  qbookOf(f) { return f && f.qNote && Store.heads[f.qNote] ? f.qNote : null; },
+  async qbook(f) {
+    const id = this.qbookOf(f); if (id) return id;
+    const note = newNote({ title: `Questões — ${f.name}`, folderId: f.id, mode: 'pages', template: { ...Store.settings.template, type: 'blank' } });
+    const pg = note.pages[0]; if (pg) pg.elements.push({ id: uid(), type: 'text', x: 60, y: 80, w: Math.max(300, (pg.w || 794) - 120), text: `Caderno de questões de ${f.name}.\n\nPara pôr questões: ⋯ (em cima, à direita) → "Adicionar questões (PDF)", ou o botão "Adicionar questões" dentro da pasta da matéria. Pode escolher vários PDFs do TEC de uma vez; a cada vez, as que você já respondeu saem e as novas entram embaralhadas.`, size: 18, color: '#475569', tqg: 1 });
+    note.tec = { v: 3, built: 1, gab: {}, q: {}, ans: {}, d: {}, gb: null, vis: {}, srcs: [], blob: null };
+    await Store.putNote(note); f.qNote = note.id; await Store.saveFolders(); if (typeof Drive !== 'undefined') Drive.schedule(); return note.id;
+  },
+  /* botão "Adicionar questões" (dentro da pasta-matéria / ⋯ da pasta) */
+  async addToSubject(f) {
+    try { const id = await this.qbook(f), note = await Store.getNote(id); if (note) await this.addFlow(note); } catch (e) { logError(e, 'adicionar questões'); toast('Não deu para abrir o caderno de questões: ' + e.message, 5000); }
+  },
   /* v1.31: ⋯ → "Adicionar questões (PDF)": junta PDFs novos ao caderno montado (um caderno por matéria que vai crescendo).
      As já respondidas NESTA nota saem; as que faltam + as novas são embaralhadas (sem repetidas, por id); a escrita de cada
      questão que continua volta para o cartão dela (mesmo esquema do bankMount); os PDFs de origem viram T.srcs. */
@@ -495,7 +508,7 @@ const Tec = {
       if (loose.length && pages[0]) pages[0].elements.push(...loose);
       await Editor.close();
       note.pages = pages; note.tec = T2; note.tecOut = out; this.reg(note);
-      await Store.putNote(note); if (!srcs.some((x) => x.blobId === oldBlob)) { try { await DB.del('blobs', oldBlob); } catch (_) {} }
+      await Store.putNote(note); if (oldBlob && !srcs.some((x) => x.blobId === oldBlob)) { try { await DB.del('blobs', oldBlob); } catch (_) {} }
       App._busy = false; await App.openNote(note.id);
       toast(`➕ ${novas} questões novas · ${R.n} no caderno, embaralhadas${done.size ? ` (as ${done.size} já respondidas saíram)` : ''}`, 5000);
     } catch (e) { logError(e, 'adicionar questões'); toast('Não deu para adicionar: ' + e.message, 6000); }

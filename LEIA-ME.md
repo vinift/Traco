@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.32.0 — caderno de questões em cada matéria
+
+- Ao **criar uma matéria** ou **marcar uma pasta como matéria**, o Traço já cria dentro dela o caderno **"Questões — <nome da matéria>"** (vazio, com uma explicação até o 1º PDF).
+- Dentro da pasta-matéria aparece o botão **"Adicionar questões"** (ao lado de ordenar), e o ⋯ da pasta também tem **"Adicionar questões (PDF)"**: escolha um ou mais PDFs do TEC e eles vão para o caderno da matéria — as já respondidas saem, as novas entram embaralhadas.
+- Matérias que você já tinha: o caderno é criado na primeira vez que você tocar em "Adicionar questões".
+
 ## Novidades da v1.31.2 — caderno de erros sem spoiler
 
 - O caderno de erros **não traz mais a escrita antiga** das questões (nem a da margem do caderno de origem, nem a de uma tentativa anterior no próprio caderno de erros): cada questão volta limpa para você pensar de novo.

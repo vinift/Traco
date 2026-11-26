@@ -68,6 +68,8 @@ const Library = {
     else if (this.view === 'trash') crumbs.append(iconEl('chevRight'), el('span', { class: 'crumb cur' }, 'Lixeira'));
     else for (const f of Store.folderChain(this.folder)) { crumbs.append(iconEl('chevRight')); crumbs.append(el('button', { class: 'crumb' + (f.id === this.folder ? ' cur' : ''), onclick: () => this.openFolder(f.id) }, f.name)); }
     const so = S.libSort || { by: 'name', dir: 1 };
+    { const cf = this.folder && !q && this.view === 'home' ? Store.folders.find((x) => x.id === this.folder) : null, ab = $('#btnAddQ'); /* v1.32: dentro da pasta-matéria */
+      if (ab) { ab.classList.toggle('hidden', !(cf && cf.subject)); ab.onclick = () => cf && Tec.addToSubject(cf); } }
     $('#btnSort').innerHTML = icon(so.dir > 0 ? 'sortUp' : 'sortDown') + `<span>${so.by === 'name' ? 'Nome' : 'Data'}</span>`;
     $('#btnView').innerHTML = icon(S.libView === 'list' ? 'pages' : 'list');
     $('#btnSelect').classList.toggle('on', this.selecting);
@@ -216,6 +218,7 @@ const Library = {
     menu(anchor, [
       { label: 'Renomear', icon: 'pen', run: async () => { const n = await askText('Renomear pasta', f.name); if (n) { f.name = n; await Store.saveFolders(); Drive.schedule(); this.render(); } } },
       { label: 'Cor da pasta', icon: 'palette', run: () => colorPop(anchor, f.color || FOLDER_COLORS[0], async (c) => { f.color = c; await Store.saveFolders(); this.render(); }, FOLDER_COLORS.concat(['#111827', '#a16207', '#be185d', '#1d4ed8', '#15803d', '#b91c1c'])) },
+      ...(f.subject && typeof Tec !== 'undefined' ? [{ label: 'Adicionar questões (PDF)', icon: 'plus', run: () => Tec.addToSubject(f) }] : []),
       { label: 'Nova pasta dentro', icon: 'folder', run: () => this.newFolder(f.id) },
       { label: 'Nova matéria dentro', icon: 'timer', run: () => this.newFolder(f.id, true) },
       f.subject ? { label: 'Deixar de ser matéria', icon: 'timer', run: () => { this.setSubject([f], false); toast(`"${f.name}" não é mais matéria`, 1800); } } : { label: 'Marcar como matéria', icon: 'timer', run: () => { this.setSubject([f], true); toast(`"${f.name}" agora é uma matéria: o tempo de estudo das notas dela conta separado`, 2600); } },
@@ -254,10 +257,14 @@ const Library = {
   async newFolder(parentId = this.folder, subject = false) {
     const n = await askText(subject ? 'Nova matéria' : 'Nova pasta', '', subject ? 'Nome da matéria (ex.: Direito Penal I) — o tempo de estudo das notas dela soma separado' : 'Nome da pasta (ex.: Direito Penal I)'); if (!n) return;
     const color = FOLDER_COLORS[Store.folders.length % FOLDER_COLORS.length];
-    Store.folders.push({ id: uid(), name: n, parentId: parentId || null, color, created: Date.now(), ...(subject ? { subject: true } : {}) }); await Store.saveFolders(); Drive.schedule(); this.render();
+    const f = { id: uid(), name: n, parentId: parentId || null, color, created: Date.now(), ...(subject ? { subject: true } : {}) }; Store.folders.push(f); await Store.saveFolders(); Drive.schedule();
+    if (subject && typeof Tec !== 'undefined') await Tec.qbook(f); /* v1.32: a matéria já nasce com o caderno de questões */
+    this.render();
   },
   /* v0.35: pasta-matéria (f.subject) — o tempo de estudo das notas dela e das subpastas soma para ela */
-  async setSubject(list, on) { for (const f of list) { if (on) f.subject = true; else delete f.subject; } await Store.saveFolders(); Drive.schedule(); this.render(); },
+  async setSubject(list, on) { for (const f of list) { if (on) f.subject = true; else delete f.subject; } await Store.saveFolders(); Drive.schedule();
+    if (on && typeof Tec !== 'undefined') for (const f of list) await Tec.qbook(f); /* v1.32: caderno "Questões — <matéria>" (não recria se já existe) */
+    this.render(); },
   fabMenu(anchor) {
     menu(anchor, [
       { label: 'Nova nota', icon: 'pen', run: async () => { const n = await newNoteDialog(this.folder); if (n) App.openNote(n.id); } },
