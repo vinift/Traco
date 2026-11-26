@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.30.1 — volta ao recorte original do TEC
+
+- Desfeito o texto refeito da v1.30.0 (letras e símbolos diferentes não eram reconhecidos). Os cadernos do TEC voltam a ser montados com o recorte do PDF original, como antes. O próximo teste é imprimir no TEC com letra grande.
+
 ## Novidades da v1.30.0 — questões do TEC com letra maior
 
 - **Texto refeito nos cadernos montados do TEC:** ao montar um caderno (Importar questões do TEC, Reorganizar ou caderno de erros), o enunciado é reescrito com letra bem maior e quebra de linha nova, cabendo na largura da página — dá para ler com a página inteira na tela, deitado.

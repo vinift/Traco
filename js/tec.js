@@ -240,99 +240,17 @@ const Tec = {
      última resposta errada/com dúvida) e gera um PDF: cada questão recortada do original (embedPage, continua vetor) com uma
      faixa de cabeçalho própria (número · assunto · banca) e o número novo por cima do antigo. Devolve {bytes, tec} — tec já
      com os retângulos no PDF novo (não precisa reconhecer de novo). */
-  /* v1.30: retângulos (y em unidades da página) das imagens de uma página do pdf.js — acompanha a matriz (save/restore/transform/forms) */
-  async imgRects(P, lib) {
-    try {
-      const O = lib.OPS, U = lib.Util, ops = await P.getOperatorList(), vp = P.getViewport({ scale: 96 / 72 }), out = [], st = []; let m = vp.transform.slice();
-      const IMG = new Set([O.paintImageXObject, O.paintInlineImageXObject, O.paintImageMaskXObject, O.paintImageXObjectRepeat, O.paintImageMaskXObjectRepeat, O.paintInlineImageXObjectGroup, O.paintImageMaskXObjectGroup, O.paintSolidColorImageMask].filter((x) => x != null));
-      for (let i = 0; i < ops.fnArray.length; i++) {
-        const f = ops.fnArray[i], a = ops.argsArray[i];
-        if (f === O.save) st.push(m.slice()); else if (f === O.restore) { if (st.length) m = st.pop(); }
-        else if (f === O.transform) m = U.transform(m, a);
-        else if (f === O.paintFormXObjectBegin) { st.push(m.slice()); if (a && a[0]) m = U.transform(m, a[0]); }
-        else if (f === O.paintFormXObjectEnd) { if (st.length) m = st.pop(); }
-        else if (IMG.has(f)) { const ys = [[0, 0], [1, 0], [0, 1], [1, 1]].map(([px, py]) => m[1] * px + m[3] * py + m[5]) /* (Util.applyTransform mudou de assinatura entre versões do pdf.js) */, y1 = Math.min(...ys), y2 = Math.max(...ys); if (y2 - y1 > 6) out.push([y1, y2]); }
-      }
-      return out;
-    } catch (e) { return []; }
-  },
-  /* v1.30: parágrafos do enunciado (sem o número e sem Certo/Errado) ou null = usar o recorte (imagem, tabela ou espaço grande = figura) */
-  flowQ(it, parts) {
-    const { q, pages } = it, Ls = [];
-    for (const [pg, u, v] of parts) { const P = pages.find((x) => x.pg === pg); if (!P) return null;
-      if ((P.img || []).some(([a, b]) => b > u + 2 && a < v - 2)) return null;
-      for (const L of P.lines) if (L[1] >= u - 1 && L[1] + L[2] <= v + 2 && L[0].trim()) Ls.push({ pg, L }); }
-    const lines = Ls.filter(({ L }) => !((q.c && L[0].trim() === 'Certo') || (q.e && L[0].trim() === 'Errado')));
-    if (!lines.length) return null;
-    for (const { L } of lines) { const sg = L[3]; for (let i = 1; i < sg.length; i++) if (sg[i][1] - (sg[i - 1][1] + sg[i - 1][2]) > 2.5 * L[2]) return null; } /* colunas = tabela */
-    const hs = lines.map(({ L }) => L[2]).sort((a, b) => a - b), hm = hs[hs.length >> 1];
-    const dys = []; for (let i = 1; i < lines.length; i++) if (lines[i].pg === lines[i - 1].pg) dys.push(lines[i].L[1] - lines[i - 1].L[1]); dys.sort((a, b) => a - b); const dm = dys.length ? dys[dys.length >> 1] : hm * 1.2;
-    const x0 = Math.min(...lines.map(({ L }) => L[3][0][1])), xr = Math.max(...lines.map(({ L }) => { const g = L[3][L[3].length - 1]; return g[1] + g[2]; }));
-    const paras = []; let cur = '', prev = null;
-    lines.forEach(({ pg, L }, i) => {
-      let t = L[0].replace(/\s+/g, ' ').trim(); if (i === 0) t = t.replace(/^\d+\)\s?/, '');
-      const g = L[3][L[3].length - 1], xs = L[3][0][1];
-      if (prev) {
-        const gap = prev.pg === pg ? L[1] - prev.L[1] : dm, pg0 = prev.L[3][prev.L[3].length - 1];
-        if (gap > dm * 3.2 && gap > hm * 3) { paras.fail = 1; }
-        const brk = gap > dm * 1.45 || pg0[1] + pg0[2] < xr - 3 * hm || xs > x0 + 1.5 * hm || /^([a-eA-E]\)|[IVX]+\s?[-.)–]|[•\-–]\s)/.test(t);
-        if (brk) { if (cur) paras.push(cur); cur = t; } else cur = /-$/.test(cur) && /^[a-zà-ú]/.test(t) ? cur + t : cur + ' ' + t;
-      } else cur = t;
-      prev = { pg, L };
-    });
-    if (cur) paras.push(cur);
-    if (paras.fail || !paras.join('').trim()) return null;
-    return paras;
-  },
-  /* v1.30: desenha um cartão com o texto refeito (quebra em mais de uma página se precisar). Devolve a página/posição e o registro da questão */
-  flowDraw(o) {
-    const { H, M, K, HB, TOP, cwPt, font, bold, ansi, rr, PL, paras, n, num, q, fit, btn } = o, F = clamp(+Store.settings.tecFont || 12, 9, 18), LH = F * 1.42, PG = F * 0.55, BOT = 24, CPAD = 8;
-    const wrap = (t) => { const out = []; let line = ''; for (const w0 of ansi(t).split(' ')) { let w = w0; if (!w) continue; const tryL = line ? line + ' ' + w : w; if (font.widthOfTextAtSize(tryL, F) <= cwPt) { line = tryL; continue; } if (line) out.push(line); while (font.widthOfTextAtSize(w, F) > cwPt) { let c = w.length - 1; while (c > 1 && font.widthOfTextAtSize(w.slice(0, c), F) > cwPt) c--; out.push(w.slice(0, c)); w = w.slice(c); } line = w; } if (line) out.push(line); return out; };
-    const rows = []; paras.forEach((p, i) => { if (i) rows.push({ gap: PG }); for (const l of wrap(p)) rows.push({ t: l }); });
-    if (btn) rows.push({ gap: 6 }, { btn: 1 });
-    const hRow = (r) => (r.gap != null ? r.gap : r.btn ? 19 : LH);
-    let { page, pgN, y } = o; const need = HB + 10 + Math.min(4, rows.length) * LH + 18;
-    if (!page || (y + need > H - BOT && y > TOP)) ({ page, pgN, y } = o.newPage());
-    /* simula para saber os pedaços do cartão (um por página) */
-    const chunks = []; let ch = { pgN, page, y0: y, rows: [], hd: 1 }, yy = y + HB + 10;
-    for (const r of rows) { const h = hRow(r); if (yy + h > H - BOT - CPAD && ch.rows.length) { ch.y1 = yy + CPAD; chunks.push(ch); const np = o.newPage(); ch = { pgN: np.pgN, page: np.page, y0: np.y, rows: [] }; yy = np.y + CPAD; if (r.gap != null) continue; } ch.rows.push([r, yy]); yy += h; }
-    ch.y1 = yy + CPAD; chunks.push(ch);
-    const ACC = PL.rgb(0.486, 0.227, 0.929), cx = M - 8, cw = cwPt + 16, rt = [], res = { tq: {} };
-    for (const c of chunks) c.page.drawSvgPath(rr(0, 0, cw, c.y1 - c.y0, 10), { x: cx, y: H - c.y0, color: PL.rgb(1, 1, 1), borderColor: PL.rgb(0.88, 0.89, 0.92), borderWidth: 0.8 });
-    /* cabeçalho igual ao do recorte */
-    const c0 = chunks[0], P0 = c0.page, yTop = c0.y0, hdY = yTop + 5, hdH = HB - 2;
-    P0.drawSvgPath(rr(0, 0, cw - 10, hdH, 7), { x: cx + 5, y: H - hdY, color: PL.rgb(0.953, 0.937, 0.992) });
-    const nW = bold.widthOfTextAtSize(n, 9), bW = nW + 14, bx = cx + 10, by = hdY + 3.5, bH = hdH - 7;
-    P0.drawSvgPath(rr(0, 0, bW, bH, bH / 2), { x: bx, y: H - by, color: ACC });
-    P0.drawText(n, { x: bx + 7, y: H - by - bH + 3.6, size: 9, font: bold, color: PL.rgb(1, 1, 1) });
-    const bs = (q.banca || '').split(' ')[0] + ' · ' + ((q.banca || '').split(' - ').slice(1).join(' - ').split('/').slice(-2).join('/')), tecT = `TEC nº ${num}  >`, tecW = font.widthOfTextAtSize(tecT, 8);
-    P0.drawText(fit(`${q.ass || q.mat}  ·  ${bs}`, font, 8.5, cw - bW - tecW - 50), { x: bx + bW + 9, y: H - hdY - hdH + 6.6, size: 8.5, font, color: PL.rgb(0.29, 0.33, 0.39) });
-    P0.drawText(tecT, { x: cx + cw - 14 - tecW, y: H - hdY - hdH + 6.6, size: 8, font: bold, color: ACC });
-    const r1 = (v) => Math.round(v / K * 10) / 10;
-    res.tq.nr = [c0.pgN, r1(bx), r1(by), r1(bW), r1(bH)]; res.tq.hd = [c0.pgN, (cx + 5) / K, hdY / K, (cw - 10) / K, hdH / K]; res.tq.top = [c0.pgN, r1(yTop)];
-    const ink = PL.rgb(0.1, 0.11, 0.14);
-    for (const c of chunks) for (const [r, ry] of c.rows) {
-      if (r.t != null) { const top = ry + (LH - F * 1.16) / 2; c.page.drawText(r.t, { x: M, y: H - top - F * 0.93, size: F, font, color: ink }); rt.push([c.pgN, [r.t, r1(top), r1(F * 1.16), [[0, r1(M), r1(font.widthOfTextAtSize(r.t, F)), r.t.length]]]]); }
-      else if (r.btn) {
-        const bh = 15, by0 = ry + 2, mk = (lab, bx2) => { const tw = bold.widthOfTextAtSize(lab, 9), bw = tw + 22; c.page.drawSvgPath(rr(0, 0, bw, bh, 7.5), { x: bx2, y: H - by0, color: PL.rgb(1, 1, 1), borderColor: PL.rgb(0.78, 0.8, 0.85), borderWidth: 0.9 }); c.page.drawText(lab, { x: bx2 + 11, y: H - by0 - bh + 4.4, size: 9, font: bold, color: PL.rgb(0.2, 0.24, 0.3) }); return [c.pgN, r1(bx2), r1(by0), r1(bw), r1(bh), 1]; };
-        res.tq.c = mk('Certo', M); res.tq.e = mk('Errado', M + (res.tq.c[3] * K) + 8); res.tq.btn = 1;
-      }
-    }
-    if (!res.tq.c) { res.tq.c = null; res.tq.e = null; res.tq.btn = 0; }
-    const last = chunks[chunks.length - 1]; res.tq.bot = chunks.length === 1 ? r1(last.y1) : r1(H - BOT); /* cartão em várias páginas: a escrita fica guardada só pela 1ª */
-    return { page: last.page, pgN: last.pgN, y: last.y1 + 14, tq: res.tq, rt };
-  },
-  async build(srcs, { filter = 'all', keep = null, mats = null, reflow = Store.settings.tecReflow !== false } = {}, onStep = () => {}) {
+  async build(srcs, { filter = 'all', keep = null, mats = null } = {}, onStep = () => {}) {
     const lib = await PdfCache.loadLib(), PL = await loadPdfLib(), out = await PL.PDFDocument.create(), seen = this.seen();
     const font = await out.embedFont(PL.StandardFonts.Helvetica), bold = await out.embedFont(PL.StandardFonts.HelveticaBold);
     const items = [], byId = new Set();
     for (let si = 0; si < srcs.length; si++) {
       const S0 = srcs[si], blob = await Store.getBlob(S0.blobId); if (!blob) throw new Error(`o PDF "${S0.name}" não está mais no aparelho`);
       const buf = await blob.arrayBuffer(), doc = await lib.getDocument({ data: new Uint8Array(buf.slice(0)) }).promise, pages = [];
-      for (let i = 0; i < doc.numPages; i++) { onStep(`Lendo ${S0.name}: página ${i + 1} de ${doc.numPages}`); const P = await doc.getPage(i + 1); pages.push({ pg: i, lines: await PdfFind.pageLines(P), img: reflow ? await this.imgRects(P, lib) : [] }); }
+      for (let i = 0; i < doc.numPages; i++) { onStep(`Lendo ${S0.name}: página ${i + 1} de ${doc.numPages}`); pages.push({ pg: i, lines: await PdfFind.pageLines(await doc.getPage(i + 1)) }); }
       const R = this.parse(pages); if (!Object.keys(R.q).length) throw new Error(`"${S0.name}" não parece um caderno impresso do TEC (precisa do cabeçalho "Com matéria e assunto")`);
       const pdl = await PL.PDFDocument.load(buf, { ignoreEncryption: true });
-      for (const [num, q] of Object.entries(R.q)) { if (byId.has(q.id)) continue; byId.add(q.id); items.push({ q, num, g: R.gab[num] || null, R, pdl, doc, si, pages }); }
+      for (const [num, q] of Object.entries(R.q)) { if (byId.has(q.id)) continue; byId.add(q.id); items.push({ q, num, g: R.gab[num] || null, R, pdl, doc, si }); }
       doc.destroy && doc.destroy();
     }
     /* v1.27: 'redo' = última resposta errada ou com dúvida (caderno de erros); 'everwrong' = já errou alguma vez */
@@ -347,24 +265,18 @@ const Tec = {
     const K = 0.75, M = 22, HB = 24, GAP = 14, TOP = 24;
     /* largura útil: a do original (margem esquerda do número espelhada) */
     const p0 = list[0].pdl.getPage(list[0].q.nr[0]).getSize(), left0 = Math.max(8, list[0].q.nr[1] - 8), cwPt = p0.width - 2 * left0 * K, W = cwPt + 2 * M, H = Math.round(W * 1.414);
-    const rr = (x0, y0, w, h, r) => `M ${x0 + r} ${y0} H ${x0 + w - r} Q ${x0 + w} ${y0} ${x0 + w} ${y0 + r} V ${y0 + h - r} Q ${x0 + w} ${y0 + h} ${x0 + w - r} ${y0 + h} H ${x0 + r} Q ${x0} ${y0 + h} ${x0} ${y0 + h - r} V ${y0 + r} Q ${x0} ${y0} ${x0 + r} ${y0} Z`;
-    let page = null, pgN = -1, y = 0; const embC = new Map(), vis = {}, rt = {}, tq = {}, gab = {}, newPage = () => { page = out.addPage([W, H]); pgN++; y = TOP; };
+    let page = null, pgN = -1, y = 0; const embC = new Map(), vis = {}, tq = {}, gab = {}, newPage = () => { page = out.addPage([W, H]); pgN++; y = TOP; };
     for (let k = 0; k < list.length; k++) {
       const { q, num, g, R, pdl } = list[k], n = keep ? String(keep[q.id] || k + 1) : String(k + 1); if (k % 10 === 0) onStep(`Montando a questão ${k + 1} de ${list.length}`);
       const PH = (pg) => pdl.getPage(pg).getSize().height / K, pm = (pg) => R.pm[pg] || { hb: 0, ft: PH(pg) }, ftOf = (pg) => Math.min(PH(pg), pm(pg).ft) - 4, hbOf = (pg) => pm(pg).hb + 4;
       const a = q.nr, z = q.e || q.end || a, y0 = a[2] - 6, y1 = (q.e ? z[2] + z[4] : z[1]) + 7, parts = [];
       if (a[0] === z[0]) parts.push([a[0], y0, y1]); else { parts.push([a[0], y0, ftOf(a[0])]); for (let pg = a[0] + 1; pg < z[0]; pg++) parts.push([pg, hbOf(pg), ftOf(pg)]); parts.push([z[0], hbOf(z[0]), y1]); }
-      const left = Math.max(8, a[1] - 8);
-      /* v1.30: texto refeito — o enunciado é reescrito com letra maior na largura da página (o recorte do PDF fica só para questão com imagem/tabela) */
-      const paras = reflow ? this.flowQ(list[k], parts) : null;
-      if (paras) { const r = this.flowDraw({ page, pgN, y, H, W, M, K, HB, TOP, cwPt, newPage: () => { newPage(); return { page, pgN, y }; }, font, bold, ansi, rr, PL, paras, n, num, q, fit, btn: !!(q.c && q.e) });
-        ({ page, pgN } = r); if (r.rt) for (const [pi, L] of r.rt) (rt[pi] = rt[pi] || []).push(L);
-        tq[n] = { ...r.tq, id: q.id, banca: q.banca, mat: q.mat, ass: q.ass, on: num, rf: 1 }; gab[n] = g; y = r.y; continue; }
-      const hTot = HB + 6 + parts.reduce((s, [, u, v]) => s + (v - u) * K, 0);
+      const left = Math.max(8, a[1] - 8), hTot = HB + 6 + parts.reduce((s, [, u, v]) => s + (v - u) * K, 0);
       if (!page || (y + hTot + 18 > H - 24 && y > TOP)) newPage();
       /* v1.23: cartão no estilo do app — borda suave arredondada, cabeçalho em pílula lilás, número em etiqueta roxa
          (tocar nela = dúvida), assunto · banca e "abrir no TEC ›" em roxo */
       const yTop = y, cx = M - 8, cw = cwPt + 16, hdY = yTop + 5, hdH = HB - 2, ACC = PL.rgb(0.486, 0.227, 0.929);
+      const rr = (x0, y0, w, h, r) => `M ${x0 + r} ${y0} H ${x0 + w - r} Q ${x0 + w} ${y0} ${x0 + w} ${y0 + r} V ${y0 + h - r} Q ${x0 + w} ${y0 + h} ${x0 + w - r} ${y0 + h} H ${x0 + r} Q ${x0} ${y0 + h} ${x0} ${y0 + h - r} V ${y0 + r} Q ${x0} ${y0} ${x0 + r} ${y0} Z`;
       const cardH = HB + 10 + parts.reduce((s2, [, u, v]) => s2 + (v - u) * K, 0) + 8;
       page.drawSvgPath(rr(0, 0, cw, cardH, 10), { x: cx, y: H - yTop, color: PL.rgb(1, 1, 1), borderColor: PL.rgb(0.88, 0.89, 0.92), borderWidth: 0.8 });
       page.drawSvgPath(rr(0, 0, cw - 10, hdH, 7), { x: cx + 5, y: H - hdY, color: PL.rgb(0.953, 0.937, 0.992) });
@@ -397,7 +309,7 @@ const Tec = {
       tq[n] = { bot: Math.round((yTop + cardH) / K * 10) / 10, id: q.id, banca: q.banca, mat: q.mat, ass: q.ass, c: cB, e: eB, btn: cB && cB[5] ? 1 : 0, nr, top: [pgN, Math.round(yTop / K * 10) / 10], hd: [pgN, (cx + 5) / K, hdY / K, (cw - 10) / K, hdH / K], on: num }; if (Tec._dbg) tq[n]._d = { parts, src: [q.nr, q.c, q.e], map: JSON.parse(JSON.stringify(map)) };
       gab[n] = g; y = yTop + cardH + GAP;
     }
-    return { matCount, bytes: await out.save(), tec: { v: 3, built: 1, gab, q: tq, ans: {}, d: {}, gb: null, vis, rt, mx: M / K, srcs: srcs.map((x) => ({ name: x.name, blobId: x.blobId })) }, total: items.length, n: list.length };
+    return { matCount, bytes: await out.save(), tec: { v: 3, built: 1, gab, q: tq, ans: {}, d: {}, gb: null, vis, mx: M / K, srcs: srcs.map((x) => ({ name: x.name, blobId: x.blobId })) }, total: items.length, n: list.length };
   },
   /* cria a nota com o PDF montado (pasta: a pasta-matéria com o nome da matéria, senão a pasta aberta) */
   async makeNote(R, title, folderId) {
@@ -410,7 +322,7 @@ const Tec = {
   _virt: new Map(),
   reg(note) { const T = note && note.tec; if (T && T.built && T.vis && T.srcs) this._virt.set(T.blob, T); },
   async virtLines(ref) {
-    const T = this._virt.get(ref.blobId); if (!T) return null; const out = (T.rt && T.rt[ref.index] || []).map((L) => L.slice()); /* v1.30: linhas do texto refeito */
+    const T = this._virt.get(ref.blobId); if (!T) return null; const out = (T.rt && T.rt[ref.index] || []).map((L) => L.slice()); /* cadernos montados na v1.30.0 (texto refeito, desfeito na v1.30.1) continuam com busca */
     for (const [si, pg, u, v, left, yy] of T.vis[ref.index] || []) { const S0 = T.srcs[si]; if (!S0) continue; let L; try { L = await PdfFind.readPage({ blobId: S0.blobId, index: pg }); } catch (e) { continue; }
       for (const [t, y, h, segs] of L) if (y >= u - 1 && y + h <= v + 1) out.push([t, Math.round((y - u + yy) * 10) / 10, h, segs.map(([st, x, w, n]) => [st, Math.round((x - left + T.mx) * 10) / 10, w, n])]); }
     return out.sort((a, b) => a[1] - b[1]);
@@ -430,13 +342,6 @@ const Tec = {
       if (typeof Library !== 'undefined') Library.render(); App.openNote(note.id);
     } catch (e) { logError(e, 'importar questões do TEC'); toast('Não deu para montar o caderno: ' + e.message, 6000); }
   },
-  /* v1.30: tamanho da letra dos cadernos montados — 'orig' = recorte do PDF como antes; 12/14 pt = texto refeito (S.tecReflow/S.tecFont) */
-  sizeKey() { const S = Store.settings; return S.tecReflow === false ? 'orig' : String(+S.tecFont || 12); },
-  sizeName() { return { orig: 'original', 12: 'grande', 14: 'maior' }[this.sizeKey()] || 'grande'; },
-  sizeSeg() {
-    const S = Store.settings;
-    return el('div', { class: 'tec-size' }, el('small', {}, 'Letra das questões (caderno novo):'), UI.seg([['orig', 'Original'], ['12', 'Grande'], ['14', 'Maior']], this.sizeKey(), (v) => { if (v === 'orig') S.tecReflow = false; else { S.tecReflow = true; S.tecFont = +v; } Store.saveSettings(); }));
-  },
   /* ⋯ da nota → "Reorganizar questões": monta OUTRO caderno com um filtro, a partir dos mesmos PDFs (o atual não muda) */
   reorgPop(note, anchor) {
     const T = note.tec, srcs = T.srcs || [{ name: note.title, blobId: T.blob }], keep = {}; if (T.built) for (const [n, q] of Object.entries(T.q)) keep[q.id] = +n;
@@ -449,8 +354,7 @@ const Tec = {
     const M = this.seen(), ids = Object.values(T.q).map((q) => q.id), nNew = ids.filter((id) => !M.get(id)).length, nWrong = ids.filter((id) => { const s = M.get(id); return s && (!s.ok || s.d); }).length;
     const b = (lab, sub, fn) => { const x = el('button', { class: 'nm-item', onclick: fn }); x.append(iconEl('refresh'), el('span', {}, lab, el('small', {}, sub))); return x; };
     openPop(anchor, el('div', { class: 'nmenu' }, el('div', { class: 'nm-head' }, el('div', {}, el('b', {}, 'Reorganizar questões'), el('small', {}, 'cria um caderno novo; este continua como está'))),
-      this.sizeSeg(),
-      el('div', { class: 'nm-list' }, b('Mesmas questões, mesma ordem', `${ids.length} questões, com a letra escolhida acima`, () => go('all', 'letra ' + this.sizeName())), b('Só as que não fiz', `${nNew} questões`, () => go('new', 'não feitas')), b('As que não fiz + as que errei', `${nNew + nWrong} questões (erradas ou com dúvida: ${nWrong})`, () => go('newwrong', 'não feitas e erradas')), b('Todas, embaralhadas de novo', `${ids.length} questões`, () => go('all', 'embaralhado')))));
+      el('div', { class: 'nm-list' }, b('Só as que não fiz', `${nNew} questões`, () => go('new', 'não feitas')), b('As que não fiz + as que errei', `${nNew + nWrong} questões (erradas ou com dúvida: ${nWrong})`, () => go('newwrong', 'não feitas e erradas')), b('Todas, embaralhadas de novo', `${ids.length} questões`, () => go('all', 'embaralhado')))));
   },
   /* ===== v1.26: caderno de respostas (nota "inteligente") =====
      note.bank = {mats: [matérias] | null (todas), st: 'all'|'new'|'newwrong', all: {matéria: nº}, ink: {idTEC: [elementos com y
