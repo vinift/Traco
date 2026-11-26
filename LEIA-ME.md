@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.31.1 — margem separada por questão
+
+- Nos cadernos do TEC com rascunho ao lado, a margem ganha uma **linha tracejada roxa no começo de cada questão**: tudo que estiver entre o topo de uma questão e o da próxima (no cartão, entre os cartões ou na margem) é dela.
+- Ao **adicionar questões**, a escrita acompanha a questão: as que continuam levam a escrita para a posição nova, e as que **saem levam a escrita guardada**. Se uma delas aparecer no **caderno de erros**, a escrita da margem volta junto (o caderno de erros liga a margem sozinho quando precisa).
+- A largura da margem continua a mesma depois de adicionar questões.
+
 ## Novidades da v1.31.0 — adicionar questões ao caderno da matéria
 
 - No ⋯ de um caderno do TEC montado (os de "Importar questões do TEC"): **"Adicionar questões (PDF)"**. Escolha o PDF novo (ex.: o do domingo) e o Traço junta com o caderno que já existe:

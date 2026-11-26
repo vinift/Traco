@@ -392,17 +392,17 @@ const Tec = {
   async bankMount(note, mats, st) {
     if (this._mounting) return; this._mounting = true;
     try {
-      this.reconcile(note); const T = note.tec, B = note.bank, ink = { ...(B.ink || {}) }, loose = [];
-      const cards = Object.values(T.q).filter((q) => q.top && q.bot != null);
-      for (const q of cards) delete ink[q.id];
-      note.pages.forEach((p, pi) => { for (const e of p.elements) { if (this.isTag(e)) continue; const b = elBBox(e); if (!b) continue; const cy = b.y + b.h / 2, q = cards.find((c) => c.top[0] === pi && cy >= c.top[1] && cy <= c.bot);
-        if (q) (ink[q.id] = ink[q.id] || []).push(transformEl(e, { sx: 1, sy: 1, ox: 0, oy: 0, dx: 0, dy: -q.top[1] })); else loose.push(e); } });
+      this.reconcile(note); const T = note.tec, B = note.bank, ink = { ...(B.ink || {}) };
+      for (const q of Object.values(T.q)) delete ink[q.id];
+      const pk = this.inkPack(note), loose = pk.loose; Object.assign(ink, pk.byId); /* v1.31.1: por questão, inclusive margem e vãos */
+      const outI = await this.outInk(); /* escrita das questões que saíram dos cadernos de origem */
       const srcs = await this.bankSources(); toast('Montando o caderno…', 60000);
       const R = await this.build(srcs, { filter: st, mats }, (m) => toast(m, 60000));
       if (R.empty) { B.all = R.matCount; await Store.putNote(note); toast('Nenhuma questão nesse filtro 🎉', 3500); return; }
       const oldBlob = T.blob, file = new File([R.bytes], 'caderno.pdf', { type: 'application/pdf' }), pages = await importPdfFile(file);
       const T2 = { ...R.tec, blob: pages[0].pdf.blobId };
-      for (const q of Object.values(T2.q)) { const els = ink[q.id]; if (!els || !pages[q.top[0]]) continue; for (const e of els) pages[q.top[0]].elements.push(transformEl(e, { sx: 1, sy: 1, ox: 0, oy: 0, dx: 0, dy: q.top[1] })); delete ink[q.id]; }
+      const use = {}; for (const q of Object.values(T2.q)) { if (ink[q.id]) { use[q.id] = ink[q.id]; delete ink[q.id]; } else if (outI[q.id]) use[q.id] = clone(outI[q.id]).map((e) => ({ ...e, id: uid() })); }
+      this.inkPlace(pages, T2, use); this.keepScratch(note.pages, pages); this.fitScratch(pages);
       if (loose.length && pages[0]) pages[0].elements.push(...loose);
       await Editor.close();
       note.pages = pages; note.tec = T2; note.bank = { mats: mats && mats.length ? mats : null, st, all: R.matCount, ink }; this.reg(note);
@@ -440,6 +440,39 @@ const Tec = {
   async goErr(x) { if (!Store.heads[x.n]) return toast('A nota deste caderno não existe mais', 2000); if (!Editor.note || Editor.note.id !== x.n) await App.openNote(x.n); const T = Editor.note && Editor.note.tec; if (!T) return;
     let num = x.tec.num; if (x.tec.id && (!T.q[num] || T.q[num].id !== x.tec.id)) { num = Object.keys(T.q).find((k) => T.q[k].id === x.tec.id); if (!num) return toast('Essa questão já saiu deste caderno (foi respondida antes de adicionar questões) — use o botão TEC', 3500); } /* v1.31: o caderno pode ter sido remontado */
     this.goTo(x.n, T.q[num], T.blob); },
+  /* v1.31.1: escrita por questão ("margem separada por questão") — cada questão é dona de tudo que está entre o topo dela e o
+     topo da próxima (cartão, vão entre cartões e margem de rascunho; páginas seguintes sem cartão = continuação). Guardado
+     com y relativo ao topo do cartão (somando as alturas das páginas do meio); x fica igual (mesma largura do caderno). */
+  inkPack(note) {
+    const T = note.tec, cards = Object.values(T.q).filter((q) => q.top).sort((a, b) => a.top[0] - b.top[0] || a.top[1] - b.top[1]), byId = {}, loose = [];
+    const pgOf = (idx) => note.pages.findIndex((p) => p.pdf && p.pdf.blobId === T.blob && p.pdf.index === idx);
+    const cp = cards.map((q) => ({ q, pi: pgOf(q.top[0]) }));
+    note.pages.forEach((p, pi) => { for (const e of p.elements) { if (this.isTag(e)) continue; const b = elBBox(e); if (!b) continue; const cy = b.y + b.h / 2;
+      let own = null; for (const c of cp) { if (c.pi < 0) continue; if (c.pi < pi || (c.pi === pi && c.q.top[1] <= cy + 0.5)) own = c; else break; }
+      if (!own) { loose.push(e); continue; }
+      let off = 0; for (let k = own.pi; k < pi; k++) off += note.pages[k].h;
+      (byId[own.q.id] = byId[own.q.id] || []).push(transformEl(e, { sx: 1, sy: 1, ox: 0, oy: 0, dx: 0, dy: off - own.q.top[1] })); } });
+    return { byId, loose };
+  },
+  /* põe a escrita guardada (y relativo) no cartão novo; se passar do fim da página, continua na(s) seguinte(s) */
+  inkPlace(pages, T2, byId) {
+    for (const q of Object.values(T2.q)) { const els = byId[q.id]; if (!els || !q.top) continue; let pi = q.top[0]; if (!pages[pi]) continue;
+      for (const e of els) { let k = pi, y = q.top[1]; const b = elBBox(e); let cy = b ? b.y + b.h / 2 + y : y; while (pages[k + 1] && cy > pages[k].h) { cy -= pages[k].h; y -= pages[k].h; k++; } pages[k].elements.push(transformEl(e, { sx: 1, sy: 1, ox: 0, oy: 0, dx: 0, dy: y })); } }
+  },
+  /* v1.31.1: y (unidades da página) dos topos das questões de uma página — linhas que separam a margem por questão */
+  marginTops(note, page) { const n = note || (typeof Editor !== 'undefined' && Editor.note), T = n && n.tec; if (!T || !page.pdf || page.pdf.blobId !== T.blob) return null;
+    if (!T._mt || T._mt.n !== Object.keys(T.q).length) { const m = {}; for (const q of Object.values(T.q)) if (q.top) (m[q.top[0]] = m[q.top[0]] || []).push(q.top[1] - 2); Object.defineProperty(T, '_mt', { value: { n: Object.keys(T.q).length, m }, configurable: true, writable: true }); }
+    return T._mt.m[page.pdf.index] || null; },
+  /* mantém a largura da margem de rascunho do caderno antigo nas páginas novas */
+  keepScratch(oldPages, pages) { const P = oldPages.find((p) => p.pdf && p.pdfW && p.pdfW < p.w); if (!P) return; const k = P.w / P.pdfW; for (const p of pages) { if (!p.pdf) continue; p.pdfW = p.w; p.w = Math.round(p.w * k); } },
+  /* escrita que veio de uma margem e ficou fora da página → liga/aumenta o rascunho ao lado (40/60/80/100%) para ela aparecer */
+  fitScratch(pages) {
+    let need = 0; for (const p of pages) { if (!p.pdf) continue; const w0 = p.pdfW || p.w; for (const e of p.elements) { const b = elBBox(e); if (b && b.x + b.w > w0) need = Math.max(need, (b.x + b.w + 12 - w0) / w0); } }
+    if (!need) return; const k = [0.4, 0.6, 0.8, 1, 1.5].find((v) => v >= need) || 1.5;
+    for (const p of pages) { if (!p.pdf) continue; const w0 = p.pdfW || p.w; if (p.pdfW && p.w >= Math.round(w0 * (1 + k))) continue; p.pdfW = w0; p.w = Math.round(w0 * (1 + k)); }
+  },
+  /* escrita guardada das questões que saíram dos cadernos (note.tecOut, em todas as notas) */
+  async outInk() { const out = {}; for (const id of Object.keys(Store.heads)) { let n; try { n = await DB.get('notes', id); } catch (_) { n = null; } if (n && n.tecOut) Object.assign(out, n.tecOut); } if (Editor.note && Editor.note.tecOut) Object.assign(out, Editor.note.tecOut); return out; },
   /* v1.31: ⋯ → "Adicionar questões (PDF)": junta PDFs novos ao caderno montado (um caderno por matéria que vai crescendo).
      As já respondidas NESTA nota saem; as que faltam + as novas são embaralhadas (sem repetidas, por id); a escrita de cada
      questão que continua volta para o cartão dela (mesmo esquema do bankMount); os PDFs de origem viram T.srcs. */
@@ -450,9 +483,8 @@ const Tec = {
     try {
       this.reconcile(note);
       const done = new Set(Object.keys(T.ans).map((n) => T.q[n] && T.q[n].id).filter(Boolean)), oldIds = new Set(Object.values(T.q).map((q) => q.id));
-      const ink = {}, loose = [], cards = Object.values(T.q).filter((q) => q.top && q.bot != null);
-      note.pages.forEach((p, pi) => { for (const e of p.elements) { if (this.isTag(e)) continue; const b = elBBox(e); if (!b) continue; const cy = b.y + b.h / 2, q = cards.find((c) => c.top[0] === pi && cy >= c.top[1] && cy <= c.bot);
-        if (q) { if (!done.has(q.id)) (ink[q.id] = ink[q.id] || []).push(transformEl(e, { sx: 1, sy: 1, ox: 0, oy: 0, dx: 0, dy: -q.top[1] })); } else loose.push(e); } });
+      const { byId: ink, loose } = this.inkPack(note), out = { ...(note.tecOut || {}) };
+      for (const id of done) if (ink[id]) { out[id] = ink[id]; delete ink[id]; } /* v1.31.1: a escrita das que saem vai junto com elas (volta no caderno de erros) */
       toast('Lendo os PDFs…', 60000); const add = [];
       for (const f of files) add.push({ name: f.name.replace(/\.pdf$/i, ''), blobId: await Store.putBlob(new Blob([await f.arrayBuffer()], { type: 'application/pdf' })) });
       const srcs = [...(T.srcs || [{ name: note.title, blobId: T.blob }]), ...add];
@@ -461,10 +493,10 @@ const Tec = {
       const novas = Object.values(R.tec.q).filter((q) => !oldIds.has(q.id)).length;
       const oldBlob = T.blob, file = new File([R.bytes], 'caderno.pdf', { type: 'application/pdf' }), pages = await importPdfFile(file);
       const T2 = { ...R.tec, blob: pages[0].pdf.blobId };
-      for (const q of Object.values(T2.q)) { const els = ink[q.id]; if (!els || !pages[q.top[0]]) continue; for (const e of els) pages[q.top[0]].elements.push(transformEl(e, { sx: 1, sy: 1, ox: 0, oy: 0, dx: 0, dy: q.top[1] })); }
+      this.inkPlace(pages, T2, ink); this.keepScratch(note.pages, pages); this.fitScratch(pages);
       if (loose.length && pages[0]) pages[0].elements.push(...loose);
       await Editor.close();
-      note.pages = pages; note.tec = T2; this.reg(note);
+      note.pages = pages; note.tec = T2; note.tecOut = out; this.reg(note);
       await Store.putNote(note); if (!srcs.some((x) => x.blobId === oldBlob)) { try { await DB.del('blobs', oldBlob); } catch (_) {} }
       App._busy = false; await App.openNote(note.id);
       toast(`➕ ${novas} questões novas · ${R.n} no caderno, embaralhadas${done.size ? ` (as ${done.size} já respondidas saíram)` : ''}`, 5000);

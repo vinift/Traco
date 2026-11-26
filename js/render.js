@@ -173,7 +173,10 @@ function drawPageContent(ctx, note, page, vis, z, opts = {}) {
     if (bmp) ctx.drawImage(bmp, 0, 0, pw, page.h);
     if (page.template && page.template.type !== 'blank') drawTemplate(ctx, page.template, vis, z, bounded, page.w, page.h, opts.dpr || 1);
     else if (pw < page.w) { ctx.save(); ctx.beginPath(); ctx.rect(pw, 0, page.w - pw, page.h); ctx.clip(); drawTemplate(ctx, scratchTpl(note), vis, z, bounded, page.w, page.h, opts.dpr || 1); ctx.restore();
-      ctx.save(); ctx.strokeStyle = 'rgba(100,116,139,.35)'; ctx.lineWidth = Math.max(1 / z, 1); ctx.beginPath(); ctx.moveTo(pw, 0); ctx.lineTo(pw, page.h); ctx.stroke(); ctx.restore(); }
+      ctx.save(); ctx.strokeStyle = 'rgba(100,116,139,.35)'; ctx.lineWidth = Math.max(1 / z, 1); ctx.beginPath(); ctx.moveTo(pw, 0); ctx.lineTo(pw, page.h); ctx.stroke();
+      const tops = typeof Tec !== 'undefined' && Tec.marginTops ? Tec.marginTops(note, page) : null; /* v1.31.1: margem separada por questão */
+      if (tops && tops.length) { ctx.strokeStyle = 'rgba(124,58,237,.45)'; ctx.lineWidth = Math.max(1.2 / z, 1.2); ctx.setLineDash([6, 4]); ctx.beginPath(); for (const y of tops) { ctx.moveTo(pw, y); ctx.lineTo(page.w, y); } ctx.stroke(); ctx.setLineDash([]); }
+      ctx.restore(); }
   } else drawTemplate(ctx, tpl, vis, z, bounded, page.w, page.h, opts.dpr || 1);
   const els = opts.range ? page.elements.slice(opts.range[0], opts.range[1]) : page.elements;
   for (const e of els) {
