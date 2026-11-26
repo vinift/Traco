@@ -657,6 +657,12 @@ function isScribble(flat, z = 1) {
     const ok = L.n >= 4 || (L.n === 3 && L.ratio <= 0.28 && L.maxDrift < Math.max(4 * px, Hh * 0.75));
     if (ok && len > 1.2 * (W + Hh)) return 1;
   }
+  /* v1.36.6: zigue-zague (ou laçadas) que ANDA para o lado por cima de uma linha de texto — mais largo que alto, então as regras de cima
+     (vai-e-volta no mesmo lugar) não pegavam. Idas e voltas verticais que cobrem a altura, cada uma andando no máximo ~2 alturas para o lado.
+     Parece também "mmm"/"www" escritos: por isso volta 3, e scribbleTargets só apaga o que ficou bem coberto e cruzado várias vezes
+     (escrita nova num lugar vazio continua tinta) */
+  const T = passes(1, 0.6);
+  if (h >= 12 * px && w > 1.2 * h && T.n >= 4 && T.drift <= 2 * h && T.n * T.drift >= 0.5 * w && len > 0.75 * T.n * h) return 3;
   return 0;
 }
 // Apaga tudo o que estiver majoritariamente dentro da área do rabisco, mesmo sem encostar
@@ -691,11 +697,16 @@ function scribbleTargets(elements, flat, z = 1, strength = 2) {
     if (e.type === 'image' || e.type === 'table' || e.type === 'text' || e.lock) continue; // imagens, tabelas, caixas de texto (v0.34.5) e bloqueados ficam
     /* coisa pequena (ponto, acento, letra) com a caixa toda dentro da área do rabisco: apaga */
     if (b.x >= sb.x && b.y >= sb.y && b.x + b.w <= sb.x + sb.w && b.y + b.h <= sb.y + sb.h && (b.w + b.h) < (sb.w + sb.h) * 1.2) { out.push(e); continue; }
+    if (strength === 3) { if (e.type === 'stroke' && e.pts && coverIn(e, hull) >= 0.5 && b.h <= 1.4 * (y2 - y1)) out.push(e); continue; } // zigue-zague andando: traços bem cobertos e não muito mais altos que ele
     if (strength < 2) { if (coverIn(e, hull) >= 0.35) out.push(e); continue; } // rabisco leve: só o que ficou bem coberto
     let hits = 0; for (let i = 0; i < P.length && hits < 3; i += step) if (hitElement(e, P[i][0], P[i][1], tol)) hits++;
     /* encostar pela borda não basta: o item precisa ter algum ponto DENTRO da área do rabisco (riscar parte de uma palavra apaga; raspar no vizinho não) */
     if (hits >= 3 && !someInside(e, hull)) hits = 0;
     if (hits >= 3 || elInLasso(e, hull)) out.push(e);
+  }
+  if (strength === 3 && out.length) { /* o zigue-zague tem de cruzar a escrita de verdade: vários pontos dele em cima da tinta apagada */
+    const t2 = Math.max(1.5, 4 / z); let hit = 0; for (let i = 0; i < P.length; i++) if (out.some((e) => hitElement(e, P[i][0], P[i][1], t2))) { hit++; i += 3; }
+    if (hit < 6) return [];
   }
   return out;
 }

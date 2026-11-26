@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.36.6
+
+- **Rabiscar para apagar em textos maiores:** agora o zigue-zague (ou as laçadas) que vai andando por cima de uma linha inteira também apaga. Só apaga a escrita que ficou bem coberta e cruzada pelo rabisco; escrever "mmm" ou "www" num lugar vazio continua sendo tinta normal.
+- **Nome da nota no topo:** a pílula do meio usa o espaço livre entre os botões, e o nome só é cortado quando não cabe mesmo, terminando em "…". Na tela cheia e enquanto você escreve, o nome aparece inteiro.
+
 ## Novidades da v1.36.5
 
 - Corrigido: o toque no topo para sair da tela cheia podia selecionar a palavra que estava ali atrás e deixar o dedo "preso" — depois disso um dedo só fazia zoom em vez de rolar. Agora o toque só sai da tela cheia, não seleciona nada e o dedo volta ao normal.
