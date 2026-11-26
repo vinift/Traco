@@ -1,3 +1,5 @@
+/* v1.40.2: meta cumprida quando o tempo, arredondado ao minuto como aparece na tela, chega na meta (29 min 40 s de 30 min = "30 de 30" → ✓) */
+function reached(v, g) { return g > 0 && v >= g - 30000; }
 'use strict';
 /* ===== v0.43 — Relatório de estudo (página inteira com abas) =====
    Lê as SESSÕES do cronômetro (StudyTimer.allSess(): log.sessions + trecho em andamento). Período: Dia / Semana (seg–dom) / Mês / Ano,
@@ -35,19 +37,19 @@ const StudyReport = {
        mostra "meta em H de D dias" (antes somava as metas dos dias: 2 dias × 30 min = "de 1h", que parecia errado) */
     const multi = b - a > 90000000;
     for (let t = a; t < b; ) { const d = new Date(t); d.setHours(24, 0, 0, 0); const e = Math.min(b, d.getTime());
-      for (const c of this.qStats(t, e)) { const g = this.qGoalFor(c.key, t + 43200000); if (!(c.study > 0 && g && this.countableKey(c.key))) continue; const o = out[c.key] || (out[c.key] = { goal: g, days: 0, hit: 0, multi }); o.days++; if (c.q >= g) o.hit++; }
+      for (const c of this.qStats(t, e)) { const g = this.qGoalFor(c.key, t + 43200000); if (!(c.study > 0 && g && this.countableKey(c.key))) continue; const o = out[c.key] || (out[c.key] = { goal: g, days: 0, hit: 0, multi }); o.days++; if (reached(c.q, g)) o.hit++; }
       t = e; }
     return out;
   },
   qNote(p, I) {
-    const T = StudyTimer, q = p.q || 0, done = I.multi ? I.hit >= I.days : q >= I.goal;
+    const T = StudyTimer, q = p.q || 0, done = I.multi ? I.hit >= I.days : reached(q, I.goal);
     return el('small', { class: 'rp-qnote' + (done ? ' hit' : '') }, I.multi ? `✍️ ${T.fmtDur(q)} · meta em ${I.hit} de ${I.days} ${I.days === 1 ? 'dia' : 'dias'}` + (done ? ' ✓' : '') : `✍️ ${T.fmtDur(q)} de ${T.fmtDur(I.goal)}` + (done ? ' ✓' : ''));
   },
   countableKey(k) { return k !== '_' && k !== '~' && k !== '?'; },
   pct(c) { const n = c.ok + c.no; return n ? Math.round((c.ok / n) * 100) + '%' : '—'; },
   /* g = meta de 1 dia (número) ou info de qGoalSum ({goal, days, hit, multi}) */
   qRow(c, g) {
-    const T = StudyTimer, n = c.ok + c.no, I = typeof g === 'number' ? (g ? { goal: g, days: 1, hit: c.q >= g ? 1 : 0 } : null) : g;
+    const T = StudyTimer, n = c.ok + c.no, I = typeof g === 'number' ? (g ? { goal: g, days: 1, hit: reached(c.q, g) ? 1 : 0 } : null) : g;
     const done = I ? I.hit >= I.days : false, frac = I ? (I.multi ? I.hit / I.days : Math.min(1, c.q / I.goal)) : 0;
     return el('div', { class: 'rp-qrow' + (done ? ' hit' : '') },
       el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: c.color } }), c.name),
@@ -130,7 +132,7 @@ const StudyReport = {
     H.push({ until, g: S.studyGoal, we: S.studyGoalWE, sun: S.studyGoalSun }); if (H.length > 200) H.splice(0, H.length - 200);
   },
   /* 1 = bateu a meta (ou estudou num dia de descanso), 0 = descanso sem estudo (não quebra nem conta), −1 = não bateu */
-  dayHit(k, v) { const g = this.goalMs(k); return g === 0 ? (v > 0 ? 1 : 0) : v >= g ? 1 : -1; },
+  dayHit(k, v) { const g = this.goalMs(k); return g === 0 ? (v > 0 ? 1 : 0) : reached(v, g) ? 1 : -1; },
   sum(d) { let v = 0; for (const x in d || {}) v += d[x]; return v; },
   /* dia → { chave: ms } (chave = nota, 'f:<pasta>' se a matéria foi escolhida, '_' fora das notas) — usado também pela tela inicial */
   /* v0.43.1: só o tempo de MATÉRIAS entra no relatório (fora das notas, sem matéria e notas apagadas ficam de fora) */
@@ -244,7 +246,7 @@ const StudyReport = {
     const tile = (lab, val, sub, cls = '') => el('div', { class: 'rp-tile ' + cls }, el('small', {}, lab), el('b', {}, val), sub ? el('span', {}, sub) : null);
     const tiles = el('div', { class: 'rp-tiles' },
       tile('Total', T.fmtDur(total), cmp == null ? (studied ? `em ${studied} ${studied === 1 ? 'dia' : 'dias'}` : 'nada ainda') : `${cmp >= 0 ? '▲' : '▼'} ${Math.abs(cmp)}% vs. período anterior`, cmp == null ? '' : cmp >= 0 ? 'up' : 'down'),
-      this.unit === 'day' ? (goal ? tile('Meta do dia', `${Math.min(999, Math.round((total / goal) * 100))}%`, `${T.fmtDur(total)} de ${T.fmtDur(goal)}`, total >= goal ? 'up' : '') : tile('Meta do dia', 'Descanso', total ? `${T.fmtDur(total)} estudados (conta na sequência)` : 'não quebra a sequência', total ? 'up' : '')) : tile('Média por dia', T.fmtDur(days.length ? total / days.length : 0), studied ? `${T.fmtDur(total / Math.max(1, studied))} nos dias estudados` : ''),
+      this.unit === 'day' ? (goal ? tile('Meta do dia', `${Math.min(999, Math.round((total / goal) * 100))}%`, `${T.fmtDur(total)} de ${T.fmtDur(goal)}`, reached(total, goal) ? 'up' : '') : tile('Meta do dia', 'Descanso', total ? `${T.fmtDur(total)} estudados (conta na sequência)` : 'não quebra a sequência', total ? 'up' : '')) : tile('Média por dia', T.fmtDur(days.length ? total / days.length : 0), studied ? `${T.fmtDur(total / Math.max(1, studied))} nos dias estudados` : ''),
       this.unit === 'day' ? tile('Sessões', String(nSess), nSess ? `média ${T.fmtDur(real / nSess)}` : '') : tile('Dias na meta', `${hit} de ${nGoal}`, (typeof StudyPlan !== 'undefined' && StudyPlan.week(r.a + 43200000)) ? 'meta pelo plano' : this.goalTxt()),
       tile('Sequência', `${st.cur} ${st.cur === 1 ? 'dia' : 'dias'}`, `melhor: ${st.best} ${st.best === 1 ? 'dia' : 'dias'}`),
       awTot >= 60000 ? tile('Não contado', T.fmtDur(awTot), 'app fora da tela', 'down') : this.unit === 'day' ? null : tile('Sessões', String(nSess), nSess ? `média ${T.fmtDur(real / nSess)}` : ''));
@@ -254,13 +256,13 @@ const StudyReport = {
     const detail = el('div', { class: 'rp-detail' });
     const showB = (b, i) => {
       this.sel = i; detail.innerHTML = '';
-      detail.append(el('div', { class: 'rp-dhead' }, el('b', {}, `${b.tip}: ${T.fmtDur(b.v)}${b.day && b.g === 0 ? ' · descanso' : b.day && b.v >= b.g ? ' ✓ meta' : ''}`), b.drill ? el('button', { class: 'btn ghost', onclick: () => this.go(b.drill[0], b.drill[1]) }, b.drill[0] === 'day' ? 'Abrir o dia →' : 'Abrir o mês →') : null));
+      detail.append(el('div', { class: 'rp-dhead' }, el('b', {}, `${b.tip}: ${T.fmtDur(b.v)}${b.day && b.g === 0 ? ' · descanso' : b.day && reached(b.v, b.g) ? ' ✓ meta' : ''}`), b.drill ? el('button', { class: 'btn ghost', onclick: () => this.go(b.drill[0], b.drill[1]) }, b.drill[0] === 'day' ? 'Abrir o dia →' : 'Abrir o mês →') : null));
       const pl = b.day && planOn ? StudyPlan.stats(b.a, b.b) : null; detail.append(pl ? StudyPlan.rows(pl.filter((c) => StudyPlan.has(c))) : b.parts.length ? this.subjRows(b.parts, b.v, b.day ? this.qGoalSum(b.a, b.b) : null) : el('p', { class: 'tm-hint' }, 'Nada registrado.'));
       if (b.day && aw[T.dayKey(b.a + 43200000)] >= 30000) detail.append(el('p', { class: 'tm-hint rp-warn' }, `Não contado (app fora da tela com o cronômetro rodando): ${T.fmtDur(aw[T.dayKey(b.a + 43200000)])}`));
       [...plot.querySelectorAll('.rp-col.on')].forEach((c) => c.classList.remove('on')); plot.children[i + (gl ? 1 : 0)] && plot.children[i + (gl ? 1 : 0)].classList.add('on');
     };
     const plot = el('div', { class: 'rp-plot' + (B.length > 14 ? ' dense' : '') }, gl ? el('div', { class: 'rp-goal', style: { bottom: `calc(20px + (100% - 20px) * ${gl / max})` } }, el('span', {}, 'meta')) : null,
-      ...B.map((b, i) => el('button', { class: 'rp-col' + (b.day && (b.g === 0 ? b.v > 0 : b.v >= b.g) ? ' hit' : '') + (b.day && b.g === 0 ? ' rest' : '') + (now >= b.a && now < b.b ? ' now' : ''), title: `${b.tip}: ${T.fmtDur(b.v)}`, onclick: () => showB(b, i) },
+      ...B.map((b, i) => el('button', { class: 'rp-col' + (b.day && (b.g === 0 ? b.v > 0 : reached(b.v, b.g)) ? ' hit' : '') + (b.day && b.g === 0 ? ' rest' : '') + (now >= b.a && now < b.b ? ' now' : ''), title: `${b.tip}: ${T.fmtDur(b.v)}`, onclick: () => showB(b, i) },
         b.day && b.g !== gl && b.g > 0 ? el('i', { class: 'rp-gtick', style: { bottom: `calc(${(b.g / max) * 100}% - 1px)` } }) : null, el('div', { class: 'rp-stack', style: { height: b.v ? Math.max(1.5, (b.v / max) * 100) + '%' : '0' } }, ...b.parts.flatMap((p) => [p.v - p.q > 0 ? el('i', { style: { flex: String(p.v - p.q), background: p.color } }) : null, p.q > 0 ? el('i', { class: 'qpart', style: { flex: String(p.q), background: this.qColor(p.color) } }) : null].filter(Boolean))), this.totLabel(b.v, max, B.length > 14), el('small', {}, b.lab))));
     const side = el('div', { class: 'rp-card' }, el('div', { class: 'rp-h' }, 'Matérias no período'), (() => { const pl = planOn && this.unit !== 'year' ? StudyPlan.stats(r.a, r.b) : null; return pl ? StudyPlan.rows(pl.filter((c) => StudyPlan.has(c))) : null; })() || (list.length ? this.subjRows(this.bySubj(list), total, this.unit === 'year' ? null : this.qGoalSum(r.a, r.b)) : null) || el('p', { class: 'tm-hint' }, 'Sem tempo registrado. O tempo conta com o cronômetro rodando e o app na tela.'));
     const S = Store.settings, goalIn = el('input', { type: 'number', min: 5, max: 900, step: 15, value: Math.round(Math.max(5, +S.studyGoal || 60)), class: 'sr-goalin', onchange: () => { this.keepGoal(); S.studyGoal = clamp(Math.round(+goalIn.value || 60), 5, 900); Store.saveSettings(); toast(S.goalFrom === 'today' ? 'Meta nova já vale hoje — os dias anteriores não mudam' : 'Meta nova vale a partir de amanhã — a sequência não quebra', 2200); render(); } });
@@ -295,7 +297,7 @@ const StudyReport = {
   /* ---------- Calendário ---------- */
   viewCal(r) {
     const T = StudyTimer, map = this.dayMap(), now = Date.now();
-    const lvl = (v, k) => { const goal = this.goalMs(k); return v <= 0 ? 0 : !goal || v >= goal ? 4 : v >= goal * 0.6 ? 3 : v >= goal * 0.3 ? 2 : 1; };
+    const lvl = (v, k) => { const goal = this.goalMs(k); return v <= 0 ? 0 : !goal || reached(v, goal) ? 4 : v >= goal * 0.6 ? 3 : v >= goal * 0.3 ? 2 : 1; };
     const month = (y, m, big) => {
       const first = new Date(y, m, 1), pad = (first.getDay() + 6) % 7, n = new Date(y, m + 1, 0).getDate(), cells = [];
       for (let i = 0; i < pad; i++) cells.push(el('i', { class: 'rp-cell empty' }));

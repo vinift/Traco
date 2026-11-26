@@ -329,7 +329,7 @@ const StudyTimer = {
   paintRing() {
     const b = this.pop, p = b && b.querySelector('.tm-prog'); if (!p) return;
     const C = 2 * Math.PI * 92, f = this.ringFrac(); p.setAttribute('stroke-dasharray', `${(C * f).toFixed(1)} ${C.toFixed(1)}`);
-    const g = b.querySelector('.tm-goalbar i'), gt = b.querySelector('.tm-goaltxt'); if (g) { const v = this.dayMs(), goal = StudyReport.goalMs(); g.style.width = (goal ? Math.min(100, (v / goal) * 100) : v > 0 ? 100 : 0) + '%'; if (gt) gt.textContent = goal ? `${this.fmtDur(v)} de ${this.fmtDur(goal)}` : `${this.fmtDur(v)} · descanso`; b.querySelector('.tm-goal').classList.toggle('hit', v >= goal); }
+    const g = b.querySelector('.tm-goalbar i'), gt = b.querySelector('.tm-goaltxt'); if (g) { const v = this.dayMs(), goal = StudyReport.goalMs(); g.style.width = (goal ? Math.min(100, (v / goal) * 100) : v > 0 ? 100 : 0) + '%'; if (gt) gt.textContent = goal ? `${this.fmtDur(v)} de ${this.fmtDur(goal)}` : `${this.fmtDur(v)} · descanso`; b.querySelector('.tm-goal').classList.toggle('hit', goal ? reached(v, goal) : v > 0); }
   },
   /* hoje (barra da meta), 7 dias e matérias da semana */
   statsEl() {
@@ -341,7 +341,7 @@ const StudyTimer = {
     const WD = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
     const rep = el('button', { class: 'btn primary sr-open', onclick: () => { closePop(); StudyReport.open(); } }, 'Abrir relatório');
     return el('div', { class: 'tm-stats' },
-      el('div', { class: 'tm-goal' + ((goal ? today >= goal : today > 0) ? ' hit' : '') }, el('div', { class: 'tm-tot' }, el('span', {}, 'Hoje'), el('b', { class: 'tm-goaltxt' }, goal ? `${this.fmtDur(today)} de ${this.fmtDur(goal)}` : `${this.fmtDur(today)} · descanso`)), el('div', { class: 'tm-goalbar' }, el('i', { style: { width: (goal ? Math.min(100, (today / goal) * 100) : today > 0 ? 100 : 0) + '%' } })),
+      el('div', { class: 'tm-goal' + ((goal ? reached(today, goal) : today > 0) ? ' hit' : '') }, el('div', { class: 'tm-tot' }, el('span', {}, 'Hoje'), el('b', { class: 'tm-goaltxt' }, goal ? `${this.fmtDur(today)} de ${this.fmtDur(goal)}` : `${this.fmtDur(today)} · descanso`)), el('div', { class: 'tm-goalbar' }, el('i', { style: { width: (goal ? Math.min(100, (today / goal) * 100) : today > 0 ? 100 : 0) + '%' } })),
         /* v0.50: dia de pausa (feriado etc.) — não quebra a sequência */
         el('button', { class: 'tm-pausebtn' + (R.isPause(t) ? ' on' : ''), onclick: () => { const on = R.togglePause(t); toast(on ? 'Hoje é dia de pausa: não quebra a sequência' : 'Dia de pausa removido', 1800); this.renderPanel(); } }, R.isPause(t) ? '⏸ Hoje é dia de pausa · tirar' : '⏸ Marcar hoje como dia de pausa'),
         aw >= 60000 ? el('small', { class: 'tm-away' }, `${this.fmtDur(aw)} hoje com o app fora da tela não contaram`) : null),

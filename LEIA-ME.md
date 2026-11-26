@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.40.2
+
+- **"30 de 30" agora conta como feito:** o tempo aparece arredondado ao minuto. Por isso, 29 min e 40 s apareciam como "30 de 30" sem o ✓. Agora, se aparece igual à meta, ganha o ✓. Vale no plano, no cartão "Hoje no plano", no relatório (dias na meta, barras, calendário, questões) e no painel do cronômetro.
+
 ## Novidades da v1.40.1
 
 - **A nota da dúvida agora abre e fecha:** no caderno de erros, cada questão com dúvida mostra só uma pílula "🤔 Sua dúvida ▾". Um toque, com a caneta ou com o dedo, abre a caixa com o que você anotou, por cima do enunciado e do tamanho que o texto precisar. Outro toque fecha. Ela sempre começa fechada, e agora os emojis também aparecem. Para os cadernos que já existem, toque em "Atualizar".

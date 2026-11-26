@@ -62,7 +62,7 @@ const StudyPlan = {
   has(c) { return !!(c.ge || c.gq || c.gv || c.e || c.q || c.v); },
   rows(list) {
     const T = StudyTimer, sd = (v) => StudyReport.shortDur(v) || '0m';
-    const cell = (ic, v, g, col) => el('span', { class: 'pl-cell' + (g && v >= g ? ' hit' : '') + (!g && !v ? ' nil' : '') }, el('small', {}, `${ic} ${sd(v)}${g ? ' / ' + sd(g) : ''}${g && v >= g ? ' ✓' : ''}`), g ? el('i', { class: 'pl-bar' }, el('b', { style: { width: Math.min(100, (v / g) * 100) + '%', background: col } })) : null);
+    const cell = (ic, v, g, col) => el('span', { class: 'pl-cell' + (reached(v, g) ? ' hit' : '') + (!g && !v ? ' nil' : '') }, el('small', {}, `${ic} ${sd(v)}${g ? ' / ' + sd(g) : ''}${reached(v, g) ? ' ✓' : ''}`), g ? el('i', { class: 'pl-bar' }, el('b', { style: { width: Math.min(100, (v / g) * 100) + '%', background: col } })) : null);
     const hv = list.some((c) => c.key[0] !== '_' && (c.v || c.gv)), blank = () => el('span', { class: 'pl-cell' });
     return el('div', { class: 'pl-rows' + (hv ? ' hv' : '') }, ...list.map((c) => el('div', { class: 'pl-row' }, el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: c.color } }), c.name),
       c.key === '_r' ? cell('🔁', c.e, c.ge, c.color) : c.key === '_v' ? cell('🔄', c.e, c.ge, c.color) : cell('📖', c.e, c.ge, c.color), c.key === '_r' ? el('span', { class: 'pl-cell' }, el('small', { class: 'pl-pend' }, `${this.pending().length} para refazer`)) : c.key === '_v' ? blank() : cell('✍️', c.q, c.gq, StudyReport.qColor(c.color)),

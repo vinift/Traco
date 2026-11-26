@@ -707,7 +707,7 @@ const HomeTop = {
     for (const x of items) { const k = x.k + ':' + (x.k === 'r' ? '*' : x.f), o = g.get(k) || { k: x.k, f: x.k === 'r' || x.f === '*' ? null : x.f, min: 0 }; o.min += x.min; g.set(k, o); }
     let tg = 0, td = 0;
     const rows = [...g.values()].map((o) => {
-      const gv = o.k === 'v' && !o.f, sb = o.k === 'r' ? RV_SUBJ : gv ? RW_SUBJ : subjectOfNote('f:' + o.f), c = st.get(sb.key) || {}, done = o.k === 'q' ? c.q || 0 : o.k === 'v' && !gv ? c.v || 0 : c.e || 0, goal = o.min * 60000, hit = done >= goal;
+      const gv = o.k === 'v' && !o.f, sb = o.k === 'r' ? RV_SUBJ : gv ? RW_SUBJ : subjectOfNote('f:' + o.f), c = st.get(sb.key) || {}, done = o.k === 'q' ? c.q || 0 : o.k === 'v' && !gv ? c.v || 0 : c.e || 0, goal = o.min * 60000, hit = reached(done, goal);
       tg += goal; td += Math.min(done, goal);
       const on = T.st.running && (o.k === 'r' ? T.st.q === 'r' : gv ? T.st.q === 'v' : (T.st.subj || null) === o.f && (o.k === 'q' ? T.st.q === true : o.k === 'v' ? T.st.q === 'v' : !T.st.q));
       return el('button', { class: 'hc-pi' + (hit ? ' hit' : '') + (on ? ' on' : ''), onclick: (e) => { e.stopPropagation(); this.go(o); } },
