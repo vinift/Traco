@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.30.0 — questões do TEC com letra maior
+
+- **Texto refeito nos cadernos montados do TEC:** ao montar um caderno (Importar questões do TEC, Reorganizar ou caderno de erros), o enunciado é reescrito com letra bem maior e quebra de linha nova, cabendo na largura da página — dá para ler com a página inteira na tela, deitado.
+- Questões com **imagem ou tabela** continuam como recorte do PDF original (para não estragar a figura).
+- **Tamanho da letra:** no ⋯ da nota → Reorganizar questões, escolha Original / Grande / Maior. Para refazer um caderno que você já tem, use "Mesmas questões, mesma ordem" (cria um caderno novo com os mesmos números).
+- Certo/Errado, dúvida, busca e marca-texto continuam funcionando no texto refeito.
+
 ## Novidades da v1.29.2 — dia de pausa não soma na sequência
 
 - Dias de pausa agora são neutros na sequência de estudo 🔥: continuam não quebrando, mas também não contam como um dia a mais — mesmo que você tenha estudado nele.
