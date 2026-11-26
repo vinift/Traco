@@ -196,9 +196,10 @@ const StudyReport = {
   /* sequência atual e melhor (dias seguidos na meta) */
   streaks(map) { /* v0.50: meta por dia (dias úteis/fim de semana); dia de descanso sem estudo não quebra; hoje só conta se já bateu */
     const T = StudyTimer, t0 = this.dayStart(Date.now()), key = (i) => T.dayKey(this.addDays(t0, -i) + 43200000); let cur = 0;
-    for (let i = 0; i < 800; i++) { const k = key(i), h = this.dayHit(k, this.sum(map[k])); if (h === 1) cur++; else if (h === -1) { if (i === 0) continue; break; } }
+    const hitS = (k) => (this.isPause(k) ? 0 : this.dayHit(k, this.sum(map[k]))); /* v1.29.2: dia de pausa é neutro — não quebra e não soma, mesmo com estudo */
+    for (let i = 0; i < 800; i++) { const k = key(i), h = hitS(k); if (h === 1) cur++; else if (h === -1) { if (i === 0) continue; break; } }
     const keys = Object.keys(map).sort(); let best = 0, run = 0;
-    if (keys.length) { const first = new Date(keys[0] + 'T12:00').getTime(); for (let t = first; t <= t0 + 43200000; t = this.addDays(t, 1)) { const k = T.dayKey(t), h = this.dayHit(k, this.sum(map[k])); if (h === 1) { run++; best = Math.max(best, run); } else if (h === -1 && k !== T.dayKey(Date.now())) run = 0; } }
+    if (keys.length) { const first = new Date(keys[0] + 'T12:00').getTime(); for (let t = first; t <= t0 + 43200000; t = this.addDays(t, 1)) { const k = T.dayKey(t), h = hitS(k); if (h === 1) { run++; best = Math.max(best, run); } else if (h === -1 && k !== T.dayKey(Date.now())) run = 0; } }
     return { cur, best: Math.max(best, cur) };
   },
 

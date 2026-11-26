@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.29.2 — dia de pausa não soma na sequência
+
+- Dias de pausa agora são neutros na sequência de estudo 🔥: continuam não quebrando, mas também não contam como um dia a mais — mesmo que você tenha estudado nele.
+
 ## Novidades da v1.29.1 — botão roxo inteiro
 
 - Ao tocar em **Errado** (ou Certo) num caderno do TEC, às vezes um pedaço do botão ficava sem o roxo. Corrigido: o botão escolhido fica roxo por inteiro na hora.
