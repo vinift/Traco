@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.38.2
+
+- **Cabeçalho das questões corrigido:** era um erro do Traço, não do PDF. O TEC imprime a linha completa (ex.: "CEBRASPE (CESPE) - PCF/PF/Área 1/2018"), mas o Traço só mostrava os dois últimos pedaços ("Área 1/2018"), e o órgão e o cargo sumiam. Quando aparecia "Administração", era a área do cargo, não a matéria.
+- Agora mostra **banca · órgão e ano · cargo (área)**, por exemplo: "CEBRASPE · PF 2018 · PCF (Área 1)" ou "CEBRASPE · SECONT ES 2022 · Aud Est (Administração)". Áreas genéricas como "Sem Área" não aparecem.
+- **Cadernos que você já tem também mudam:** na 1ª vez que abrir cada um, ele é refeito com o cabeçalho novo (leva alguns segundos). Os números, respostas, dúvidas e o que você escreveu continuam iguais.
+
 ## Novidades da v1.38.1
 
 - **"+ Outro…" na dúvida não vira mais opção fixa:** o que você escreve fica só naquela questão (aparece no caderno de erros). A lista de respostas rápidas fica sempre com as 5 de sempre.
