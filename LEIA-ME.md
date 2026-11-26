@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.39.0
+
+- **Rascunho embaixo de cada questão** (cadernos de questões e caderno de erros): toda questão ganha logo abaixo um espaço quadriculado do mesmo tamanho, para fazer contas sem precisar ir para o lado. O tamanho fica no ⋯ → "Rascunho embaixo": Sem, Pequeno, Médio (padrão) ou Grande. Trocar o tamanho remonta o caderno com os mesmos números, respostas, dúvidas e escrita.
+- Os cadernos que você já tem ganham o espaço médio sozinhos na próxima vez que abrir (uma vez só). O rascunho ao lado sai desses cadernos, porque estava vazio. Ele só continua aparecendo no ⋯ se tiver alguma escrita.
+
 ## Novidades da v1.38.4
 
 - **Marcas fora do lugar no caderno de questões, agora de vez:** além do fundo roxo, algumas marcas (o "Certo/Errado" roxo, o ✓/✗, o ↺ e o número amarelo da dúvida) tinham ido parar em outras questões depois de remontar o caderno. Agora, ao abrir o caderno, o Traço refaz as marcas de cada questão a partir das suas respostas e dúvidas, no lugar certo. Respostas, dúvidas (com o motivo), histórico e caderno de erros não mudam.
