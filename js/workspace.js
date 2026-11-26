@@ -254,10 +254,20 @@ const Focus = {
   initTopTap() {
     if (this._topTap) return; this._topTap = true;
     this.ed().addEventListener('pointerdown', (e) => {
-      const ed = this.ed(); if (e.pointerType !== 'touch' || !ed.classList.contains('writing')) return;
+      const ed = this.ed(); if (e.pointerType !== 'touch') return;
       const bar = document.querySelector('#editor .ch-topright') || document.querySelector('#editor .ch-topleft'), lim = bar ? bar.getBoundingClientRect().bottom + 14 : 90;
       if (e.clientY > lim) return;
+      if (ed.classList.contains('immersive')) { /* v1.36.1: na tela cheia, um toque (sem arrastar) no topo também sai dela — menos no tempo/relógio e no botão do canto */
+        if (e.target.closest && e.target.closest('.note-timer,.note-clock,#btnFullExit')) return;
+        this._tt = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() }; return;
+      }
+      if (!ed.classList.contains('writing')) return;
       clearTimeout(this._wT); ed.classList.remove('writing'); e.preventDefault(); e.stopPropagation();
+    }, true);
+    this.ed().addEventListener('pointerup', (e) => {
+      const t = this._tt; this._tt = null; if (!t || t.id !== e.pointerId || !this.on) return;
+      if (Math.hypot(e.clientX - t.x, e.clientY - t.y) > 10 || performance.now() - t.t > 450) return;
+      e.preventDefault(); e.stopPropagation(); this.toggle(false);
     }, true);
   },
   restore() {
