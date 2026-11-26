@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.38.1
+
+- **"+ Outro…" na dúvida não vira mais opção fixa:** o que você escreve fica só naquela questão (aparece no caderno de erros). A lista de respostas rápidas fica sempre com as 5 de sempre.
+
 ## Novidades da v1.38.0
 
 - **Dúvida mais bonita nos cadernos de questões:** tocar no número da questão agora pinta o número de **amarelo** (no lugar do círculo laranja). Tocar de novo tira.

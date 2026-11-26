@@ -180,7 +180,7 @@ const Tec = {
   },
   whyOf(note, num) { for (const p of note.pages) for (const e of p.elements) if (e.tqd != null && String(e.tqd) === String(num)) return e.why || null; return null; },
   WHY: ['Não tenho certeza', 'Não lembro', 'Chutei', 'Fiquei entre duas', 'Não entendi o enunciado'],
-  whyList() { const S = Store.settings; return Array.isArray(S.tecWhy) && S.tecWhy.length ? S.tecWhy : this.WHY.slice(); },
+  whyList() { return this.WHY.slice(); }, /* v1.38.1: só as fixas (o S.tecWhy da v1.38.0 é ignorado) */
   /* grava o motivo na marca e nos registros do caderno de erros desta questão */
   setWhy(note, num, why) {
     const T = note.tec, q = T.q[num]; let m = null;
@@ -198,8 +198,8 @@ const Tec = {
       document.body.append(anc);
       const cur = this.whyOf(note, num), pick = (w) => { this.setWhy(note, num, w); closePop(); };
       const chip = (w) => el('button', { class: 'tq-why-chip' + (w === cur ? ' on' : ''), onclick: () => pick(w === cur ? null : w) }, w);
-      const other = el('button', { class: 'tq-why-chip add', onclick: async () => { closePop(); const t = await askText('Por que a dúvida?', '', 'Fica guardado como opção rápida'); if (!t) return; const S = Store.settings, L = this.whyList().filter((x) => x !== t); L.push(t); S.tecWhy = L.slice(-10); Store.saveSettings(); this.setWhy(note, num, t); } }, '+ Outro…');
-      const box = el('div', { class: 'tq-why' }, el('div', { class: 'tq-why-h' }, `🤔 Questão ${num} — por que a dúvida?`), el('div', { class: 'tq-why-list' }, ...this.whyList().map(chip), other));
+      const other = el('button', { class: 'tq-why-chip add', onclick: async () => { closePop(); const t = await askText('Por que a dúvida?', cur && !this.whyList().includes(cur) ? cur : '', 'Só para esta questão'); if (!t) return; this.setWhy(note, num, t); /* v1.38.1: o texto livre não vira opção rápida */ } }, '+ Outro…');
+      const box = el('div', { class: 'tq-why' }, el('div', { class: 'tq-why-h' }, `🤔 Questão ${num} — por que a dúvida?`), el('div', { class: 'tq-why-list' }, ...this.whyList().map(chip), ...(cur && !this.whyList().includes(cur) ? [chip(cur)] : []), other));
       openPop(anc, box, { onClose: () => anc.remove() });
     } catch (e) { logError(e, 'motivo da dúvida'); }
   },
