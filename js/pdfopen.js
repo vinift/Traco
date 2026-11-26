@@ -1,6 +1,5 @@
 'use strict';
 /* ===== v0.29 — qualidade do PDF e abrir PDFs de fora =====
-   • pdfQualityAsk(): escolha da qualidade a cada exportação/compartilhamento (lembra a última em S.pdfQuality).
    • PdfOpen: o Traço como app para abrir PDFs — "Abrir com" (manifest file_handlers + launchQueue) e "Compartilhar para"
      (manifest share_target → o service worker guarda o arquivo no cache 'traco-inbox' e abre ./?recebido=1).
      Abre a página "Abrir PDF": nota nova (nome + pasta, com criar pasta) ou inserir no fim de uma nota existente. */
@@ -12,17 +11,6 @@ const PDF_QUALITIES = [
   { k: 'max', name: 'Máxima', desc: 'Impressão: imagem sem perda (450 dpi, PNG) — arquivo grande e mais lento', opts: { dpi: 450, png: true, maxPx: 7000 } },
   { k: 'ultra', name: 'Ultra', desc: 'O mais nítido: 600 dpi sem perda (PNG, desenhado em faixas) — arquivo muito grande e bem mais lento', opts: { dpi: 600, png: true, maxPx: 9000 } }, /* v0.57 */
 ];
-function pdfQualityAsk(share) {
-  const S = Store.settings; let cur = S.pdfQuality || 'normal';
-  const list = el('div', { class: 'pq-list' });
-  const paint = () => [...list.children].forEach((b) => b.classList.toggle('on', b.dataset.k === cur));
-  for (const q of PDF_QUALITIES) list.append(el('button', { class: 'pq-item', 'data-k': q.k, onclick: () => { cur = q.k; paint(); } }, el('b', {}, q.name), el('small', {}, q.desc)));
-  paint();
-  return openModal({ title: share ? 'Compartilhar PDF' : 'Exportar PDF', body: el('div', {}, el('p', { class: 'lbl-sm' }, 'Qualidade das páginas e da escrita (as páginas de PDFs importados continuam iguais ao original):'), list), buttons: [
-    { label: 'Cancelar', value: null },
-    { label: share ? 'Gerar e compartilhar' : 'Gerar PDF', cls: 'primary', action: () => { S.pdfQuality = cur; Store.saveSettings(); return PDF_QUALITIES.find((q) => q.k === cur); } },
-  ] }).then((v) => v || null);
-}
 
 const PdfOpen = {
   init() {

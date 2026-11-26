@@ -132,7 +132,6 @@ const StudyReport = {
   /* 1 = bateu a meta (ou estudou num dia de descanso), 0 = descanso sem estudo (não quebra nem conta), −1 = não bateu */
   dayHit(k, v) { const g = this.goalMs(k); return g === 0 ? (v > 0 ? 1 : 0) : v >= g ? 1 : -1; },
   sum(d) { let v = 0; for (const x in d || {}) v += d[x]; return v; },
-  subjectOf(id) { return subjectOfNote(id); },
   /* dia → { chave: ms } (chave = nota, 'f:<pasta>' se a matéria foi escolhida, '_' fora das notas) — usado também pela tela inicial */
   /* v0.43.1: só o tempo de MATÉRIAS entra no relatório (fora das notas, sem matéria e notas apagadas ficam de fora) */
   countable(x) { const k = this.subj(x).key; /* v1.15: caderno de erros sem matéria tem a chave '_r' (conta) */ return k !== '_' && k !== '~' && k !== '?'; },

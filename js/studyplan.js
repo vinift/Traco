@@ -19,7 +19,6 @@ const StudyPlan = {
   dk(t) { return StudyTimer.dayKey(typeof t === 'string' ? Date.parse(t + 'T12:00') : t); },
   dateOf(t) { return typeof t === 'string' ? new Date(t + 'T12:00') : new Date(t); },
   monOf(t) { const d = this.dateOf(t); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return StudyTimer.dayKey(d.getTime()); },
-  addW(mon, n) { const d = this.dateOf(mon); d.setDate(d.getDate() + 7 * n); return StudyTimer.dayKey(d.getTime()); },
   weeksBetween(a, b) { return Math.round((Date.parse(b + 'T12:00') - Date.parse(a + 'T12:00')) / 6048e5); },
   plan(id) { const P = this.data(); return (P && P.plans.find((p) => p.id === id)) || null; },
   planDays(p, mon) { const h = (p.hist || []).find((x) => mon <= x.until); return h ? h.days : p.days; },

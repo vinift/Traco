@@ -307,46 +307,11 @@ const Library = {
       { label: 'Nova matéria', icon: 'timer', run: () => this.newFolder(this.folder, true) },
       '-',
       { label: 'Importar PDF', icon: 'file', run: () => this.importPdf() },
-      { label: 'Importar questões do TEC', icon: 'check', run: () => Tec.importFlow() }, /* v1.23 */
       { label: 'Caderno de erros (questões do TEC)', icon: 'layers', run: () => Tec.bankCreate() }, /* v1.26; v1.27: caderno de erros */
-      { label: 'Importar do Notewise', icon: 'layers', run: () => this.importNotewise() },
       { label: 'Restaurar cópia do Traço (.json)', icon: 'download', run: () => importAll() },
     ]);
   },
-  async importNotewise() {
-    const f = await pickFile(''); if (!f) return;
-    toast('Importando do Notewise…', 20000);
-    try {
-      const res = await importNotewiseFile(f, (i, t, n) => toast(`Importando ${i} de ${t}: ${n.split('/').pop()}`, 20000));
-      const ok = res.filter((r) => r.note), bad = res.filter((r) => r.error);
-      const st = ok.reduce((a, r) => { for (const k in r.stats) a[k] = (a[k] || 0) + r.stats[k]; return a; }, {});
-      this.render(); toast('', 1);
-      const body = el('div', {}, el('p', {}, `${ok.length} nota(s) importada(s): ${st.pages || 0} páginas (${st.pdfPages || 0} de PDF), ${st.strokes || 0} traços, ${st.highlights || 0} marca-textos, ${st.shapes || 0} formas, ${st.texts || 0} textos, ${st.tables || 0} tabelas e ${st.images || 0} imagens.`),
-        st.skipped ? el('p', { class: 'lbl-sm' }, `${st.skipped} item(ns) de tipos que o Traço ainda não reconhece foram ignorados. Mande um exemplo para eu adicionar.`) : null,
-        bad.length ? el('p', { style: { color: 'var(--danger)' } }, 'Com erro: ' + bad.map((b) => b.error).join('; ')) : null);
-      const go = await openModal({ title: 'Importação concluída', body, buttons: [{ label: 'Fechar', value: false }, ok.length === 1 ? { label: 'Abrir nota', cls: 'primary', value: true } : null].filter(Boolean) });
-      if (go && ok[0]) App.openNote(ok[0].note.id);
-    } catch (e) { console.error(e); toast('Não foi possível importar: ' + e.message, 6000); }
-  },
-  async fixNotewiseCrops() {
-    const ok = await openModal({ title: 'Corrigir imagens recortadas', body: el('div', {},
-      el('p', {}, 'Notas importadas antes da versão 0.18 mostram as imagens recortadas no Notewise inteiras (e maiores).'),
-      el('p', {}, 'Escolha de novo o mesmo arquivo .notewise ou .zip que você importou: o Traço acha as notas com o mesmo título e aplica só o recorte das imagens — sem duplicar notas e sem mexer na sua escrita.'),
-      el('p', { class: 'lbl-sm' }, 'Imagens que você já moveu, redimensionou ou recortou ficam como estão.')),
-      buttons: [{ label: 'Cancelar', value: false }, { label: 'Escolher arquivo', cls: 'primary', value: true }] });
-    if (!ok) return;
-    const f = await pickFile(''); if (!f) return;
-    toast('Lendo o arquivo do Notewise…', 20000);
-    try {
-      const r = await fixNotewiseCrops(f, (i, t, n) => toast(`Conferindo ${i} de ${t}: ${n.split('/').pop()}`, 20000));
-      this.render(); toast('', 1);
-      const body = el('div', {},
-        el('p', {}, r.cropped ? `${r.images} de ${r.cropped} imagem(ns) recortada(s) corrigida(s) em ${r.notes} nota(s).` : 'Nenhuma imagem recortada nesse arquivo.'),
-        r.already ? el('p', { class: 'lbl-sm' }, `${r.already} já estavam certas.`) : null,
-        r.missing ? el('p', { class: 'lbl-sm' }, `${r.missing} não foram corrigidas (imagem já movida/alterada${r.noNote.length ? ', ou nota não encontrada: ' + r.noNote.slice(0, 6).join(', ') + (r.noNote.length > 6 ? '…' : '') : ''}). Nesses casos você pode recortar pelo laço → Recortar imagem.`) : null);
-      await openModal({ title: 'Recortes corrigidos', body, buttons: [{ label: 'OK', cls: 'primary' }] });
-    } catch (e) { console.error(e); toast('Não foi possível corrigir: ' + e.message, 6000); }
-  },
+
   async importPdf() {
     const f = await pickFile('application/pdf'); if (!f) return;
     toast('Importando PDF…', 10000);
@@ -463,8 +428,7 @@ async function openSettings(focus) {
         return el('div', { class: 'field' }, el('label', {}, 'Mão que escreve — toques de 2 e 3 dedos (desfazer/refazer) do lado da palma são ignorados'), sel);
       })(),
       UI.slider('Melhorar escrita automático (ao levantar a caneta)', 0, 10, 1, autoBeautifyLevel(), (v) => { S.autoBeautify = v; Store.saveSettings(); }, (v) => (v === 0 ? 'desligado' : String(v))),
-      el('p', { class: 'muted' }, 'Arredonda as curvas e tira o tremido sem apagar os cantos das letras. Para arrumar algo já escrito: laço → botão ✨ "Melhorar escrita" (também iguala o tamanho e a altura das palavras).'),
-      el('div', { class: 'field' }, el('button', { class: 'btn', onclick: () => caligraphyNotebook() }, '✍ Caderno de caligrafia…'), el('p', { class: 'muted' }, 'Escreva cada letra do seu jeito mais bonito; o ✨ "Melhorar escrita" do laço aproxima as suas letras destas.')),
+      el('p', { class: 'muted' }, 'Arredonda as curvas e tira o tremido sem apagar os cantos das letras.'),
       Native.on ? UI.check('Tinta nativa do Android (a escrita aparece com o mínimo de atraso; desligue se algo parecer estranho ao escrever)', S.nativeInk !== false, (v) => { S.nativeInk = v; Store.saveSettings(); }) : null, /* v1.0 */
       Native.on ? null : UI.check('Modo de baixa latência para a caneta (a tinta aparece mais rápido; reabra o app depois de mudar)', S.lowLatency === true, (v) => { S.lowLatency = v; Store.saveSettings(); toast('Reabra o app para aplicar'); }),
       )));

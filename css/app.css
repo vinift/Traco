@@ -846,10 +846,6 @@ input:not(:focus),textarea:not(:focus){-webkit-user-select:none;user-select:none
 .tpl-color{width:100%;height:40px;border-radius:10px;border:1px solid var(--line);cursor:pointer}
 
 /* ===== v0.29: qualidade do PDF e abrir PDF ===== */
-.pq-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
-.pq-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer}
-.pq-item small{color:var(--muted);font-size:12.5px}
-.pq-item.on{border-color:var(--accent);background:var(--accent-soft)}
 .po{display:flex;flex-direction:column;gap:8px;min-width:min(520px,80vw)}
 .po-file{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--panel2)}
 .po-file span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
@@ -1047,24 +1043,6 @@ select{border-radius:14px!important}
 .subj-chip{display:inline-block;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:1px 7px;margin-right:6px;vertical-align:1px}
 .fdot.subj{box-shadow:0 0 0 2px var(--side,var(--panel)),0 0 0 3.5px var(--accent)}
 .tm-subj{display:flex;align-items:center;gap:6px;min-width:0}
-/* v0.36: caderno de caligrafia */
-.cal{display:flex;flex-direction:column;gap:12px}
-.cal-tabs{align-self:flex-start}
-.cal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px}
-.cal-key{border:0;border-radius:12px;background:var(--panel2);color:var(--text);padding:6px 0 4px;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:background-color .15s ease}
-.cal-key b{font-size:18px;font-weight:600}
-.cal-key small{font-size:9px;color:var(--muted);letter-spacing:1px;min-height:11px}
-.cal-key.has small{color:var(--accent)}
-.cal-key.on{background:var(--accent-soft);box-shadow:0 0 0 2px var(--accent) inset}
-.cal-edit{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.cal-ch{font-size:56px;font-weight:600;min-width:60px;text-align:center;color:var(--accent)}
-.cal-cells{display:flex;gap:12px;flex-wrap:wrap}
-.cal-cell{display:flex;flex-direction:column;gap:4px}
-.cal-cv{border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.15);touch-action:none;background:#fff;cursor:crosshair}
-.cal-row{display:flex;justify-content:space-between;align-items:center}
-.cal-row small{color:var(--muted)}
-.cal-clear{height:28px;padding:0 10px;font-size:12px}
-.cal-next{align-self:center}
 /* v0.36: busca nas configurações */
 .sp-side{width:250px;flex:none;display:flex;flex-direction:column;min-height:0;background:var(--side);border-top-right-radius:22px}
 .sp-side .sp-nav{width:auto;flex:1;background:transparent;border-radius:0}
@@ -1076,36 +1054,6 @@ select{border-radius:14px!important}
 .sp-item.sp-dim{opacity:.35}
 .sp-empty{text-align:center;color:var(--muted);margin:30px 0 0}
 @media (max-width:760px){ .sp-side{width:auto;border-radius:0} .sp-search{margin:8px 12px 2px} }
-/* v0.36.2 — caderno de caligrafia estilo nota: folha grande no meio, versões à esquerda */
-.cal-page{z-index:46}
-.cal-page .sp-head{gap:10px}
-.cal-page .sp-head h1{flex:none;font-size:22px}
-.cal-sp{flex:1}
-.cal-nav{min-width:44px;height:44px;font-size:18px}
-.cal-letter{border:0;border-radius:16px;background:var(--accent-soft);color:var(--accent);height:52px;min-width:84px;padding:0 14px;display:flex;align-items:center;gap:8px;cursor:pointer}
-.cal-letter b{font-size:30px;font-weight:600}
-.cal-letter small{font-size:11px;opacity:.8}
-.cal-body{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:8px 16px max(12px,var(--sab,0px))}
-.cal-side{position:absolute;left:20px;top:8px;bottom:12px;width:215px;display:flex;flex-direction:column;gap:12px;overflow:auto}
-.cal-thumbs{display:flex;flex-direction:column;gap:8px}
-.cal-thumb{border:0;background:transparent;padding:0;display:flex;flex-direction:column;align-items:flex-start;gap:3px;cursor:pointer;color:var(--muted)}
-.cal-thumb canvas{border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.15)}
-.cal-thumb.on canvas{box-shadow:0 0 0 3px var(--accent)}
-.cal-thumb.on small{color:var(--accent);font-weight:600}
-.cal-tools{display:flex;gap:6px;flex-wrap:wrap}
-.cal-paper{position:relative;flex:none;border-radius:18px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.14)}
-.cal-paper .cal-cv{display:block;border-radius:0;box-shadow:none}
-.cal-ghost{position:absolute;left:0;right:0;text-align:center;pointer-events:none;color:rgba(129,140,248,.14);font-weight:500;line-height:1}
-.cal-page .cal-cv{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-.cal-pick{display:flex;flex-direction:column;gap:10px;width:min(420px,90vw)}
-.cal-pick .xp-tab{padding-left:10px;padding-right:10px;font-size:13px}
-.cal-page.narrow .cal-body{flex-direction:column-reverse;justify-content:flex-end;gap:12px}
-.cal-page.narrow .cal-side{position:static;width:auto}
-.cal-page.narrow .cal-thumbs{flex-direction:row}
-.cal-side .grp{flex-wrap:wrap;row-gap:2px!important}
-.cal-side .grp label{flex:1 0 100%;font-size:13px;color:var(--muted)}
-.cal-side .grp input[type=range]{flex:1;min-width:0}
-.cal-side .grp .val{min-width:40px;text-align:right;font-size:13px}
 /* v0.37 — topo autoral da tela inicial */
 .lib-hero h1#hello{font-size:clamp(28px,3.6vw,42px)}
 .home-cards{display:flex;gap:14px;margin-top:16px;position:relative;flex-wrap:wrap}

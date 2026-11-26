@@ -327,34 +327,24 @@ const Tec = {
       for (const [t, y, h, segs] of L) if (y >= u - 1 && y + h <= v + 1) out.push([t, Math.round((y - u + yy) * 10) / 10, h, segs.map(([st, x, w, n]) => [st, Math.round((x - left + T.mx) * 10) / 10, w, n])]); }
     return out.sort((a, b) => a[1] - b[1]);
   },
-  folderFor(mat) { const m = String(mat || '').toLowerCase(); const f = m && Store.folders.find((x) => x.subject && x.name.toLowerCase() === m) || Store.folders.find((x) => m && x.name.toLowerCase() === m); return f ? f.id : (typeof Library !== 'undefined' ? Library.folder : null); },
   /* biblioteca → "Importar questões do TEC": escolhe 1 ou mais PDFs */
-  async importFlow() {
-    const files = await pickFile('application/pdf', true); if (!files || !files.length) return;
-    try {
-      toast('Lendo os PDFs…', 60000); const srcs = [];
-      for (const f of files) srcs.push({ name: f.name.replace(/\.pdf$/i, ''), blobId: await Store.putBlob(new Blob([await f.arrayBuffer()], { type: 'application/pdf' })) });
-      const R = await this.build(srcs, {}, (m) => toast(m, 60000)); if (!R || R.empty) { toast('Nenhuma questão encontrada', 3000); return; }
-      const mats = {}; for (const q of Object.values(R.tec.q)) mats[q.mat] = (mats[q.mat] || 0) + 1; const mat = Object.entries(mats).sort((a, b) => b[1] - a[1])[0][0];
-      const d = new Date(), def = `${mat || 'Questões'} — ${R.n} questões (${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })})`; toast('', 1);
-      const title = (await askText('Nome do caderno', def, `${R.n} questões de ${srcs.length} PDF(s), sem repetidas e embaralhadas`)) || def; /* v1.27: o usuário dá o nome */
-      const note = await this.makeNote(R, title, this.folderFor(mat)); toast(`📝 ${R.n} questões${R.total > R.n ? '' : ''} de ${srcs.length} PDF(s), sem repetidas e embaralhadas`, 4000);
-      if (typeof Library !== 'undefined') Library.render(); App.openNote(note.id);
-    } catch (e) { logError(e, 'importar questões do TEC'); toast('Não deu para montar o caderno: ' + e.message, 6000); }
-  },
   /* ⋯ da nota → "Reorganizar questões": monta OUTRO caderno com um filtro, a partir dos mesmos PDFs (o atual não muda) */
+  /* v1.35: ⋯ → "Reorganizar questões" remonta ESTE caderno (antes criava outro) */
   reorgPop(note, anchor) {
     const T = note.tec, srcs = T.srcs || [{ name: note.title, blobId: T.blob }], keep = {}; if (T.built) for (const [n, q] of Object.entries(T.q)) keep[q.id] = +n;
     const go = async (filter, lab) => {
-      closePop();
-      try { const R = await this.build(srcs, { filter, keep: T.built ? keep : null }, (m) => toast(m, 60000)); if (!R || R.empty) { toast('Nenhuma questão nesse filtro — você já fez todas 🎉', 3500); return; }
-        const title = `${note.title.replace(/ — .*$/, '')} — ${lab} (${R.n})`, nn = await this.makeNote(R, title, note.folderId); toast(`${R.n} questões no caderno novo`, 2500); App.openNote(nn.id);
+      closePop(); if (this._mounting) return;
+      if (!(await confirmBox('Reorganizar este caderno', filter === 'new' ? 'As questões que você já fez saem deste caderno (continuam no histórico e no caderno de erros). O que você escreveu nas que ficam vai junto com elas.' : 'As que você já respondeu aqui voltam limpas, para fazer de novo (o histórico continua). O que você escreveu nas não respondidas vai junto com elas.', 'Reorganizar'))) return;
+      this._mounting = true;
+      try { const r = await this.remount(note, srcs, { filter, keep: filter === 'all' || !T.built ? null : keep });
+        toast(r.empty ? 'Nenhuma questão nesse filtro — você já fez todas 🎉' : `${r.R.n} questões no caderno (${lab})`, 3000);
       } catch (e) { logError(e, 'reorganizar caderno'); toast('Não deu para reorganizar: ' + e.message, 6000); }
+      finally { this._mounting = false; }
     };
     const M = this.seen(), ids = Object.values(T.q).map((q) => q.id), nNew = ids.filter((id) => !M.get(id)).length, nWrong = ids.filter((id) => { const s = M.get(id); return s && (!s.ok || s.d); }).length;
     const b = (lab, sub, fn) => { const x = el('button', { class: 'nm-item', onclick: fn }); x.append(iconEl('refresh'), el('span', {}, lab, el('small', {}, sub))); return x; };
-    openPop(anchor, el('div', { class: 'nmenu' }, el('div', { class: 'nm-head' }, el('div', {}, el('b', {}, 'Reorganizar questões'), el('small', {}, 'cria um caderno novo; este continua como está'))),
-      el('div', { class: 'nm-list' }, b('Só as que não fiz', `${nNew} questões`, () => go('new', 'não feitas')), b('As que não fiz + as que errei', `${nNew + nWrong} questões (erradas ou com dúvida: ${nWrong})`, () => go('newwrong', 'não feitas e erradas')), b('Todas, embaralhadas de novo', `${ids.length} questões`, () => go('all', 'embaralhado')))));
+    openPop(anchor, el('div', { class: 'nmenu' }, el('div', { class: 'nm-head' }, el('div', {}, el('b', {}, 'Reorganizar questões'), el('small', {}, 'remonta este caderno'))),
+      el('div', { class: 'nm-list' }, b('Só as que não fiz', `${nNew} questões`, () => go('new', 'só as não feitas')), b('As que não fiz + as que errei', `${nNew + nWrong} questões (erradas ou com dúvida: ${nWrong})`, () => go('newwrong', 'não feitas e erradas')), b('Todas, embaralhadas de novo', `${ids.length} questões`, () => go('all', 'embaralhadas')))));
   },
   /* ===== v1.26: caderno de respostas (nota "inteligente") =====
      note.bank = {mats: [matérias] | null (todas), st: 'all'|'new'|'newwrong', all: {matéria: nº}, ink: {idTEC: [elementos com y
@@ -500,31 +490,38 @@ const Tec = {
   /* v1.31: ⋯ → "Adicionar questões (PDF)": junta PDFs novos ao caderno montado (um caderno por matéria que vai crescendo).
      As já respondidas NESTA nota saem; as que faltam + as novas são embaralhadas (sem repetidas, por id); a escrita de cada
      questão que continua volta para o cartão dela (mesmo esquema do bankMount); os PDFs de origem viram T.srcs. */
+  /* v1.35: remonta o caderno NA MESMA nota (usado por "Adicionar questões" e "Reorganizar"). Respondidas nesta nota: a escrita
+     vai para note.tecOut e, se voltarem pelo filtro, voltam limpas (ans zerado); as não respondidas levam a escrita junto. */
+  async remount(note, srcs, bopts, after) {
+    const T = note.tec; this.reconcile(note);
+    const done = new Set(Object.keys(T.ans).map((n) => T.q[n] && T.q[n].id).filter(Boolean)), oldIds = new Set(Object.values(T.q).map((q) => q.id));
+    const { byId: ink, loose } = this.inkPack(note), out = { ...(note.tecOut || {}) };
+    for (const id of done) if (ink[id]) { out[id] = ink[id]; delete ink[id]; } /* v1.31.1: a escrita das que saem vai junto com elas */
+    const R = await this.build(srcs, bopts, (m) => toast(m, 60000));
+    if (!R || R.empty) return { empty: true };
+    const novas = Object.values(R.tec.q).filter((q) => !oldIds.has(q.id)).length;
+    const oldBlob = T.blob, file = new File([R.bytes], 'caderno.pdf', { type: 'application/pdf' }), pages = await importPdfFile(file);
+    const T2 = { ...R.tec, blob: pages[0].pdf.blobId, topics: (T.topics || []).slice() }; if (after) after(T2, novas);
+    this.inkPlace(pages, T2, ink); this.keepScratch(note.pages, pages); this.fitScratch(pages);
+    if (loose.length && pages[0]) pages[0].elements.push(...loose);
+    await Editor.close();
+    note.pages = pages; note.tec = T2; note.tecOut = out; this.reg(note);
+    await Store.putNote(note); if (oldBlob && !srcs.some((x) => x.blobId === oldBlob)) { try { await DB.del('blobs', oldBlob); } catch (_) {} }
+    App._busy = false; await App.openNote(note.id);
+    return { R, novas, done };
+  },
   async addFlow(note) {
     const T = note && note.tec; if (!T || !T.built || this._mounting) return;
     const topic = await this.askTopic(note); if (topic == null) return; /* v1.33: até onde vai este PDF (fica guardado) */
     const files = await pickFile('application/pdf', true); if (!files || !files.length) return;
     this._mounting = true;
     try {
-      this.reconcile(note);
-      const done = new Set(Object.keys(T.ans).map((n) => T.q[n] && T.q[n].id).filter(Boolean)), oldIds = new Set(Object.values(T.q).map((q) => q.id));
-      const { byId: ink, loose } = this.inkPack(note), out = { ...(note.tecOut || {}) };
-      for (const id of done) if (ink[id]) { out[id] = ink[id]; delete ink[id]; } /* v1.31.1: a escrita das que saem vai junto com elas (volta no caderno de erros) */
       toast('Lendo os PDFs…', 60000); const add = [];
       for (const f of files) add.push({ name: f.name.replace(/\.pdf$/i, ''), blobId: await Store.putBlob(new Blob([await f.arrayBuffer()], { type: 'application/pdf' })) });
-      const srcs = [...(T.srcs || [{ name: note.title, blobId: T.blob }]), ...add];
-      const R = await this.build(srcs, { skip: done }, (m) => toast(m, 60000));
-      if (!R || R.empty) { toast('Nenhuma questão para o caderno: as dos PDFs novos já estão nele ou já foram respondidas', 4000); return; }
-      const novas = Object.values(R.tec.q).filter((q) => !oldIds.has(q.id)).length;
-      const oldBlob = T.blob, file = new File([R.bytes], 'caderno.pdf', { type: 'application/pdf' }), pages = await importPdfFile(file);
-      const T2 = { ...R.tec, blob: pages[0].pdf.blobId, topics: [...(T.topics || []), ...(topic ? [{ t: Date.now(), txt: topic, n: novas }] : [])].slice(-30) }; /* v1.33 */
-      this.inkPlace(pages, T2, ink); this.keepScratch(note.pages, pages); this.fitScratch(pages);
-      if (loose.length && pages[0]) pages[0].elements.push(...loose);
-      await Editor.close();
-      note.pages = pages; note.tec = T2; note.tecOut = out; this.reg(note);
-      await Store.putNote(note); if (oldBlob && !srcs.some((x) => x.blobId === oldBlob)) { try { await DB.del('blobs', oldBlob); } catch (_) {} }
-      App._busy = false; await App.openNote(note.id);
-      toast(`➕ ${novas} questões novas · ${R.n} no caderno, embaralhadas${done.size ? ` (as ${done.size} já respondidas saíram)` : ''}`, 5000);
+      const done = new Set(Object.keys(T.ans).map((n) => T.q[n] && T.q[n].id).filter(Boolean));
+      const r = await this.remount(note, [...(T.srcs || [{ name: note.title, blobId: T.blob }]), ...add], { skip: done }, (T2, novas) => { if (topic) T2.topics = [...T2.topics, { t: Date.now(), txt: topic, n: novas }].slice(-30); });
+      if (r.empty) { toast('Nenhuma questão para o caderno: as dos PDFs novos já estão nele ou já foram respondidas', 4000); return; }
+      toast(`➕ ${r.novas} questões novas · ${r.R.n} no caderno, embaralhadas${r.done.size ? ` (as ${r.done.size} já respondidas saíram)` : ''}`, 5000);
     } catch (e) { logError(e, 'adicionar questões'); toast('Não deu para adicionar: ' + e.message, 6000); }
     finally { this._mounting = false; }
   },

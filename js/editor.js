@@ -61,7 +61,6 @@ const Editor = {
   /* pre (v0.25, tela dividida): { note, cam, undo, redo, fast } — troca de lado ativo sem recarregar a nota nem perder o desfazer */
   async open(id, pre) {
     const note = (pre && pre.note) || await Store.getNote(id); if (!note) { toast('Nota não encontrada'); return false; }
-    if (!pre && fixNotewiseHeights(note)) { await Store.putNote(note); Store.setThumb(note.id, await makeThumb(note)); } // corrige notas importadas antes (grade meia linha fora)
     this.resetTiles(); this._prevZ = undefined; this.lastInput = Date.now(); // nota recém-aberta conta como "em uso" (o backup pesado espera)
     { const L = Store.settings.tools.lasso; if (L && L.mode === 'shot') L.mode = 'free'; }
     if (this.crop) this.cancelCrop(); this.note = note; this._mg = null; this.undoStack = (pre && pre.undo) || []; this.redoStack = (pre && pre.redo) || []; this.sel = null; this.selTf = null; this.action = null; this.editingId = null;

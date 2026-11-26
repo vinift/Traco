@@ -366,7 +366,6 @@ const UI = {
     sr.append(box);
   },
   /* espessuras e cores lado a lado (alcance fácil com a mão esquerda) */
-  presetCols(sr, wt, ct) { const row = el('div', { class: 'scols' }); this.widthChips(row, wt); this.colorDots(row, ct); sr.append(row); },
   lineTypePop(anchor) {
     const t = Editor.tool, st = Store.settings.tools[t];
     const grid = el('div', { class: 'tp-seg', style: { gridTemplateColumns: 'repeat(3, 110px)', margin: 0 } });
@@ -644,7 +643,6 @@ const UI = {
     if (Editor.selElements().some((e) => e.type === 'stroke' && e.tool === 'pen')) {
       B('ocr', 'Reconhecer texto (copiar ou converter)', () => recognizeSelection());
       B('align', 'Alinhar a escrita na horizontal', () => straightenSelection());
-      B('sparkle', 'Melhorar escrita (endireita, corrige a inclinação e aproxima as letras do seu caderno de caligrafia)', () => beautifySelection());
     }
     const d = B('trash', 'Excluir', () => Editor.deleteSel()); d.style.color = 'var(--danger)';
   },

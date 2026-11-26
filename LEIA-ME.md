@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.35.0 — revisão e limpeza
+
+- **Reorganizar questões** (⋯ do caderno) agora **remonta o próprio caderno** em vez de criar outro: "Só as que não fiz", "As que não fiz + as que errei" ou "Todas, embaralhadas de novo". A escrita das questões que você ainda não respondeu vai junto; as que você já respondeu ali voltam limpas (o histórico continua).
+- **Saíram (a pedido):** "Importar questões do TEC" avulso no + da biblioteca (use o caderno da matéria), o Caderno de caligrafia e o botão ✨ "Melhorar escrita" da seleção, e o importador do Notewise. O "melhorar escrita automático" ao levantar a caneta continua.
+- Limpeza de código que não era mais usado (sem mudança para você).
+- Revisão geral: roteiro de testes passando por biblioteca, caneta, formas, marca-texto, borracha, texto, laço, desfazer, tabela, pinça, páginas, menus, atalho rápido, cronômetro e relatório, plano, exportar PDF, tela cheia, Configurações, palma, TEC e caderno de erros, capa e lixeira — sem erros.
+
 ## Novidades da v1.34.0 — capa dos cadernos
 
 - Os cadernos de questões das matérias (e o caderno de erros) agora aparecem na biblioteca com uma **capa**: na **cor da pasta da matéria**, com ícone, o nome da matéria e quantas questões tem (no caderno de erros, quantas faltam refazer). Também na barra lateral, em Notas recentes.
