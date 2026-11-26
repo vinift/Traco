@@ -183,8 +183,11 @@ function cmpVersion(a, b) { const A = String(a).split('.').map(Number), B = Stri
 
 /* ===== Toast ===== */
 let toastT;
-function toast(msg, ms = 2400) {
-  const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden');
+function toast(msg, ms = 1600) {
+  const t = $('#toast'); if (!t) return; if (!msg) { clearTimeout(toastT); t.classList.add('hidden'); return; } t.textContent = msg;
+  if (ms <= 2500) ms = Math.min(ms, 1600); /* v1.35.3: avisos simples somem rápido; longos (erros, progresso) ficam como pedidos */
+  if (!t.onclick) t.onclick = () => { clearTimeout(toastT); t.classList.add('hidden'); }; /* tocar fecha */
+  if (t.classList.contains('hidden')) { t.classList.remove('hidden', 'tin'); void t.offsetWidth; t.classList.add('tin'); }
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.add('hidden'), ms);
 }
 

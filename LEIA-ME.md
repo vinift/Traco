@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.35.3 — avisos mais discretos
+
+- Os avisos do canto inferior direito deixaram de ser pretos: agora são uma pílula de **vidro claro** translúcido no tom do app (no tema escuro, escura translúcida), menores e com texto mais leve.
+- Avisos simples somem em ~1,5 s; erros e avisos importantes continuam pelo tempo de antes. **Tocar no aviso fecha.**
+
 ## Novidades da v1.35.2
 
 - Corrigido: sair do app no meio de uma sincronização (trocar de app, mudar de aba, apagar a tela) e voltar fazia o Traço achar que tinha travado ("O app fechou durante o backup…") e deixar o backup mais leve sem precisar. Agora, se o app saiu da tela durante o envio, isso não conta como travamento. Travamento de verdade, com o app aberto, continua sendo avisado.

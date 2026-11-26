@@ -1693,3 +1693,8 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 .hero-tools .search{min-width:252px}
 .hero-tools .sync-pill{min-width:0;flex:0 1 auto;overflow:hidden}
 .hero-tools .sync-pill .txt{overflow:hidden;text-overflow:ellipsis;max-width:min(20vw,220px)}
+/* v1.35.3 — avisos em vidro claro, menores e discretos */
+.toast{background:color-mix(in srgb,var(--panel) 72%,transparent);color:var(--text);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);
+  border:1px solid color-mix(in srgb,var(--tile-line) 80%,transparent);box-shadow:0 6px 22px rgba(0,0,0,.10);font-size:13px;padding:8px 14px;border-radius:14px;cursor:pointer;pointer-events:auto}
+.toast.tin{animation:toastIn .18s ease-out}
+@keyframes toastIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
