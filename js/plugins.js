@@ -63,7 +63,7 @@ Traco.registerTool({
 });`,
   },
   {
-    id: 'ex-texto', name: 'Carimbo de texto', enabled: true, builtin: true, ver: 5,
+    id: 'ex-texto', name: 'Carimbo de texto', enabled: true, builtin: true, ver: 6,
     code: `// Toque na página para inserir o texto do carimbo. Crie vários carimbos (barra de baixo) e ajuste texto, tamanho, cor e fonte no painel de ajustes.
 const NOVO = { txt: 'Importante!', size: 20, color: '#dc2626', font: 'sys', bold: true, i: false, u: false };
 const pad = (n) => String(n).padStart(2, '0');
@@ -88,12 +88,34 @@ function grudar(e, note, page, x, y) {
 }
 function elemento(c, x, y, page, note, snap) {
   const text = formatar(c.txt) || ' ';
-  const e = { type: 'text', x, y: y - c.size * 0.6, auto: true, maxW: 600, w: 20, text, size: c.size, color: c.color, bold: !!c.bold, font: c.font || 'sys' };
+  const e = { type: 'text', x, y: y - c.size * 0.6, auto: true, maxW: 600, w: 20, text, size: c.size, color: c.color, bold: !!c.bold, font: c.font || 'sys', stamp: c.id };
   if (c.i || c.u) e.spans = [{ n: text.length, i: c.i ? true : undefined, u: c.u ? true : undefined }];
   if (snap) { try { grudar(e, note, page, x, y); } catch (_) {} }
   e.maxW = page.w ? Math.max(60, page.w - e.x - 16) : 600;
   try { e.w = Math.max(8, Math.ceil(layoutText(e).w * 10) / 10); } catch (_) { e.w = Math.max(60, text.length * c.size * 0.6); }
   return e;
+}
+/* v1.42: achar os carimbos já colocados iguais a este (marcados com e.stamp, ou — os antigos — com o mesmo texto) e aplicar o estilo */
+const COD = { Dia: '[A-ZÀ-Ú][a-zà-ú-]+', dia: '[a-zà-ú-]+', dd: '\\d{2}', mm: '\\d{2}', Mes: '[A-ZÀ-Ú][a-zà-ú]+', mes: '[a-zà-ú]+', aaaa: '\\d{4}', hh: '\\d{2}', min: '\\d{2}' };
+function padrao(txt) {
+  const partes = String(txt || '').split(/(\\{(?:Dia|dia|dd|mm|Mes|mes|aaaa|hh|min)\\})/);
+  return new RegExp('^' + partes.map((x, i) => (i % 2 ? COD[x.slice(1, -1)] : x.replace(/[.*+?^$()|[\\]\\\\{}]/g, '\\\\$&'))).join('') + '$');
+}
+function iguais(c, note) {
+  const re = padrao(c.txt), out = [];
+  for (const page of (note && note.pages) || []) for (const e of page.elements) if (e.type === 'text' && !e.lock && (e.stamp === c.id || (!e.stamp && re.test(e.text || '')))) out.push([page, e]);
+  return out;
+}
+function aplicar(c, note) {
+  const L = iguais(c, note);
+  for (const [page, e] of L) {
+    const m = Object.assign({}, e, { size: c.size, color: c.color, bold: !!c.bold, font: c.font || 'sys', stamp: c.id });
+    delete m.spans; if (c.i || c.u) m.spans = [{ n: (m.text || '').length, i: c.i ? true : undefined, u: c.u ? true : undefined }];
+    try { m.y = e.y + rtLineHeight(e) - rtLineHeight(m); m.w = Math.max(8, Math.ceil(layoutText(m).w * 10) / 10); } catch (_) {}
+    Editor.recReplace(page, e, m);
+  }
+  if (L.length) { Editor.opCommit(); if (Editor.markChanged) Editor.markChanged(); Editor.requestRender(); }
+  return L.length;
 }
 function fonte(c) { return (c.i ? 'italic ' : '') + (c.bold ? 700 : 400) + ' 20px ' + Fonts.css(c.font || 'sys'); }
 function carregar(c) { if (c.font && c.font !== 'sys') Fonts.link(c.font).then(() => document.fonts.load(fonte(c), 'Aa')).catch(() => {}); }
@@ -149,7 +171,9 @@ Traco.registerTool({
     const { el, slider, switchRow, colorSection, toast } = Traco.ui;
     const l = lista(api), c = atual(api), save = () => { api.store.set('lista', l); Traco.refreshBar(); };
     const prev = el('div', { class: 'stamp-prev' });
-    const upd = () => { prev.style.fontSize = Math.min(30, c.size) + 'px'; amostra(c, prev); save(); };
+    const apl = el('button', { class: 'btn', style: { marginTop: '8px', width: '100%' }, onclick: () => { const n = aplicar(c, Editor.note); toast(n ? n + (n === 1 ? ' carimbo atualizado' : ' carimbos atualizados') + ' nesta nota' : 'Nenhum igual nesta nota', 1600); cnt(); } });
+    const cnt = () => { const n = Editor.note ? iguais(c, Editor.note).length : 0; apl.textContent = 'Aplicar nos já colocados nesta nota (' + n + ')'; apl.disabled = !n; };
+    const upd = () => { prev.style.fontSize = Math.min(30, c.size) + 'px'; amostra(c, prev); save(); cnt(); };
     const inp = el('textarea', { class: 'tp-input', rows: 2, spellcheck: 'false', style: { height: 'auto', minHeight: '60px', resize: 'vertical', padding: '8px 10px' } });
     inp.value = c.txt; inp.addEventListener('input', () => { c.txt = inp.value; upd(); });
     const fl = el('div', { class: 'font-pop in-panel' }); let g = null;
@@ -163,7 +187,8 @@ Traco.registerTool({
       if (l.length < 2) return toast('É preciso ter pelo menos um carimbo');
       l.splice(l.indexOf(c), 1); api.store.set('cur', l[0].id); save(); Traco.openOptions();
     } }, 'Excluir este carimbo');
-    box.append(el('div', { class: 'tp-sec' }, 'Prévia'), prev,
+    box.append(el('div', { class: 'tp-sec' }, 'Prévia'), prev, apl,
+      el('p', { style: { fontSize: '12px', color: 'var(--chmuted)', margin: '4px 0 8px' } }, 'Muda tamanho, cor, fonte e estilo dos carimbos iguais a este que já estão nesta nota (o texto deles fica como está). Desfaz com o desfazer.'),
       el('div', { class: 'tp-sec' }, 'Texto'), inp,
       el('p', { style: { fontSize: '12px', color: 'var(--chmuted)', margin: '4px 0 8px' } }, 'Pode usar códigos de data: {dd}/{mm}/{aaaa}, {Dia}, {mes}, {hh}:{min}. Os carimbos ficam na barra de baixo; o + cria outro.'),
       slider('Tamanho', c.size, 8, 80, 1, (v) => v, (v) => { c.size = v; upd(); }),

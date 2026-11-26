@@ -1104,7 +1104,7 @@ const Editor = {
   /* --- Botões da caneta --- */
   penSigs(buttons) { const out = []; for (const bit of [2, 4, 8, 16, 32]) if (buttons & bit) out.push('pen:' + bit); return out; },
   penHoldTool(buttons) { const M = Store.settings.penMap || {}; for (const sg of this.penSigs(buttons)) { const a = M[sg]; if (a === 'eraser' || a === 'lasso' || a === 'highlighter') return a; } return null; },
-  penClickHeld(e) { const M = Store.settings.penMap || {}; return this.penSigs(e.buttons).some((sg) => ['undo', 'redo', 'toggle', 'read', 'hyphen', 'hyphenDirect', 'gotoPage'].includes(M[sg])); },
+  penClickHeld(e) { const M = Store.settings.penMap || {}; return this.penSigs(e.buttons).some((sg) => ['undo', 'redo', 'toggle', 'read', 'hyphen', 'hyphenDirect', 'gotoPage', 'stamps'].includes(M[sg]) || !!M[sg + ':2']); },
   penButtons(e) {
     if (e.pointerType !== 'pen') return;
     const b = e.type === 'pointerup' ? e.buttons & ~1 : e.buttons & ~1;
@@ -1115,8 +1115,21 @@ const Editor = {
   },
   firePenSig(sg) {
     if (PenCapture.active) return PenCapture.got(sg);
-    const a = (Store.settings.penMap || {})[sg]; const now = performance.now();
-    if (now - (this._lastSig || 0) < 250) return; // evita disparo duplo (botão + menu de contexto)
+    const M = Store.settings.penMap || {}, now = performance.now();
+    /* v1.42: dois toques rápidos no mesmo botão (penMap[sg + ':2']). Com ação de um toque no mesmo botão, ela espera 380 ms para ver se vem o 2º */
+    if (M[sg + ':2']) {
+      const pd = this._sigDbl;
+      if (pd && pd.sg === sg && now - pd.t < 380) { if (now - pd.t < 40) return; clearTimeout(pd.timer); this._sigDbl = null; return this.penAction(M[sg + ':2'], true); }
+      if (pd) clearTimeout(pd.timer);
+      this._sigDbl = { sg, t: now, timer: M[sg] ? setTimeout(() => { this._sigDbl = null; this.penAction(M[sg]); }, 380) : null };
+      return;
+    }
+    this.penAction(M[sg]);
+  },
+  penAction(a, force) {
+    const now = performance.now();
+    if (!force && now - (this._lastSig || 0) < 250) return; // evita disparo duplo (botão + menu de contexto)
+    if (a === 'stamps') { this._lastSig = now; const t = 'pl:carimbo-texto'; if (typeof Plugins !== 'undefined' && !Plugins.tools.some((x) => x.id === t)) return toast('O carimbo de texto está desligado (Configurações → Ferramentas próprias)', 2500); if (this.tool === t) UI.setTool(this._preStamp && this._preStamp !== t ? this._preStamp : 'pen', true); else { this._preStamp = this.tool; UI.setTool(t, true); } return; } /* v1.42: ir para os carimbos (e voltar) */
     if (a === 'undo') { this._lastSig = now; this.undo();  }
     else if (a === 'redo') { this._lastSig = now; this.redo();  }
     else if (a === 'toggle') { this._lastSig = now; const t = this.tool === 'eraser' ? (this._prevTool || 'pen') : 'eraser'; if (t === 'eraser') this._prevTool = this.tool; UI.setTool(t, true); }

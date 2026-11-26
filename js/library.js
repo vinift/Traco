@@ -612,7 +612,7 @@ async function importAll() {
 }
 
 /* ===== Botões da caneta: mapear como em jogos ("pressione o botão") ===== */
-const PEN_ACTIONS = [['hyphen', 'Atalho rápido: hífen, tópico ou número romano (aperte, escolha e toque no quadrado)', 'clique'], ['hyphenDirect', 'Hífen direto no quadrado (aperte e toque, sem telinha)', 'clique'], ['gotoPage', 'Ir para página (teclado numérico)', 'clique'], ['undo', 'Desfazer', 'clique'], ['redo', 'Refazer', 'clique'], ['toggle', 'Alternar caneta ↔ borracha', 'clique'], ['read', 'Modo leitura liga/desliga', 'clique'], ['eraser', 'Borracha enquanto segura', 'segurar'], ['lasso', 'Laço enquanto segura', 'segurar'], ['highlighter', 'Marca-texto enquanto segura', 'segurar']];
+const PEN_ACTIONS = [['hyphen', 'Atalho rápido: hífen, tópico ou número romano (aperte, escolha e toque no quadrado)', 'clique'], ['hyphenDirect', 'Hífen direto no quadrado (aperte e toque, sem telinha)', 'clique'], ['gotoPage', 'Ir para página (teclado numérico)', 'clique'], ['stamps', 'Ir para os carimbos de texto (e voltar)', 'duplo'], ['undo', 'Desfazer', 'clique'], ['redo', 'Refazer', 'clique'], ['toggle', 'Alternar caneta ↔ borracha', 'clique'], ['read', 'Modo leitura liga/desliga', 'clique'], ['eraser', 'Borracha enquanto segura', 'segurar'], ['lasso', 'Laço enquanto segura', 'segurar'], ['highlighter', 'Marca-texto enquanto segura', 'segurar']];
 function sigLabel(sg) {
   return { 'pen:2': 'Botão lateral 1', 'pen:4': 'Botão lateral 2', 'pen:8': 'Botão extra', 'pen:16': 'Botão extra 2', 'pen:32': 'Ponta/botão borracha', 'pen:ctx': 'Clique do botão (menu)' }[sg] || (sg.startsWith('key:') ? 'Tecla ' + sg.slice(4) : sg);
 }
@@ -638,13 +638,13 @@ function penMapSection() {
   const render = () => {
     list.innerHTML = '';
     for (const [act, name, kind] of PEN_ACTIONS) {
-      const sigs = Object.entries(S.penMap).filter(([, a]) => a === act).map(([sg]) => sg);
-      const row = el('div', { class: 'pen-map-row' }, el('span', { class: 'nm' }, name, el('div', { class: 'lbl-sm' }, kind === 'clique' ? 'um toque no botão' : 'segure o botão enquanto escreve')),
-        ...sigs.map((sg) => el('span', { class: 'k' }, sigLabel(sg))),
+      const sigs = Object.entries(S.penMap).filter(([, a]) => a === act).map(([sg]) => sg), dbl = kind === 'duplo';
+      const row = el('div', { class: 'pen-map-row' }, el('span', { class: 'nm' }, name, el('div', { class: 'lbl-sm' }, kind === 'clique' ? 'um toque no botão' : dbl ? 'dois toques rápidos no botão (pode ser o mesmo botão de outra ação)' : 'segure o botão enquanto escreve')),
+        ...sigs.map((sg) => el('span', { class: 'k' }, sg.endsWith(':2') ? sigLabel(sg.slice(0, -2)) + ' ×2' : sigLabel(sg))),
         el('button', { class: 'btn', onclick: () => {
           const msg = el('p', { style: { fontSize: '16px', textAlign: 'center' } }, 'Aproxime a caneta da tela e aperte o botão agora…');
           const m = openModal({ title: 'Definir: ' + name, body: msg, buttons: [{ label: 'Cancelar', value: false }], onClose: () => PenCapture.stop() });
-          PenCapture.start((sg) => { S.penMap[sg] = act; Store.saveSettings(); $('#modalRoot').lastChild && $('#modalRoot').lastChild.remove(); toast(sigLabel(sg) + ' → ' + name, 2000); render(); });
+          PenCapture.start((sg) => { if (dbl) { for (const k of Object.keys(S.penMap)) if (S.penMap[k] === act) delete S.penMap[k]; sg += ':2'; } S.penMap[sg] = act; /* v1.42: dois toques → chave 'sinal:2' */ Store.saveSettings(); $('#modalRoot').lastChild && $('#modalRoot').lastChild.remove(); toast((sg.endsWith(':2') ? sigLabel(sg.slice(0, -2)) + ' ×2' : sigLabel(sg)) + ' → ' + name, 2000); render(); });
           return m;
         } }, 'Definir'),
         sigs.length ? el('button', { class: 'btn ghost', onclick: () => { for (const sg of sigs) delete S.penMap[sg]; Store.saveSettings(); render(); } }, 'Limpar') : null);

@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.42.0
+
+- **Dois toques no botão da caneta → carimbos:** em Configurações → Botões da caneta, a ação nova "Ir para os carimbos de texto (e voltar)" é de **dois toques rápidos** no botão. Pode ser o mesmo botão do atalho rápido: um toque abre o atalho e dois toques abrem os carimbos. Dois toques de novo voltam para a caneta. (Quando o botão tem as duas ações, o toque simples espera um instante para ver se vem o segundo.)
+- **Mudar os carimbos já colocados:** no painel de ajustes do carimbo de texto, o botão **"Aplicar nos já colocados nesta nota (N)"** passa o estilo atual (tamanho, cor, fonte, negrito, itálico, sublinhado) para todos os carimbos iguais a ele que já estão na nota. O texto deles não muda, e o desfazer volta tudo de uma vez. Os carimbos antigos são reconhecidos pelo texto: se o carimbo tem data, qualquer data conta.
+
 ## Novidades da v1.41.0
 
 - **Padrão do hífen por nota (título + colchete):** na telinha do atalho rápido, aba **Cor**, com o Hífen escolhido, aparece o quadro **"📒 Padrão desta nota"**. Ligado, ele vale só na nota aberta:
