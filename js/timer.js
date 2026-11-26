@@ -17,6 +17,7 @@ const StudyTimer = {
     this.log = l && l.days ? l : { days: {}, titles: {} };
     try { this.migrate(); this.cleanSess(); } catch (e) { console.warn('histórico', e); }
     if (this._on) return this.tick(); this._on = true; // eventos só uma vez
+    { const pp = document.getElementById('noteTimerPP'); if (pp) { pp.addEventListener('pointerdown', (e) => e.stopPropagation()); pp.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); if (this.st.running) this.pause(); else this.start(); }); } }
     for (const id of ['noteClock', 'noteTimer', 'libTimer']) { const n = document.getElementById(id); if (n) { n.classList.add('tm-click'); n.addEventListener('click', (e) => { e.stopPropagation(); this.open(n); }); } }
     { const c = document.getElementById('noteClock'); if (c) c.title = 'Horário · toque para o cronômetro de estudo'; }
     /* v0.22: o histórico só soma o tempo com o app aberto na tela (fechado, em segundo plano ou com a tela apagada não conta) */
@@ -249,6 +250,10 @@ const StudyTimer = {
       n.innerHTML = icon('timer') + (eq ? '<i class="tm-qtag">' + (eq === 'r' ? 'E' : eq === 'v' ? 'R' : 'Q') + '</i>' : '') + '<b>' + txt + '</b>'; n.classList.toggle('paused', !s.running); n.classList.toggle('brk', brk); n.classList.toggle('qmode', !!s.q);
       n.title = `${this.phaseName()}${s.running ? '' : ' (pausado)'} · toque para abrir`;
     }
+    const pp = document.getElementById('noteTimerPP'); /* v1.39.1: pausar/continuar com um toque (só na tela cheia, pelo CSS) */
+    if (pp) { pp.classList.toggle('hidden', !show); const k = show ? (s.running ? 'r' : 'p') : ''; if (pp._k !== k) { pp._k = k; pp.classList.toggle('paused', !s.running);
+      pp.innerHTML = s.running ? '<svg viewBox="0 0 24 24" width="14" height="14"><rect x="6" y="5" width="4.2" height="14" rx="1.3" fill="currentColor"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.3" fill="currentColor"/></svg>' : '<svg viewBox="0 0 24 24" width="14" height="14"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l10.6-6.8a1 1 0 0 0 0-1.72L9.5 4.34A1 1 0 0 0 8 5.2Z" fill="currentColor"/></svg>';
+      pp.title = s.running ? 'Pausar' : 'Continuar'; } }
     const ct = document.querySelector('.ch-title'); if (ct) ct.classList.toggle('has-timer', show);
     if (typeof QuizPad !== 'undefined') QuizPad.sync();
     if (this.pop && this.pop.isConnected) { const b = this.pop.querySelector('.tm-big'); if (b) b.textContent = txt; this.paintRing(); const st = this.pop.querySelector('.tm-stats'); if (st && (!this._statT || Date.now() - this._statT > 15000)) { this._statT = Date.now(); st.replaceWith(this.statsEl()); } }

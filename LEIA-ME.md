@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.39.1
+
+- **Cadernos novos começam sem rascunho embaixo.** Para pôr o espaço num caderno: ⋯ → "Rascunho embaixo" (Pequeno, Médio ou Grande). Os cadernos que já têm rascunho continuam com ele.
+- **Pausar com um toque na tela cheia:** com o cronômetro, o temporizador ou o Pomodoro em andamento, aparece um botão redondo à direita da bateria. Um toque pausa e outro continua. Fica roxo quando está contando e laranja quando está pausado.
+
 ## Novidades da v1.39.0
 
 - **Rascunho embaixo de cada questão** (cadernos de questões e caderno de erros): toda questão ganha logo abaixo um espaço quadriculado do mesmo tamanho, para fazer contas sem precisar ir para o lado. O tamanho fica no ⋯ → "Rascunho embaixo": Sem, Pequeno, Médio (padrão) ou Grande. Trocar o tamanho remonta o caderno com os mesmos números, respostas, dúvidas e escrita.

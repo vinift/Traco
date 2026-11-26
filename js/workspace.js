@@ -258,7 +258,7 @@ const Focus = {
       const bar = document.querySelector('#editor .ch-topright') || document.querySelector('#editor .ch-topleft'), lim = bar ? bar.getBoundingClientRect().bottom + 14 : 90;
       if (e.clientY > lim) return;
       if (ed.classList.contains('immersive')) { /* v1.36.1: na tela cheia, um toque (sem arrastar) no topo também sai dela — menos no tempo/relógio e no botão do canto */
-        if (e.target.closest && e.target.closest('.note-timer,.note-clock,#btnFullExit')) return;
+        if (e.target.closest && e.target.closest('.note-timer,.note-clock,.note-pp,#btnFullExit')) return;
         this._tt = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() }; return;
       }
       if (!ed.classList.contains('writing')) return;

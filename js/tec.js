@@ -15,7 +15,7 @@ const Tec = {
   async check(note) {
     if (!note || this._no.has(note.id) || this._busy.has(note.id)) return;
     this.bankBar(note && note.bank ? note : null); /* v1.26 */
-    if (note.tec) { this.reg(note); try { this.upDoubt(note); this.redrawMarks(note); } catch (e) { logError(e, 'dúvidas antigas'); } this.reconcile(note); if (note.tec.built && ((note.tec.hv || 1) < 2 || !note.tec.sp)) setTimeout(() => this.rebuild(note).catch((e) => logError(e, 'cabeçalho')), 300); if (!(note.tec.v >= 2)) await this.upgrade(note); if (!note.bank) this.repeats(note); return; } /* v1.27: no caderno de erros tudo já foi feito — sem etiquetas */ if (note.tec !== undefined) return;
+    if (note.tec) { this.reg(note); try { this.upDoubt(note); this.redrawMarks(note); } catch (e) { logError(e, 'dúvidas antigas'); } this.reconcile(note); if (note.tec.built && (note.tec.hv || 1) < 2) setTimeout(() => this.rebuild(note).catch((e) => logError(e, 'cabeçalho')), 300); if (!(note.tec.v >= 2)) await this.upgrade(note); if (!note.bank) this.repeats(note); return; } /* v1.27: no caderno de erros tudo já foi feito — sem etiquetas */ if (note.tec !== undefined) return;
     const P = note.pages.filter((p) => p.pdf); if (!P.length) return;
     this._busy.add(note.id);
     try {
@@ -304,7 +304,7 @@ const Tec = {
      última resposta errada/com dúvida) e gera um PDF: cada questão recortada do original (embedPage, continua vetor) com uma
      faixa de cabeçalho própria (número · assunto · banca) e o número novo por cima do antigo. Devolve {bytes, tec} — tec já
      com os retângulos no PDF novo (não precisa reconhecer de novo). */
-  async build(srcs, { filter = 'all', keep = null, mats = null, skip = null, only = null, order = 'mix', sp = (Store.settings && Store.settings.tecSpace) || 'm' } = {}, onStep = () => {}) {
+  async build(srcs, { filter = 'all', keep = null, mats = null, skip = null, only = null, order = 'mix', sp = 'none' } = {}, onStep = () => {}) {
     const lib = await PdfCache.loadLib(), PL = await loadPdfLib(), out = await PL.PDFDocument.create(), seen = this.seen();
     const font = await out.embedFont(PL.StandardFonts.Helvetica), bold = await out.embedFont(PL.StandardFonts.HelveticaBold);
     const items = [], byId = new Set();
@@ -330,7 +330,7 @@ const Tec = {
     /* largura útil: a do original (margem esquerda do número espelhada) */
     const p0 = list[0].pdl.getPage(list[0].q.nr[0]).getSize(), left0 = Math.max(8, list[0].q.nr[1] - 8), cwPt = p0.width - 2 * left0 * K, W = cwPt + 2 * M, H = Math.round(W * 1.414);
     /* v1.39: rascunho embaixo de cada questão — espaço quadriculado fixo (pt) logo depois do cartão */
-    const spPt = this.SPACE[sp] != null ? this.SPACE[sp] : this.SPACE.m;
+    const spPt = this.SPACE[sp] || 0;
     let page = null, pgN = -1, y = 0; const embC = new Map(), vis = {}, tq = {}, gab = {}, newPage = () => { page = out.addPage([W, H]); pgN++; y = TOP; };
     for (let k = 0; k < list.length; k++) {
       const { q, num, g, R, pdl } = list[k], n = keep ? String(keep[q.id] || k + 1) : String(k + 1); if (k % 10 === 0) onStep(`Montando a questão ${k + 1} de ${list.length}`);
@@ -381,7 +381,7 @@ const Tec = {
   /* v1.39: tamanhos do rascunho embaixo (pt do PDF; página ~842 pt de altura) */
   SPACE: { none: 0, s: 110, m: 200, l: 320 },
   SPACE_LAB: { none: 'Sem', s: 'Pequeno', m: 'Médio', l: 'Grande' },
-  spOf(T) { return (T && T.sp) || (Store.settings && Store.settings.tecSpace) || 'm'; },
+  spOf(T) { return (T && T.sp) || 'none'; }, /* v1.39.1: padrão sem rascunho; cada caderno guarda o seu (T.sp) */
   /* quadriculado claro com borda arredondada tracejada; quadrados de 14 pt */
   drawSpace(page, PL, rr, x, y0, w, h, H, font) {
     const C = PL.rgb(0.91, 0.92, 0.95), st = 14, x1 = x + w;
@@ -398,8 +398,7 @@ const Tec = {
     openPop(anchor, box);
   },
   async setSpace(note, k) {
-    const T = note && note.tec; if (!T || !T.built || this._mounting) return; const S = Store.settings; S.tecSpace = k; Store.saveSettings();
-    const old = this.spOf(T); if (old === k && T.sp) return;
+    const T = note && note.tec; if (!T || !T.built || this._mounting) return;     const old = this.spOf(T); if (old === k) return;
     if (!Object.keys(T.q).length) { T.sp = k; Editor.markChanged(); return; }
     if (this.SPACE[k] < this.SPACE[old] && note.pages.some((p) => p.elements.some((e) => !this.isTag(e))) && !(await confirmBox('Diminuir o rascunho', 'Se algum rascunho for maior que o espaço novo, ele vai ficar por cima da questão seguinte. Continuar?', 'Diminuir'))) return;
     return this._reorder(note, this.ordOf(T), true, k);
@@ -623,9 +622,9 @@ const Tec = {
   },
   /* cadernos montados antes da v1.38.2: refaz o PDF uma vez com o cabeçalho novo, mesmos números, respostas e escrita */
   async rebuild(note) {
-    const T = note && note.tec; if (!T || !T.built || this._mounting || ((T.hv || 1) >= 2 && T.sp)) return;
+    const T = note && note.tec; if (!T || !T.built || this._mounting || (T.hv || 1) >= 2) return;
     if (!Object.keys(T.q).length) { T.hv = 2; T.sp = this.spOf(T); Editor.markChanged(); return; }
-    return this._reorder(note, this.ordOf(T), true, this.spOf(T), !T.sp); /* v1.39: cadernos sem T.sp ganham o rascunho embaixo (e perdem o ao lado, se vazio) */
+    return this._reorder(note, this.ordOf(T), true, this.spOf(T));
   },
   async _reorder(note, ord, keepNums, sp, dropSide) {
     const T = note.tec;
