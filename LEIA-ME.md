@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.38.4
+
+- **Marcas fora do lugar no caderno de questões, agora de vez:** além do fundo roxo, algumas marcas (o "Certo/Errado" roxo, o ✓/✗, o ↺ e o número amarelo da dúvida) tinham ido parar em outras questões depois de remontar o caderno. Agora, ao abrir o caderno, o Traço refaz as marcas de cada questão a partir das suas respostas e dúvidas, no lugar certo. Respostas, dúvidas (com o motivo), histórico e caderno de erros não mudam.
+- Trocar Em ordem/Embaralhado também passou a redesenhar as marcas no lugar certo.
+
 ## Novidades da v1.38.3
 
 - **Barras roxas fora do lugar no caderno de questões, corrigido:** quando o caderno era remontado (trocar Em ordem/Embaralhado ou a atualização do cabeçalho da v1.38.2), o texto "Certo"/"Errado" que você marcou ia para a questão certa, mas o fundo roxo ficava no lugar antigo, em cima de outras questões. O mesmo podia acontecer com o número amarelo da dúvida.

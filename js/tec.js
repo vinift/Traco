@@ -15,7 +15,7 @@ const Tec = {
   async check(note) {
     if (!note || this._no.has(note.id) || this._busy.has(note.id)) return;
     this.bankBar(note && note.bank ? note : null); /* v1.26 */
-    if (note.tec) { this.reg(note); try { this.upDoubt(note); this.fixBoxes(note); } catch (e) { logError(e, 'dúvidas antigas'); } this.reconcile(note); if (note.tec.built && (note.tec.hv || 1) < 2) setTimeout(() => this.rebuild(note).catch((e) => logError(e, 'cabeçalho')), 300); if (!(note.tec.v >= 2)) await this.upgrade(note); if (!note.bank) this.repeats(note); return; } /* v1.27: no caderno de erros tudo já foi feito — sem etiquetas */ if (note.tec !== undefined) return;
+    if (note.tec) { this.reg(note); try { this.upDoubt(note); this.redrawMarks(note); } catch (e) { logError(e, 'dúvidas antigas'); } this.reconcile(note); if (note.tec.built && (note.tec.hv || 1) < 2) setTimeout(() => this.rebuild(note).catch((e) => logError(e, 'cabeçalho')), 300); if (!(note.tec.v >= 2)) await this.upgrade(note); if (!note.bank) this.repeats(note); return; } /* v1.27: no caderno de erros tudo já foi feito — sem etiquetas */ if (note.tec !== undefined) return;
     const P = note.pages.filter((p) => p.pdf); if (!P.length) return;
     this._busy.add(note.id);
     try {
@@ -119,16 +119,42 @@ const Tec = {
     /* v1.23: seleção e correção separadas — a sua resposta é sempre um círculo roxo; o resultado vem numa pílula ao lado.
        v1.24: + pílula "↺ limpar" (tqx). A etiqueta "já feita" (tqr) sai: a resposta nova substitui. */
     for (const e of this.marks(page, num, 'tqr')) Editor.recRemove(page, e);
-    const c = q.c, e2 = q.e, lab = ok == null ? 'sem gabarito' : ok ? '✓' : `✗ ${g === 'C' ? 'Certo' : 'Errado'}`, top0 = Math.min(c[2], e2[2]), bot0 = Math.max(c[2] + c[4], e2[2] + e2[4]), px = Math.max(c[1] + c[3], e2[1] + e2[3]) + (q.btn ? 10 : 16), py = top0 + (bot0 - top0) / 2 - 7; /* v1.25: só ✓ / ✗ + o gabarito */
-    const tqa = { a: v, ok, d: d ? 1 : 0, t, x, er }, R0 = v === 'C' ? c : e2;
-    const sel = q.btn ? (() => { const lab2 = v === 'C' ? 'Certo' : 'Errado', base = { type: 'text', text: lab2, size: 12, bold: true, auto: true, w: 200, x: 0, y: 0 }, L = layoutText(base); return { ...base, id: uid(), x: R0[1] + (R0[3] - L.w) / 2, y: R0[2] + (R0[4] - L.h) / 2, color: '#ffffff', bg: '#7c3aed', pbox: [R0[1], R0[2], R0[3], R0[4]], tq: num, tqa }; })() : this.ring(R0, '#7c3aed', num, { tq: num, width: 2.2, tqa }); /* v1.27: botão vira roxo cheio */
-    const els = [sel, this.pill(px, py, lab, ok == null ? 'gray' : ok ? 'ok' : 'no', { tq: num }),
-      this.pill(px + this.pillW(lab) + 8, py, '↺', 'gray', { tq: num, tqx: num })];
+    const tqa = { a: v, ok, d: d ? 1 : 0, t, x, er }, els = this.ansEls(note, num, tqa);
     for (const el2 of els) this.recAdd(page, el2); Editor.opCommit();
     try { navigator.vibrate && navigator.vibrate(ok === false ? [18, 50, 18] : 8); } catch (_) {}
     if (ok == null) toast(`Questão ${num} sem gabarito (anulada ou desatualizada)`, 2200); else if (!ok) toast(`✗ Questão ${num}: gabarito ${g === 'C' ? 'Certo' : 'Errado'} — foi para o caderno de erros`, 2400); else if (d) toast('✓ Acertou, mas com dúvida — foi para a revisão', 1800);
   },
   recAdd(page, e) { Editor.recAdd(page, e); },
+  /* marcas de uma resposta: seleção (botão roxo ou círculo) + pílula da correção + "↺" (tqa = {a, ok, d, t, x, er}) */
+  ansEls(note, num, tqa) {
+    const T = note.tec, q = T.q[num], g = T.gab[num], v = tqa.a, ok = tqa.ok;
+    const c = q.c, e2 = q.e, lab = ok == null ? 'sem gabarito' : ok ? '✓' : `✗ ${g === 'C' ? 'Certo' : 'Errado'}`, top0 = Math.min(c[2], e2[2]), bot0 = Math.max(c[2] + c[4], e2[2] + e2[4]), px = Math.max(c[1] + c[3], e2[1] + e2[3]) + (q.btn ? 10 : 16), py = top0 + (bot0 - top0) / 2 - 7; /* v1.25: só ✓ / ✗ + o gabarito */
+    const R0 = v === 'C' ? c : e2;
+    const sel = q.btn ? (() => { const lab2 = v === 'C' ? 'Certo' : 'Errado', base = { type: 'text', text: lab2, size: 12, bold: true, auto: true, w: 200, x: 0, y: 0 }, L = layoutText(base); return { ...base, id: uid(), x: R0[1] + (R0[3] - L.w) / 2, y: R0[2] + (R0[4] - L.h) / 2, color: '#ffffff', bg: '#7c3aed', pbox: [R0[1], R0[2], R0[3], R0[4]], tq: num, tqa }; })() : this.ring(R0, '#7c3aed', num, { tq: num, width: 2.2, tqa }); /* v1.27: botão vira roxo cheio */
+    return [sel, this.pill(px, py, lab, ok == null ? 'gray' : ok ? 'ok' : 'no', { tq: num }), this.pill(px + this.pillW(lab) + 8, py, '↺', 'gray', { tq: num, tqx: num })];
+  },
+  /* v1.38.4: refaz as marcas (resposta e dúvida) dos cadernos montados a partir dos dados (T.ans/T.d), na página e no lugar certos.
+     Remontagens antigas espalharam marcas para outras questões (o pbox velho entrava na caixa do item e mudava a "dona" no inkPack).
+     Só mexe nas questões cujas marcas não batem com o esperado. direct = nota fora do editor (mexe nas listas sem desfazer). */
+  redrawMarks(note, direct) {
+    const T = note.tec; if (!T || !T.built || !T.q) return 0;
+    const pageOf = (r) => r && note.pages.find((p) => p.pdf && p.pdf.blobId === T.blob && p.pdf.index === r[0]);
+    const have = {}, want = {}, add = (M, k, p, e) => (M[k] = M[k] || []).push({ p, e });
+    for (const p of note.pages) for (const e of p.elements) { if (e.tq != null) add(have, String(e.tq), p, e); else if (e.tqd != null) add(have, String(e.tqd), p, e); }
+    for (const [num, A] of Object.entries(T.ans || {})) { const q = T.q[num]; if (!q || !q.c || !q.e) continue; const pg = pageOf(A.a === 'C' ? q.c : q.e); if (!pg) continue;
+      const old = (have[num] || []).find((o) => o.e.tqa); const tqa = old ? old.e.tqa : { a: A.a, ok: A.ok, d: A.d || 0, t: A.t, x: null, er: null };
+      for (const e of this.ansEls(note, num, tqa)) add(want, num, pg, e); }
+    for (const num of Object.keys(T.d || {})) { const q = T.q[num]; if (!q || !q.nr) continue; const pg = pageOf(q.nr); if (!pg) continue; const old = (have[num] || []).find((o) => o.e.tqd != null); add(want, num, pg, this.dMark(note, num, old && old.e.why)); }
+    const sig = (L) => (L || []).map((o) => `${o.p.id}:${o.e.tqd != null ? 'd' : ''}${o.e.type}:${o.e.text || ''}:${Math.round(o.e.x ?? o.e.x1)}:${Math.round(o.e.y ?? o.e.y1)}`).sort().join('|');
+    let n = 0; const ops = [];
+    for (const num of new Set([...Object.keys(have), ...Object.keys(want)])) { if (sig(have[num]) === sig(want[num])) continue; n++; for (const o of have[num] || []) ops.push(['rm', o.p, o.e]); for (const o of want[num] || []) ops.push(['add', o.p, o.e]); }
+    if (!n) return 0;
+    for (const p of note.pages) for (const e of p.elements) if (e.tqr != null || e.tqh != null) ops.push(['rm', p, e]); /* etiquetas "já feita" e faixas: refeitas pelo repeats() */
+    T.rep = {};
+    for (const [k, p, e] of ops) { if (direct) { if (k === 'rm') { const i = p.elements.indexOf(e); if (i >= 0) p.elements.splice(i, 1); } else p.elements.push(e); } else if (k === 'rm') Editor.recRemove(p, e); else Editor.recAdd(p, e); }
+    if (!direct) { const op = Editor.curOp; Editor.opCommit(); const U = Editor.undoStack; if (op && U[U.length - 1] === op) U.pop(); Editor.markChanged(); }
+    return n;
+  },
   addErr(note, num, x) {
     const L = StudyTimer.log, E = L.errs || (L.errs = []), q = note.tec.q[num], sb = StudyTimer.ansSubj(x);
     const er = { id: uid(), t: x[0], f: sb.key, n: note.id, aula: null, q: num, txt: q.ass || q.mat || 'TEC', tec: { id: q.id, num, blob: note.tec.blob, pg: (q.c || q.nr || [0])[0] }, duv: x[1] ? 1 : 0, done: false }; { const w = this.whyOf(note, num); if (w) er.why = w; } E.push(er); if (E.length > 5000) E.splice(0, E.length - 5000); return er;
@@ -202,22 +228,6 @@ const Tec = {
       const box = el('div', { class: 'tq-why' }, el('div', { class: 'tq-why-h' }, `🤔 Questão ${num} — por que a dúvida?`), el('div', { class: 'tq-why-list' }, ...this.whyList().map(chip), ...(cur && !this.whyList().includes(cur) ? [chip(cur)] : []), other));
       openPop(anc, box, { onClose: () => anc.remove() });
     } catch (e) { logError(e, 'motivo da dúvida'); }
-  },
-  /* v1.38.3: conserta o fundo (pbox) de "Certo/Errado" selecionado e do número amarelo que ficou no lugar antigo depois de remontar o
-     caderno (v1.37–v1.38.2: o transformEl não movia o pbox). Recalcula pelo botão/número da própria questão; sem passo no desfazer. */
-  fixBoxes(note) {
-    const T = note.tec; if (!T || !T.q) return; let n = 0;
-    const near = (r, cx, cy) => Math.hypot(r[1] + r[3] / 2 - cx, r[2] + r[4] / 2 - cy);
-    for (const p of note.pages) { if (!p.pdf) continue; const els = p.elements;
-      for (let i = 0; i < els.length; i++) { const e = els[i]; if (e.type !== 'text' || !e.pbox) continue; let want = null;
-        if (e.tqd != null && T.q[e.tqd]) want = this.dMark(note, String(e.tqd), e.why);
-        else if (e.tq != null && T.q[e.tq] && T.q[e.tq].btn) { const q = T.q[e.tq], L = layoutText(e), cx = e.x + L.w / 2, cy = e.y + L.h / 2;
-          const R = [q.c, q.e].filter((r) => r && r[0] === p.pdf.index).sort((a, b) => near(a, cx, cy) - near(b, cx, cy))[0]; if (R) { const lab = e.text, base = { ...e }; want = { ...base, x: R[1] + (R[3] - L.w) / 2, y: R[2] + (R[4] - L.h) / 2, pbox: [R[1], R[2], R[3], R[4]] }; void lab; } }
-        if (!want) continue; want.id = e.id; if (want.tqa === undefined && e.tqa) want.tqa = e.tqa;
-        const same = Math.abs(want.pbox[0] - e.pbox[0]) < 0.5 && Math.abs(want.pbox[1] - e.pbox[1]) < 0.5 && Math.abs(want.x - e.x) < 0.5 && Math.abs(want.y - e.y) < 0.5; if (same) continue;
-        Editor.recReplace(p, e, want); n++; } }
-    if (n) { const op = Editor.curOp; Editor.opCommit(); const U = Editor.undoStack; if (op && U[U.length - 1] === op) U.pop(); }
-    return n;
   },
   /* v1.38: cadernos antigos — a elipse laranja da dúvida vira o selo amarelo (sem passo no desfazer) */
   upDoubt(note) {
@@ -607,7 +617,7 @@ const Tec = {
       this.inkPlace(pages, T2, ink); this.keepScratch(note.pages, pages);
       if (loose.length && pages[0]) pages[0].elements.push(...loose);
       await Editor.close();
-      note.pages = pages; note.tec = T2; this.reg(note);
+      note.pages = pages; note.tec = T2; this.reg(note); try { this.redrawMarks(note, true); } catch (e) { logError(e, 'marcas'); }
       await Store.putNote(note); if (oldBlob && !srcs.some((x) => x.blobId === oldBlob)) { try { await DB.del('blobs', oldBlob); } catch (_) {} }
       App._busy = false; await App.openNote(note.id);
       toast(keepNums ? '' : ord === 'seq' ? 'Questões em ordem' : 'Questões embaralhadas', 1600);
