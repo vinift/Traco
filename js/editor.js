@@ -620,7 +620,7 @@ const Editor = {
     const hand = Store.settings.hand || 'right', half = this.W / 2, sideOk = hand === 'none' || (hand === 'right' ? g.maxX < half : g.minX > half);
     if (g.max >= 4 && dt < 800) { if (typeof BugRec !== 'undefined') BugRec.capture('4 dedos'); return; } /* v0.54: toque com 4 dedos = relatar problema visual */
     if (!g.moved && dt < 350 && g.max >= 2 && !sideOk) return;
-    if (!g.moved && dt < 350) { if (g.max === 2) { this.undo();  } else if (g.max === 3) { this.redo();  } else if (g.max === 1 && g.p0 && !this.readOnly) this.fingerTap(g.p0); }
+    if (!g.moved && dt < 350) { if (g.max === 2) { this.undo();  } else if (g.max === 3) { this.redo();  } else if (g.max === 1 && g.p0 && !this.readOnly && !(typeof Focus !== 'undefined' && Focus._eatTap && performance.now() - Focus._eatTap < 300)) this.fingerTap(g.p0); } /* v1.36.5: toque que saiu da tela cheia não seleciona nada */
   },
 
   /* ---------- Ações de ferramenta ---------- */

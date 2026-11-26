@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.36.5
+
+- Corrigido: o toque no topo para sair da tela cheia podia selecionar a palavra que estava ali atrás e deixar o dedo "preso" — depois disso um dedo só fazia zoom em vez de rolar. Agora o toque só sai da tela cheia, não seleciona nada e o dedo volta ao normal.
+
 ## Novidades da v1.36.4
 
 - Corrigido: tocar no topo para sair da tela cheia acionava o botão escondido que estava ali (ex.: voltar fechava a nota). Agora o 1º toque só sai da tela cheia (ou traz as barras de volta, na tela cheia de escrita); o botão só funciona no toque seguinte, quando você já está vendo ele.

@@ -266,8 +266,10 @@ const Focus = {
     }, true);
     this.ed().addEventListener('pointerup', (e) => {
       const t = this._tt; this._tt = null; if (!t || t.id !== e.pointerId || !this.on) return;
-      if (Math.hypot(e.clientX - t.x, e.clientY - t.y) > 10 || performance.now() - t.t > 450) return;
-      e.preventDefault(); e.stopPropagation(); this.toggle(false); this._eat = performance.now();
+      if (Math.hypot(e.clientX - t.x, e.clientY - t.y) > 10 || performance.now() - t.t > 350) return; /* < 400 ms: antes da seleção de palavra por segurar */
+      /* v1.36.5: o pointerup segue para o editor (senão o dedo ficava "preso" na lista de toques e o próximo virava pinça);
+         o toque só não vira toque de dedo no editor (_eatTap) nem clique no botão que reaparece (_eat) */
+      this.toggle(false); this._eat = this._eatTap = performance.now();
     }, true);
     /* v1.36.4: o clique desse mesmo toque não aciona o botão que acabou de reaparecer (voltar, páginas…) — só o próximo toque */
     addEventListener('click', (e) => { if (this._eat && performance.now() - this._eat < 700) { this._eat = 0; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
