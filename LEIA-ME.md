@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.35.1
+
+- Corrigido: com o Drive sincronizando (texto longo na pílula), o texto da busca da tela inicial passava da caixa. Agora a caixa de busca mantém o tamanho e o texto da sincronização é que encurta com "…" (o texto inteiro aparece ao segurar/passar sobre a pílula).
+
 ## Novidades da v1.35.0 — revisão e limpeza
 
 - **Reorganizar questões** (⋯ do caderno) agora **remonta o próprio caderno** em vez de criar outro: "Só as que não fiz", "As que não fiz + as que errei" ou "Todas, embaralhadas de novo". A escrita das questões que você ainda não respondeu vai junto; as que você já respondeu ali voltam limpas (o histórico continua).
