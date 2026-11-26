@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.38.3
+
+- **Barras roxas fora do lugar no caderno de questões, corrigido:** quando o caderno era remontado (trocar Em ordem/Embaralhado ou a atualização do cabeçalho da v1.38.2), o texto "Certo"/"Errado" que você marcou ia para a questão certa, mas o fundo roxo ficava no lugar antigo, em cima de outras questões. O mesmo podia acontecer com o número amarelo da dúvida.
+- Ao abrir o caderno, o Traço conserta sozinho: cada fundo roxo/amarelo volta para o botão ou número da sua questão. Suas respostas não mudam.
+
 ## Novidades da v1.38.2
 
 - **Cabeçalho das questões corrigido:** era um erro do Traço, não do PDF. O TEC imprime a linha completa (ex.: "CEBRASPE (CESPE) - PCF/PF/Área 1/2018"), mas o Traço só mostrava os dois últimos pedaços ("Área 1/2018"), e o órgão e o cargo sumiam. Quando aparecia "Administração", era a área do cargo, não a matéria.

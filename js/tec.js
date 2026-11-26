@@ -15,7 +15,7 @@ const Tec = {
   async check(note) {
     if (!note || this._no.has(note.id) || this._busy.has(note.id)) return;
     this.bankBar(note && note.bank ? note : null); /* v1.26 */
-    if (note.tec) { this.reg(note); try { this.upDoubt(note); } catch (e) { logError(e, 'dúvidas antigas'); } this.reconcile(note); if (note.tec.built && (note.tec.hv || 1) < 2) setTimeout(() => this.rebuild(note).catch((e) => logError(e, 'cabeçalho')), 300); if (!(note.tec.v >= 2)) await this.upgrade(note); if (!note.bank) this.repeats(note); return; } /* v1.27: no caderno de erros tudo já foi feito — sem etiquetas */ if (note.tec !== undefined) return;
+    if (note.tec) { this.reg(note); try { this.upDoubt(note); this.fixBoxes(note); } catch (e) { logError(e, 'dúvidas antigas'); } this.reconcile(note); if (note.tec.built && (note.tec.hv || 1) < 2) setTimeout(() => this.rebuild(note).catch((e) => logError(e, 'cabeçalho')), 300); if (!(note.tec.v >= 2)) await this.upgrade(note); if (!note.bank) this.repeats(note); return; } /* v1.27: no caderno de erros tudo já foi feito — sem etiquetas */ if (note.tec !== undefined) return;
     const P = note.pages.filter((p) => p.pdf); if (!P.length) return;
     this._busy.add(note.id);
     try {
@@ -202,6 +202,22 @@ const Tec = {
       const box = el('div', { class: 'tq-why' }, el('div', { class: 'tq-why-h' }, `🤔 Questão ${num} — por que a dúvida?`), el('div', { class: 'tq-why-list' }, ...this.whyList().map(chip), ...(cur && !this.whyList().includes(cur) ? [chip(cur)] : []), other));
       openPop(anc, box, { onClose: () => anc.remove() });
     } catch (e) { logError(e, 'motivo da dúvida'); }
+  },
+  /* v1.38.3: conserta o fundo (pbox) de "Certo/Errado" selecionado e do número amarelo que ficou no lugar antigo depois de remontar o
+     caderno (v1.37–v1.38.2: o transformEl não movia o pbox). Recalcula pelo botão/número da própria questão; sem passo no desfazer. */
+  fixBoxes(note) {
+    const T = note.tec; if (!T || !T.q) return; let n = 0;
+    const near = (r, cx, cy) => Math.hypot(r[1] + r[3] / 2 - cx, r[2] + r[4] / 2 - cy);
+    for (const p of note.pages) { if (!p.pdf) continue; const els = p.elements;
+      for (let i = 0; i < els.length; i++) { const e = els[i]; if (e.type !== 'text' || !e.pbox) continue; let want = null;
+        if (e.tqd != null && T.q[e.tqd]) want = this.dMark(note, String(e.tqd), e.why);
+        else if (e.tq != null && T.q[e.tq] && T.q[e.tq].btn) { const q = T.q[e.tq], L = layoutText(e), cx = e.x + L.w / 2, cy = e.y + L.h / 2;
+          const R = [q.c, q.e].filter((r) => r && r[0] === p.pdf.index).sort((a, b) => near(a, cx, cy) - near(b, cx, cy))[0]; if (R) { const lab = e.text, base = { ...e }; want = { ...base, x: R[1] + (R[3] - L.w) / 2, y: R[2] + (R[4] - L.h) / 2, pbox: [R[1], R[2], R[3], R[4]] }; void lab; } }
+        if (!want) continue; want.id = e.id; if (want.tqa === undefined && e.tqa) want.tqa = e.tqa;
+        const same = Math.abs(want.pbox[0] - e.pbox[0]) < 0.5 && Math.abs(want.pbox[1] - e.pbox[1]) < 0.5 && Math.abs(want.x - e.x) < 0.5 && Math.abs(want.y - e.y) < 0.5; if (same) continue;
+        Editor.recReplace(p, e, want); n++; } }
+    if (n) { const op = Editor.curOp; Editor.opCommit(); const U = Editor.undoStack; if (op && U[U.length - 1] === op) U.pop(); }
+    return n;
   },
   /* v1.38: cadernos antigos — a elipse laranja da dúvida vira o selo amarelo (sem passo no desfazer) */
   upDoubt(note) {

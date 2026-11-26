@@ -323,6 +323,7 @@ function transformEl(e, f) { // f: {sx, sy, ox, oy, dx, dy}  x' = ox + (x-ox)*sx
   } else if (e.type === 'text') {
     const bw = e.auto ? layoutText(e).w : e.w;
     n.x = X(e.x); n.y = Y(e.y); n.w = Math.max(20, bw * f.sx);
+    if (e.pbox) { const [bx, by, bw2, bh] = e.pbox; n.pbox = [r2(X(bx)), r2(Y(by)), r2(bw2 * Math.abs(f.sx)), r2(bh * Math.abs(f.sy))]; } /* v1.38.3: o fundo do botão (pbox) anda junto com o texto */
     if (e.auto) { if (f.free) delete n.auto; else n.maxW = (e.maxW || 600) * f.sx; } // largura ajustada à mão: a caixa passa a quebrar linhas nela
     if (f.free) { if (e.sticky) n.minH = Math.max(40, (e.minH || e.w) * f.sy); }
     else if (f.sx !== 1 || f.sy !== 1) { n.size = Math.max(4, e.size * f.sy); if (e.minH) n.minH = e.minH * f.sy; }
