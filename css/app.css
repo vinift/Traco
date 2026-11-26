@@ -1710,3 +1710,8 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 #editor .ch-title .title-input{max-width:none;flex:0 1 auto;text-overflow:ellipsis}
 #editor .ch-title>:not(.title-input){flex-shrink:0}
 #editor .ch-title .title-input:focus{text-overflow:clip}
+/* v1.37: interruptor "Em ordem | Embaralhado" no ⋯ do caderno de questões */
+.nm-item.nm-ord{align-items:center}
+.nm-item .nm-sw{margin-left:auto;display:inline-flex!important;flex-direction:row!important;white-space:nowrap;flex:none;background:var(--panel2);border-radius:999px;padding:3px;gap:2px;font-size:11.5px}
+.nm-sw i{font-style:normal;padding:4px 9px;border-radius:999px;color:var(--muted)}
+.nm-sw:not(.on) i:first-child,.nm-sw.on i:last-child{background:var(--accent);color:#fff;font-weight:600}

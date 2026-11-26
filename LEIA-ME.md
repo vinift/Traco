@@ -153,6 +153,15 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.37.0
+
+- **Ordem das questões no caderno:** no ⋯ do caderno de questões há um interruptor **Em ordem | Embaralhado**.
+  - **Em ordem:** as questões ficam como o TEC imprimiu (por assunto). PDFs adicionados depois entram no fim, também em ordem.
+  - **Embaralhado:** tudo misturado, como era antes.
+  - Trocar não perde nada: respostas, dúvidas, correções e o que você escreveu vão junto com cada questão.
+  - Caderno novo (vazio) começa **em ordem**; cadernos que já tinham questões continuam embaralhados até você trocar.
+- Testado com os seus 2 PDFs de Navegadores (letra grande): 200 + 37 questões lidas, todos os gabaritos certos.
+
 ## Novidades da v1.36.6
 
 - **Rabiscar para apagar em textos maiores:** agora o zigue-zague (ou as laçadas) que vai andando por cima de uma linha inteira também apaga. Só apaga a escrita que ficou bem coberta e cruzada pelo rabisco; escrever "mmm" ou "www" num lugar vazio continua sendo tinta normal.
