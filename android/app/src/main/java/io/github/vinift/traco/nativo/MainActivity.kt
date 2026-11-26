@@ -1,7 +1,10 @@
 package io.github.vinift.traco.nativo
 
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -14,6 +17,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResult
@@ -159,7 +163,33 @@ class MainActivity : ComponentActivity() {
     }
 
     fun openExternal(url: String) {
-        try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
+        val uri = Uri.parse(url)
+        if (uri.host?.endsWith("tecconcursos.com.br") == true && openTec(uri)) return
+        try { startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
+    }
+
+    /* v1.39.2: link do TEC → app do TEC Concursos (se instalado), não o navegador.
+       1) um app que não é navegador e abre esse link (mesmo sem "abrir links compatíveis" ligado) → abre a questão nele;
+       2) senão, abre o app do TEC na tela inicial e copia o link da questão; 3) senão, navegador (false). */
+    @Suppress("DEPRECATION")
+    private fun openTec(uri: Uri): Boolean {
+        val pm = packageManager
+        return try {
+            val view = Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE)
+            val browsers = pm.queryIntentActivities(Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com/a")).addCategory(Intent.CATEGORY_BROWSABLE), PackageManager.MATCH_ALL).map { it.activityInfo.packageName }.toSet()
+            val app = pm.queryIntentActivities(view, PackageManager.MATCH_ALL).firstOrNull { it.activityInfo.packageName !in browsers && it.activityInfo.packageName != packageName }
+            if (app != null) {
+                startActivity(Intent(view).setClassName(app.activityInfo.packageName, app.activityInfo.name).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true
+            }
+            val tec = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0).firstOrNull { r ->
+                val p = r.activityInfo.packageName.lowercase(); val l = r.loadLabel(pm).toString().lowercase().trim()
+                p.contains("tecconcursos") || p.contains("tec.concursos") || l == "tec concursos" || l == "tecconcursos"
+            } ?: return false
+            val launch = pm.getLaunchIntentForPackage(tec.activityInfo.packageName) ?: return false
+            (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Questão do TEC", uri.toString()))
+            Toast.makeText(this, "Abrindo o app do TEC. O link da questão foi copiado.", Toast.LENGTH_LONG).show()
+            startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
+        } catch (_: Exception) { false }
     }
 
     fun js(code: String) { runOnUiThread { web.evaluateJavascript(code, null) } }
