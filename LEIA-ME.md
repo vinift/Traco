@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.35.2
+
+- Corrigido: sair do app no meio de uma sincronização (trocar de app, mudar de aba, apagar a tela) e voltar fazia o Traço achar que tinha travado ("O app fechou durante o backup…") e deixar o backup mais leve sem precisar. Agora, se o app saiu da tela durante o envio, isso não conta como travamento. Travamento de verdade, com o app aberto, continua sendo avisado.
+
 ## Novidades da v1.35.1
 
 - Corrigido: com o Drive sincronizando (texto longo na pílula), o texto da busca da tela inicial passava da caixa. Agora a caixa de busca mantém o tamanho e o texto da sincronização é que encurta com "…" (o texto inteiro aparece ao segurar/passar sobre a pílula).

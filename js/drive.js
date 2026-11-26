@@ -285,12 +285,20 @@ const Drive = {
   /* PDF automático: qualidade do backup (padrão 200 dpi). Se o app fechou gerando o PDF de uma nota (memória do tablet),
      a próxima tentativa usa 120 dpi; se fechar de novo, o PDF dessa nota deixa de ser gerado sozinho (dá para exportar à mão). */
   HEAVY: 'traco-heavy',
-  heavyStart(info) { try { localStorage.setItem(this.HEAVY, JSON.stringify({ ...info, at: Date.now() })); } catch (_) {} },
+  heavyStart(info) { try { localStorage.setItem(this.HEAVY, JSON.stringify({ ...info, at: Date.now(), hidden: typeof document !== 'undefined' && document.hidden ? 1 : 0 })); } catch (_) {} this.heavyWatch(); },
+  /* v1.35.2: se o app sai da tela no meio do envio (trocou de app/aba, apagou a tela), o Android pode encerrar ou recarregar a
+     página em segundo plano — isso não é travamento. Marca a migalha como "saiu da tela" e o checkCrash não penaliza nem avisa. */
+  heavyWatch() {
+    if (this._hw || typeof document === 'undefined') return; this._hw = true;
+    const mark = (e) => { if (e && e.type === 'visibilitychange' && !document.hidden) return; try { const h = JSON.parse(localStorage.getItem(this.HEAVY) || 'null'); if (h && !h.hidden) { h.hidden = 1; localStorage.setItem(this.HEAVY, JSON.stringify(h)); } } catch (_) {} };
+    document.addEventListener('visibilitychange', mark); addEventListener('pagehide', mark); addEventListener('freeze', mark);
+  },
   heavyEnd() { try { localStorage.removeItem(this.HEAVY); } catch (_) {} },
   checkCrash() {
     if (this.cfg.pdfCrashV !== 3) { this.cfg.pdfCrash = {}; this.cfg.pdfCrashV = 3; Store.saveSettings(); } // v0.10.1: o PDF ficou leve (de ~500 MB para ~100 MB de memória); religa o PDF automático das notas que tinham falhado
     let h = null; try { h = JSON.parse(localStorage.getItem(this.HEAVY) || 'null'); } catch (_) {} this.heavyEnd();
     if (!h || Date.now() - h.at > 864e5) return;
+    if (h.hidden) { console.info('backup interrompido com o app fora da tela (não é travamento):', h.title); return; } /* v1.35.2 */
     logError(`O app fechou enquanto ${h.kind === 'pdf' ? 'gerava o PDF' : 'enviava'} de "${h.title}" (${h.pages} pág.${h.dpi ? ', ' + h.dpi + ' dpi' : ''})`, 'travamento');
     if (h.kind === 'pdf') { const c = (this.cfg.pdfCrash = this.cfg.pdfCrash || {}); c[h.id] = (c[h.id] || 0) + 1; Store.saveSettings(); }
     setTimeout(() => toast(h.kind === 'pdf' && this.cfg.pdfCrash[h.id] >= 2 ? `O PDF automático de "${h.title}" foi desligado: a nota é grande demais para gerar no tablet. Use Exportar PDF quando precisar.` : 'O app fechou durante o backup; vou tentar de um jeito mais leve.', 6000), 1500);
