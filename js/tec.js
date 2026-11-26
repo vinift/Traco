@@ -392,20 +392,20 @@ const Tec = {
   async bankMount(note, mats, st) {
     if (this._mounting) return; this._mounting = true;
     try {
-      this.reconcile(note); const T = note.tec, B = note.bank, ink = { ...(B.ink || {}) };
-      for (const q of Object.values(T.q)) delete ink[q.id];
-      const pk = this.inkPack(note), loose = pk.loose; Object.assign(ink, pk.byId); /* v1.31.1: por questão, inclusive margem e vãos */
-      const outI = await this.outInk(); /* escrita das questões que saíram dos cadernos de origem */
+      this.reconcile(note); const T = note.tec, B = note.bank, ink = {};
+      /* v1.31.2: sem spoiler — o caderno de erros não traz escrita antiga (nem da origem nem de tentativa anterior aqui); só
+         fica a escrita das questões ainda NÃO respondidas nesta montagem (rascunho em andamento ao tocar em Atualizar) */
+      const answered = new Set(Object.keys(T.ans).map((n) => T.q[n] && T.q[n].id).filter(Boolean)), pk = this.inkPack(note), loose = pk.loose;
+      for (const [id, els] of Object.entries(pk.byId)) if (!answered.has(id)) ink[id] = els;
       const srcs = await this.bankSources(); toast('Montando o caderno…', 60000);
       const R = await this.build(srcs, { filter: st, mats }, (m) => toast(m, 60000));
       if (R.empty) { B.all = R.matCount; await Store.putNote(note); toast('Nenhuma questão nesse filtro 🎉', 3500); return; }
       const oldBlob = T.blob, file = new File([R.bytes], 'caderno.pdf', { type: 'application/pdf' }), pages = await importPdfFile(file);
       const T2 = { ...R.tec, blob: pages[0].pdf.blobId };
-      const use = {}; for (const q of Object.values(T2.q)) { if (ink[q.id]) { use[q.id] = ink[q.id]; delete ink[q.id]; } else if (outI[q.id]) use[q.id] = clone(outI[q.id]).map((e) => ({ ...e, id: uid() })); }
-      this.inkPlace(pages, T2, use); this.keepScratch(note.pages, pages); this.fitScratch(pages);
+      this.inkPlace(pages, T2, ink); this.keepScratch(note.pages, pages); this.fitScratch(pages);
       if (loose.length && pages[0]) pages[0].elements.push(...loose);
       await Editor.close();
-      note.pages = pages; note.tec = T2; note.bank = { mats: mats && mats.length ? mats : null, st, all: R.matCount, ink }; this.reg(note);
+      note.pages = pages; note.tec = T2; note.bank = { mats: mats && mats.length ? mats : null, st, all: R.matCount, ink: {} }; this.reg(note);
       await Store.putNote(note); try { await DB.del('blobs', oldBlob); } catch (_) {}
       App._busy = false; await App.openNote(note.id); toast(`📕 ${R.n} questões no caderno de erros`, 2500);
     } catch (e) { logError(e, 'remontar caderno de respostas'); toast('Não deu para remontar: ' + e.message, 6000); }
@@ -471,8 +471,6 @@ const Tec = {
     if (!need) return; const k = [0.4, 0.6, 0.8, 1, 1.5].find((v) => v >= need) || 1.5;
     for (const p of pages) { if (!p.pdf) continue; const w0 = p.pdfW || p.w; if (p.pdfW && p.w >= Math.round(w0 * (1 + k))) continue; p.pdfW = w0; p.w = Math.round(w0 * (1 + k)); }
   },
-  /* escrita guardada das questões que saíram dos cadernos (note.tecOut, em todas as notas) */
-  async outInk() { const out = {}; for (const id of Object.keys(Store.heads)) { let n; try { n = await DB.get('notes', id); } catch (_) { n = null; } if (n && n.tecOut) Object.assign(out, n.tecOut); } if (Editor.note && Editor.note.tecOut) Object.assign(out, Editor.note.tecOut); return out; },
   /* v1.31: ⋯ → "Adicionar questões (PDF)": junta PDFs novos ao caderno montado (um caderno por matéria que vai crescendo).
      As já respondidas NESTA nota saem; as que faltam + as novas são embaralhadas (sem repetidas, por id); a escrita de cada
      questão que continua volta para o cartão dela (mesmo esquema do bankMount); os PDFs de origem viram T.srcs. */

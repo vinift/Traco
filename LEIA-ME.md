@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.31.2 — caderno de erros sem spoiler
+
+- O caderno de erros **não traz mais a escrita antiga** das questões (nem a da margem do caderno de origem, nem a de uma tentativa anterior no próprio caderno de erros): cada questão volta limpa para você pensar de novo.
+- Só fica o rascunho de uma questão que você ainda **não respondeu** ali, para não perder o que estava fazendo ao tocar em Atualizar.
+
 ## Novidades da v1.31.1 — margem separada por questão
 
 - Nos cadernos do TEC com rascunho ao lado, a margem ganha uma **linha tracejada roxa no começo de cada questão**: tudo que estiver entre o topo de uma questão e o da próxima (no cartão, entre os cartões ou na margem) é dela.
