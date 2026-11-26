@@ -153,6 +153,15 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.31.0 — adicionar questões ao caderno da matéria
+
+- No ⋯ de um caderno do TEC montado (os de "Importar questões do TEC"): **"Adicionar questões (PDF)"**. Escolha o PDF novo (ex.: o do domingo) e o Traço junta com o caderno que já existe:
+  - as questões que você **já respondeu nele saem** (continuam no histórico, no relatório e no caderno de erros);
+  - as que faltavam + as novas ficam **embaralhadas**, sem repetidas;
+  - o que você escreveu numa questão que continua no caderno vai junto com ela.
+- Assim dá para ter **um caderno só por matéria** que vai recebendo os tópicos novos.
+- "Ver" de um erro de uma questão que já saiu do caderno avisa e sugere abrir no TEC.
+
 ## Novidades da v1.30.1 — volta ao recorte original do TEC
 
 - Desfeito o texto refeito da v1.30.0 (letras e símbolos diferentes não eram reconhecidos). Os cadernos do TEC voltam a ser montados com o recorte do PDF original, como antes. O próximo teste é imprimir no TEC com letra grande.

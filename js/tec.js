@@ -240,7 +240,7 @@ const Tec = {
      última resposta errada/com dúvida) e gera um PDF: cada questão recortada do original (embedPage, continua vetor) com uma
      faixa de cabeçalho própria (número · assunto · banca) e o número novo por cima do antigo. Devolve {bytes, tec} — tec já
      com os retângulos no PDF novo (não precisa reconhecer de novo). */
-  async build(srcs, { filter = 'all', keep = null, mats = null } = {}, onStep = () => {}) {
+  async build(srcs, { filter = 'all', keep = null, mats = null, skip = null } = {}, onStep = () => {}) {
     const lib = await PdfCache.loadLib(), PL = await loadPdfLib(), out = await PL.PDFDocument.create(), seen = this.seen();
     const font = await out.embedFont(PL.StandardFonts.Helvetica), bold = await out.embedFont(PL.StandardFonts.HelveticaBold);
     const items = [], byId = new Set();
@@ -257,7 +257,7 @@ const Tec = {
     const ever = new Set(); if (filter === 'everwrong') for (const x of (StudyTimer.log && StudyTimer.log.qa) || []) if (x[6] === 'tec' && x[8] && !x[1]) ever.add(x[8]);
     const stOk = ({ q }) => { const s = seen.get(q.id); return filter === 'new' ? !s : filter === 'newwrong' ? !s || !s.ok || s.d : filter === 'redo' ? !!s && (!s.ok || !!s.d) : filter === 'everwrong' ? ever.has(q.id) || (!!s && !!s.d) : true; };
     const matCount = {}; for (const it of items) if (stOk(it)) matCount[it.q.mat || '—'] = (matCount[it.q.mat || '—'] || 0) + 1; /* v1.26: matérias (para os chips do caderno de erros), já com o filtro de situação */
-    let list = items.filter((it) => { if (mats && mats.length && !mats.includes(it.q.mat || '—')) return false; return stOk(it); });
+    let list = items.filter((it) => { if (skip && skip.has(it.q.id)) return false; if (mats && mats.length && !mats.includes(it.q.mat || '—')) return false; return stOk(it); });
     if (keep) list.sort((a, b) => (keep[a.q.id] || 1e9) - (keep[b.q.id] || 1e9)); else for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
     if (!list.length) return { matCount, n: 0, empty: true };
     const ansi = (t) => String(t || '').replace(/[–—]/g, '-').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[^\x20-\x7e\xa0-\xff]/g, '?');
@@ -437,7 +437,40 @@ const Tec = {
     paint(); openPop(anchor, box);
   },
   /* do caderno de erros: abre a nota na questão */
-  async goErr(x) { if (!Store.heads[x.n]) return toast('A nota deste caderno não existe mais', 2000); if (!Editor.note || Editor.note.id !== x.n) await App.openNote(x.n); const T = Editor.note && Editor.note.tec, q = T && T.q[x.tec.num]; if (q) this.goTo(x.n, q, T.blob); },
+  async goErr(x) { if (!Store.heads[x.n]) return toast('A nota deste caderno não existe mais', 2000); if (!Editor.note || Editor.note.id !== x.n) await App.openNote(x.n); const T = Editor.note && Editor.note.tec; if (!T) return;
+    let num = x.tec.num; if (x.tec.id && (!T.q[num] || T.q[num].id !== x.tec.id)) { num = Object.keys(T.q).find((k) => T.q[k].id === x.tec.id); if (!num) return toast('Essa questão já saiu deste caderno (foi respondida antes de adicionar questões) — use o botão TEC', 3500); } /* v1.31: o caderno pode ter sido remontado */
+    this.goTo(x.n, T.q[num], T.blob); },
+  /* v1.31: ⋯ → "Adicionar questões (PDF)": junta PDFs novos ao caderno montado (um caderno por matéria que vai crescendo).
+     As já respondidas NESTA nota saem; as que faltam + as novas são embaralhadas (sem repetidas, por id); a escrita de cada
+     questão que continua volta para o cartão dela (mesmo esquema do bankMount); os PDFs de origem viram T.srcs. */
+  async addFlow(note) {
+    const T = note && note.tec; if (!T || !T.built || this._mounting) return;
+    const files = await pickFile('application/pdf', true); if (!files || !files.length) return;
+    this._mounting = true;
+    try {
+      this.reconcile(note);
+      const done = new Set(Object.keys(T.ans).map((n) => T.q[n] && T.q[n].id).filter(Boolean)), oldIds = new Set(Object.values(T.q).map((q) => q.id));
+      const ink = {}, loose = [], cards = Object.values(T.q).filter((q) => q.top && q.bot != null);
+      note.pages.forEach((p, pi) => { for (const e of p.elements) { if (this.isTag(e)) continue; const b = elBBox(e); if (!b) continue; const cy = b.y + b.h / 2, q = cards.find((c) => c.top[0] === pi && cy >= c.top[1] && cy <= c.bot);
+        if (q) { if (!done.has(q.id)) (ink[q.id] = ink[q.id] || []).push(transformEl(e, { sx: 1, sy: 1, ox: 0, oy: 0, dx: 0, dy: -q.top[1] })); } else loose.push(e); } });
+      toast('Lendo os PDFs…', 60000); const add = [];
+      for (const f of files) add.push({ name: f.name.replace(/\.pdf$/i, ''), blobId: await Store.putBlob(new Blob([await f.arrayBuffer()], { type: 'application/pdf' })) });
+      const srcs = [...(T.srcs || [{ name: note.title, blobId: T.blob }]), ...add];
+      const R = await this.build(srcs, { skip: done }, (m) => toast(m, 60000));
+      if (!R || R.empty) { toast('Nenhuma questão para o caderno: as dos PDFs novos já estão nele ou já foram respondidas', 4000); return; }
+      const novas = Object.values(R.tec.q).filter((q) => !oldIds.has(q.id)).length;
+      const oldBlob = T.blob, file = new File([R.bytes], 'caderno.pdf', { type: 'application/pdf' }), pages = await importPdfFile(file);
+      const T2 = { ...R.tec, blob: pages[0].pdf.blobId };
+      for (const q of Object.values(T2.q)) { const els = ink[q.id]; if (!els || !pages[q.top[0]]) continue; for (const e of els) pages[q.top[0]].elements.push(transformEl(e, { sx: 1, sy: 1, ox: 0, oy: 0, dx: 0, dy: q.top[1] })); }
+      if (loose.length && pages[0]) pages[0].elements.push(...loose);
+      await Editor.close();
+      note.pages = pages; note.tec = T2; this.reg(note);
+      await Store.putNote(note); if (!srcs.some((x) => x.blobId === oldBlob)) { try { await DB.del('blobs', oldBlob); } catch (_) {} }
+      App._busy = false; await App.openNote(note.id);
+      toast(`➕ ${novas} questões novas · ${R.n} no caderno, embaralhadas${done.size ? ` (as ${done.size} já respondidas saíram)` : ''}`, 5000);
+    } catch (e) { logError(e, 'adicionar questões'); toast('Não deu para adicionar: ' + e.message, 6000); }
+    finally { this._mounting = false; }
+  },
   /* vai até a questão (abre a nota se precisar) e pisca o retângulo */
   async goTo(noteId, q, blob) {
     const r = q && (q.nr || q.c); if (!r) return;
