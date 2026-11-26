@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.40.0
+
+- **Sua dúvida aparece no caderno de erros:** se você marcou a questão com dúvida e escolheu um motivo, ou escreveu um no "Outro…", o caderno de erros mostra esse texto numa caixinha âmbar com "Sua dúvida:", entre o cabeçalho e o enunciado. A caixa cresce o quanto precisar, então textos longos aparecem inteiros. Vale para o caderno criado a partir de agora e para o atual depois de tocar em "Atualizar". Emojis não aparecem na caixa; letras com acento aparecem normalmente.
+
 ## Novidades da v1.39.2
 
 - **"TEC nº…" abre no app do TEC Concursos** (no Traço Nativo, depois de baixar o APK novo). Se o app do TEC abrir links de questão, a questão abre direto nele. Se ele não aceitar links, o Traço abre o app do TEC e copia o link da questão. Sem o app do TEC instalado, abre o navegador como antes.

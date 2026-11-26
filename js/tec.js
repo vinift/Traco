@@ -304,7 +304,7 @@ const Tec = {
      última resposta errada/com dúvida) e gera um PDF: cada questão recortada do original (embedPage, continua vetor) com uma
      faixa de cabeçalho própria (número · assunto · banca) e o número novo por cima do antigo. Devolve {bytes, tec} — tec já
      com os retângulos no PDF novo (não precisa reconhecer de novo). */
-  async build(srcs, { filter = 'all', keep = null, mats = null, skip = null, only = null, order = 'mix', sp = 'none' } = {}, onStep = () => {}) {
+  async build(srcs, { filter = 'all', keep = null, mats = null, skip = null, only = null, order = 'mix', sp = 'none', notes = null } = {}, onStep = () => {}) {
     const lib = await PdfCache.loadLib(), PL = await loadPdfLib(), out = await PL.PDFDocument.create(), seen = this.seen();
     const font = await out.embedFont(PL.StandardFonts.Helvetica), bold = await out.embedFont(PL.StandardFonts.HelveticaBold);
     const items = [], byId = new Set();
@@ -337,13 +337,15 @@ const Tec = {
       const PH = (pg) => pdl.getPage(pg).getSize().height / K, pm = (pg) => R.pm[pg] || { hb: 0, ft: PH(pg) }, ftOf = (pg) => Math.min(PH(pg), pm(pg).ft) - 4, hbOf = (pg) => pm(pg).hb + 4;
       const a = q.nr, z = q.e || q.end || a, y0 = a[2] - 6, y1 = (q.e ? z[2] + z[4] : z[1]) + 7, parts = [];
       if (a[0] === z[0]) parts.push([a[0], y0, y1]); else { parts.push([a[0], y0, ftOf(a[0])]); for (let pg = a[0] + 1; pg < z[0]; pg++) parts.push([pg, hbOf(pg), ftOf(pg)]); parts.push([z[0], hbOf(z[0]), y1]); }
-      const left = Math.max(8, a[1] - 8), hTot = HB + 6 + parts.reduce((s, [, u, v]) => s + (v - u) * K, 0);
+      /* v1.40: nota da dúvida (caderno de erros) — caixa âmbar arredondada entre o cabeçalho e o enunciado, cresce com o texto */
+      const nt = notes && notes[q.id], nL = nt ? this.noteLines(nt, font, bold, cwPt - 16) : null, noteH = nL ? nL.length * 12.5 + 11 : 0;
+      const left = Math.max(8, a[1] - 8), hTot = HB + 6 + noteH + (noteH ? 6 : 0) + parts.reduce((s, [, u, v]) => s + (v - u) * K, 0);
       if (!page || (y + hTot + 18 + (spPt ? spPt + 6 : 0) > H - 24 && y > TOP)) newPage();
       /* v1.23: cartão no estilo do app — borda suave arredondada, cabeçalho em pílula lilás, número em etiqueta roxa
          (tocar nela = dúvida), assunto · banca e "abrir no TEC ›" em roxo */
       const yTop = y, cx = M - 8, cw = cwPt + 16, hdY = yTop + 5, hdH = HB - 2, ACC = PL.rgb(0.486, 0.227, 0.929);
       const rr = (x0, y0, w, h, r) => `M ${x0 + r} ${y0} H ${x0 + w - r} Q ${x0 + w} ${y0} ${x0 + w} ${y0 + r} V ${y0 + h - r} Q ${x0 + w} ${y0 + h} ${x0 + w - r} ${y0 + h} H ${x0 + r} Q ${x0} ${y0 + h} ${x0} ${y0 + h - r} V ${y0 + r} Q ${x0} ${y0} ${x0 + r} ${y0} Z`;
-      const cardH = HB + 10 + parts.reduce((s2, [, u, v]) => s2 + (v - u) * K, 0) + 8;
+      const cardH = HB + 10 + (noteH ? noteH + 6 : 0) + parts.reduce((s2, [, u, v]) => s2 + (v - u) * K, 0) + 8;
       page.drawSvgPath(rr(0, 0, cw, cardH, 10), { x: cx, y: H - yTop, color: PL.rgb(1, 1, 1), borderColor: PL.rgb(0.88, 0.89, 0.92), borderWidth: 0.8 });
       page.drawSvgPath(rr(0, 0, cw - 10, hdH, 7), { x: cx + 5, y: H - hdY, color: PL.rgb(0.953, 0.937, 0.992) });
       const nT = n, nW = bold.widthOfTextAtSize(nT, 9), bW = nW + 14, bx = cx + 10, by = hdY + 3.5, bH = hdH - 7;
@@ -354,6 +356,13 @@ const Tec = {
       page.drawText(tecT, { x: cx + cw - 14 - tecW, y: H - hdY - hdH + 6.6, size: 8, font: bold, color: ACC });
       const badge = [pgN, Math.round(bx / K * 10) / 10, Math.round(by / K * 10) / 10, Math.round(bW / K * 10) / 10, Math.round(bH / K * 10) / 10];
       y += HB + 10;
+      if (nL) { /* fundo âmbar claro, borda âmbar; 1ª linha começa com "Sua dúvida:" em negrito */
+        page.drawSvgPath(rr(0, 0, cwPt, noteH, 7), { x: M, y: H - y, color: PL.rgb(1, 0.973, 0.906), borderColor: PL.rgb(0.98, 0.78, 0.4), borderWidth: 0.8 });
+        nL.forEach((ln, i) => { let x = M + 8; const by = H - y - 5.5 - 9 - i * 12.5;
+          if (i === 0) { page.drawText(this.NOTE_LAB, { x, y: by, size: 9, font: bold, color: PL.rgb(0.706, 0.325, 0.035) }); x += bold.widthOfTextAtSize(this.NOTE_LAB, 9) + 4; }
+          if (ln) page.drawText(ln, { x, y: by, size: 9, font, color: PL.rgb(0.23, 0.15, 0) }); });
+        y += noteH + 6;
+      }
       const map = {}, put = (r) => { if (!r) return null; const P = map[r[0]]; if (!P) return null; for (const [u, v, yy] of P) if (r[2] >= u - 2 && r[2] <= v + 2) return [pgN, Math.round((M / K + r[1] - left) * 10) / 10, Math.round((yy / K + r[2] - u) * 10) / 10, r[3], r[4]]; return null; };
       for (const [pg, u, v] of parts) {
         /* a página de origem é embutida UMA vez (cache por documento) e só o recorte aparece (clip) — embutir por recorte repetia a página inteira (30 MB) */
@@ -377,6 +386,22 @@ const Tec = {
       if (spPt) { const s0 = yTop + cardH + 6, gh = Math.min(spPt, H - 24 - s0); if (gh >= 40) { this.drawSpace(page, PL, rr, cx, s0, cw, gh, H, font); tq[n].sp = [pgN, Math.round(s0 / K * 10) / 10, Math.round(gh / K * 10) / 10]; y = s0 + gh + GAP; } }
     }
     return { matCount, bytes: await out.save(), tec: { v: 3, hv: 2, sp, built: 1, gab, q: tq, ans: {}, d: {}, gb: null, vis, mx: M / K, srcs: srcs.map((x) => ({ name: x.name, blobId: x.blobId })) }, total: items.length, n: list.length };
+  },
+  /* v1.40: nota da dúvida no caderno de erros. Texto = o motivo escolhido ou escrito no "Outro…" (StudyTimer.log.errs[].why, o mais recente por questão) */
+  NOTE_LAB: 'Sua dúvida:',
+  noteMap() { const m = {}, t = {}; for (const x of (StudyTimer.log && StudyTimer.log.errs) || []) { const id = x.tec && x.tec.id; if (!id || !x.why) continue; if (!(t[id] >= x.t)) { t[id] = x.t; m[id] = x.why; } } return m; },
+  /* quebra em linhas na largura w (Helvetica 9); a 1ª linha tem o rótulo antes; símbolos fora do WinAnsi saem; até 40 linhas */
+  noteLines(txt, font, bold, w) {
+    const clean = String(txt).replace(/[–—]/g, '-').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[^\x20-\x7e\xa0-\xff\n]/g, '').trim(); if (!clean) return null;
+    const out = [], first = bold.widthOfTextAtSize(this.NOTE_LAB, 9) + 4, W = (i) => (i === 0 ? w - first : w), fw = (t) => font.widthOfTextAtSize(t, 9);
+    for (const para of clean.split(/\n+/)) { let cur = '';
+      for (let word of para.split(/\s+/).filter(Boolean)) {
+        const t = cur ? cur + ' ' + word : word; if (fw(t) <= W(out.length)) { cur = t; continue; }
+        if (cur) { out.push(cur); cur = ''; }
+        while (fw(word) > W(out.length)) { let k = word.length - 1; while (k > 1 && fw(word.slice(0, k)) > W(out.length)) k--; out.push(word.slice(0, k)); word = word.slice(k); }
+        cur = word; }
+      out.push(cur); }
+    return out.slice(0, 40);
   },
   /* v1.39: tamanhos do rascunho embaixo (pt do PDF; página ~842 pt de altura) */
   SPACE: { none: 0, s: 110, m: 200, l: 320 },
@@ -464,7 +489,7 @@ const Tec = {
     const folder = typeof Library !== 'undefined' ? await Library.folderPicker('Onde fica o caderno de erros?', new Set(), Library.folder) : null; if (folder === undefined) return;
     try {
       toast('Juntando os cadernos do TEC…', 60000); const srcs = await this.bankSources(); if (!srcs.length) { toast('Nenhum caderno do TEC ainda — importe ou abra um PDF do TEC primeiro', 4000); return; }
-      const R = await this.build(srcs, { filter: 'redo' }, (m) => toast(m, 60000)); if (R.empty) { toast('Nenhum erro para refazer nos cadernos do TEC 🎉', 3500); return; }
+      const R = await this.build(srcs, { filter: 'redo', notes: this.noteMap() }, (m) => toast(m, 60000)); if (R.empty) { toast('Nenhum erro para refazer nos cadernos do TEC 🎉', 3500); return; }
       const note = await this.makeNote(R, 'Caderno de erros', folder);
       note.bank = { mats: null, st: 'redo', all: R.matCount, ink: {} }; await Store.putNote(note); Store.settings.tecErrNote = note.id; Store.saveSettings(); toast(`📕 Caderno de erros: ${R.n} questões para refazer`, 3500);
       if (typeof Library !== 'undefined') Library.render(); App.openNote(note.id);
@@ -480,7 +505,7 @@ const Tec = {
       const answered = new Set(Object.keys(T.ans).map((n) => T.q[n] && T.q[n].id).filter(Boolean)), pk = this.inkPack(note), loose = pk.loose;
       for (const [id, els] of Object.entries(pk.byId)) if (!answered.has(id)) ink[id] = els;
       const srcs = await this.bankSources(); toast('Montando o caderno…', 60000);
-      const R = await this.build(srcs, { filter: st, mats, sp: this.spOf(T) }, (m) => toast(m, 60000));
+      const R = await this.build(srcs, { filter: st, mats, sp: this.spOf(T), notes: this.noteMap() }, (m) => toast(m, 60000));
       if (R.empty) { B.all = R.matCount; await Store.putNote(note); toast('Nenhuma questão nesse filtro 🎉', 3500); return; }
       const oldBlob = T.blob, file = new File([R.bytes], 'caderno.pdf', { type: 'application/pdf' }), pages = await importPdfFile(file);
       const T2 = { ...R.tec, blob: pages[0].pdf.blobId };
@@ -635,7 +660,7 @@ const Tec = {
       const { byId: ink, loose } = this.inkPack(note, true), srcs = T.srcs || [{ name: note.title, blobId: T.blob }];
       const keep = keepNums ? Object.fromEntries(Object.entries(idOf).map(([n, id]) => [id, +n])) : null;
       if (keepNums) toast(sp && sp !== T.sp && T.sp ? 'Mudando o rascunho embaixo…' : 'Atualizando o caderno…', 60000);
-      const R = await this.build(srcs, { order: ord, only: new Set(Object.values(idOf)), keep, sp: sp || this.spOf(T) }, (m) => toast(m, 60000));
+      const R = await this.build(srcs, { order: ord, only: new Set(Object.values(idOf)), keep, sp: sp || this.spOf(T), notes: note.bank ? this.noteMap() : null }, (m) => toast(m, 60000));
       if (!R || R.empty) return;
       const numOf = {}; for (const [n, q] of Object.entries(R.tec.q)) numOf[q.id] = n;
       const map = (k) => (idOf[k] != null && numOf[idOf[k]] != null ? numOf[idOf[k]] : null), remap = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) { const n = map(k); if (n != null) r[n] = v; } return r; };
