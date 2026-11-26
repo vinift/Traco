@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.33.0 — anotar o tópico onde parou
+
+- Ao tocar em **Adicionar questões**, aparece antes uma janela com **"Da última vez você parou em: …"** (com a data e quantas questões novas entraram) e um campo **"Até qual tópico vai o PDF de agora?"** (opcional). Depois é só tocar em "Escolher PDFs".
+- O tópico fica guardado no caderno da matéria; o ⋯ do caderno também mostra "parou em: …" no item Adicionar questões.
+
 ## Novidades da v1.32.0 — caderno de questões em cada matéria
 
 - Ao **criar uma matéria** ou **marcar uma pasta como matéria**, o Traço já cria dentro dela o caderno **"Questões — <nome da matéria>"** (vazio, com uma explicação até o 1º PDF).

@@ -484,11 +484,25 @@ const Tec = {
   async addToSubject(f) {
     try { const id = await this.qbook(f), note = await Store.getNote(id); if (note) await this.addFlow(note); } catch (e) { logError(e, 'adicionar questões'); toast('Não deu para abrir o caderno de questões: ' + e.message, 5000); }
   },
+  /* v1.33: janela antes de escolher os PDFs — mostra até onde você imprimiu da última vez e pergunta até onde vai o de agora */
+  async askTopic(note) {
+    const L = (note.tec && note.tec.topics) || [], last = L[L.length - 1], fd = (t) => new Date(t).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const inp = el('input', { type: 'text', placeholder: 'ex.: Pronomes demonstrativos (opcional)' });
+    const body = el('div', { class: 'tec-topic' },
+      last ? el('div', { class: 'tt-last' }, el('small', {}, 'Da última vez você parou em'), el('b', {}, last.txt), el('span', {}, `${fd(last.t)}${last.n != null ? ` · ${last.n} questões novas` : ''}`)) : el('p', { class: 'lbl-sm' }, 'Ainda não há tópico anotado neste caderno.'),
+      L.length > 1 ? el('div', { class: 'tt-hist' }, el('small', {}, 'Antes:'), ...L.slice(-5, -1).reverse().map((x) => el('div', {}, `${fd(x.t)} · ${x.txt}`))) : null,
+      el('div', { class: 'field' }, el('label', {}, 'Até qual tópico vai o PDF de agora?'), inp),
+      el('p', { class: 'lbl-sm' }, 'Fica guardado neste caderno para você saber de onde continuar no TEC na próxima vez.'));
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') body.closest('.modal').querySelector('.btn.primary').click(); });
+    const r = await openModal({ title: `Adicionar questões — ${note.title.replace(/^Questões — /, '')}`, body, focus: true, buttons: [{ label: 'Cancelar' }, { label: 'Escolher PDFs', cls: 'primary', action: () => ({ txt: inp.value.trim() }) }] });
+    return r && typeof r === 'object' ? r.txt : null;
+  },
   /* v1.31: ⋯ → "Adicionar questões (PDF)": junta PDFs novos ao caderno montado (um caderno por matéria que vai crescendo).
      As já respondidas NESTA nota saem; as que faltam + as novas são embaralhadas (sem repetidas, por id); a escrita de cada
      questão que continua volta para o cartão dela (mesmo esquema do bankMount); os PDFs de origem viram T.srcs. */
   async addFlow(note) {
     const T = note && note.tec; if (!T || !T.built || this._mounting) return;
+    const topic = await this.askTopic(note); if (topic == null) return; /* v1.33: até onde vai este PDF (fica guardado) */
     const files = await pickFile('application/pdf', true); if (!files || !files.length) return;
     this._mounting = true;
     try {
@@ -503,7 +517,7 @@ const Tec = {
       if (!R || R.empty) { toast('Nenhuma questão para o caderno: as dos PDFs novos já estão nele ou já foram respondidas', 4000); return; }
       const novas = Object.values(R.tec.q).filter((q) => !oldIds.has(q.id)).length;
       const oldBlob = T.blob, file = new File([R.bytes], 'caderno.pdf', { type: 'application/pdf' }), pages = await importPdfFile(file);
-      const T2 = { ...R.tec, blob: pages[0].pdf.blobId };
+      const T2 = { ...R.tec, blob: pages[0].pdf.blobId, topics: [...(T.topics || []), ...(topic ? [{ t: Date.now(), txt: topic, n: novas }] : [])].slice(-30) }; /* v1.33 */
       this.inkPlace(pages, T2, ink); this.keepScratch(note.pages, pages); this.fitScratch(pages);
       if (loose.length && pages[0]) pages[0].elements.push(...loose);
       await Editor.close();

@@ -1710,3 +1710,10 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 /* v1.32 — botão Adicionar questões dentro da pasta-matéria */
 .bar-btn.add-q{background:var(--accent);color:#fff;border-radius:999px;padding:8px 16px;font-weight:600;font-size:15px}
 .bar-btn.add-q svg.ic{width:18px;height:18px}
+/* v1.33 — tópico onde parou (adicionar questões) */
+.tec-topic{display:flex;flex-direction:column;gap:12px;min-width:min(420px,80vw)}
+.tt-last{display:flex;flex-direction:column;gap:2px;background:var(--accent-soft);border-radius:14px;padding:12px 14px}
+.tt-last small{color:var(--muted);font-size:12px}
+.tt-last b{font-size:18px;color:var(--accent)}
+.tt-last span{font-size:12px;color:var(--muted)}
+.tt-hist{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
