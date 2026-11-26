@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.41.0
+
+- **Padrão do hífen por nota (título + colchete):** na telinha do atalho rápido, aba **Cor**, com o Hífen escolhido, aparece o quadro **"📒 Padrão desta nota"**. Ligado, ele vale só na nota aberta:
+  - o hífen sai com a espessura escolhida (ex.: 1,7) e a caneta fica nela para você escrever o título;
+  - com dois toques no hífen, o colchete sai com a outra espessura (ex.: 1,1) e a caneta passa para ela para escrever embaixo.
+  - O interruptor "A caneta acompanha" desliga a troca automática da caneta: aí só o hífen e o colchete usam essas espessuras.
+
 ## Novidades da v1.40.2
 
 - **"30 de 30" agora conta como feito:** o tempo aparece arredondado ao minuto. Por isso, 29 min e 40 s apareciam como "30 de 30" sem o ✓. Agora, se aparece igual à meta, ganha o ✓. Vale no plano, no cartão "Hoje no plano", no relatório (dias na meta, barras, calendário, questões) e no painel do cronômetro.

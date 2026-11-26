@@ -225,7 +225,7 @@ Object.assign(Editor, {
       const rg = this.ruledFor(page), step = rg && rg.s > 0 ? 2 * rg.s : Math.max(20, k.len), y2 = k.y + step;
       const n = { id: uid(), type: 'shape', kind: 'path', pts: [k.x, k.y - k.r, k.x, y2, k.x + k.tip, y2].map(r2), rr: [0, r2(k.r), 0], color: (Store.settings.tools.pen || {}).color || e.color, width: e.width, fill: null }; /* v0.47.3: cor da caneta selecionada */
       if (e.dash) n.dash = e.dash; if (e.opacity != null) n.opacity = e.opacity;
-      this.recAdd(page, n); this.opCommit();  return true;
+      this.recAdd(page, n); this.opCommit(); { const np = this.qkPen(); if (np && np.pen && np.br > 0 && Math.abs(n.width - np.br) < 0.01) this.penTo(np.br); } return true;
     }
     /* v0.41.4: toque duplo num HÍFEN → colchete embaixo dele (como na foto do usuário): reta no meio do hífen, começando logo abaixo da
        linha do hífen (topo do quadrado seguinte + 22%), descendo até o CENTRO do quadrado duas linhas abaixo; ponta até o fim do hífen,
@@ -236,7 +236,8 @@ Object.assign(Editor, {
       const s = rg && rg.s > 0 ? rg.s : (x2 - x1) * 4, hy = (y1 + y2) / 2, o = rg && rg.s > 0 ? rg.o : hy - s * 0.6, gm = this.bracketGeom(x1, x2, y1, y2, s, o), pen = Store.settings.tools.pen || {}, bs = this.brStyle(kind || 'hyphen');
       const n = { id: uid(), type: 'shape', kind: 'path', pts: gm.pts.map(r2), rr: gm.rr.map(r2), color: bs.c && e.color ? e.color : pen.color || e.color, width: bs.w && e.width ? e.width : pen.width || e.width, fill: null }; /* v0.47.3: cor e espessura da caneta; v0.56: ou as do atalho (por tipo) */
       if (e.dash && e.dash !== 'solid') n.dash = e.dash;
-      this.recAdd(page, n); this.opCommit();  return true;
+      const np = (kind || 'hyphen') === 'hyphen' && this.qkPen(); if (np && np.br > 0) n.width = np.br; /* v1.41: espessura do colchete desta nota */
+      this.recAdd(page, n); this.opCommit(); if (np && np.pen && np.br > 0) this.penTo(np.br); /* …e a caneta fica nela para escrever embaixo */ return true;
     };
     /* v0.47.2: toque duplo em QUALQUER atalho rápido (número, letra, romano, tópico, seta, caixa — marcados com `qg` no quickPlace) →
        colchete embaixo do atalho inteiro (todas as peças do grupo), como no hífen */
@@ -301,9 +302,14 @@ Object.assign(Editor, {
   /* v0.55: espessura salva POR TIPO de atalho (S.quickWidths = {tipo: px|null}; null/sem entrada = espessura da caneta) */
   qkWidth(kind) { const m = Store.settings.quickWidths || {}; return +m[kind] > 0 ? +m[kind] : null; },
   setQkWidth(kind, w) { const S = Store.settings; S.quickWidths = { ...(S.quickWidths || {}), [kind]: w || null }; Store.saveSettings(); },
+  /* v1.41: padrão do hífen POR NOTA — note.qkPen = {on, hy (espessura do hífen), br (do colchete do toque duplo), pen (a caneta
+     passa a escrever com essa espessura depois de pôr o hífen / o colchete)} */
+  qkPen() { const n = this.note, q = n && n.qkPen; return q && q.on ? q : null; },
+  setQkPen(patch) { if (!this.note) return; this.note.qkPen = { on: false, hy: null, br: null, pen: true, ...(this.note.qkPen || {}), ...patch }; this.markChanged(); },
+  penTo(w) { const t = Store.settings.tools.pen; if (!t || !(w > 0) || Math.abs((t.width || 0) - w) < 0.001) return; t.width = w; if (typeof UI !== 'undefined') { UI.save && UI.save(); UI.refresh && UI.refresh(); } },
   quickEls(kind, c, n) {
     const o = this.quickOpt(), st = { ...Store.settings.tools.pen }, els = [], s = c.s || 40;
-    const qc0 = this.qkColor(kind); if (qc0) st.color = qc0; const qw0 = this.qkWidth(kind); if (qw0) st.width = qw0; /* v0.55: espessura por tipo (null = a da caneta) */ /* v0.47: cor só do atalho (null = cor da caneta); v0.53: uma por tipo */
+    const qc0 = this.qkColor(kind); if (qc0) st.color = qc0; const qw0 = this.qkWidth(kind); if (qw0) st.width = qw0; { const np = kind === 'hyphen' && this.qkPen(); if (np && np.hy > 0) st.width = np.hy; } /* v1.41: padrão da nota */ /* v0.55: espessura por tipo (null = a da caneta) */ /* v0.47: cor só do atalho (null = cor da caneta); v0.53: uma por tipo */
     const lw = st.width || 2, sc = this.qkColor(kind, true) || st.color; /* v0.47.1: cor só do sinal (ponto/hífen/parêntese) */
     if (kind === 'arrow') { /* v0.47: seta → centralizada no quadrado */
       const len = s * o.aL, cy = c.rows ? c.cy + s * o.aD : c.cy;
@@ -359,7 +365,9 @@ Object.assign(Editor, {
   quickPlace(kind, p) {
     this.qkSync();
     const c = this.quickCell(p); if (!c) return false; const seq = !!this.SEQ[kind], els = this.quickEls(kind, c, seq ? this.seqNext(kind) : 0);
-    const g = uid(); for (const e of els) { e.qg = g; e.qk = kind; this.recAdd(c.page, e); } this.opCommit(); if (seq) this.setSeqNext(kind, this.seqNext(kind) + 1); return true;
+    const g = uid(); for (const e of els) { e.qg = g; e.qk = kind; this.recAdd(c.page, e); } this.opCommit(); if (seq) this.setSeqNext(kind, this.seqNext(kind) + 1);
+    { const np = kind === 'hyphen' && this.qkPen(); if (np && np.pen && np.hy > 0) this.penTo(np.hy); } /* v1.41: a caneta fica com a espessura do hífen (título) */
+    return true;
   },
   /* v0.41 hífen rápido / v0.44 tópico rápido (chamados também pelo toque duplo) */
   placeHyphen(p) { return this.quickPlace('hyphen', p); },
@@ -535,6 +543,17 @@ Object.assign(Editor, {
         body.append(el('div', { class: 'qk-row qk-ws' }, el('span', {}, 'Espessura'), chip('caneta', !qw, () => { this.setQkWidth(k, null); draw(); }, 'Usar a espessura da caneta'),
           ...ws.map((w) => { const b = chip('', !!qw && Math.abs(qw - w) < 0.01, () => { this.setQkWidth(k, w); draw(); }, String(w).replace('.', ',') + ' px'); b.classList.add('qk-w'); b.append(el('i', { style: { height: Math.max(1, Math.min(8, w)) + 'px' } }), el('small', {}, String(Math.round(w * 10) / 10).replace('.', ','))); return b; })));
         if (seq) body.append(colorRow('Cor do sinal', this.qkColor(k, true), (c) => this.setQkColor(k, c, true), 'igual', 'Igual ao número'));
+        if (k === 'hyphen' && this.note) { /* v1.41: padrão só desta nota (hífen = título, colchete = o que vem embaixo) */
+          const np = this.note.qkPen || {}, on = !!np.on, wl = [...ws], hyW = np.hy || qw || (S.tools.pen || {}).width || 1.7, brW = np.br || (S.tools.pen || {}).width || 1.1;
+          for (const x of [hyW, brW]) if (!wl.some((y) => Math.abs(y - x) < 0.01)) wl.push(x); wl.sort((a, b) => a - b);
+          const wrow = (label, cur, key) => el('div', { class: 'qk-row qk-ws' }, el('span', {}, label), ...wl.map((w) => { const b = chip('', Math.abs(cur - w) < 0.01, () => { this.setQkPen({ [key]: w }); draw(); }, String(w).replace('.', ',')); b.classList.add('qk-w'); b.append(el('i', { style: { height: Math.max(1, Math.min(8, w)) + 'px' } }), el('small', {}, String(Math.round(w * 10) / 10).replace('.', ','))); return b; }));
+          const sw = (label, val, fn, title) => el('label', { class: 'qk-note-sw', title }, el('input', { type: 'checkbox', checked: val, onchange: (ev) => { fn(ev.target.checked); draw(); } }), el('span', {}, label));
+          const nb = el('div', { class: 'qk-note' + (on ? ' on' : '') }, el('div', { class: 'qk-note-h' }, el('b', {}, '📒 Padrão desta nota'), sw('ligado', on, (v) => this.setQkPen({ on: v, hy: np.hy || hyW, br: np.br || brW }), 'Só vale nesta nota')));
+          if (on) nb.append(el('p', { class: 'qk-info' }, 'Hífen para o título e colchete (toque duplo no hífen) para o que vem embaixo, cada um com a sua espessura.'),
+            wrow('Hífen', hyW, 'hy'), wrow('Colchete', brW, 'br'),
+            sw('A caneta acompanha (fica na espessura do hífen e, depois do colchete, na dele)', np.pen !== false, (v) => this.setQkPen({ pen: v })));
+          body.append(nb);
+        }
       } else if (tab === 'sign') {
         const suf = this.seqSuffix(k), ex = this.seqStr(k, 1);
         body.append(info('O que vem depois do número ou da letra, e onde ele começa no quadrado.'),

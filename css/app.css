@@ -1728,3 +1728,10 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 #editor.immersive .ch-title .note-pp:not(.hidden){display:inline-flex;align-items:center;justify-content:center;flex:none;width:30px;height:30px;padding:0;margin:0 8px 0 0;border:0;border-radius:50%;background:var(--chacc,#7c3aed);color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);pointer-events:auto;cursor:pointer;visibility:visible;text-shadow:none}
 #editor.immersive .ch-title .note-pp.paused{background:#b45309}
 #editor.immersive .ch-title .note-pp:active{transform:scale(.9)}
+
+/* v1.41: padrão do hífen por nota (telinha do atalho → Cor) */
+.qk-note{margin-top:10px;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--accent,#7c3aed) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent,#7c3aed) 18%,transparent)}
+.qk-note.on{background:color-mix(in srgb,var(--accent,#7c3aed) 10%,transparent)}
+.qk-note-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.qk-note-sw{display:flex;align-items:center;gap:8px;font-size:12.5px;margin-top:6px;cursor:pointer}
+.qk-note-sw input{width:18px;height:18px;flex:none}
