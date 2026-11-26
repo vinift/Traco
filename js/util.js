@@ -44,6 +44,7 @@ function pickFile(accept, multiple = false) {
   return new Promise((res) => {
     const inp = $('#filePick'); inp.value = ''; inp.accept = accept; inp.multiple = multiple;
     inp.onchange = () => res(multiple ? Array.from(inp.files) : inp.files[0] || null);
+    inp.oncancel = () => res(multiple ? [] : null); /* v1.37.1: cancelar o seletor não deixa quem pediu esperando */
     inp.click();
   });
 }

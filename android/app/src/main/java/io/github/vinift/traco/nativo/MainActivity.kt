@@ -48,7 +48,14 @@ class MainActivity : ComponentActivity() {
     /* seletor de arquivos (<input type=file>) */
     private var fileCb: ValueCallback<Array<Uri>>? = null
     private val pickFiles = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r: ActivityResult ->
-        fileCb?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(r.resultCode, r.data)); fileCb = null
+        /* v1.37.1: vários arquivos de uma vez chegam em clipData (o parseResult só lê data.data → devolvia null e a página
+           ficava esperando para sempre) */
+        val d = r.data
+        val c = d?.clipData
+        val uris: Array<Uri>? = if (r.resultCode != android.app.Activity.RESULT_OK || d == null) null
+            else if (c != null && c.itemCount > 0) Array(c.itemCount) { c.getItemAt(it).uri }
+            else WebChromeClient.FileChooserParams.parseResult(r.resultCode, d)
+        fileCb?.onReceiveValue(uris); fileCb = null
     }
     /* tela de permissão do Google (Drive) */
     var authCb: ((Intent?) -> Unit)? = null

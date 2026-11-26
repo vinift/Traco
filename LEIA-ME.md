@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.37.1
+
+- **Vários PDFs de uma vez no Traço Nativo:** escolher 2 ou mais PDFs no seletor não fazia nada, porque o app só sabia receber um arquivo. Agora recebe todos. **Precisa do APK novo** (baixe em Configurações → Sobre, ou pelo link de sempre).
+- O caderno de questões da matéria aparece na pasta na hora, mesmo antes de você escolher os PDFs.
+- Cancelar o seletor de arquivos não deixa mais o app "esperando".
+
 ## Novidades da v1.37.0
 
 - **Ordem das questões no caderno:** no ⋯ do caderno de questões há um interruptor **Em ordem | Embaralhado**.

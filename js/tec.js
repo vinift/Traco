@@ -472,7 +472,7 @@ const Tec = {
   },
   /* botão "Adicionar questões" (dentro da pasta-matéria / ⋯ da pasta) */
   async addToSubject(f) {
-    try { const id = await this.qbook(f), note = await Store.getNote(id); if (note) await this.addFlow(note); } catch (e) { logError(e, 'adicionar questões'); toast('Não deu para abrir o caderno de questões: ' + e.message, 5000); }
+    try { const id = await this.qbook(f); if (typeof Library !== 'undefined' && Editor && !Editor.note) Library.render(); /* v1.37.1: o caderno aparece na pasta já agora */ const note = await Store.getNote(id); if (note) await this.addFlow(note); } catch (e) { logError(e, 'adicionar questões'); toast('Não deu para abrir o caderno de questões: ' + e.message, 5000); }
   },
   /* v1.33: janela antes de escolher os PDFs — mostra até onde você imprimiu da última vez e pergunta até onde vai o de agora */
   async askTopic(note) {
