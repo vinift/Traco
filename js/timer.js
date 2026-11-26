@@ -15,7 +15,7 @@ const StudyTimer = {
     try { s = await DB.get('meta', 'studyTimer'); l = await DB.get('meta', 'studyLog'); } catch (e) { console.warn('cronômetro', e); }
     this.st = { ...clone(this.DEF), ...(s || {}) }; this.st.pomo = { ...this.DEF.pomo, ...(this.st.pomo || {}) };
     this.log = l && l.days ? l : { days: {}, titles: {} };
-    try { this.migrate(); this.cleanSess(); } catch (e) { console.warn('histórico', e); }
+    try { this.migrate(); this.cleanSess(); this.fillGaps1126(); } catch (e) { console.warn('histórico', e); }
     if (this._on) return this.tick(); this._on = true; // eventos só uma vez
     { const pp = document.getElementById('noteTimerPP'); if (pp) { pp.addEventListener('pointerdown', (e) => e.stopPropagation()); pp.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); if (this.st.running) this.pause(); else this.start(); }); } }
     for (const id of ['noteClock', 'noteTimer', 'libTimer']) { const n = document.getElementById(id); if (n) { n.classList.add('tm-click'); n.addEventListener('click', (e) => { e.stopPropagation(); this.open(n); }); } }
@@ -112,6 +112,20 @@ const StudyTimer = {
   ansSubj(x) { return subjectOfNote(x[3] ? 'f:' + x[3] : x[2] || '_'); },
   autoSubj() { const n = this.curNote(); return n ? subjectOfNote(n.id) : subjectOfNote('_'); },
   curSubj() { const s = this.st; return s.subj ? subjectOfNote('f:' + s.subj) : this.autoSubj(); },
+  /* v1.42.1 (uma vez): completa os vãos (saídas curtas do app) da sessão de 26/11/2026 entre 18:45 e 19:55, como a regra nova faria */
+  fillGaps1126() {
+    const L = this.log; if (L.fill1126) return; L.fill1126 = 1;
+    const a = new Date(2026, 10, 26, 18, 45).getTime(), b = new Date(2026, 10, 26, 19, 55).getTime();
+    const S = L.sessions || [], xs = S.filter((x) => !x.lg && !x.m && x.s >= a && x.e <= b).sort((p, q) => p.s - q.s);
+    const kind = (x) => [x.n || null, x.f || null, x.v ? 3 : x.r ? 2 : x.q ? 1 : 0].join('|'); let add = 0;
+    for (let i = 1; i < xs.length; i++) {
+      const p = xs[i - 1], x = xs[i], g = x.s - p.e; if (!(g > 0 && g <= this.AWAY_OK) || kind(p) !== kind(x)) continue;
+      const y = { ...p, id: uid(), s: p.e, e: x.s }; S.push(y); add += g;
+      const day = L.days[this.dayKey(p.e)] || (L.days[this.dayKey(p.e)] = {}), k = p.n || '_'; day[k] = (day[k] || 0) + g;
+    }
+    if (add) { S.sort((p, q) => p.s - q.s); const k = this.dayKey(a); if (L.away && L.away[k]) L.away[k] = Math.max(0, L.away[k] - add); }
+    this.saveLog();
+  },
   /* soma no histórico o trecho [a, b), separando na meia-noite */
   addLog(a, b, noteId, title, subj, q) {
     this.addSess(a, b, noteId, subj, q);
@@ -133,10 +147,14 @@ const StudyTimer = {
     const n = this.curNote(), err = this.inErrBook(n); s.segStart = t; s.segNote = n ? n.id : null; s.segTitle = n ? n.title : ''; s.segSubj = err ? null : s.subj || null; s.segQ = err ? 'r' : s.q || false; this.save(); /* v1.29: dentro do caderno de erros do TEC o tempo conta como caderno de erros, sem matéria */
   },
   /* v0.42: fecha o trecho fora da tela [awayAt, t) — só até o fim do temporizador/fase, se acabou nesse meio-tempo */
+  /* v1.42.1: saída curta (até AWAY_OK, ex.: conferir no app do TEC) conta como estudo do trecho em que estava; mais longa vai para log.away */
+  AWAY_OK: 15 * 60000,
   closeAway(t) {
     const s = this.st, a = s.awayAt; if (!a) return; s.awayAt = 0;
     let e = t; if (s.running && this.hasTarget()) e = Math.min(t, t + this.remaining(t));
-    if (!(e > a)) return; const L = this.log, k = this.dayKey(a); L.away = L.away || {}; L.away[k] = (L.away[k] || 0) + (e - a); this.saveLog();
+    if (!(e > a)) return;
+    if (e - a <= this.AWAY_OK) return this.addLog(a, e, s.segNote, s.segTitle, s.segSubj, s.segQ);
+    const L = this.log, k = this.dayKey(a); L.away = L.away || {}; L.away[k] = (L.away[k] || 0) + (e - a); this.saveLog();
   },
   /* v0.42: tela acesa enquanto o cronômetro roda (o Android apagava a tela lendo sem tocar e o tempo parava de contar) */
   wake() {
@@ -165,6 +183,7 @@ const StudyTimer = {
   },
   pause() {
     const s = this.st, t = Date.now(); if (!s.running) return;
+    this.closeAway(t); /* v1.42.1: pausado fora do app (notificação): a saída termina aqui */
     this.boundary(t); s.acc += t - s.runStart; s.running = false; this.save(); this.paint(); this.renderPanel();
   },
   reset() {
@@ -185,7 +204,7 @@ const StudyTimer = {
 
   /* fim do temporizador ou de uma fase do Pomodoro (endT = quando acabou de verdade, pode ser no passado) */
   phaseEnd(endT, skipped) {
-    const s = this.st, P = s.pomo; this.boundary(endT);
+    const s = this.st, P = s.pomo; this.closeAway(Math.max(endT, s.awayAt || 0)); this.boundary(endT);
     if (s.mode === 'countdown') { s.running = false; s.acc = 0; s.target = s.cdMin * 60000; this.save(); this.alert('Tempo esgotado! ' + this.fmtDur(s.cdMin * 60000) + ' de estudo', endT, skipped); this.paint(); this.renderPanel(); return; }
     if (s.phase === 'focus') { // foco acabou: a pausa começa sozinha
       s.cycle++; s.phase = s.cycle % P.every === 0 ? 'long' : 'short'; this.resetPhase(); s.running = true; s.runStart = endT; s.segStart = endT;

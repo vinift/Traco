@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.42.1
+
+- **Saídas rápidas do app contam no estudo.** Antes, o relatório só contava o tempo com o Traço na tela. Se você ia conferir uma questão no app do TEC, esse tempo ficava de fora, mesmo com o cronômetro correndo. Agora, uma saída de até 15 minutos conta como estudo, na mesma matéria e na mesma sessão. Saídas mais longas, como esquecer o cronômetro ligado com a tela apagada, continuam de fora e aparecem em "Não contado".
+- A sessão de Informática de 26/11 (18:49–19:52) teve os vãos preenchidos uma vez e agora soma 1h03, como o cronômetro mostrava.
+
 ## Novidades da v1.42.0
 
 - **Dois toques no botão da caneta → carimbos:** em Configurações → Botões da caneta, a ação nova "Ir para os carimbos de texto (e voltar)" é de **dois toques rápidos** no botão. Pode ser o mesmo botão do atalho rápido: um toque abre o atalho e dois toques abrem os carimbos. Dois toques de novo voltam para a caneta. (Quando o botão tem as duas ações, o toque simples espera um instante para ver se vem o segundo.)
