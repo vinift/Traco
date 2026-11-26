@@ -137,8 +137,10 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); web.saveState(outState) }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); handleIntent(intent) }
     override fun onWindowFocusChanged(hasFocus: Boolean) { super.onWindowFocusChanged(hasFocus); if (hasFocus) immersive() }
-    override fun onResume() { super.onResume(); web.onResume() }
-    override fun onPause() { web.onPause(); super.onPause() }
+    /* v1.42.2: a página só fica "fora da tela" quando o app some de verdade (onStop). Antes era no onPause, que também acontece
+       com o app visível por baixo de uma sobreposição (Gemini/Assistente, cortina de notificações, diálogo) — e o estudo parava de contar */
+    override fun onStart() { super.onStart(); web.onResume() }
+    override fun onStop() { web.onPause(); super.onStop() }
 
     /* tela cheia "fixa": as barras do sistema aparecem por cima ao puxar da borda e somem sozinhas (sem empurrar a tela) */
     private fun immersive() {

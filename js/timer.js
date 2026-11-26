@@ -22,8 +22,8 @@ const StudyTimer = {
     { const c = document.getElementById('noteClock'); if (c) c.title = 'Horário · toque para o cronômetro de estudo'; }
     /* v0.22: o histórico só soma o tempo com o app aberto na tela (fechado, em segundo plano ou com a tela apagada não conta) */
     /* v0.42: o tempo fora da tela (com o cronômetro contando) fica registrado à parte em log.away, para o relatório mostrar o que não contou */
-    const away = () => { const t = Date.now(); if (this.st.running) this.boundary(t); if (this.counts() && !this.st.awayAt) this.st.awayAt = t; this.st.segAway = true; this.save(); };
-    const back = () => { this.closeAway(Date.now()); if (this.st.segAway) { this.st.segAway = false; this.st.segStart = Date.now(); this.save(); } this.tick(); };
+    const away = () => { const t = Date.now(); this.evt('h', t); if (this.st.running) this.boundary(t); if (this.counts() && !this.st.awayAt) this.st.awayAt = t; this.st.segAway = true; this.save(); };
+    const back = () => { this.evt('v'); this.closeAway(Date.now()); if (this.st.segAway) { this.st.segAway = false; this.st.segStart = Date.now(); this.save(); } this.tick(); };
     document.addEventListener('visibilitychange', () => (document.hidden ? away() : back()));
     addEventListener('pagehide', away);
     this.closeAway(Date.now());
@@ -162,6 +162,8 @@ const StudyTimer = {
     if (want && !this._wl && !this._wlBusy) { this._wlBusy = true; navigator.wakeLock.request('screen').then((l) => { this._wl = l; l.addEventListener('release', () => { if (this._wl === l) this._wl = null; }); }).catch(() => {}).finally(() => { this._wlBusy = false; }); }
     else if (!want && this._wl) { const l = this._wl; this._wl = null; l.release().catch(() => {}); }
   },
+  /* v1.42.2: diário curto do cronômetro (h = saiu da tela, v = voltou, s = iniciou, p = pausou) para explicar os vãos entre trechos no relatório */
+  evt(c, t = Date.now()) { const E = this.log.evts || (this.log.evts = []); E.push([t, c]); if (E.length > 400) E.splice(0, E.length - 400); },
   save() { DB.put('meta', clone(this.st), 'studyTimer').catch(() => {}); },
   saveLog() { DB.put('meta', this.log, 'studyLog').catch(() => {}); },
 
@@ -179,11 +181,11 @@ const StudyTimer = {
   start() {
     const s = this.st, t = Date.now(); if (s.running) return;
     if (this.hasTarget() && this.remaining(t) <= 0) this.resetPhase();
-    s.segStart = 0; /* v1.13.1: o tempo pausado NÃO vira estudo — antes o boundary daqui gravava [hora da pausa, agora) */ s.running = true; s.runStart = t; this.boundary(t); this.unlockAudio(); this.askNotify(); this.paint(); this.renderPanel();
+    this.evt('s', t); s.segStart = 0; /* v1.13.1: o tempo pausado NÃO vira estudo — antes o boundary daqui gravava [hora da pausa, agora) */ s.running = true; s.runStart = t; this.boundary(t); this.unlockAudio(); this.askNotify(); this.paint(); this.renderPanel();
   },
   pause() {
     const s = this.st, t = Date.now(); if (!s.running) return;
-    this.closeAway(t); /* v1.42.1: pausado fora do app (notificação): a saída termina aqui */
+    this.evt('p', t); this.closeAway(t); /* v1.42.1: pausado fora do app (notificação): a saída termina aqui */
     this.boundary(t); s.acc += t - s.runStart; s.running = false; this.save(); this.paint(); this.renderPanel();
   },
   reset() {

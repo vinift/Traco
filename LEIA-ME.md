@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.42.2
+
+- **Os vãos de uma sessão agora mostram o motivo.** No relatório → Sessões, abra uma sessão com vários trechos. Entre eles aparece o que houve: "cronômetro pausado", "app fora da tela (não contou)" ou "sem registro". "Sem registro" (em laranja) é o caso estranho: me mande um print.
+- **Traço Nativo:** o tempo continua contando quando algo fica por cima do app, como o Gemini/Assistente, a cortina de notificações ou uma janela do sistema. Antes, o app achava que tinha saído da tela. Esta parte precisa do APK novo (link em Configurações → Sobre).
+
 ## Novidades da v1.42.1
 
 - **Saídas rápidas do app contam no estudo.** Antes, o relatório só contava o tempo com o Traço na tela. Se você ia conferir uma questão no app do TEC, esse tempo ficava de fora, mesmo com o cronômetro correndo. Agora, uma saída de até 15 minutos conta como estudo, na mesma matéria e na mesma sessão. Saídas mais longas, como esquecer o cronômetro ligado com a tela apagada, continuam de fora e aparecem em "Não contado".

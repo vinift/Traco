@@ -383,11 +383,17 @@ const StudyReport = {
           el('span', { class: 'rp-stime' }, `${hm(b.s)}–${b.live ? 'agora' : hm(b.e)}`), el('b', {}, T.fmtDur(b.study)),
           el('span', { class: 'rp-name' }, el('i', { class: 'sr-dot', style: { background: x0.q ? this.qColor(s.color) : s.color } }), s.name, this.kindTag(x0.q, x0.r, x0.v)),
           el('span', { class: 'rp-snote' }, `${this.countable(x0) ? '' : 'não conta (sem matéria) · '}${note ? note + ' · ' : ''}${b.parts.length} trechos` + (b.pause >= 60000 ? ` · pausas ${T.fmtDur(b.pause)}` : ''))));
-        if (open) for (const x of b.parts) items.push(row(x, true));
+        if (open) b.parts.forEach((x, i) => { const g = i && this.gapRow(b.parts[i - 1].e, x.s, hm); if (g) items.push(g); items.push(row(x, true)); });
       }
       out.append(el('div', { class: 'rp-sday' }, el('div', { class: 'rp-h' }, ((t) => t.charAt(0).toUpperCase() + t.slice(1))(d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })), el('span', { class: 'rp-hs' }, T.fmtDur(tot))), ...items));
     }
     return out;
+  },
+  /* v1.42.2: vão entre dois trechos (≥ 30 s): o diário do cronômetro (log.evts) diz se foi fora do app, pausa ou sem registro */
+  gapRow(a, b, hm) {
+    if (b - a < 30000) return null; const E = (StudyTimer.log.evts || []).filter(([t]) => t >= a - 2000 && t <= b + 2000).map(([, c]) => c);
+    const why = E.includes('p') || E.includes('s') ? 'cronômetro pausado' : E.includes('h') || E.includes('v') ? 'app fora da tela (não contou)' : 'sem registro';
+    return el('div', { class: 'rp-gaprow' + (why === 'sem registro' ? ' unk' : '') }, `${hm(a)}–${hm(b)} · ${StudyTimer.fmtDur(b - a)} · ${why}`);
   },
   editSess(x, render, r) {
     const T = StudyTimer, L = T.log, isNew = !x, now = Date.now();
