@@ -262,13 +262,15 @@ const Focus = {
         this._tt = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() }; return;
       }
       if (!ed.classList.contains('writing')) return;
-      clearTimeout(this._wT); ed.classList.remove('writing'); e.preventDefault(); e.stopPropagation();
+      clearTimeout(this._wT); ed.classList.remove('writing'); e.preventDefault(); e.stopPropagation(); this._eat = performance.now();
     }, true);
     this.ed().addEventListener('pointerup', (e) => {
       const t = this._tt; this._tt = null; if (!t || t.id !== e.pointerId || !this.on) return;
       if (Math.hypot(e.clientX - t.x, e.clientY - t.y) > 10 || performance.now() - t.t > 450) return;
-      e.preventDefault(); e.stopPropagation(); this.toggle(false);
+      e.preventDefault(); e.stopPropagation(); this.toggle(false); this._eat = performance.now();
     }, true);
+    /* v1.36.4: o clique desse mesmo toque não aciona o botão que acabou de reaparecer (voltar, páginas…) — só o próximo toque */
+    addEventListener('click', (e) => { if (this._eat && performance.now() - this._eat < 700) { this._eat = 0; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
   },
   restore() {
     this.initTopTap();
