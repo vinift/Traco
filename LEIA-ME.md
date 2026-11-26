@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.34.0 — capa dos cadernos
+
+- Os cadernos de questões das matérias (e o caderno de erros) agora aparecem na biblioteca com uma **capa**: na **cor da pasta da matéria**, com ícone, o nome da matéria e quantas questões tem (no caderno de erros, quantas faltam refazer). Também na barra lateral, em Notas recentes.
+- **Personalizar:** ⋯ da nota na biblioteca → **Capa…** — escolha outra cor, outro ícone, ou volte a mostrar a página. Funciona em qualquer nota, não só nos cadernos.
+
 ## Novidades da v1.33.0 — anotar o tópico onde parou
 
 - Ao tocar em **Adicionar questões**, aparece antes uma janela com **"Da última vez você parou em: …"** (com a data e quantas questões novas entraram) e um campo **"Até qual tópico vai o PDF de agora?"** (opcional). Depois é só tocar em "Escolher PDFs".

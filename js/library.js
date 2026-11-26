@@ -56,7 +56,7 @@ const Library = {
       sr.innerHTML = ''; const rec = (S.recent || []).filter((id) => Store.heads[id]).slice(0, 4);
       if (rec.length) {
         sr.append(el('div', { class: 'side-sec' }, 'Notas recentes'));
-        for (const id of rec) { const h = Store.heads[id]; sr.append(el('button', { class: 'side-item side-note', title: h.title, onclick: () => App.openNote(id) }, h.thumb ? el('img', { class: 'side-thumb', src: h.thumb, alt: '' }) : el('span', { class: 'side-thumb' }), el('span', { class: 'side-fname' }, h.title || 'Sem título'))); }
+        for (const id of rec) { const h = Store.heads[id]; sr.append(el('button', { class: 'side-item side-note', title: h.title, onclick: () => App.openNote(id) }, (() => { const c = this.coverEl(h, true); if (c) { c.classList.add('side-thumb'); return c; } return null; })() || (h.thumb ? el('img', { class: 'side-thumb', src: h.thumb, alt: '' }) : el('span', { class: 'side-thumb' })), el('span', { class: 'side-fname' }, h.title || 'Sem título'))); }
       }
     }
     // caminho
@@ -102,12 +102,46 @@ const Library = {
   noteItem(h, hit, q) {
     const sel = this.selected.has('n:' + h.id);
     const mb = el('button', { class: 'icon-btn more', title: 'Opções', onclick: (e) => { e.stopPropagation(); this.noteMenu(mb, h); } }); mb.innerHTML = icon('more');
-    const th = el('div', { class: 'nthumb' }, h.thumb ? el('img', { src: h.thumb, alt: '' }) : null);
+    const cv = this.coverEl(h), th = el('div', { class: 'nthumb' + (cv ? ' has-cover' : '') }, cv || (h.thumb ? el('img', { src: h.thumb, alt: '' }) : null));
     const info = h.mode === 'infinite' ? 'Tela infinita' : `${h.pages} pág.` + (h.hasPdf ? ' · PDF' : '') + (h.bm ? ` · ${h.bm} marcador${h.bm > 1 ? 'es' : ''}` : '');
     const where = this.view !== 'home' || q ? (Store.folderChain(h.folderId).map((f) => f.name).join(' › ') || 'Início') : null;
     return el('div', { class: 'item' + (sel ? ' sel' : ''), onclick: () => this.selecting ? this.toggleSel('n:' + h.id) : App.openNote(h.id, hit ? [hit[0], hit[1]] : null) }, th,
       el('div', { class: 'meta' }, el('div', { class: 'dt' }, fmtDate(h.updated)), el('div', { class: 'nm' }, h.title), el('div', { class: 'cnt' }, where ? where + ' · ' + info : info),
         hit ? el('div', { class: 'lib-hit', title: hit[2] }, el('b', {}, 'Pág. ' + (hit[0] + 1) + (hit[1] ? '' : ' ✍') + ': '), snippet(hit[2], q)) : null), this.selecting ? el('span', { class: 'chk-dot' }, sel ? '✓' : '') : mb);
+  },
+  /* v1.34: capa dos cadernos — padrão nos cadernos de questões (cor da pasta-matéria) e no caderno de erros; qualquer nota pode
+     ter capa (⋯ → Capa…): note.cover = {page: true} (volta à miniatura) | {color: null|hex, icon}. Dados no head (Store.putNote). */
+  coverInfo(h) {
+    const C = h && h.cover; if (!h || (C && C.page) || (!h.qb && !C)) return null;
+    const chain = Store.folderChain(h.folderId), sub = [...chain].reverse().find((f) => f.subject) || chain[chain.length - 1];
+    const def = h.qb && h.qb.bank ? '#f59e0b' : (sub && sub.color) || FOLDER_COLORS[0];
+    const name = h.qb ? (h.qb.bank ? 'Caderno de erros' : h.title.replace(/^Questões — /, '')) : h.title;
+    const sub2 = h.qb ? (h.qb.bank ? `${h.qb.n} para refazer` : h.qb.n ? `${h.qb.n} questões` : 'vazio') : '';
+    return { color: (C && C.color) || def, def, icon: (C && C.icon) || (h.qb ? (h.qb.bank ? '📕' : '✍️') : '📓'), name, sub: sub2 };
+  },
+  coverEl(h, small) {
+    const I = this.coverInfo(h); if (!I) return null;
+    const d = el('div', { class: 'qcover' + (small ? ' sm' : '') }, el('span', { class: 'qc-spine' }), el('span', { class: 'qc-ico' }, I.icon), small ? null : el('span', { class: 'qc-name' }, I.name), small || !I.sub ? null : el('span', { class: 'qc-n' }, I.sub));
+    d.style.setProperty('--c', I.color); return d;
+  },
+  async coverDialog(h) {
+    const note = await Store.getNote(h.id); if (!note) return; const base = this.coverInfo({ ...h, cover: null }) || this.coverInfo({ ...h, cover: {} });
+    let cur = { ...(note.cover || (h.qb ? {} : { page: true })) };
+    const ICONS = ['✍️', '📕', '📘', '📗', '📙', '📓', '🧠', '⚖️', '💻', '🔢', '📊', '🗣️', '🧮', '🌎', '🧪', '📜', '💡', '⭐'];
+    const prev = el('div', { class: 'nthumb cv-prev' }), body = el('div', { class: 'cv-dlg' });
+    const paint = () => {
+      prev.innerHTML = ''; const cv = this.coverEl({ ...h, cover: cur.page ? { page: true } : { color: cur.color || null, icon: cur.icon || null } }); prev.classList.toggle('has-cover', !!cv); prev.append(cv || (h.thumb ? el('img', { src: h.thumb, alt: '' }) : ''));
+      kind.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', i === (cur.page ? 0 : 1))); opts.classList.toggle('hidden', !!cur.page);
+      cols.querySelectorAll('.cv-c').forEach((b) => b.classList.toggle('on', (b.dataset.c || null) === (cur.color || null))); icons.querySelectorAll('.cv-i').forEach((b) => b.classList.toggle('on', b.textContent === (cur.icon || (base && base.icon))));
+    };
+    const kind = el('div', { class: 'seg' }, el('button', { onclick: () => { cur = { page: true }; paint(); } }, 'Página'), el('button', { onclick: () => { if (cur.page) cur = {}; paint(); } }, 'Capa'));
+    const cols = el('div', { class: 'cv-row' }, el('button', { class: 'cv-c def', title: 'Cor da pasta', style: { background: base ? base.def : FOLDER_COLORS[0] }, onclick: () => { cur.color = null; paint(); } }, 'pasta'),
+      ...FOLDER_COLORS.map((c) => { const b = el('button', { class: 'cv-c', style: { background: c }, onclick: () => { cur.color = c; paint(); } }); b.dataset.c = c; return b; }));
+    const icons = el('div', { class: 'cv-row' }, ...ICONS.map((ic) => el('button', { class: 'cv-i', onclick: () => { cur.icon = ic; paint(); } }, ic)));
+    const opts = el('div', { class: 'cv-opts' }, el('small', {}, 'Cor'), cols, el('small', {}, 'Ícone'), icons);
+    body.append(el('div', { class: 'cv-top' }, prev, kind), opts); paint();
+    const ok = await openModal({ title: 'Capa — ' + h.title, body, buttons: [{ label: 'Cancelar', value: false }, { label: 'Salvar', cls: 'primary', value: true }] });
+    if (!ok) return; note.cover = cur.page && !h.qb ? null : cur.page ? { page: true } : { color: cur.color || null, icon: cur.icon || null }; await Store.putNote(note); this.render();
   },
   openFolder(id) { this.folder = id; this.view = 'home'; this.query = ''; $('#libSearch').value = ''; this.selected.clear(); this.render(); $('.lib-body').scrollTop = 0; },
   /* ---- seleção múltipla ---- */
@@ -240,6 +274,7 @@ const Library = {
     menu(anchor, [
       { label: 'Renomear', icon: 'pen', run: async () => { const t = await askText('Renomear nota', h.title); if (t) { const n = await Store.getNote(h.id); n.title = t; n.updated = Date.now(); await Store.putNote(n); this.render(); } } },
       { label: 'Abrir ao lado da última nota', icon: 'sidebar', run: () => SplitView.openFromLibrary(h.id) },
+      { label: 'Capa…', icon: 'palette', run: () => this.coverDialog(h) },
       { label: QuickSwitch.isPinned(h.id) ? 'Desafixar de Alternar rapidamente' : 'Fixar em Alternar rapidamente', icon: 'layers', run: () => QuickSwitch.pin(h.id) },
       { label: 'Mover para…', icon: 'folder', run: () => this.moveDialog(h) },
       { label: 'Duplicar', icon: 'copy', run: async () => { const n = await Store.getNote(h.id); const c = clone(n); c.id = uid(); c.title = n.title + ' (cópia)'; c.created = c.updated = Date.now(); await Store.putNote(c); await Store.setThumb(c.id, h.thumb); this.render(); } },

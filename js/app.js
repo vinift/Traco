@@ -3,7 +3,7 @@
 /* liga eventos sem quebrar o app se um botão não existir (ex.: arquivos de versões diferentes em cache) */
 function on(ids, fn) { for (const id of ids) { const n = document.getElementById(id); if (n) n.onclick = fn; else console.warn('Botão ausente: #' + id); } }
 const App = {
-  version: '1.33.0',
+  version: '1.34.0',
   async init() {
     hydrateIcons();
     await Store.init();
@@ -20,6 +20,9 @@ const App = {
     await Drive.loadTok(); // login de até 1 h atrás continua valendo
     Drive.refreshStatus();
     this.restorePlace(); Library.show(); PdfOpen.init();
+    setTimeout(async () => { /* v1.34: cadernos de questões/erros criados antes das capas ganham os dados da capa no índice */
+      try { const ids = [...Store.folders.map((f) => f.qNote), Store.settings.tecErrNote].filter((id) => id && Store.heads[id] && Store.heads[id].qb === undefined); for (const id of ids) { const n = await Store.getNote(id); if (n) await Store.putNote(n, { sync: false }); } if (ids.length) Library.render(); } catch (e) { console.warn('capas', e); }
+    }, 1500);
     if (back && Store.heads[back]) this.openNote(back);
     else this.reopenLast();
     SplitView.restore();

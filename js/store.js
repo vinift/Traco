@@ -235,7 +235,8 @@ const Store = {
     this._sigs.set(note, cur);
     const h = this.heads[note.id] || {};
     const texts = []; note.pages.forEach((pg, i) => { pg.elements.forEach((e) => { if (e.type === 'text' && e.text) texts.push([i, e.id, e.text.slice(0, 400)]); }); if (pg.ocr && pg.ocr.text) texts.push([i, '', (pg.ocr.text + ((pg.ocr.lines || []).some((L) => L.a) ? '\n' + pg.ocr.lines.map((L) => (L.a || []).join(' ')).join(' ') : '')).slice(0, 1500)]); });
-    this.heads[note.id] = { id: note.id, title: note.title, folderId: note.folderId || null, created: note.created, updated: note.updated, mode: note.mode, pages: note.pages.length, thumb: h.thumb || null, hasPdf: note.pages.some((p) => p.pdf), texts: texts.slice(0, 300), bm: note.pages.filter((p) => p.bookmark).length };
+    this.heads[note.id] = { id: note.id, title: note.title, folderId: note.folderId || null, created: note.created, updated: note.updated, mode: note.mode, pages: note.pages.length, thumb: h.thumb || null, hasPdf: note.pages.some((p) => p.pdf), texts: texts.slice(0, 300), bm: note.pages.filter((p) => p.bookmark).length,
+      qb: note.tec && note.tec.built ? { n: Object.keys(note.tec.q || {}).length, bank: note.bank ? 1 : 0, last: ((note.tec.topics || []).slice(-1)[0] || {}).txt || null } : null, cover: note.cover || null }; /* v1.34: capa dos cadernos */
     await this.saveHeads();
     if (sync) { const t = Date.now(); this.dirty.notes[note.id] = t; this.dirty.pdfs[note.id] = t; this.dirty.lib = t; await this.saveDirty(); Drive.schedule(); } // horário (não "1"): o segundo plano sabe se mudou de novo enquanto enviava
   },
