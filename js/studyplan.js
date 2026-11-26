@@ -206,7 +206,7 @@ const StudyPlan = {
           x.tec && typeof Tec !== 'undefined' ? el('button', { class: 'rv-b go', title: 'Ver a questão no caderno', onclick: () => { closePop(); Tec.goErr(x); } }, 'Ver') : null,
           x.tec ? el('button', { class: 'rv-b go', title: 'Abrir no TEC (comentários e explicação)', onclick: () => window.open(Tec.url(x.tec.id), '_blank') }, 'TEC') : null,
           el('button', { class: 'rv-b ok', title: 'Acertei (sai da lista)', onclick: () => { x.done = true; x.doneAt = Date.now(); T.saveLog(); QuizPad.sync(true); paint(); } }, '✓'),
-          el('button', { class: 'rv-b no', title: 'Errei de novo (continua na lista)', onclick: () => { x.miss = (x.miss || 0) + 1; x.tryAt = Date.now(); T.saveLog(); paint(); toast('Continua na lista', 900); } }, '✗'))))
+          el('button', { class: 'rv-b no', title: 'Errei de novo (continua na lista)', onclick: () => { x.miss = (x.miss || 0) + 1; x.tryAt = Date.now(); T.saveLog(); paint();  } }, '✗'))))
           : el('p', { class: 'tm-hint' }, 'Nenhum erro para refazer. Os erros entram aqui quando você toca em ✗ no modo Questões.'),
         el('div', { class: 'pl-btns' }, el('button', { class: 'btn primary', onclick: () => closePop() }, 'Pronto'))].filter(Boolean)); /* v1.21: append nativo escrevia "null" */
     };

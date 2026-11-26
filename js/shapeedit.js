@@ -125,7 +125,7 @@ Object.assign(Editor, {
     const els = this.selElements(); if (els.length === 1 && els[0].type === 'shape' && !els[0].lock) return els[0];
     this.vEdit = false; return null;
   },
-  toggleVEdit() { if (this.vEditEl()) this.vEdit = false; else { this.vEdit = true; if (!this.vEditEl()) return; } UI.buildSelBar(); this.requestRender(); if (this.vEdit) toast('Arraste os pontos laranja para mudar a forma', 1600); },
+  toggleVEdit() { if (this.vEditEl()) this.vEdit = false; else { this.vEdit = true; if (!this.vEditEl()) return; } UI.buildSelBar(); this.requestRender(); if (this.vEdit) hint('vedit', 'Arraste os pontos laranja para mudar a forma', 1600); },
   vNodesScreen(e) { const o = this.layout[this.pageIdx(this.pageById(this.sel.pageId))]; return shapeNodes(e).map((n) => ({ ...n, sx: this.toScreen(n.x + o.x, n.y + o.y).x, sy: this.toScreen(n.x + o.x, n.y + o.y).y })); },
   vHit(p) {
     const e = this.vEditEl(); if (!e) return null; let best = null, bd = 24;

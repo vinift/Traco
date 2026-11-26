@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.36.3 — menos avisos óbvios
+
+- Saíram os avisos que só repetiam o que você acabou de ver: "Desfeito", "Refeito", "Colado", "Colchete", "Nota movida", "Itens movidos", "Página X de Y", "Cor/espessura/tamanho salvo", "Modelo aplicado/salvo", "Print descartado", "Sessão excluída" e outros.
+- As **dicas de como usar** ("Tela cheia — toque duas vezes…", "Toque no × para remover", "Arraste sobre a área para tirar o print", "Arraste os pontos laranja…", post-it, conta-gotas, células da tabela, hífen, matéria) agora aparecem **só uma vez** — e como você já as viu, não vão mais aparecer.
+- Erros e avisos que você não veria de outro jeito continuam (Lixeira, caderno de erros, "Volte de novo para sair", "Salvo em Downloads", progresso do backup etc.).
+
 ## Novidades da v1.36.2
 
 - Barras em vidro da tela cheia mais "clean": tirei a sombra escura das espessuras, números e cores; os ícones ficam só com um halo claro e a sombra em volta da barra ficou bem mais leve. Continua só na tela cheia.

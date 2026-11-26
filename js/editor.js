@@ -452,7 +452,6 @@ const Editor = {
     if (back >= 0) { this.goToPage(back); toast(undo ? 'Página restaurada' : 'Página refeita', 1100); return; }
     const gone = from.findIndex((p) => !to.includes(p)); // página que saiu
     if (gone >= 0) { this.goToPage(Math.min(gone, to.length - 1)); toast(undo ? 'Página adicionada foi desfeita' : 'Página excluída de novo', 1100); return; }
-    const moved = to.findIndex((p, i) => from[i] !== p); if (moved >= 0) toast('Ordem das páginas desfeita', 1100);
   },
   updateUndoBtns() { const u = $('#btnUndo'), r = $('#btnRedo'); if (u) u.disabled = !this.undoStack.length; if (r) r.disabled = !this.redoStack.length; },
 
@@ -621,7 +620,7 @@ const Editor = {
     const hand = Store.settings.hand || 'right', half = this.W / 2, sideOk = hand === 'none' || (hand === 'right' ? g.maxX < half : g.minX > half);
     if (g.max >= 4 && dt < 800) { if (typeof BugRec !== 'undefined') BugRec.capture('4 dedos'); return; } /* v0.54: toque com 4 dedos = relatar problema visual */
     if (!g.moved && dt < 350 && g.max >= 2 && !sideOk) return;
-    if (!g.moved && dt < 350) { if (g.max === 2) { this.undo(); toast('Desfeito', 900); } else if (g.max === 3) { this.redo(); toast('Refeito', 900); } else if (g.max === 1 && g.p0 && !this.readOnly) this.fingerTap(g.p0); }
+    if (!g.moved && dt < 350) { if (g.max === 2) { this.undo();  } else if (g.max === 3) { this.redo();  } else if (g.max === 1 && g.p0 && !this.readOnly) this.fingerTap(g.p0); }
   },
 
   /* ---------- Ações de ferramenta ---------- */
@@ -912,7 +911,7 @@ const Editor = {
     const loc = poly.map(([x, y]) => { const w = this.toWorld(x, y); return this.local(pi, w.x, w.y); });
     let x1 = Math.min(...loc.map((q) => q.x)), y1 = Math.min(...loc.map((q) => q.y)), x2 = Math.max(...loc.map((q) => q.x)), y2 = Math.max(...loc.map((q) => q.y));
     if (this.note.mode !== 'infinite') { x1 = Math.max(0, x1); y1 = Math.max(0, y1); x2 = Math.min(page.w, x2); y2 = Math.min(page.h, y2); }
-    if (x2 - x1 < 4 || y2 - y1 < 4) return toast('Arraste para marcar a área do print');
+    if (x2 - x1 < 4 || y2 - y1 < 4) return hint('shot', 'Arraste para marcar a área do print');
     const area = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 }, sc = clamp(4096 / Math.max(area.w, area.h), 2, 8); // print nítido: até 4096 px no lado maior
     /* v1.11.1: a janela abre logo com uma prévia leve (600 px); o print nítido (render grande + PNG) e o salvar na biblioteca
        vão por trás em job.p — antes tudo isso (e mais um toDataURL do canvas grande) vinha antes da janela. job.cancel = descartado antes de salvar */
@@ -1118,13 +1117,13 @@ const Editor = {
     if (PenCapture.active) return PenCapture.got(sg);
     const a = (Store.settings.penMap || {})[sg]; const now = performance.now();
     if (now - (this._lastSig || 0) < 250) return; // evita disparo duplo (botão + menu de contexto)
-    if (a === 'undo') { this._lastSig = now; this.undo(); toast('Desfeito', 700); }
-    else if (a === 'redo') { this._lastSig = now; this.redo(); toast('Refeito', 700); }
+    if (a === 'undo') { this._lastSig = now; this.undo();  }
+    else if (a === 'redo') { this._lastSig = now; this.redo();  }
     else if (a === 'toggle') { this._lastSig = now; const t = this.tool === 'eraser' ? (this._prevTool || 'pen') : 'eraser'; if (t === 'eraser') this._prevTool = this.tool; UI.setTool(t, true); }
     else if (a === 'read') { this._lastSig = now; this.setReadOnly(!this.readOnly); }
     else if (a === 'hyphen') { this._lastSig = now; if (this._qk) this.closeQuick(); else this.openQuick(); } /* v0.45: telinha do atalho rápido (hífen / tópico / romano) */
     else if (a === 'gotoPage') { this._lastSig = now; if ($('#popRoot .gp-pop')) closePop(); else GoPage.open(); } /* v0.48 */
-    else if (a === 'hyphenDirect') { this._lastSig = now; if (this._hyArm && this._hyArm.kind === 'hyphen' && !this._hyArm.panel) { this._hyArm = null; toast('Hífen cancelado', 800); } else { if (this._qk) this.closeQuick(); this._hyArm = { t: now, kind: 'hyphen' }; toast('Hífen: toque no quadrado com a caneta', 1400); } } /* v0.47.1: hífen direto, sem telinha (antes 'bullet' = tópico) */
+    else if (a === 'hyphenDirect') { this._lastSig = now; if (this._hyArm && this._hyArm.kind === 'hyphen' && !this._hyArm.panel) { this._hyArm = null;  } else { if (this._qk) this.closeQuick(); this._hyArm = { t: now, kind: 'hyphen' }; hint('hyphen', 'Hífen: toque no quadrado com a caneta', 1400); } } /* v0.47.1: hífen direto, sem telinha (antes 'bullet' = tópico) */
   },
   setReadOnly(v) {
     this.readOnly = v; this.commitText(); this.sel = null; $('#editor').classList.toggle('reading', v);

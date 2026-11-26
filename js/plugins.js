@@ -121,7 +121,7 @@ Traco.registerTool({
     });
     const add = el('button', { class: 'cbtn addb', title: 'Salvar o tamanho atual (' + Traco.fmtW(c.size) + ')', onclick: () => {
       if (sz.some((w) => Math.abs(w - c.size) < 0.01)) return Traco.ui.toast('Esse tamanho já está salvo', 1200);
-      sz.push(c.size); sz.sort((a, b) => a - b); api.store.set('sizes', sz); Traco.refreshBar(); Traco.ui.toast('Tamanho ' + Traco.fmtW(c.size) + ' salvo', 1200);
+      sz.push(c.size); sz.sort((a, b) => a - b); api.store.set('sizes', sz); Traco.refreshBar(); 
     } });
     add.innerHTML = Traco.ui.icon('plus'); box.append(add); rail.append(box);
   },
@@ -236,7 +236,7 @@ const Plugins = {
       refresh: () => UI.refresh(), refreshBar: () => UI.renderOptions(), openOptions: () => { UI.openPanel(); },
       /* v1.11.2: reordenar/remover itens da barra igual às cores e espessuras */
       sortable: (box, sel, list, onDone, o) => makeSortable(box, sel, list, onDone, o), fmtW: (w) => fmtW(w), editing: () => UI.editMode,
-      toggleEditing: () => { UI.editMode = !UI.editMode; UI.renderOptions(); if (UI.editMode) toast('Toque no × para remover; toque em ✓ para concluir', 1800); }, editBtn: (what) => UI.editBtn(what),
+      toggleEditing: () => { UI.editMode = !UI.editMode; UI.renderOptions(); if (UI.editMode) hint('editx', 'Toque no × para remover; toque em ✓ para concluir', 1800); }, editBtn: (what) => UI.editBtn(what),
       ui: { el, icon, toast, openModal, askText, colorPop, PALETTE,
         slider: (label, val, min, max, step, fmt, on) => UI.sliderRows(label, val, min, max, step, fmt, on)[0],
         switchRow: (label, hint, val, on) => UI.switchRow(label, hint, val, on),

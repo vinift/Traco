@@ -192,7 +192,7 @@ const UI = {
   },
   groupMenu(anchor) {
     const S = Store.settings, note = Editor.note, cur = this.group(), folder = Store.folderOf(note);
-    const items = this.groupTree().map(([g, d]) => ({ label: (g.id === cur.id ? '✓ ' : '   ') + '\u2003'.repeat(d) + (d ? '↳ ' : '') + g.name, run: () => { note.groupId = g.id; Editor.markChanged(); this.refresh(); toast('Grupo "' + this.groupPath(g) + '" nesta nota', 1300); } }));
+    const items = this.groupTree().map(([g, d]) => ({ label: (g.id === cur.id ? '✓ ' : '   ') + '\u2003'.repeat(d) + (d ? '↳ ' : '') + g.name, run: () => { note.groupId = g.id; Editor.markChanged(); this.refresh();  } }));
     items.push('-');
     const mk = async (parentId, title) => {
       const n = await askText(title, '', 'Nome (ex.: Direito Penal)'); if (!n) return;
@@ -248,7 +248,7 @@ const UI = {
     } else if (t === 'lasso') {
       const L = S.tools.lasso;
       for (const [m, ic, n] of [['free', 'lassoFree', 'Laço livre'], ['rect', 'lassoRect', 'Laço retangular'], ['shot', 'camera', 'Print da área (vai para a biblioteca)']]) {
-        const b = el('button', { class: 'cbtn' + (L.mode === m ? ' soft-on' : ''), title: n, onclick: () => { L.mode = m; this.save(); Editor.sel = null; Editor.requestRender(); this.renderOptions(); if (m === 'shot') toast('Arraste sobre a área para tirar o print', 1800); } }); b.innerHTML = icon(ic); sr.append(b);
+        const b = el('button', { class: 'cbtn' + (L.mode === m ? ' soft-on' : ''), title: n, onclick: () => { L.mode = m; this.save(); Editor.sel = null; Editor.requestRender(); this.renderOptions(); if (m === 'shot') hint('shot', 'Arraste sobre a área para tirar o print', 1800); } }); b.innerHTML = icon(ic); sr.append(b);
       }
       sep(); /* v0.58: o que o laço pega — por área (dentro do laço) ou passando por cima (o que o traço tocar) */
       for (const [m, n, tt] of [['area', 'Área', 'Escrita entra só se ficar (quase toda) dentro do laço'], ['touch', 'Tocar', 'Basta o laço encostar: entra o que tiver qualquer parte dentro ou que o contorno cruzar']]) sr.append(el('button', { class: 'wchip' + ((L.pick || 'area') === m ? ' sel' : ''), title: tt, onclick: () => { L.pick = m; this.save(); this.renderOptions(); toast(m === 'touch' ? 'Laço: basta encostar para selecionar' : 'Laço: só o que ficar dentro', 1400); } }, el('span', { class: 'n', style: { fontSize: '10px' } }, n)));
@@ -318,15 +318,15 @@ const UI = {
     });
     makeSortable(box, '.wchip', list, () => { this.save(); this.renderOptions(); }, {
       tap: (i) => { if (this.editMode) return; st[key] = list[i]; this.save(); if (t === 'text') this.applyTextStyle({ size: list[i] }); this.refresh(); },
-      long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) toast('Toque no × para remover', 1500); },
+      long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) hint('editx', 'Toque no × para remover', 1500); },
     });
-    const add = el('button', { class: 'cbtn addb', title: 'Salvar espessura atual (' + fmtW(st[key]) + ')', onclick: () => { if (!list.some((w) => Math.abs(w - st[key]) < 0.01)) { list.push(st[key]); this.save(); this.renderOptions(); toast('Espessura ' + fmtW(st[key]) + ' salva', 1200); } else toast('Essa espessura já está salva', 1200); } });
+    const add = el('button', { class: 'cbtn addb', title: 'Salvar espessura atual (' + fmtW(st[key]) + ')', onclick: () => { if (!list.some((w) => Math.abs(w - st[key]) < 0.01)) { list.push(st[key]); this.save(); this.renderOptions();  } else toast('Essa espessura já está salva', 1200); } });
     add.innerHTML = icon('plus'); box.append(add, this.editBtn('espessuras'));
     sr.append(box);
   },
   /* botão de editar as barras: liga/desliga o modo de remover itens (×) */
   editBtn(what) {
-    const b = el('button', { class: 'cbtn addb editb' + (this.editMode ? ' soft-on' : ''), title: this.editMode ? 'Concluir edição' : `Editar ${what} (remover)`, onclick: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) toast('Toque no × para remover; toque em ✓ para concluir', 1800); } });
+    const b = el('button', { class: 'cbtn addb editb' + (this.editMode ? ' soft-on' : ''), title: this.editMode ? 'Concluir edição' : `Editar ${what} (remover)`, onclick: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) hint('editx', 'Toque no × para remover; toque em ✓ para concluir', 1800); } });
     b.innerHTML = icon(this.editMode ? 'check' : 'edit'); return b;
   },
   /* v1.11.4: bolinha de degradê sem definição (veio de um backup antigo): procura no Drive; se não achar, oferece remover */
@@ -356,7 +356,7 @@ const UI = {
         if (Fades.isKey(list[i])) { const id = Fades.idOf(list[i]); if (!Fades.get(id)) { this.lostFade(list, i); return; } if (Fades.active(st) && st.fade === id) { Fades.edit(id, () => this.renderOptions()).then((r) => { if (r === 'del') { const k = list.indexOf('fade:' + id); if (k >= 0) list.splice(k, 1); Fades.purge(id); st.fade = null; } this.save(); this.renderOptions(); }); return; } Fades.select(st, id); this.save(); this.refresh(); return; }
         st.color = list[i]; st.fade = null; /* v0.38.2: cor normal desliga o degradê (mesmo sendo igual à 1ª cor dele) */ this.save(); if (t === 'text') this.applyTextStyle({ color: list[i] });
         /* v0.52.1: só troca a marcação (antes refazia rail, subrail e hbar inteiros a cada toque → piscava no tablet) */ box.querySelectorAll('.cdot').forEach((x) => x.classList.toggle('sel', +x.dataset.i === i)); if (this.panelOpen) this.buildPanel(); },
-      long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) toast('Toque no × para remover', 1500); },
+      long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) hint('editx', 'Toque no × para remover', 1500); },
     });
     const add = el('button', { class: 'cbtn addb', title: 'Adicionar cor' }); add.innerHTML = icon('plus');
     add.onclick = () => colorPop(add, st.color, (c) => { const n = this.addColorTo(t, c); st.color = c; st.fade = null; this.save(); this.refresh(); if (Store.settings.colorAllGroups && n > 1) toast('Cor adicionada a todos os grupos', 1500); }, t === 'highlighter' ? HL_PALETTE.concat(PALETTE.slice(4, 14)) : PALETTE, { alpha: t !== 'highlighter', tool: t, allGroups: true });
@@ -479,7 +479,7 @@ const UI = {
     const grid = el('div', { class: 'clip-grid' });
     for (const c of list) {
       const card = el('button', { class: 'clip' + (c.pin ? ' pin' : ''), title: c.label }, el('img', { src: c.thumb || '', alt: '' }), c.pin ? el('span', { class: 'clip-pin' }, '★') : null);
-      onPress(card, () => { Editor.pasteElements(c.els); toast('Colado da biblioteca', 1000); }, () => menu(card, [
+      onPress(card, () => { Editor.pasteElements(c.els);  }, () => menu(card, [
         { label: c.pin ? 'Desafixar' : 'Fixar no topo', icon: 'star', run: async () => { await Clips.update(c.id, { pin: !c.pin }); this.buildPanel(); } },
         { label: 'Remover da biblioteca', icon: 'trash', danger: true, run: async () => { await Clips.remove(c.id); this.buildPanel(); } },
       ]));
@@ -593,7 +593,7 @@ const UI = {
     });
     makeSortable(box, '.cdot', list, () => { this.save(); this.renderOptions(); }, {
       tap: (i) => { if (this.editMode) return; st.bg = list[i]; this.save(); this.applyStickyBg(list[i]); box.querySelectorAll('.cdot').forEach((x) => x.classList.toggle('sel', +x.dataset.i === i)); if (this.panelOpen) this.buildPanel(); },
-      long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) toast('Toque no × para remover', 1500); },
+      long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) hint('editx', 'Toque no × para remover', 1500); },
     });
     const add = el('button', { class: 'cbtn addb', title: 'Adicionar cor de post-it' }); add.innerHTML = icon('plus');
     add.onclick = () => colorPop(add, st.bg, (c) => { this.stickyAdd(c); st.bg = c; this.save(); this.applyStickyBg(c); this.refresh(); }, STICKY_COLORS.concat(HL_PALETTE, PALETTE.slice(4, 16)));
@@ -717,7 +717,7 @@ const UI = {
     const discard = btn('trash', 'Descartar', async () => {
       closePop(); job.cancel = true; const r = await job.p.catch(() => null);
       if (r) { await Clips.remove(r.cid); await DB.del('blobs', r.blobId); delete Store.dirty.blobs[r.blobId]; await Store.saveDirty(); if (Editor.lastShot && Editor.lastShot.img === r.img) Editor.lastShot = null; if (UI.clipsOpen) UI.buildPanel(); }
-      toast('Print descartado', 1500);
+      
     }, 'ghost danger');
     const box = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'stretch' } }, title, hint, prev,
       el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, dl, paste, discard, btn('check', 'OK', () => closePop(), 'primary')));

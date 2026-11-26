@@ -183,6 +183,11 @@ function cmpVersion(a, b) { const A = String(a).split('.').map(Number), B = Stri
 
 /* ===== Toast ===== */
 let toastT;
+/* v1.36.3: dica de uso — aparece só na 1ª vez (S.hintsSeen[chave]); erros e avisos com consequência continuam com toast() */
+function hint(key, msg, ms = 3200) {
+  const S = typeof Store !== 'undefined' && Store.settings; if (!S) return;
+  const h = S.hintsSeen || (S.hintsSeen = {}); if (!S.hintsInit) { S.hintsInit = 1; for (const k of ['full', 'editx', 'shot', 'eyedrop', 'vedit', 'tcells', 'hyphen', 'sticky', 'subject']) h[k] = 1; } /* quem já usa o app já viu estas dicas */ if (h[key]) return; h[key] = 1; Store.saveSettings(); toast(msg, ms);
+}
 function toast(msg, ms = 1600) {
   const t = $('#toast'); if (!t) return; if (!msg) { clearTimeout(toastT); t.classList.add('hidden'); return; } t.textContent = msg;
   if (ms <= 2500) ms = Math.min(ms, 1600); /* v1.35.3: avisos simples somem rápido; longos (erros, progresso) ficam como pedidos */

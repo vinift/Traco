@@ -91,7 +91,7 @@ const PalmCal = {
       next.disabled = false;
       next.onclick = () => {
         S.palmGuard = true; S.palmSize = size; S.palmZone = { on: !!zone.on, ms: zone.ms, dx: zone.dx, dy: zone.dy }; Store.saveSettings();
-        toast('Calibração aplicada', 1600); close();
+         close();
       };
     }
     /* entrada (na captura da página; o Palm fica pausado enquanto ela está aberta) */

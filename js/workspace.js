@@ -248,7 +248,7 @@ const Focus = {
     // horário/bateria voltar ao sair e bagunçava o layout. Só usa esse recurso quando aberto numa aba comum do Chrome.
     const inTab = window.matchMedia && matchMedia('(display-mode: browser)').matches && !Native.on; /* v1.0: o app nativo já é tela cheia */
     if (inTab) try { if (v && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {}); else if (!v && document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (_) {}
-    if (v) toast('Tela cheia — toque duas vezes numa área vazia (ou no botão do canto) para sair', 2600);
+    if (v) hint('full', 'Tela cheia — toque duas vezes numa área vazia (ou no botão do canto) para sair', 2600);
   },
   /* v0.29: escrevendo (barras escondidas), um toque de DEDO no topo — onde ficam as barras — traz tudo de volta na hora */
   initTopTap() {

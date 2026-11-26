@@ -134,7 +134,7 @@ function colorPop(anchor, current, onPick, palette = PALETTE, opts = {}) {
 /* conta-gotas (v0.32): encostar na página mostra uma lupa com a cor embaixo do dedo/caneta; arrastar troca a cor na prévia;
    SOLTAR confirma (soltar fora da página cancela). */
 Object.assign(Editor, {
-  startEyedrop(cb) { this._eyedrop = cb; this.stage.classList.add('eyedrop'); toast('Encoste na página, arraste até a cor e solte', 2600); },
+  startEyedrop(cb) { this._eyedrop = cb; this.stage.classList.add('eyedrop'); hint('eyedrop', 'Encoste na página, arraste até a cor e solte', 2600); },
   readColorAt(p) {
     const d = this.dpr;
     try { /* desenha só um quadradinho da página em volta do ponto e fica com o pixel mais "forte" */
@@ -166,7 +166,7 @@ Object.assign(Editor, {
       cancelAnimationFrame(raf); if (ev.type === 'pointerup') show(ev.clientX, ev.clientY); lp.remove();
       const cb = this._eyedrop; this._eyedrop = null; this.stage.classList.remove('eyedrop');
       if (ev.type !== 'pointerup' || !col || !cb) return toast(col ? 'Conta-gotas cancelado' : 'Soltou fora da página: conta-gotas cancelado', 1600);
-      cb(col); toast('Cor ' + col.toUpperCase() + ' escolhida', 1500);
+      cb(col); 
     };
     addEventListener('pointermove', move, true); addEventListener('pointerup', up, true); addEventListener('pointercancel', up, true);
     show(e.clientX, e.clientY);

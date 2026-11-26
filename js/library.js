@@ -162,7 +162,7 @@ const Library = {
       if (k.startsWith('n:')) { const n = await Store.getNote(k.slice(2)); if (n) { n.folderId = dest; await Store.putNote(n); } }
       else { const f = Store.folders.find((x) => x.id === k.slice(2)); if (f) f.parentId = dest; }
     }
-    await Store.saveFolders(); Drive.schedule(); this.selecting = false; this.selected.clear(); this.render(); toast('Itens movidos');
+    await Store.saveFolders(); Drive.schedule(); this.selecting = false; this.selected.clear(); this.render(); 
   },
   async deleteSelected() {
     const notes = [...this.selected].filter((k) => k.startsWith('n:')), folders = [...this.selected].map((k) => k.startsWith('f:') && Store.folders.find((x) => x.id === k.slice(2))).filter(Boolean);
@@ -255,13 +255,13 @@ const Library = {
       ...(f.subject && typeof Tec !== 'undefined' ? [{ label: 'Adicionar questões (PDF)', icon: 'plus', run: () => Tec.addToSubject(f) }] : []),
       { label: 'Nova pasta dentro', icon: 'folder', run: () => this.newFolder(f.id) },
       { label: 'Nova matéria dentro', icon: 'timer', run: () => this.newFolder(f.id, true) },
-      f.subject ? { label: 'Deixar de ser matéria', icon: 'timer', run: () => { this.setSubject([f], false); toast(`"${f.name}" não é mais matéria`, 1800); } } : { label: 'Marcar como matéria', icon: 'timer', run: () => { this.setSubject([f], true); toast(`"${f.name}" agora é uma matéria: o tempo de estudo das notas dela conta separado`, 2600); } },
-      ...(this.children(f.id).length ? [{ label: 'Transformar as subpastas em matérias', icon: 'timer', run: async () => { const kids = this.children(f.id); if (!(await confirmBox('Subpastas viram matérias', `As ${kids.length} pastas dentro de "${f.name}" (${kids.slice(0, 5).map((k) => k.name).join(', ')}${kids.length > 5 ? '…' : ''}) passam a contar tempo de estudo separado.`, 'Transformar'))) return; this.setSubject(kids, true); toast(`${kids.length} matérias criadas`, 1800); } }] : []),
+      f.subject ? { label: 'Deixar de ser matéria', icon: 'timer', run: () => { this.setSubject([f], false);  } } : { label: 'Marcar como matéria', icon: 'timer', run: () => { this.setSubject([f], true); hint('subject', `"${f.name}" agora é uma matéria: o tempo de estudo das notas dela conta separado`, 2600); } },
+      ...(this.children(f.id).length ? [{ label: 'Transformar as subpastas em matérias', icon: 'timer', run: async () => { const kids = this.children(f.id); if (!(await confirmBox('Subpastas viram matérias', `As ${kids.length} pastas dentro de "${f.name}" (${kids.slice(0, 5).map((k) => k.name).join(', ')}${kids.length > 5 ? '…' : ''}) passam a contar tempo de estudo separado.`, 'Transformar'))) return; this.setSubject(kids, true);  } }] : []),
       { label: 'Mover para…', icon: 'move', run: async () => { const d = await this.folderPicker('Mover pasta', new Set([f.id, ...this.descendants(f.id).map((x) => x.id)]), f.parentId); if (d !== undefined) { f.parentId = d; await Store.saveFolders(); Drive.schedule(); this.render(); } } },
       { label: 'Grupo de predefinições…', icon: 'layers', run: async () => {
         const G = Store.settings.presetGroups; const sel = el('select', {}, el('option', { value: '' }, '(herdar da pasta de cima)'), ...G.map((g) => el('option', { value: g.id }, g.name))); sel.value = f.groupId || '';
         const ok = await openModal({ title: 'Grupo da pasta "' + f.name + '"', body: el('div', { class: 'field' }, el('label', {}, 'Cores e espessuras usadas nas notas desta pasta (e das pastas dentro dela)'), sel, el('p', { class: 'lbl-sm' }, 'Crie e edite grupos dentro de uma nota, no botão do grupo no topo da barra de predefinições.')), buttons: [{ label: 'Cancelar', value: false }, { label: 'Salvar', cls: 'primary', value: true }] });
-        if (ok) { if (sel.value) f.groupId = sel.value; else delete f.groupId; await Store.saveFolders(); toast('Grupo definido para a pasta'); }
+        if (ok) { if (sel.value) f.groupId = sel.value; else delete f.groupId; await Store.saveFolders();  }
       } },
       '-',
       { label: 'Excluir pasta', icon: 'trash', danger: true, run: async () => {
@@ -287,7 +287,7 @@ const Library = {
   },
   async moveDialog(h) {
     const d = await this.folderPicker('Mover nota', new Set(), h.folderId); if (d === undefined) return;
-    const n = await Store.getNote(h.id); n.folderId = d; await Store.putNote(n); this.render(); toast('Nota movida');
+    const n = await Store.getNote(h.id); n.folderId = d; await Store.putNote(n); this.render(); 
   },
   async newFolder(parentId = this.folder, subject = false) {
     const n = await askText(subject ? 'Nova matéria' : 'Nova pasta', '', subject ? 'Nome da matéria (ex.: Direito Penal I) — o tempo de estudo das notas dela soma separado' : 'Nome da pasta (ex.: Direito Penal I)'); if (!n) return;
@@ -455,7 +455,7 @@ async function openSettings(focus) {
     el('button', { class: 'btn', onclick: async () => {
       const te = templateEditor(S.template);
       const ok = await openModal({ title: 'Modelo padrão', body: te.el, wide: true, buttons: [{ label: 'Cancelar', value: false }, { label: 'Salvar', cls: 'primary', value: true }] });
-      if (ok) { S.template = te.get(); Store.saveSettings(); toast('Modelo padrão salvo'); }
+      if (ok) { S.template = te.get(); Store.saveSettings();  }
     } }, 'Editar modelo padrão')));
   // --- Plugins
   const plist = el('div', {});
@@ -631,7 +631,7 @@ function penMapSection() {
   const sec = el('div', { class: 'set-sec' }, el('h3', {}, 'Botões da caneta (Focus Pen)'),
     el('p', {}, 'Toque em "Definir" e aperte o botão da caneta que você quer usar, com a ponta perto da tela. Se nada acontecer, o Android pode estar usando esse botão para outra função: nas configurações do tablet, procure Caneta → Atalhos dos botões e desative o atalho do sistema.'));
   /* v0.23: toque duplo com a ponta da caneta (os dois toques não deixam marca) */
-  const dsel = el('select', { onchange: () => { S.penDouble = dsel.value; Store.saveSettings(); toast('Toque duplo: ' + dsel.selectedOptions[0].textContent, 1500); } }, ...PEN_DOUBLE_ACTIONS.map(([k, n]) => el('option', { value: k }, n)));
+  const dsel = el('select', { onchange: () => { S.penDouble = dsel.value; Store.saveSettings(); } }, ...PEN_DOUBLE_ACTIONS.map(([k, n]) => el('option', { value: k }, n)));
   dsel.value = penDoubleAction();
   sec.append(el('div', { class: 'pen-map-row' }, el('span', { class: 'nm' }, 'Toque duplo com a ponta', el('div', { class: 'lbl-sm' }, 'dois toques rápidos no mesmo lugar, com qualquer ferramenta (não deixam marca)')), dsel));
   const list = el('div', {}); sec.append(list);

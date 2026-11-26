@@ -415,7 +415,7 @@ const StudyReport = {
       if (isNew) L.sessions.push(o); L.sessions.sort((p, q) => p.s - q.s); T.saveLog();
       toast(isNew ? 'Sessão adicionada' : 'Sessão alterada', 1500); render();
     };
-    const del = async () => { if (!(await confirmBox('Excluir sessão', 'O tempo dela sai do relatório.', 'Excluir', true))) return false; L.sessions = L.sessions.filter((y) => y !== x); T.saveLog(); toast('Sessão excluída', 1500); render(); };
+    const del = async () => { if (!(await confirmBox('Excluir sessão', 'O tempo dela sai do relatório.', 'Excluir', true))) return false; L.sessions = L.sessions.filter((y) => y !== x); T.saveLog();  render(); };
     openModal({ title: isNew ? 'Adicionar sessão' : 'Editar sessão', body, buttons: [...(isNew ? [] : [{ label: 'Excluir', cls: 'danger', action: del }]), { label: 'Cancelar' }, { label: 'Salvar', cls: 'primary', action: save }] });
   },
 

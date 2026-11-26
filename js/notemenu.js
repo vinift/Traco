@@ -150,7 +150,7 @@ const NoteMenu = {
         big('edit', 'Renomear', async () => { const t = await askText('Renomear nota', note.title); if (t) { note.title = t; $('#noteTitle').value = t; Editor.markChanged(); } }),
         big('bookmark', pg.bookmark ? 'Desmarcar' : 'Marcar página', () => Editor.toggleBookmark(), pg.bookmark)),
       el('div', { class: 'nm-list' },
-        item('folder', 'Mover para', async () => { const d = await Library.folderPicker('Mover nota', new Set(), note.folderId); if (d === undefined) return; note.folderId = d; Editor.markChanged(); toast('Nota movida', 1200); }, folder || 'Início'),
+        item('folder', 'Mover para', async () => { const d = await Library.folderPicker('Mover nota', new Set(), note.folderId); if (d === undefined) return; note.folderId = d; Editor.markChanged();  }, folder || 'Início'),
         note.mode === 'infinite' ? item('home', 'Voltar ao centro', () => Editor.goHome(), 'volta ao ponto onde a tela começa') : null,
         note.mode !== 'infinite' ? item('pages', 'Vá para página', () => GoPage.open(anchor), 'página ' + (Editor.currentPageIndex() + 1) + ' de ' + note.pages.length) : null,
         item('list', 'Sumário', () => Outline.open(anchor), 'marcadores e índice do PDF'),
@@ -193,7 +193,7 @@ const GoPage = {
     const N = note.pages.length, cur = Editor.currentPageIndex() + 1; let typed = '';
     const box = el('div', { class: 'gp-pop' }), disp = el('div', { class: 'gp-disp' }), hint = el('small', { class: 'gp-hint' });
     const close = () => { removeEventListener('keydown', onKey, true); closePop(); };
-    const go = (k) => { k = clamp(k, 1, N); close(); Editor.goToPage(k - 1); toast('Página ' + k + ' de ' + N, 900); };
+    const go = (k) => { k = clamp(k, 1, N); close(); Editor.goToPage(k - 1);  };
     const show = () => { disp.textContent = typed || String(cur); disp.classList.toggle('ph', !typed); const k = +typed; hint.textContent = typed ? (k >= 1 && k <= N ? (k * 10 <= N ? 'toque em Ir ou continue digitando' : '') : 'não existe (1–' + N + ')') : 'digite o número · ' + N + (N === 1 ? ' página' : ' páginas'); };
     const digit = (d) => { if (typed.length >= String(N).length && typed) return; typed = (typed + d).replace(/^0+/, ''); show(); const k = +typed; if (k >= 1 && k <= N && k * 10 > N) setTimeout(() => go(k), 120); };
     const back = () => { typed = typed.slice(0, -1); show(); };

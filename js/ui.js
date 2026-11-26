@@ -224,7 +224,7 @@ function templateEditor(tplIn, size = { w: 794, h: 1123 }, { onNotewise } = {}) 
     const mine = Store.settings.myTemplates;
     const sel = el('select', {}, el('option', { value: '' }, mine.length ? 'Carregar modelo salvo…' : 'Nenhum modelo salvo'), ...mine.map((m, i) => el('option', { value: i }, m.name)));
     sel.addEventListener('change', () => { if (sel.value === '') return; Object.assign(tpl, clone(mine[+sel.value].tpl)); $$('button', pick).forEach((b, i) => b.classList.toggle('on', TPL_TYPES[i][0] === tpl.type)); buildFields(); redraw(); });
-    const save = el('button', { type: 'button', class: 'btn', onclick: async () => { const n = await askText('Salvar modelo', '', 'Nome do modelo'); if (n) { mine.push({ name: n, tpl: clone(tpl) }); Store.saveSettings(); toast('Modelo salvo'); buildFields(); } } }, 'Salvar como meu modelo');
+    const save = el('button', { type: 'button', class: 'btn', onclick: async () => { const n = await askText('Salvar modelo', '', 'Nome do modelo'); if (n) { mine.push({ name: n, tpl: clone(tpl) }); Store.saveSettings();  buildFields(); } } }, 'Salvar como meu modelo');
     const del = mine.length ? el('button', { type: 'button', class: 'btn ghost', onclick: () => { if (sel.value === '') return toast('Escolha um modelo na lista'); mine.splice(+sel.value, 1); Store.saveSettings(); buildFields(); } }, 'Excluir') : null;
     fields.append(el('div', { class: 'field' }, el('label', {}, 'Meus modelos'), el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, sel, save, del)));
   }
@@ -276,7 +276,7 @@ async function templateModal(pageIdx = null) {
   if (!ok) return;
   const t = te.get();
   Editor.recTemplate(() => { if (scope === 'all' || n.mode === 'infinite') { n.template = t; n.pages.forEach((p) => { if (!p.pdf) p.template = null; }); } else curPage.template = t; });
-  toast('Modelo aplicado · dá para desfazer', 1400);
+  
 }
 
 /* ===== Caixa de páginas (estilo Notewise) ===== */

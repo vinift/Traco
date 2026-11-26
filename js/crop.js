@@ -225,7 +225,7 @@ Object.assign(Editor, {
       const rg = this.ruledFor(page), step = rg && rg.s > 0 ? 2 * rg.s : Math.max(20, k.len), y2 = k.y + step;
       const n = { id: uid(), type: 'shape', kind: 'path', pts: [k.x, k.y - k.r, k.x, y2, k.x + k.tip, y2].map(r2), rr: [0, r2(k.r), 0], color: (Store.settings.tools.pen || {}).color || e.color, width: e.width, fill: null }; /* v0.47.3: cor da caneta selecionada */
       if (e.dash) n.dash = e.dash; if (e.opacity != null) n.opacity = e.opacity;
-      this.recAdd(page, n); this.opCommit(); toast('Colchete continuado', 900); return true;
+      this.recAdd(page, n); this.opCommit();  return true;
     }
     /* v0.41.4: toque duplo num HÍFEN → colchete embaixo dele (como na foto do usuário): reta no meio do hífen, começando logo abaixo da
        linha do hífen (topo do quadrado seguinte + 22%), descendo até o CENTRO do quadrado duas linhas abaixo; ponta até o fim do hífen,
@@ -236,7 +236,7 @@ Object.assign(Editor, {
       const s = rg && rg.s > 0 ? rg.s : (x2 - x1) * 4, hy = (y1 + y2) / 2, o = rg && rg.s > 0 ? rg.o : hy - s * 0.6, gm = this.bracketGeom(x1, x2, y1, y2, s, o), pen = Store.settings.tools.pen || {}, bs = this.brStyle(kind || 'hyphen');
       const n = { id: uid(), type: 'shape', kind: 'path', pts: gm.pts.map(r2), rr: gm.rr.map(r2), color: bs.c && e.color ? e.color : pen.color || e.color, width: bs.w && e.width ? e.width : pen.width || e.width, fill: null }; /* v0.47.3: cor e espessura da caneta; v0.56: ou as do atalho (por tipo) */
       if (e.dash && e.dash !== 'solid') n.dash = e.dash;
-      this.recAdd(page, n); this.opCommit(); toast('Colchete', 800); return true;
+      this.recAdd(page, n); this.opCommit();  return true;
     };
     /* v0.47.2: toque duplo em QUALQUER atalho rápido (número, letra, romano, tópico, seta, caixa — marcados com `qg` no quickPlace) →
        colchete embaixo do atalho inteiro (todas as peças do grupo), como no hífen */
@@ -637,8 +637,8 @@ Object.assign(Editor, {
       const to = was === 'lasso' ? 'pen' : 'lasso'; UI.setTool(to, true); toast(to === 'pen' ? 'Caneta' : 'Laço', 700);
     } else if (act === 'eraserToggle') {
       const to = was === 'eraser' ? (this._prevTool && this._prevTool !== 'eraser' ? this._prevTool : 'pen') : 'eraser'; if (to === 'eraser') this._prevTool = was; UI.setTool(to, true); toast(to === 'eraser' ? 'Borracha' : 'Caneta', 700);
-    } else if (act === 'undo') { this.undo(); toast('Desfeito', 700); }
-    else if (act === 'redo') { this.redo(); toast('Refeito', 700); }
+    } else if (act === 'undo') { this.undo();  }
+    else if (act === 'redo') { this.redo();  }
     else if (act === 'read') { this.setReadOnly(!this.readOnly); toast(this.readOnly ? 'Modo leitura' : 'Edição', 700); }
     else if (act === 'hyphen' && pos) { const r = this.stage.getBoundingClientRect(); this.placeHyphen({ x: pos.x - r.left, y: pos.y - r.top }); }
     else if (act === 'bullet' && pos) { const r = this.stage.getBoundingClientRect(); this.placeBullet({ x: pos.x - r.left, y: pos.y - r.top }); }
@@ -655,7 +655,7 @@ Object.assign(Editor, {
     if (!all.length) return toast('A biblioteca está vazia: copie algo com o laço para colar aqui depois', 2600);
     const r = this.stage.getBoundingClientRect(), X = r.left + p.x, Y = r.top + p.y;
     const anchor = { getBoundingClientRect: () => ({ left: X, right: X, top: Y, bottom: Y, width: 0, height: 0 }) };
-    const paste = (c) => { closePop(); this.pasteAt(c.els, p.x, p.y); toast('Colado', 900); };
+    const paste = (c) => { closePop(); this.pasteAt(c.els, p.x, p.y);  };
     const [last, ...rest] = all;
     const big = el('button', { class: 'hp-last', onclick: () => paste(last) }, el('img', { src: last.thumb || '', alt: '' }), el('span', {}, el('b', {}, 'Colar aqui'), el('small', {}, last.label || 'último item')));
     const box = el('div', { class: 'hp-pop' }, el('div', { class: 'hp-h' }, 'Último item da biblioteca'), big);
