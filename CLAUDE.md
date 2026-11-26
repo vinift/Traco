@@ -34,7 +34,7 @@ Este arquivo é o "caderno de bordo" do projeto: qualquer sessão nova, de qualq
 4. Seção `## Novidades da vX.Y.Z` no topo das novidades do `LEIA-ME.md` (acima da anterior), escrita para o usuário.
 5. Linha nova no Histórico (seção 9) deste arquivo, escrita para o próximo desenvolvedor (nomes de funções/variáveis).
 6. Commit com a versão no título (ex.: `v0.24.2: trava de rolagem vertical a partir de 70% de zoom`), push no branch da sessão e na `main`.
-7. Confira se o "pages build and deployment" do commit rodou (`mcp__github__actions_list`). Em 25/11/2026 o push da v1.21.0 não disparou o Pages; um commit novo na `main` resolveu.
+7. Confira se o "pages build and deployment" do commit rodou (`mcp__github__actions_list`). Em 25/11/2026 o push da v1.21.0 não disparou o Pages; um commit novo na `main` resolveu (de novo em 26/11/2026 com a v1.40.1).
 8. No tablet, o usuário toca em "Verificar atualização" (v0.43.1: pílula no topo da tela inicial, ou no ⋯ da nota).
 
 ## 3b. Gerar o APK de novo (PWABuilder) — quando muda algo do manifesto
