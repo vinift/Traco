@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.36.0 — barras em vidro na tela cheia
+
+- Em **tela cheia**, as barras de ferramentas (esquerda, cores/espessuras e a de baixo) ficam em **vidro bem transparente**: a página aparece desfocada por trás, com sombra suave e os ícones com um leve contorno para continuar legíveis. Fora da tela cheia ficam como antes.
+- Dá para desligar em Configurações → Tela e zoom → "Barras de ferramentas em vidro (transparentes) na tela cheia" — use se as barras piscarem ou o tablet ficar mais lento.
+
 ## Novidades da v1.35.3 — avisos mais discretos
 
 - Os avisos do canto inferior direito deixaram de ser pretos: agora são uma pílula de **vidro claro** translúcido no tom do app (no tema escuro, escura translúcida), menores e com texto mais leve.

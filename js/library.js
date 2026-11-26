@@ -387,6 +387,7 @@ async function openSettings(focus) {
   const bar = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } }, UI.seg([['normal', 'Normal'], ['compact', 'Compacta'], ['mini', 'Bem compacta']], S.barSize || 'compact', (v) => { S.barSize = v; S.barScale = BAR_PRESETS[v]; Store.saveSettings(); applyBarSize(); const r = barSl.querySelector('input'); r.value = Math.round(S.barScale * 100); r.dispatchEvent(new Event('input')); }), barSl);
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Aparência e barras'),
     el('div', { class: 'field' }, el('label', {}, 'Tamanho das barras do editor (mais estreitas deixam mais espaço para escrever)'), bar),
+    UI.check('Barras de ferramentas em vidro (transparentes) na tela cheia', S.glassBars !== false, (v) => { S.glassBars = v; Store.saveSettings(); const e = document.getElementById('editor'); if (e) e.classList.toggle('noglass', !v); }), /* v1.36 */
     UI.check('Esconder as barras do topo enquanto escrevo com a caneta', S.hideWhileWriting !== false, (v) => { S.hideWhileWriting = v; Store.saveSettings(); }),
     UI.slider('Barras voltam depois de parar de escrever', 1, 15, 0.5, +S.writeHideSec || 2.5, (v) => { S.writeHideSec = v; Store.saveSettings(); }, (v) => String(v).replace('.', ',') + ' s'),
     el('p', { class: 'muted' }, 'Tela cheia: toque duplo com o dedo numa área vazia da nota. Para trazer as barras de volta, toque no topo da tela.'),

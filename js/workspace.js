@@ -242,7 +242,7 @@ const Focus = {
   ed() { return $('#editor'); },
   setIcon() { const b = $('#btnFull'); if (b) { b.innerHTML = icon(this.on ? 'unfull' : 'full'); b.title = this.on ? 'Sair da tela cheia' : 'Tela cheia (esconde as barras)'; } },
   toggle(v = !this.on) {
-    this.on = v; const e = this.ed(); e.classList.toggle('immersive', v); e.classList.remove('peek'); this.setIcon();
+    this.on = v; const e = this.ed(); e.classList.toggle('immersive', v); e.classList.toggle('noglass', Store.settings.glassBars === false); /* v1.36: barras em vidro na tela cheia */ e.classList.remove('peek'); this.setIcon();
     Store.settings.immersive = v; Store.saveSettings();
     // v0.15.1: no app instalado (APK/PWA) a tela já é cheia pelo sistema — mexer na "tela cheia do navegador" fazia a barra de
     // horário/bateria voltar ao sair e bagunçava o layout. Só usa esse recurso quando aberto numa aba comum do Chrome.
@@ -263,7 +263,7 @@ const Focus = {
   restore() {
     this.initTopTap();
     if (!$('#btnFullExit')) { const b = el('button', { id: 'btnFullExit', class: 'full-exit', title: 'Sair da tela cheia', onclick: () => this.toggle(false) }); b.innerHTML = icon('unfull'); this.ed().append(b); }
-    if (Store.settings.immersive) { this.on = true; this.ed().classList.add('immersive'); } this.setIcon();
+    this.ed().classList.toggle('noglass', Store.settings.glassBars === false); if (Store.settings.immersive) { this.on = true; this.ed().classList.add('immersive'); } this.setIcon();
   },
   peek(ms = 4000) { const e = this.ed(); e.classList.add('peek'); clearTimeout(this._pT); this._pT = setTimeout(() => e.classList.remove('peek'), ms); },
   /* caneta encostou: esconde as barras (se a opção estiver ligada); voltam ~1,5 s depois de parar */
