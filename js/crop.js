@@ -619,7 +619,8 @@ Object.assign(Editor, {
         if (m2 >= m1 * 2.2 + 0.5 && G[bk] >= G[bk - 1] * 1.4 + 0.5) wthr = clamp((G[bk - 1] + G[bk]) / 2, xh * 0.18, thr); }
       let cur = null, maxX = -Infinity;
       for (const o of L.items) {
-        if (!cur || o.b.x - maxX > wthr || (o.e.color || '') !== cur.color) { /* v1.17.2: cor diferente = outra palavra (ex.: título azul colado no texto preto) */ cur = { ids: [], x1: Infinity, y1: Infinity, x2: -Infinity, y2: -Infinity, hm, cy, color: o.e.color || '' }; words.push(cur); }
+        const ck = o.e.fade && o.e.fade.c ? 'fade:' + o.e.fade.c.join(',') : (o.e.color || ''); /* v1.43.1: degradê = uma cor só (cada traço guarda a cor do começo) */
+        if (!cur || o.b.x - maxX > wthr || ck !== cur.color) { /* v1.17.2: cor diferente = outra palavra (ex.: título azul colado no texto preto) */ cur = { ids: [], x1: Infinity, y1: Infinity, x2: -Infinity, y2: -Infinity, hm, cy, color: ck }; words.push(cur); }
         cur.ids.push(o.e.id); cur.x1 = Math.min(cur.x1, o.b.x); cur.y1 = Math.min(cur.y1, o.b.y); cur.x2 = Math.max(cur.x2, o.b.x + o.b.w); cur.y2 = Math.max(cur.y2, o.b.y + o.b.h); maxX = Math.max(maxX, o.b.x + o.b.w);
       }
     }
