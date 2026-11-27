@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.42.5
+
+- **"Gerenciar cores"** (era "Limpar cores") agora abre no **grupo atual**. Marque várias cores e toque em **"Tirar de "<grupo>""**: elas saem só desse grupo e os outros não mudam. Use **"Marcar tudo"** e **"Desmarcar tudo"** para marcar mais rápido. Para tirar de todos os grupos de uma vez, toque em **"Todos os grupos"** no topo da tela.
+
 ## Novidades da v1.42.4
 
 - **"Adicionar também aos outros grupos" vale só quando você marca.** A caixa agora começa sempre desmarcada. Marcada, ela vale só para a cor escolhida naquela janela; na próxima vez, volta desmarcada.
