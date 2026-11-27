@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.42.13
+
+- **Seleção de palavras depois de mover:** ao arrastar escrita para outro lugar, segurar o dedo no lugar novo agora seleciona a escrita (antes ela continuava "presa" no lugar antigo até a página mudar de outro jeito).
+
 ## Novidades da v1.42.12
 
 - **Degradê mais suave:** a troca de cor ao longo do traço agora é gradual (64 passos por troca em vez de 12), sem degraus nem emendas visíveis.

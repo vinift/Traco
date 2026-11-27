@@ -586,7 +586,7 @@ Object.assign(Editor, {
      Palavras = linhas de `OCR.groupLines` (só tinta da caneta, sem itens travados) quebradas onde o vão horizontal passa de
      0,42 × altura típica da letra da linha. `wordsOf(page)` guarda em cache por página (muda quando muda a lista de elementos). */
   wordsOf(page) {
-    const els = page.elements, sig = els.length + ':' + (els.length ? els[els.length - 1].id : ''); this._wc = this._wc || new WeakMap();
+    const els = page.elements, sig = els.length + ':' + (els.length ? els[els.length - 1].id : '') + ':' + (this._chgN || 0); /* v1.42.13: mover não muda a contagem — o contador de mudanças refaz */ this._wc = this._wc || new WeakMap();
     const c = this._wc.get(page); if (c && c.sig === sig) return c.words;
     const words = [];
     /* v1.18.1: a linha do OCR pode juntar duas linhas visuais (ex.: anotação pequena logo embaixo) — separa pelos centros dos traços de altura de letra baixa (salto > 0,9 × corpo da letra) */

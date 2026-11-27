@@ -112,6 +112,7 @@ const Editor = {
   onDone(fn, ms = 1500) { this._onDone = fn; setTimeout(() => { if (this._onDone === fn) { this._onDone = null; fn(); } }, ms); },
   markChanged() {
     if (!this.note) return;
+    this._chgN = (this._chgN || 0) + 1; /* v1.42.13: invalida caches por página (palavras do wordsOf) */
     this.note.updated = Date.now(); this.saveDebounced(); this.thumbDebounced(); this.ocrDebounced(); this.updateUndoBtns();
   },
   async saveNow() {
