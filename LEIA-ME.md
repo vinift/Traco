@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.44.2
+
+- **Redimensionar a tabela pelo canto:** a tabela inteira aumenta ou diminui na mesma proporção, **com a escrita junto** (título e tudo o que está nas células encolhe ou cresce do mesmo jeito). Pelos lados, continua esticando só a tabela. Com o segundo dedo, o canto estica livre, como antes.
+- **Tabela solta por cima de escrita:** a escrita que já estava na página não "entra" mais na tabela — continua sua, e não vai junto quando a tabela é movida. Se você levar a escrita para dentro da tabela de propósito, aí ela passa a ser da tabela.
+
 ## Novidades da v1.44.1
 
 - **Editar tabela com título/cabeçalho:** os Ajustes da tabela agora reconhecem a linha e a coluna de cabeçalho de uma tabela montada com título, rodapé ou coluna única (ligar não pinta mais por cima do título). Tabelas feitas na versão anterior são reconhecidas sozinhas ao abrir os Ajustes.

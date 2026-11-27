@@ -29,6 +29,7 @@ const Tables = {
     const out = [];
     for (const x of page.elements) {
       if (x === e || x.type === 'table' || exclude.has(x.id)) continue;
+      if (e.noAtt && e.noAtt.includes(x.id)) continue; /* v1.44.2: estava na página antes de a tabela chegar por cima — não é dela */
       const b = elBBox(x); let cx = b.x + b.w / 2, cy = b.y + b.h / 2;
       if (e.rot) { const c = rawCenter(e); [cx, cy] = rotPt(cx, cy, c.x, c.y, -e.rot); }
       if (cx >= e.x && cx <= e.x + e.w && cy >= e.y && cy <= e.y + e.h) out.push(x);
@@ -295,7 +296,12 @@ Object.assign(Editor, {
       }
       this.setGuides(a, sx, label ? null : sy); this.ratioLabel = a.noSnap ? 'livre' : label;
       const t = { ox: dX < 0 ? rb.x + rb.w : rb.x, oy: dY < 0 ? rb.y + rb.h : rb.y, sx: w / rb.w, sy: h / rb.h, dx: 0, dy: 0, free: true };
-      if (a.el.type === 'table') { const n = transformEl(a.el, t); this.tPreview = Tables.relayout(a.page, a.el, n, null, null, a.page.elements.filter((x) => a.attached.has(x.id))); this.selTf = null; }
+      if (a.el.type === 'table' && dX && dY && !a.noSnap) { /* v1.44.2: canto = a tabela inteira na mesma proporção, com a escrita junto (letras e espessuras escalam) */
+        const k = Math.max(0.05, (w / rb.w + h / rb.h) / 2), tu = { ox: t.ox, oy: t.oy, sx: k, sy: k, dx: 0, dy: 0 }, map = new Map();
+        for (const x of a.page.elements) if (a.attached.has(x.id)) map.set(x.id, transformEl(x, tu));
+        map.set(a.el.id, transformEl(a.el, tu)); this.tPreview = { map, removed: [] }; this.selTf = null; this.ratioLabel = null; this.guides = null;
+      }
+      else if (a.el.type === 'table') { const n = transformEl(a.el, t); this.tPreview = Tables.relayout(a.page, a.el, n, null, null, a.page.elements.filter((x) => a.attached.has(x.id))); this.selTf = null; }
       else this.selTf = t;
     } else { /* v0.22: cantos mantêm a proporção (ancorados no canto oposto); lados esticam só a largura ou só a altura */
       const hh = a.hh || 'se', dX = hh.includes('e') ? 1 : hh.includes('w') ? -1 : 0, dY = hh.includes('s') ? 1 : hh.includes('n') ? -1 : 0;
@@ -323,7 +329,12 @@ Object.assign(Editor, {
       for (const e of moved) { const n = transformEl(apply(e), { ox: 0, oy: 0, sx: 1, sy: 1, dx: ox, dy: oy }); this.recRemove(page, e); this.recAdd(tp, n); }
       this.sel = { pageId: tp.id, ids: new Set(this.sel.ids) }; this.opCommit(); UI.buildSelBar && UI.buildSelBar();  return;
     }
-    for (const e of this.selElements()) this.recReplace(page, e, apply(e));
+    for (const e of this.selElements()) { let n = apply(e);
+      if (e.type === 'table' && !n.rot) { /* v1.44.2: escrita que já estava onde a tabela foi solta não vira "da tabela" (noAtt); a lista guarda só o que ainda está por cima dela */
+        const moving = new Set([...this.sel.ids, ...att]), keep = [];
+        for (const x of page.elements) { if (x.type === 'table' || moving.has(x.id)) continue; const b = elBBox(x), cx = b.x + b.w / 2, cy = b.y + b.h / 2; if (cx >= n.x && cx <= n.x + n.w && cy >= n.y && cy <= n.y + n.h) keep.push(x.id); }
+        n = { ...n }; if (keep.length) n.noAtt = keep.slice(0, 2000); else delete n.noAtt; }
+      this.recReplace(page, e, n); }
     if (!t.free || (a && a.inkScale)) for (const e of page.elements.filter((x) => att.has(x.id))) this.recReplace(page, e, apply(e)); // escrita dentro da tabela vai junto
     this.raiseOverTables(page, this.sel.ids);
     this.opCommit();
@@ -335,6 +346,7 @@ Object.assign(Editor, {
       const els = page.elements, i = els.findIndex((x) => x.id === id), e = els[i]; if (i < 0 || e.type === 'table') continue;
       const b = elBBox(e), cx = b.x + b.w / 2, cy = b.y + b.h / 2; let top = -1;
       for (let j = i + 1; j < els.length; j++) { const T = els[j]; if (T.type === 'table' && !T.rot && cx >= T.x && cx <= T.x + T.w && cy >= T.y && cy <= T.y + T.h) top = j; }
+      for (let j = 0; j < els.length; j++) { const T = els[j]; if (T.type === 'table' && T.noAtt && T.noAtt.includes(id) && cx >= T.x && cx <= T.x + T.w && cy >= T.y && cy <= T.y + T.h) this.recReplace(page, T, { ...T, noAtt: T.noAtt.filter((q) => q !== id) }); } /* levado de propósito para dentro: passa a ser da tabela */
       if (top < 0) continue;
       this.recRemove(page, e); this.recAdd(page, e, top); /* depois de tirar, a tabela desceu 1: índice "top" = logo depois dela */
     }
