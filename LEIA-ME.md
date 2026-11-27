@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.42.7
+
+- **Corrigido: estudo que não era contado.** Se o app fosse atualizado ("Verificar atualização") ou fechado com o cronômetro **pausado**, ele ficava marcado como "fora da tela". Ao tocar em Iniciar/Continuar, o cronômetro andava, mas o relatório não gravava nada até você sair do app e voltar. Agora isso é corrigido na hora.
+- O tempo perdido desde a v1.42.2 é recuperado uma vez, ao atualizar. Por exemplo: os ~17 min de Língua Portuguesa de hoje, entre 20:57 e 21:14.
+
 ## Novidades da v1.42.6
 
 - **"Gerenciar cores" virou o gerenciador geral de cores.**

@@ -15,7 +15,7 @@ const StudyTimer = {
     try { s = await DB.get('meta', 'studyTimer'); l = await DB.get('meta', 'studyLog'); } catch (e) { console.warn('cronômetro', e); }
     this.st = { ...clone(this.DEF), ...(s || {}) }; this.st.pomo = { ...this.DEF.pomo, ...(this.st.pomo || {}) };
     this.log = l && l.days ? l : { days: {}, titles: {} };
-    try { this.migrate(); this.cleanSess(); this.fillGaps1126(); } catch (e) { console.warn('histórico', e); }
+    try { this.migrate(); this.cleanSess(); this.fillGaps1126(); this.fixStale(); } catch (e) { console.warn('histórico', e); }
     if (this._on) return this.tick(); this._on = true; // eventos só uma vez
     { const pp = document.getElementById('noteTimerPP'); if (pp) { pp.addEventListener('pointerdown', (e) => e.stopPropagation()); pp.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); if (this.st.running) this.pause(); else this.start(); }); } }
     for (const id of ['noteClock', 'noteTimer', 'libTimer']) { const n = document.getElementById(id); if (n) { n.classList.add('tm-click'); n.addEventListener('click', (e) => { e.stopPropagation(); this.open(n); }); } }
@@ -27,7 +27,8 @@ const StudyTimer = {
     document.addEventListener('visibilitychange', () => (document.hidden ? away() : back()));
     addEventListener('pagehide', away);
     this.closeAway(Date.now());
-    if (this.st.running) { this.st.segAway = false; this.st.segStart = Date.now(); this.save(); } // app reaberto: o tempo fechado fica de fora
+    this.st.segAway = !!document.hidden; /* v1.42.7: antes só zerava com o cronômetro rodando — um "pagehide" (atualizar o app) com ele pausado deixava segAway preso e o próximo Iniciar não gravava nada */
+    if (this.st.running) { this.st.segStart = Date.now(); } this.save(); // app reaberto: o tempo fechado fica de fora
     setInterval(() => this.tick(), 1000);
     this.tick();
   },
@@ -126,6 +127,20 @@ const StudyTimer = {
     if (add) { S.sort((p, q) => p.s - q.s); const k = this.dayKey(a); if (L.away && L.away[k]) L.away[k] = Math.max(0, L.away[k] - add); }
     this.saveLog();
   },
+  /* v1.42.7 (uma vez): Iniciar com segAway preso não gravava até a próxima volta à tela. Pelo diário (log.evts): de cada 's' até o 1º trecho gravado
+     depois dele (mesma matéria/nota/tipo do trecho), parando numa pausa 'p' ou numa saída 'h' que durou mais que AWAY_OK */
+  fixStale() {
+    const L = this.log; if (L.fixStale) return; L.fixStale = 1; const E = (L.evts || []).slice().sort((a, b) => a[0] - b[0]), S = L.sessions || []; let add = 0;
+    const real = S.filter((x) => !x.lg && !x.m).sort((a, b) => a.s - b.s);
+    for (const [ts, c] of E) {
+      if (c !== 's') continue; const nx = real.find((x) => x.s >= ts - 2000); if (!nx || nx.s - ts < 30000 || nx.s - ts > 3 * 3600000) continue;
+      let end = nx.s, hAt = 0; for (const [t2, c2] of E) { if (t2 <= ts || t2 >= nx.s) continue; if (c2 === 'p' || c2 === 's') { end = Math.min(end, t2); break; } if (c2 === 'h' && !hAt) hAt = t2; if (c2 === 'v' && hAt) { if (t2 - hAt > this.AWAY_OK) { end = Math.min(end, hAt); break; } hAt = 0; } }
+      if (end - ts < 30000) continue; const y = { ...nx, id: uid(), s: ts, e: end }; delete y.live; S.push(y); add += end - ts;
+      const k = this.dayKey(ts), day = L.days[k] || (L.days[k] = {}), nk = nx.n || '_'; day[nk] = (day[nk] || 0) + (end - ts);
+    }
+    if (add) S.sort((a, b) => a.s - b.s);
+    this.saveLog();
+  },
   /* soma no histórico o trecho [a, b), separando na meia-noite */
   addLog(a, b, noteId, title, subj, q) {
     this.addSess(a, b, noteId, subj, q);
@@ -169,6 +184,7 @@ const StudyTimer = {
 
   tick() {
     const s = this.st; if (!s) return; const t = Date.now();
+    if (s.segAway && !document.hidden) { this.evt('x', t); this.closeAway(t); s.segAway = false; s.segStart = t; this.save(); } /* v1.42.7: na tela mas marcado como fora → conserta na hora */
     if (s.running) {
       if (this.hasTarget()) { const left = this.remaining(t); if (left <= 0) { this.phaseEnd(t + left); return this.tick(); } }
       const n = this.curNote();
@@ -181,7 +197,7 @@ const StudyTimer = {
   start() {
     const s = this.st, t = Date.now(); if (s.running) return;
     if (this.hasTarget() && this.remaining(t) <= 0) this.resetPhase();
-    this.evt('s', t); s.segStart = 0; /* v1.13.1: o tempo pausado NÃO vira estudo — antes o boundary daqui gravava [hora da pausa, agora) */ s.running = true; s.runStart = t; this.boundary(t); this.unlockAudio(); this.askNotify(); this.paint(); this.renderPanel();
+    this.evt('s', t); s.segAway = !!document.hidden; s.segStart = 0; /* v1.13.1: o tempo pausado NÃO vira estudo — antes o boundary daqui gravava [hora da pausa, agora) */ s.running = true; s.runStart = t; this.boundary(t); this.unlockAudio(); this.askNotify(); this.paint(); this.renderPanel();
   },
   pause() {
     const s = this.st, t = Date.now(); if (!s.running) return;
