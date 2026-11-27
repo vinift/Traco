@@ -153,6 +153,13 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.44.1
+
+- **Editar tabela com título/cabeçalho:** os Ajustes da tabela agora reconhecem a linha e a coluna de cabeçalho de uma tabela montada com título, rodapé ou coluna única (ligar não pinta mais por cima do título). Tabelas feitas na versão anterior são reconhecidas sozinhas ao abrir os Ajustes.
+- **Peças numa tabela pronta:** dá para ligar e desligar linha de título, rodapé e coluna única também numa tabela já colocada, e trocar a cor do cabeçalho e do título.
+- **Escrita levada para cima da tabela:** agora fica por cima dela (antes sumia embaixo das células pintadas) e passa a andar junto com a tabela.
+- **Aumentar a tabela sem partir a escrita:** a escrita de uma célula mesclada (como o título) anda inteira ao esticar a tabela.
+
 ## Novidades da v1.44.0
 
 - **Tabelas montadas antes de inserir:** no painel da Tabela, em "Peças", dá para ligar uma **linha de título** (uma célula de ponta a ponta em cima), uma **linha de rodapé** (embaixo) e uma **coluna única** (uma célula de cima a baixo, à esquerda), junto com a linha/coluna de cabeçalho de sempre. A prévia mostra como vai ficar.

@@ -541,6 +541,7 @@ const UI = {
     const page = this.tableEdit && Editor.sel ? Editor.pageById(Editor.sel.pageId) : null;
     const cur = () => (page ? page.elements.find((e) => e.id === this.tableEdit) : null);
     if (this.tableEdit && !cur()) { this.tableEdit = null; return this.closePanel(); }
+    { const e0 = cur(), nn = e0 && Tables.norm(e0); if (nn) { const u = Editor.undoStack.length; Editor.recReplace(page, e0, nn); Editor.opCommit(); if (Editor.undoStack.length > u) Editor.undoStack.pop(); } } /* v1.44.1: tabela da v1.44.0 → cabeçalho reconhecido */
     const get = () => (cur() || st);
     const set = (patch) => {
       const e = cur();
@@ -575,6 +576,12 @@ const UI = {
       p.append(this.switchRow('Linha de título', 'Uma célula de ponta a ponta em cima', !!st.tTitle, (v) => set({ tTitle: v })));
       p.append(this.switchRow('Linha de rodapé', 'Uma célula de ponta a ponta embaixo', !!st.tFoot, (v) => set({ tFoot: v })));
       p.append(this.switchRow('Coluna única', 'Uma célula de cima a baixo, à esquerda', !!st.tSide, (v) => set({ tSide: v })));
+    } else if (cur()) { /* v1.44.1: peças também numa tabela pronta (insere/tira a linha ou coluna; a escrita acompanha as células) */
+      const P = Tables.parts(cur()), part = (k) => (v) => { Editor.tableOp((e) => Tables.setPart(e, k, v, st)); this.buildPanel(); };
+      p.append(el('div', { class: 'tp-sub' }, 'Peças'));
+      p.append(this.switchRow('Linha de título', 'Uma célula de ponta a ponta em cima', !!P.t, part('t')));
+      p.append(this.switchRow('Linha de rodapé', 'Uma célula de ponta a ponta embaixo', !!P.f, part('f')));
+      p.append(this.switchRow('Coluna única', 'Uma célula de cima a baixo, à esquerda', !!P.s, part('s')));
     }
     p.append(this.switchRow('Coluna de cabeçalho', null, T.hCol, (v) => set({ hCol: v })));
     p.append(this.switchRow('Linha de cabeçalho', null, T.hRow, (v) => set({ hRow: v })));
@@ -589,7 +596,16 @@ const UI = {
       const tcol = (label, key, alpha) => { const sec = this.colorSection(label, st[key] || '', (c) => { set({ [key]: c }); this.buildPanel(); }, ['#ffffff'].concat(HL_PALETTE, STICKY_COLORS), false);
         const d = el('button', { class: 'cdot' + (!st[key] ? ' sel' : ''), title: 'Padrão (tom da borda)', style: { background: Tables.tone(st.bc, alpha) }, onclick: () => { set({ [key]: null }); this.buildPanel(); } }); sec.querySelector('.tp-colors').prepend(d); return sec; };
       p.append(tcol('Cor da linha de título', 'tColor', 0.3), tcol('Cor do cabeçalho, rodapé e coluna única', 'hColor', 0.18));
-    } else if (cur()) p.append(el('button', { class: 'btn tp-save', onclick: async () => { const n = await askText('Nome do modelo', 'Minha tabela'); if (!n) return; Tables.saveModel(cur(), n); toast('Modelo salvo: escolha-o no painel da Tabela'); } }, 'Salvar como modelo'));
+    }
+    if (!isTool && cur()) { /* v1.44.1: cores do cabeçalho e do título numa tabela pronta */
+      const E = cur(), P = Tables.parts(E), pal = ['#ffffff'].concat(HL_PALETTE, STICKY_COLORS);
+      const patch = (fn) => { const e = cur(); if (!e) return; Editor.recReplace(page, e, fn(e)); Editor.opCommit(); this.buildPanel(); };
+      const hSec = this.colorSection('Cor do cabeçalho', E.hColor || '', (c) => patch((e) => ({ ...e, hColor: c })), pal, false);
+      hSec.querySelector('.tp-colors').prepend(el('button', { class: 'cdot' + (!E.hColor ? ' sel' : ''), title: 'Padrão (tom da borda)', style: { background: Tables.tone(E.bc, 0.18) }, onclick: () => patch((e) => ({ ...e, hColor: null })) }));
+      p.append(hSec);
+      if (P.t) { const cf = (E.cellFill || {})['0,0'] || ''; p.append(this.colorSection('Cor da linha de título', cf, (c) => patch((e) => ({ ...e, cellFill: { ...(e.cellFill || {}), '0,0': c } })), pal, false)); }
+    }
+    if (!isTool && cur()) p.append(el('button', { class: 'btn tp-save', onclick: async () => { const n = await askText('Nome do modelo', 'Minha tabela'); if (!n) return; Tables.saveModel(cur(), n); toast('Modelo salvo: escolha-o no painel da Tabela'); } }, 'Salvar como modelo'));
     if (isTool) p.append(el('p', { style: { color: 'var(--chmuted)', fontSize: '13px' } }, 'Arraste na página para desenhar a tabela no tamanho que quiser, ou toque para usar o tamanho padrão. Para mudar uma tabela pronta, selecione-a com o laço.'));
   },
   sliderRows(label, val, min, max, step, fmt, on, plusMinus = true) {

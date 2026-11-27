@@ -39,7 +39,9 @@ const Tables = {
   relayout(page, oldE, newE, rowMap, colMap, attached) {
     const go = tableGrid(oldE), gn = tableGrid(newE), map = new Map(), removed = [];
     for (const x of attached || this.attached(page, oldE)) {
-      const b = elBBox(x), cell = this.cellAt(oldE, b.x + b.w / 2, b.y + b.h / 2); if (!cell) continue;
+      const b = elBBox(x); let cell = this.cellAt(oldE, b.x + b.w / 2, b.y + b.h / 2); if (!cell) continue;
+      { const m = (oldE.merges || []).find((q) => cell.r >= q.r && cell.r < q.r + q.rs && cell.c >= q.c && cell.c < q.c + q.cs); /* v1.44.1: célula mesclada (ex.: título) — toda a escrita dela anda junto, presa ao canto da mesclagem (antes cada letra seguia a coluna de baixo e a frase se partia) */
+        if (m && (!rowMap || rowMap[m.r] >= 0) && (!colMap || colMap[m.c] >= 0)) cell = { r: m.r, c: m.c }; }
       const nr = rowMap ? rowMap[cell.r] : cell.r, nc = colMap ? colMap[cell.c] : cell.c;
       if (nr < 0 || nc < 0 || nr == null || nc == null) { removed.push(x); continue; }
       const dx = gn.xs[nc] - go.xs[cell.c], dy = gn.ys[nr] - go.ys[cell.r];
@@ -60,6 +62,7 @@ const Tables = {
     }
     n.cellFill = {};
     for (const [k, v] of Object.entries(e.cellFill || {})) { const [r, c] = k.split(',').map(Number); if (rowMap[r] >= 0 && colMap[c] >= 0) n.cellFill[rowMap[r] + ',' + colMap[c]] = v; }
+    if (e.hOff) { const r = rowMap[e.hOff.r], c = colMap[e.hOff.c]; n.hOff = { r: r >= 0 ? r : Math.min(e.hOff.r, rows - 1), c: c >= 0 ? c : Math.min(e.hOff.c, cols - 1) }; } /* v1.44.1: o cabeçalho acompanha a linha/coluna dele */
     n.rows = rows; n.cols = cols; return n;
   },
   /* v1.44: estrutura escolhida no painel antes de inserir — linha de título e de rodapé (uma célula de ponta a ponta), coluna única
@@ -69,15 +72,54 @@ const Tables = {
   build(st) {
     const plain = { cols: st.cols, rows: st.rows, hRow: st.hRow, hCol: st.hCol, bw: st.bw, bc: st.bc, fill: st.fill };
     const T = st.tTitle ? 1 : 0, F = st.tFoot ? 1 : 0, Sd = st.tSide ? 1 : 0;
-    if (!T && !F && !Sd && !st.hColor && !st.tColor) return plain;
+    if (!T && !F && !Sd) return st.hColor ? { ...plain, hColor: st.hColor } : plain;
     const R = st.rows + T + F, C = st.cols + Sd, hc = st.hColor || this.tone(st.bc, 0.18), tc = st.tColor || this.tone(st.bc, 0.3);
     const merges = [], cf = {};
     if (T) { if (C > 1) merges.push({ r: 0, c: 0, rs: 1, cs: C }); cf['0,0'] = tc; }
     if (F) { if (C > 1) merges.push({ r: R - 1, c: 0, rs: 1, cs: C }); cf[R - 1 + ',0'] = hc; }
     if (Sd) { if (st.rows > 1) merges.push({ r: T, c: 0, rs: st.rows, cs: 1 }); cf[T + ',0'] = hc; }
-    if (st.hRow) for (let c = Sd; c < C; c++) cf[T + ',' + c] = hc;
-    if (st.hCol) for (let r = T; r < T + st.rows; r++) cf[r + ',' + Sd] = hc;
-    return { ...plain, cols: C, rows: R, hRow: false, hCol: false, merges, cellFill: cf };
+    /* v1.44.1: cabeçalho continua como hRow/hCol (o painel de edição reconhece) na posição hOff, e as peças ficam em tParts */
+    return { ...plain, cols: C, rows: R, merges, cellFill: cf, hOff: { r: T, c: Sd }, tParts: { t: T, f: F, s: Sd }, hColor: st.hColor || null };
+  },
+  /* v1.44.1: peças de uma tabela pronta (tParts). Tabelas da v1.44.0 tinham o cabeçalho só pintado (cellFill) — norm converte. */
+  parts(e) { const p = e.tParts || {}; return { t: p.t ? 1 : 0, f: p.f ? 1 : 0, s: p.s ? 1 : 0 }; },
+  norm(e) {
+    if (e.tParts || !e.merges || !e.merges.length) return null;
+    const C = e.cols, R = e.rows, M = e.merges, has = (r, c, rs, cs) => M.some((m) => m.r === r && m.c === c && m.rs === rs && m.cs === cs);
+    const T = C > 1 && has(0, 0, 1, C) ? 1 : 0, F = C > 1 && R > 1 && has(R - 1, 0, 1, C) ? 1 : 0, Sd = M.some((m) => m.c === 0 && m.cs === 1 && m.r === T && m.rs === R - T - F && m.rs > 1) ? 1 : 0;
+    if (!T && !F && !Sd) return null;
+    const n = { ...e, cellFill: { ...(e.cellFill || {}) }, tParts: { t: T, f: F, s: Sd }, hOff: { r: T, c: Sd } }, cf = n.cellFill;
+    const same = (keys) => { const v = cf[keys[0]]; return v && keys.every((k) => cf[k] === v) ? v : null; };
+    const rk = []; for (let c = Sd; c < C; c++) rk.push(T + ',' + c);
+    const rv = !e.hRow && same(rk); if (rv) { rk.forEach((k) => delete cf[k]); n.hRow = true; }
+    const ck = []; for (let r = T + (rv ? 1 : 0); r < R - F; r++) ck.push(r + ',' + Sd);
+    const cv = !e.hCol && ck.length && same(ck); if (cv) { ck.forEach((k) => delete cf[k]); n.hCol = true; }
+    const v = rv || cv; if (v && v !== this.tone(e.bc, 0.18)) n.hColor = v;
+    return n;
+  },
+  /* liga/desliga uma peça numa tabela pronta: devolve {n, rowMap, colMap} para o Editor.tableOp (a escrita acompanha as células) */
+  setPart(e, k, on, st) {
+    const P = this.parts(e); if (!!P[k] === !!on) return null;
+    const hc = e.hColor || this.tone(e.bc, 0.18), tc = (st && st.tColor) || this.tone(e.bc, 0.3);
+    let res;
+    if (k === 't') res = on ? this.insertRows(e, 0, 1) : this.deleteRows(e, 0, 0);
+    else if (k === 'f') res = on ? this.insertRows(e, e.rows, 1) : this.deleteRows(e, e.rows - 1, e.rows - 1);
+    else res = on ? this.insertCols(e, 0, 1) : this.deleteCols(e, 0, 0);
+    if (!res) return null;
+    const n = res.n, Q = { ...P, [k]: on ? 1 : 0 }; n.tParts = Q; n.hOff = { r: Q.t, c: Q.s };
+    const C = n.cols, R = n.rows; n.merges = (n.merges || []).filter((m) => !(on && ((k === 't' && m.r === 0) || (k === 'f' && m.r === R - 1) || (k === 's' && m.c === 0)))); n.cellFill = { ...(n.cellFill || {}) };
+    if (on && k === 't') { if (C > 1) n.merges.push({ r: 0, c: 0, rs: 1, cs: C }); n.cellFill['0,0'] = tc; }
+    if (on && k === 'f') { if (C > 1) n.merges.push({ r: R - 1, c: 0, rs: 1, cs: C }); n.cellFill[R - 1 + ',0'] = hc; }
+    if (on && k === 's') { const rs = R - Q.t - Q.f; if (rs > 1) n.merges.push({ r: Q.t, c: 0, rs, cs: 1 }); n.cellFill[Q.t + ',0'] = hc; }
+    /* título/rodapé de ponta a ponta acompanham a coluna única nova */
+    if (k === 's') for (const m of n.merges) if ((Q.t && m.r === 0) || (Q.f && m.r === R - 1)) { m.c = 0; m.cs = C; }
+    if (k === 's') { /* a cor do título/rodapé fica na 1ª célula da mesclagem */
+      const ocf = e.cellFill || {}, tf = ocf['0,0'], ff = ocf[e.rows - 1 + ',0'];
+      if (Q.t) { delete n.cellFill['0,1']; if (tf) n.cellFill['0,0'] = tf; }
+      if (Q.f) { delete n.cellFill[R - 1 + ',1']; if (ff) n.cellFill[R - 1 + ',0'] = ff; }
+    }
+    if (k === 't' || k === 'f') for (const m of n.merges) if (Q.s && m.c === 0 && m.cs === 1) { m.r = Q.t; m.rs = R - Q.t - Q.f; }
+    return { ...res, n, keepSel: false };
   },
   model(st) { return st.model ? (st.models || []).find((m) => m.id === st.model) || null : null; },
   /* o que a tabela nova vai ser: modelo salvo ou a estrutura do painel (sem posição) */
@@ -283,7 +325,19 @@ Object.assign(Editor, {
     }
     for (const e of this.selElements()) this.recReplace(page, e, apply(e));
     if (!t.free || (a && a.inkScale)) for (const e of page.elements.filter((x) => att.has(x.id))) this.recReplace(page, e, apply(e)); // escrita dentro da tabela vai junto
+    this.raiseOverTables(page, this.sel.ids);
     this.opCommit();
+  },
+  /* v1.44.1: o que foi solto em cima de uma tabela que está ACIMA dele na ordem da página sobe para logo depois dela
+     (as células pintadas cobriam a escrita, e ela não andava junto com a tabela). Mesmo passo do desfazer. */
+  raiseOverTables(page, ids) {
+    for (const id of [...ids]) {
+      const els = page.elements, i = els.findIndex((x) => x.id === id), e = els[i]; if (i < 0 || e.type === 'table') continue;
+      const b = elBBox(e), cx = b.x + b.w / 2, cy = b.y + b.h / 2; let top = -1;
+      for (let j = i + 1; j < els.length; j++) { const T = els[j]; if (T.type === 'table' && !T.rot && cx >= T.x && cx <= T.x + T.w && cy >= T.y && cy <= T.y + T.h) top = j; }
+      if (top < 0) continue;
+      this.recRemove(page, e); this.recAdd(page, e, top); /* depois de tirar, a tabela desceu 1: índice "top" = logo depois dela */
+    }
   },
   commitTablePreview() {
     const pv = this.tPreview; this.tPreview = null; const page = this.pageById(this.sel.pageId); if (!pv || !page) return this.requestRender();

@@ -132,9 +132,12 @@ function drawElement(ctx, e) {
     const g = tableGrid(e), bw = e.bw || 1, bc = e.bc || '#7c3aed', M = e.merges || [];
     const span = (r, c) => M.find((m) => r >= m.r && r < m.r + m.rs && c >= m.c && c < m.c + m.cs);
     if (e.fill) { ctx.fillStyle = e.fill; ctx.fillRect(e.x, e.y, e.w, e.h); }
-    ctx.fillStyle = bc; ctx.globalAlpha = 0.18; // cabeçalhos com um tom da cor da borda
-    if (e.hRow) ctx.fillRect(e.x, g.ys[0], e.w, g.ys[1] - g.ys[0]);
-    if (e.hCol) ctx.fillRect(g.xs[0], e.hRow ? g.ys[1] : e.y, g.xs[1] - g.xs[0], e.hRow ? e.y + e.h - g.ys[1] : e.h);
+    /* cabeçalhos com um tom da cor da borda (ou e.hColor). v1.44.1: e.hOff = {r, c} = linha/coluna do cabeçalho quando há
+       linha de título em cima ou coluna única à esquerda; e.tParts.f = linha de rodapé (a coluna de cabeçalho para antes dela) */
+    const H = e.hOff || { r: 0, c: 0 }, hr = Math.min(H.r || 0, e.rows - 1), hcI = Math.min(H.c || 0, e.cols - 1), fo = (e.tParts && e.tParts.f) || 0;
+    if (e.hColor) { ctx.fillStyle = e.hColor; ctx.globalAlpha = 1; } else { ctx.fillStyle = bc; ctx.globalAlpha = 0.18; }
+    if (e.hRow) ctx.fillRect(g.xs[hcI], g.ys[hr], g.xs[e.cols] - g.xs[hcI], g.ys[hr + 1] - g.ys[hr]);
+    if (e.hCol) { const y0 = g.ys[e.hRow ? Math.min(hr + 1, e.rows) : hr], y1 = g.ys[Math.max(0, e.rows - fo)]; if (y1 > y0) ctx.fillRect(g.xs[hcI], y0, g.xs[hcI + 1] - g.xs[hcI], y1 - y0); }
     ctx.globalAlpha = 1;
     for (const [k, col] of Object.entries(e.cellFill || {})) { // cor por célula (ou bloco mesclado)
       const [r, c] = k.split(',').map(Number); if (r >= e.rows || c >= e.cols) continue;
