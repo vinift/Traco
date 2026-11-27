@@ -333,18 +333,15 @@ const Editor = {
     const a = this.toScreen(x1 + o.x, y1 + o.y), c = this.toScreen(x2 + o.x, y2 + o.y);
     return { x: a.x - 6, y: a.y - 6, w: c.x - a.x + 12, h: c.y - a.y + 12, local: b };
   },
-  /* v1.42.10: contorno brilhante em cada item selecionado — 1ª passada só a sombra (o item vai para longe com translate e a sombra volta
-     pelo shadowOffset), 2ª passada o item por cima, nítido. Até 800 itens (a sombra é cara). */
+  /* v1.42.11: halo leve só na seleção de palavras com o dedo (`_wordSelRef`): um único caminho com todos os traços, sem sombra,
+     roxo translúcido um pouco mais largo que a tinta. Não desenha durante gesto (rolar/zoom) nem acima de 400 traços. */
   drawSelGlow() {
+    if (!this._wordSelRef || this.sel !== this._wordSelRef || (this.gesture && !this.gesture.wsel)) return;
     const page = this.pageById(this.sel.pageId); if (!page) return; const pi = this.pageIdx(page); if (pi < 0 || !this.layout[pi]) return;
-    const els = page.elements.filter((e) => this.sel.ids.has(e.id)); if (!els.length || els.length > 800) return;
-    const ctx = this.ctx, z = this.cam.z, d = this.dpr, K = 100000;
-    try {
-      ctx.save(); this.pageTf(ctx, pi); ctx.translate(-K, 0);
-      ctx.shadowColor = 'rgba(124,58,237,.85)'; ctx.shadowBlur = 7 * d; ctx.shadowOffsetX = K * z * d; ctx.shadowOffsetY = 0;
-      for (let k = 0; k < 2; k++) for (const e of els) drawElement(ctx, e);
-      ctx.restore(); ctx.save(); this.pageTf(ctx, pi); for (const e of els) drawElement(ctx, e); ctx.restore();
-    } catch (err) { try { ctx.restore(); } catch (_) {} }
+    const els = page.elements.filter((e) => this.sel.ids.has(e.id) && e.pts && !e.rot); if (!els.length || els.length > 400) return;
+    const ctx = this.ctx, z = this.cam.z, path = new Path2D(); let w = 0, tot = 0; for (const e of els) tot += e.pts.length / 3; const st = Math.max(1, Math.ceil(tot / 5000));
+    for (const e of els) { const P = e.pts, n = P.length / 3; w = Math.max(w, e.width || 2); path.moveTo(P[0], P[1]); for (let k = st; k < n; k += st) path.lineTo(P[k * 3], P[k * 3 + 1]); if (n > 1) path.lineTo(P[(n - 1) * 3], P[(n - 1) * 3 + 1]); else path.lineTo(P[0] + 0.01, P[1]); }
+    ctx.save(); this.pageTf(ctx, pi); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(124,58,237,.2)'; ctx.lineWidth = w + 7 / z; ctx.stroke(path); ctx.restore();
   },
   drawSelection() {
     const bar = $('#selBar');
@@ -360,7 +357,7 @@ const Editor = {
       ctx.save(); ctx.strokeStyle = '#0d9488'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]); ctx.restore();
       if (!this.selTf && !this.tPreview) this.drawTableOverlay(box);
     } else {
-    if (!this.selTf) this.drawSelGlow(); /* v1.42.10: halo nos próprios traços selecionados */
+    if (!this.selTf) this.drawSelGlow(); /* v1.42.11: halo leve, só na seleção de palavras */
     ctx.setTransform(d, 0, 0, d, 0, 0);
     ctx.save(); ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
     for (const [h, x, y] of this.selHandles(box)) { /* v0.22: alças em todos os cantos e lados */

@@ -630,7 +630,7 @@ Object.assign(Editor, {
     const W = this.toWorld(g.p0.x, g.p0.y), pi = this.pageIndexAt(W.x, W.y, true), page = this.note && this.note.pages[pi]; if (!page) return;
     const l = this.local(pi, W.x, W.y), words = this.wordsOf(page), w = this.wordAt(words, l, 6 / this.cam.z); if (!w) return; /* sem palavra embaixo: continua rolando como sempre */
     g.held = true; g.wsel = { pi, page, words, ids: new Set(w.ids), last: l };
-    this.sel = { pageId: page.id, ids: g.wsel.ids }; this._wordSel = true;
+    this.sel = { pageId: page.id, ids: g.wsel.ids }; this._wordSel = true; this._wordSelRef = this.sel; /* v1.42.11: só esta seleção tem o halo */
     if (navigator.vibrate) navigator.vibrate(15); this.requestRender();
   },
   wordSelMove(g, q) {
@@ -639,7 +639,7 @@ Object.assign(Editor, {
     for (let i = 1; i <= n; i++) { const pt = { x: a.x + ((l.x - a.x) * i) / n, y: a.y + ((l.y - a.y) * i) / n }, w = this.wordAt(s.words, pt, pad); if (w && w.ids.some((id) => !s.ids.has(id))) { for (const id of w.ids) s.ids.add(id); added = true; } }
     s.last = l; if (added) { if (navigator.vibrate) navigator.vibrate(6); this.requestRender(); }
   },
-  wordSelEnd(g) { if (!g.wsel.ids.size) { this.sel = null; return this.requestRender(); } this.sel = { pageId: g.wsel.page.id, ids: g.wsel.ids }; UI.buildSelBar(); this.requestRender(); },
+  wordSelEnd(g) { if (!g.wsel.ids.size) { this.sel = null; return this.requestRender(); } this.sel = { pageId: g.wsel.page.id, ids: g.wsel.ids }; this._wordSelRef = this.sel; UI.buildSelBar(); this.requestRender(); },
   penTripleFire(base, was, pos) {
     if (!this.note) return;
     if (this._penDot) { clearTimeout(this._penDot.timer); this._penDot = null; } // pontinho ainda não gravado: descarta

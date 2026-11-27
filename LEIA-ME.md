@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.42.11
+
+- **Brilho da seleção mais leve e mais fraco.** Agora é um contorno roxo suave em volta da tinta, sem o efeito de luz pesado. Ele não deixa mais a rolagem e o zoom lentos.
+- **Só na seleção de palavras com o dedo.** O laço voltou a mostrar só a caixa, como antes.
+- Durante a rolagem e a pinça o brilho não é desenhado; ele volta quando você para.
+
 ## Novidades da v1.42.10
 
 - **Dá para ver o que está selecionado.** Cada traço selecionado ganha um brilho roxo em volta da própria tinta, além da caixa tracejada. Assim fica claro quais palavras, letras e acentos entraram, e o que ficou de fora. Vale para toda seleção: segurar o dedo nas palavras, laço, etc. Enquanto você move a seleção, o brilho some e volta ao soltar.
