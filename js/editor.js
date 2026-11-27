@@ -1095,7 +1095,7 @@ const Editor = {
     const st = Store.settings.tools.table, l = this.local(pi, w.x, w.y);
     this.action = { ...base, kind: 'table', pi, l0: l, el: null };
   },
-  tableFrom(st, x1, y1, x2, y2) { return { id: uid(), type: 'table', x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.abs(x2 - x1), h: Math.abs(y2 - y1), cols: st.cols, rows: st.rows, hRow: st.hRow, hCol: st.hCol, bw: st.bw, bc: st.bc, fill: st.fill }; },
+  tableFrom(st, x1, y1, x2, y2) { const { _w, _h, ...sp } = Tables.spec(st); return { id: uid(), type: 'table', x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.abs(x2 - x1), h: Math.abs(y2 - y1), ...sp }; }, /* v1.44: estrutura do painel ou modelo salvo */
   moveTable(w) {
     const a = this.action, l = this.local(a.pi, w.x, w.y);
     a.el = this.tableFrom(Store.settings.tools.table, a.l0.x, a.l0.y, l.x, l.y);
@@ -1105,7 +1105,7 @@ const Editor = {
     this.clearLive(); const st = Store.settings.tools.table, page = this.note.pages[a.pi];
     let el = a.el;
     if (!el || el.w * this.cam.z < 30 || el.h * this.cam.z < 20) { // toque: tamanho padrão
-      const W = Math.min(st.cols * 130, (this.note.mode === 'infinite' ? 900 : page.w - 40)), H = st.rows * 40;
+      const sp = Tables.spec(st), maxW = this.note.mode === 'infinite' ? 900 : page.w - 40; let W = Math.min(sp._w || sp.cols * 130, maxW), H = sp._h ? sp._h * (W / (sp._w || W)) : sp.rows * 40; /* v1.44: modelo salvo volta no tamanho em que foi salvo */
       el = this.tableFrom(st, a.l0.x, a.l0.y, a.l0.x + W, a.l0.y + H);
     }
     this.recAdd(page, el); this.opCommit();

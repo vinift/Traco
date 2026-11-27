@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.44.0
+
+- **Tabelas montadas antes de inserir:** no painel da Tabela, em "Peças", dá para ligar uma **linha de título** (uma célula de ponta a ponta em cima), uma **linha de rodapé** (embaixo) e uma **coluna única** (uma célula de cima a baixo, à esquerda), junto com a linha/coluna de cabeçalho de sempre. A prévia mostra como vai ficar.
+- **Cores do título e do cabeçalho:** escolhidas no painel, separadas da cor da borda ("padrão" = um tom da borda).
+- **Modelos de tabela:** monte uma tabela do seu jeito (mesclando células, colorindo, mudando larguras), selecione-a, abra os Ajustes da tabela e toque em **"Salvar como modelo"**. Depois ela aparece em "Modelos" no painel da Tabela: escolha e toque na página para inserir igual. ✎ apaga modelos.
+
 ## Novidades da v1.43.3
 
 - **Rolar por cima das cores:** nas barras e painéis com muitas cores (e espessuras e carimbos), arrastar o dedo por cima das bolinhas agora rola a lista. Para reordenar, continua igual: segure um instante e arraste.

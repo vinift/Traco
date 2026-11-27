@@ -1765,3 +1765,11 @@ button.tm-bar{border:0;background:none;padding:0;font:inherit;color:inherit;curs
 .tm-bar.sel small{color:var(--accent);font-weight:700}
 .tm-bar.sel i{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 55%,transparent)}
 .tm-daysel{margin-top:8px}
+
+/* v1.44: tabela — modelos e peças */
+.tp-sub{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--chmuted);margin:12px 2px 6px}
+.tp-models{display:flex;flex-wrap:wrap;gap:6px}
+.tp-models .qk-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tp-mx{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#ef4444;color:#fff;font-size:11px}
+.tp-hint{color:var(--chmuted);font-size:13px;margin:6px 2px}
+.tp-save{width:100%;margin-top:12px}

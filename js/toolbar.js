@@ -553,11 +553,29 @@ const UI = {
     const draw = () => {
       const r = prev.getBoundingClientRect(), d = devicePixelRatio || 1; if (!r.width) return;
       prev.width = r.width * d; prev.height = r.height * d; const c = prev.getContext('2d'); c.scale(d, d);
-      const T = get(), w = Math.min(r.width - 40, T.cols * 70), h = Math.min(r.height - 20, T.rows * 18);
-      drawElement(c, { type: 'table', x: (r.width - w) / 2, y: (r.height - h) / 2, w, h, cols: T.cols, rows: T.rows, hRow: T.hRow, hCol: T.hCol, bw: Math.min(T.bw, 4), bc: T.bc, fill: T.fill });
+      const cE = cur(), { _w, _h, ...T } = cE ? { ...cE } : Tables.spec(st), w = Math.min(r.width - 40, T.cols * 70), h = Math.min(r.height - 20, T.rows * 18); /* v1.44: prévia com título/rodapé/coluna única ou o modelo */
+      drawElement(c, { ...T, type: 'table', x: (r.width - w) / 2, y: (r.height - h) / 2, w, h, rot: 0, bw: Math.min(T.bw || 1, 4) });
     };
     setTimeout(draw, 0);
     const T = get();
+    if (isTool) { /* v1.44: modelos salvos + peças da estrutura (só para a tabela nova) */
+      const L = st.models || [], mdl = Tables.model(st), mrow = el('div', { class: 'tp-models' });
+      const pick = (id) => { st.model = id; this.save(); this.buildPanel(); };
+      mrow.append(el('button', { class: 'qk-chip' + (!mdl ? ' on' : ''), onclick: () => pick(null) }, 'Montar'));
+      for (const m of L) {
+        const b = el('button', { class: 'qk-chip' + (mdl === m ? ' on' : ''), onclick: () => (this._tmEdit ? null : pick(m.id)) }, m.name);
+        if (this._tmEdit) b.append(el('span', { class: 'tp-mx', title: 'Apagar modelo', onclick: async (ev) => { ev.stopPropagation(); if (!(await confirmBox('Apagar o modelo "' + m.name + '"?', 'Apagar'))) return; st.models = L.filter((x) => x !== m); if (st.model === m.id) st.model = null; this.save(); this.buildPanel(); } }, '✕'));
+        mrow.append(b);
+      }
+      if (L.length) mrow.append(el('button', { class: 'qk-chip', title: 'Apagar modelos', onclick: () => { this._tmEdit = !this._tmEdit; this.buildPanel(); } }, this._tmEdit ? '✓ Pronto' : '✎'));
+      p.append(el('div', { class: 'tp-sub' }, 'Modelos'), mrow);
+      if (!L.length) p.append(el('p', { class: 'tp-hint' }, 'Monte uma tabela (mesclando células, cores…), selecione-a e toque em "Salvar como modelo" para inseri-la igual depois.'));
+      if (mdl) { p.append(el('p', { class: 'tp-hint' }, 'Inserindo o modelo "' + mdl.name + '". Toque em "Montar" para escolher as peças.')); if (isTool) p.append(el('p', { style: { color: 'var(--chmuted)', fontSize: '13px' } }, 'Arraste na página para desenhar a tabela no tamanho que quiser, ou toque para usar o tamanho do modelo.')); return; }
+      p.append(el('div', { class: 'tp-sub' }, 'Peças'));
+      p.append(this.switchRow('Linha de título', 'Uma célula de ponta a ponta em cima', !!st.tTitle, (v) => set({ tTitle: v })));
+      p.append(this.switchRow('Linha de rodapé', 'Uma célula de ponta a ponta embaixo', !!st.tFoot, (v) => set({ tFoot: v })));
+      p.append(this.switchRow('Coluna única', 'Uma célula de cima a baixo, à esquerda', !!st.tSide, (v) => set({ tSide: v })));
+    }
     p.append(this.switchRow('Coluna de cabeçalho', null, T.hCol, (v) => set({ hCol: v })));
     p.append(this.switchRow('Linha de cabeçalho', null, T.hRow, (v) => set({ hRow: v })));
     p.append(...this.sliderRows('Contagem de colunas', T.cols, 1, 20, 1, (v) => v, (v) => set({ cols: v })));
@@ -567,6 +585,11 @@ const UI = {
     const fillSec = this.colorSection('Cor de preenchimento', T.fill || '', (c) => { set({ fill: c }); this.buildPanel(); }, ['#ffffff'].concat(HL_PALETTE, STICKY_COLORS), false);
     const none = el('button', { class: 'cdot' + (!T.fill ? ' sel' : ''), title: 'Sem preenchimento', style: { background: 'repeating-linear-gradient(45deg,transparent 0 4px,var(--chline) 4px 6px)' }, onclick: () => { set({ fill: null }); this.buildPanel(); } });
     fillSec.querySelector('.tp-colors').prepend(none); p.append(fillSec);
+    if (isTool) { /* v1.44: cores do título e do cabeçalho (padrão = tom da cor da borda) */
+      const tcol = (label, key, alpha) => { const sec = this.colorSection(label, st[key] || '', (c) => { set({ [key]: c }); this.buildPanel(); }, ['#ffffff'].concat(HL_PALETTE, STICKY_COLORS), false);
+        const d = el('button', { class: 'cdot' + (!st[key] ? ' sel' : ''), title: 'Padrão (tom da borda)', style: { background: Tables.tone(st.bc, alpha) }, onclick: () => { set({ [key]: null }); this.buildPanel(); } }); sec.querySelector('.tp-colors').prepend(d); return sec; };
+      p.append(tcol('Cor da linha de título', 'tColor', 0.3), tcol('Cor do cabeçalho, rodapé e coluna única', 'hColor', 0.18));
+    } else if (cur()) p.append(el('button', { class: 'btn tp-save', onclick: async () => { const n = await askText('Nome do modelo', 'Minha tabela'); if (!n) return; Tables.saveModel(cur(), n); toast('Modelo salvo: escolha-o no painel da Tabela'); } }, 'Salvar como modelo'));
     if (isTool) p.append(el('p', { style: { color: 'var(--chmuted)', fontSize: '13px' } }, 'Arraste na página para desenhar a tabela no tamanho que quiser, ou toque para usar o tamanho padrão. Para mudar uma tabela pronta, selecione-a com o laço.'));
   },
   sliderRows(label, val, min, max, step, fmt, on, plusMinus = true) {

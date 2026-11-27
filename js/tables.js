@@ -62,6 +62,31 @@ const Tables = {
     for (const [k, v] of Object.entries(e.cellFill || {})) { const [r, c] = k.split(',').map(Number); if (rowMap[r] >= 0 && colMap[c] >= 0) n.cellFill[rowMap[r] + ',' + colMap[c]] = v; }
     n.rows = rows; n.cols = cols; return n;
   },
+  /* v1.44: estrutura escolhida no painel antes de inserir — linha de título e de rodapé (uma célula de ponta a ponta), coluna única
+     à esquerda (uma célula de cima a baixo) e cores do título/cabeçalho. Tudo vira mesclagem + cor por célula (merges/cellFill),
+     que inserir/apagar linhas e colunas já reposicionam. Sem nenhuma peça nova, a tabela sai como antes (hRow/hCol). */
+  tone(c, a) { const h = String(c || '#7c3aed').replace('#', ''); const v = (i) => parseInt(h.slice(i, i + 2), 16) || 0; return `rgba(${v(0)},${v(2)},${v(4)},${a})`; },
+  build(st) {
+    const plain = { cols: st.cols, rows: st.rows, hRow: st.hRow, hCol: st.hCol, bw: st.bw, bc: st.bc, fill: st.fill };
+    const T = st.tTitle ? 1 : 0, F = st.tFoot ? 1 : 0, Sd = st.tSide ? 1 : 0;
+    if (!T && !F && !Sd && !st.hColor && !st.tColor) return plain;
+    const R = st.rows + T + F, C = st.cols + Sd, hc = st.hColor || this.tone(st.bc, 0.18), tc = st.tColor || this.tone(st.bc, 0.3);
+    const merges = [], cf = {};
+    if (T) { if (C > 1) merges.push({ r: 0, c: 0, rs: 1, cs: C }); cf['0,0'] = tc; }
+    if (F) { if (C > 1) merges.push({ r: R - 1, c: 0, rs: 1, cs: C }); cf[R - 1 + ',0'] = hc; }
+    if (Sd) { if (st.rows > 1) merges.push({ r: T, c: 0, rs: st.rows, cs: 1 }); cf[T + ',0'] = hc; }
+    if (st.hRow) for (let c = Sd; c < C; c++) cf[T + ',' + c] = hc;
+    if (st.hCol) for (let r = T; r < T + st.rows; r++) cf[r + ',' + Sd] = hc;
+    return { ...plain, cols: C, rows: R, hRow: false, hCol: false, merges, cellFill: cf };
+  },
+  model(st) { return st.model ? (st.models || []).find((m) => m.id === st.model) || null : null; },
+  /* o que a tabela nova vai ser: modelo salvo ou a estrutura do painel (sem posição) */
+  spec(st) { const m = this.model(st); return m ? { ...clone(m.t), _w: m.w, _h: m.h } : this.build(st); },
+  saveModel(e, name) {
+    const st = Store.settings.tools.table, L = (st.models = st.models || []);
+    const t = { cols: e.cols, rows: e.rows, colW: e.colW ? e.colW.slice() : null, rowH: e.rowH ? e.rowH.slice() : null, merges: clone(e.merges || []), cellFill: clone(e.cellFill || {}), hRow: !!e.hRow, hCol: !!e.hCol, bw: e.bw, bc: e.bc, fill: e.fill || null };
+    const m = { id: uid(), name: String(name).slice(0, 40), t, w: e.w, h: e.h }; L.push(m); if (L.length > 20) L.shift(); Store.saveSettings(); return m;
+  },
   ident(n) { return Array.from({ length: n }, (_, i) => i); },
   insertRows(e, at, count = 1) {
     const { cw, rh } = this.dims(e), hNew = rh[Math.min(Math.max(at - 1, 0), rh.length - 1)];
