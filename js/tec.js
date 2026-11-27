@@ -344,7 +344,7 @@ const Tec = {
       /* v1.45.3: cabeçalho em até 3 linhas (assunto em 1–2 linhas + banca inteira), nada cortado; PF em destaque */
       const pf = this.isPF(q.banca), bs = this.bancaShort(q.banca), tecT = `TEC nº ${num}  >`, tecW = font.widthOfTextAtSize(tecT, 8), nW0 = bold.widthOfTextAtSize(String(keep ? (keep[q.id] || k + 1) : k + 1), 9) + 14;
       const txW = cwPt + 16 - nW0 - tecW - 50, wrap = (t, f, sz, w, max) => { const ws = ansi(t).split(/\s+/).filter(Boolean), L = []; let cur = ''; for (const wd of ws) { const tt = cur ? cur + ' ' + wd : wd; if (f.widthOfTextAtSize(tt, sz) <= w || !cur) cur = tt; else { L.push(cur); cur = wd; } } if (cur) L.push(cur); if (L.length > max) { const keepL = L.slice(0, max - 1); keepL.push(fit(L.slice(max - 1).join(' '), f, sz, w)); return keepL; } return L.map((l) => fit(l, f, sz, w)); };
-      const assL = wrap(q.ass || q.mat || '', font, 8.5, txW, 2), bsL = wrap((pf ? 'PF  ·  ' : '') + bs, font, 8, txW + tecW + 20, 2), HBq = 10 + assL.length * 11 + bsL.length * 10;
+      const assL = wrap(q.ass || q.mat || '', font, 8.5, txW, 2), bsL = wrap((pf ? pf + '  ·  ' : '') + bs, font, 8, txW + tecW + 20, 2), HBq = 10 + assL.length * 11 + bsL.length * 10;
       const left = Math.max(8, a[1] - 8), hTot = HBq + 6 + noteH + (noteH ? 6 : 0) + parts.reduce((s, [, u, v]) => s + (v - u) * K, 0);
       if (!page || (y + hTot + 18 + (spPt ? spPt + 6 : 0) > H - 24 && y > TOP)) newPage();
       /* v1.23: cartão no estilo do app — borda suave arredondada, cabeçalho em pílula lilás, número em etiqueta roxa
@@ -359,7 +359,7 @@ const Tec = {
       page.drawSvgPath(rr(0, 0, bW, bH, bH / 2), { x: bx, y: H - by, color: pf ? NAVY : ACC });
       page.drawText(nT, { x: bx + 7, y: H - by - bH + 3.6, size: 9, font: bold, color: PL.rgb(1, 1, 1) });
       let ly = hdY + 11.5; for (const l of assL) { page.drawText(l, { x: bx + bW + 9, y: H - ly, size: 8.5, font, color: PL.rgb(0.22, 0.25, 0.31) }); ly += 11; }
-      for (let i = 0; i < bsL.length; i++) { let l = bsL[i], x0 = bx + bW + 9; if (pf && i === 0 && /^PF · /.test(l)) { const tw = bold.widthOfTextAtSize('PF', 7.5) + 10; page.drawSvgPath(rr(0, 0, tw, 10.5, 5.25), { x: x0, y: H - (ly - 8.2), color: NAVY }); page.drawText('PF', { x: x0 + 5, y: H - ly + 0.4, size: 7.5, font: bold, color: PL.rgb(1, 0.85, 0.35) }); x0 += tw + 5; l = l.slice(5); }
+      for (let i = 0; i < bsL.length; i++) { let l = bsL[i], x0 = bx + bW + 9; if (pf && i === 0 && l.startsWith(pf + ' · ')) { const tw = bold.widthOfTextAtSize(pf, 7.5) + 10; page.drawSvgPath(rr(0, 0, tw, 10.5, 5.25), { x: x0, y: H - (ly - 8.2), color: NAVY }); page.drawText(pf, { x: x0 + 5, y: H - ly + 0.4, size: 7.5, font: bold, color: PL.rgb(1, 0.85, 0.35) }); x0 += tw + 5; l = l.slice(pf.length + 3); }
         page.drawText(l, { x: x0, y: H - ly, size: 8, font: pf ? bold : font, color: pf ? NAVY : PL.rgb(0.42, 0.45, 0.5) }); ly += 10; }
       page.drawText(tecT, { x: cx + cw - 14 - tecW, y: H - hdY - 11.5, size: 8, font: bold, color: ACC });
       const badge = [pgN, Math.round(bx / K * 10) / 10, Math.round(by / K * 10) / 10, Math.round(bW / K * 10) / 10, Math.round(bH / K * 10) / 10];
@@ -641,9 +641,12 @@ const Tec = {
   /* v1.38.2: cabeçalho "banca · órgão ano · cargo (área)". Ex.: "CEBRASPE (CESPE) - PCF/PF/Área 1/2018" → "CEBRASPE · PF 2018 · PCF (Área 1)".
      Antes só as 2 últimas partes ("Área 1/2018") — o órgão e o cargo sumiam. Áreas genéricas ("Sem Área", "Qualquer Área de Formação") saem. */
   /* v1.45.3: versão do cabeçalho (cadernos mais antigos são remontados uma vez, mesmos números) */
-  HV: 3,
+  HV: 4,
   /* v1.45.3: questão da Polícia Federal (carreira do usuário) — destaque no cabeçalho */
-  isPF(s) { s = String(s || ''); const i = s.indexOf(' - '), segs = (i > 0 ? s.slice(i + 3) : s).split('/').map((x) => x.trim()); return segs.some((x) => /^(PF|DPF|DPF\s.*|Pol[ií]cia Federal.*)$/i.test(x)) || /pol[ií]cia federal|\(PF\)|\bDPF\b/i.test(s); },
+  /* v1.45.4: devolve 'PF' | 'PRF' | '' (PRF também em destaque, a pedido) */
+  isPF(s) { s = String(s || ''); const i = s.indexOf(' - '), segs = (i > 0 ? s.slice(i + 3) : s).split('/').map((x) => x.trim());
+    if (segs.some((x) => /^(PRF|DPRF|Pol[ií]cia Rodovi[aá]ria Federal.*)$/i.test(x)) || /pol[ií]cia rodovi[aá]ria federal|\(PRF\)|\bDPRF\b/i.test(s)) return 'PRF';
+    if (segs.some((x) => /^(PF|DPF|DPF\s.*|Pol[ií]cia Federal.*)$/i.test(x)) || /pol[ií]cia federal|\(PF\)|\bDPF\b/i.test(s)) return 'PF'; return ''; },
   bancaShort(s) {
     s = String(s || '').trim(); const i = s.indexOf(' - '), org0 = (i > 0 ? s.slice(0, i) : s).replace(/\s*\([^)]*\)/g, '').trim();
     const segs = (i > 0 ? s.slice(i + 3) : '').split('/').map((x) => x.replace(/["“”]/g, '').trim()).filter(Boolean); if (!segs.length) return org0;

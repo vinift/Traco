@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.45.4
+
+- As questões da **PRF** também ficam em destaque (mesmo visual da PF, com a etiqueta "PRF"). Os cadernos já existentes são refeitos sozinhos uma vez ao abrir.
+
 ## Novidades da v1.45.3
 
 - **Cabeçalho das questões completo:** o assunto fica numa linha (ou duas, se for longo) e a banca/órgão/ano/cargo inteiro na linha de baixo — nada mais cortado com "…".
