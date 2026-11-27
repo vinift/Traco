@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.42.12
+
+- **Degradê mais suave:** a troca de cor ao longo do traço agora é gradual (64 passos por troca em vez de 12), sem degraus nem emendas visíveis.
+- No tinteiro e no pincel, o traço com degradê não fica mais "picotado" (cada pedaço afinava nas pontas).
+
 ## Novidades da v1.42.11
 
 - **Brilho da seleção mais leve e mais fraco.** Agora é um contorno roxo suave em volta da tinta, sem o efeito de luz pesado. Ele não deixa mais a rolagem e o zoom lentos.

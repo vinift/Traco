@@ -42,9 +42,34 @@ const Fades = {
     if (!a.fade) return; el.fade = { c: a.fade.c, p: a.fade.p, o: Math.round(a.fade.o * 10) / 10 };
     const cyc = a.fade.p * a.fade.c.length; a.fadeDef.o = (a.fade.o + this.len(el.pts)) % cyc; Store.saveSettings();
   },
-  /* desenha um traço da caneta com degradê: pedaços de ~1/12 de troca, cada um com a sua cor (sobrepõem 1 ponto) */
+  /* desenha um traço da caneta com degradê. v1.42.12: o contorno (curva suavizada + espessura) é calculado UMA vez para o traço
+     inteiro e cortado em pedaços de 1/64 da troca, cada um com a sua cor — antes eram pedaços de 1/12, cada um refeito como um
+     traço à parte (a curva e as pontas mudavam nas emendas e a troca de cor aparecia em degraus). */
+  _geo: new WeakMap(),
+  geo(e) {
+    let g = this._geo.get(e); if (g && g.pts === e.pts) return g;
+    const P = e.pts, kind = penKind(e), r = penRadii(P, e.width, kind), q = Array.from(P); for (let i = 0; i < r.length; i++) q[i * 3 + 2] = r[i];
+    const sp = splinePts(q), n = sp.length / 3, d = new Float32Array(n); let same = true;
+    for (let i = 1; i < n; i++) { d[i] = d[i - 1] + Math.hypot(sp[i * 3] - sp[i * 3 - 3], sp[i * 3 + 1] - sp[i * 3 - 2]); if (Math.abs(sp[i * 3 + 2] - sp[2]) > 1e-6) same = false; }
+    g = { pts: e.pts, sp, d, n, same, k: d[n - 1] / Math.max(1e-6, this.len(P)) }; this._geo.set(e, g); return g;
+  },
   draw(ctx, e) {
-    const P = e.pts, n = P.length / 3, f = e.fade, band = Math.max(1.5, f.p / 12);
+    const f = e.fade, o = f.o || 0, kind = penKind(e);
+    if (kind === 'fine' || kind === 'calli') return this.drawOld(ctx, e);
+    const g = this.geo(e), { sp, d, n } = g, band = Math.max(0.4, f.p / 64);
+    ctx.globalAlpha = e.opacity ?? 1; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const piece = (s, t) => { /* pontos s..t da curva, cor no meio do pedaço (distância medida no traço original) */
+      ctx.fillStyle = ctx.strokeStyle = this.mix(f.c, (o + (d[s] + d[t]) / 2 / g.k) / f.p);
+      if (g.same) { const p = new Path2D(); p.moveTo(sp[s * 3], sp[s * 3 + 1]); for (let i = s + 1; i <= t; i++) p.lineTo(sp[i * 3], sp[i * 3 + 1]); if (t === s) p.lineTo(sp[s * 3] + 0.01, sp[s * 3 + 1]); ctx.lineWidth = sp[2] * 2; ctx.stroke(p); }
+      else { const q = sp.slice(s * 3, (t + 1) * 3), rr = []; for (let i = 2; i < q.length; i += 3) rr.push(q[i]); ctx.fill(buildRadiiPath(q, rr), 'nonzero'); }
+    };
+    let start = 0, cur = Math.floor((o + 0) / band);
+    for (let i = 1; i < n; i++) { const b = Math.floor((o + d[i] / g.k) / band); if (b !== cur) { piece(start, i); start = i; cur = b; } }
+    if (start < n - 1 || n === 1) piece(start, n - 1);
+  },
+  /* caneta fina/caligrafia: pedaços como antes (agora de 1/48 da troca) */
+  drawOld(ctx, e) {
+    const P = e.pts, n = P.length / 3, f = e.fade, band = Math.max(0.75, f.p / 48);
     const { fade, rot, ...base } = e;
     const seg = (s, t, d) => drawElement(ctx, { ...base, color: this.mix(f.c, d / f.p), pts: P.slice(s * 3, (t + 1) * 3) });
     let d = f.o || 0, start = 0, cur = Math.floor(d / band);
