@@ -585,8 +585,20 @@ const UI = {
     }
     p.append(this.switchRow('Coluna de cabeçalho', null, T.hCol, (v) => set({ hCol: v })));
     p.append(this.switchRow('Linha de cabeçalho', null, T.hRow, (v) => set({ hRow: v })));
-    p.append(...this.sliderRows('Contagem de colunas', T.cols, 1, 20, 1, (v) => v, (v) => set({ cols: v })));
-    p.append(...this.sliderRows('Contagem de linhas', T.rows, 1, 40, 1, (v) => v, (v) => set({ rows: v })));
+    /* v1.44.3: numa tabela pronta, a contagem acrescenta/tira no fim com a escrita acompanhando (antes redividia a largura e a escrita se embaralhava) */
+    const count = (k) => async (v) => {
+      if (!cur()) return set({ [k === 'c' ? 'cols' : 'rows']: v });
+      let guard = 60, asked = false;
+      while (guard-- > 0) {
+        const e = cur(); if (!e) break; const n0 = k === 'c' ? e.cols : e.rows; if (n0 === v) break;
+        if (v < n0 && Tables.hasInkAt(page, e, k) && !asked) { asked = true; if (!(await confirmBox(k === 'c' ? 'A última coluna tem escrita. Tirar a coluna e apagar essa escrita?' : 'A última linha tem escrita. Tirar a linha e apagar essa escrita?', 'Tirar'))) break; }
+        const before = n0; Editor.tableOp((t) => (v > before ? (k === 'c' ? Tables.addCol(t) : Tables.addRow(t)) : (k === 'c' ? Tables.delCol(t) : Tables.delRow(t))));
+        const e2 = cur(); if (!e2 || (k === 'c' ? e2.cols : e2.rows) === before) break;
+      }
+      draw();
+    };
+    p.append(...this.sliderRows('Contagem de colunas', T.cols, 1, 20, 1, (v) => v, count('c')));
+    p.append(...this.sliderRows('Contagem de linhas', T.rows, 1, 40, 1, (v) => v, count('r')));
     p.append(...this.sliderRows('Largura da borda', T.bw, 0.5, 10, 0.5, (v) => fmtW(v), (v) => set({ bw: v })));
     p.append(this.colorSection('Cor da borda', T.bc, (c) => { set({ bc: c }); this.buildPanel(); }, PALETTE, false));
     const fillSec = this.colorSection('Cor de preenchimento', T.fill || '', (c) => { set({ fill: c }); this.buildPanel(); }, ['#ffffff'].concat(HL_PALETTE, STICKY_COLORS), false);

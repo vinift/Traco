@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.44.3
+
+- **Inserir coluna ou linha não embaralha mais a escrita:** pela barra de editar células, a mesclagem (título, rodapé, coluna única) crescia o dobro e a escrita caía nas células erradas. Corrigido.
+- **Contagem de colunas/linhas nos Ajustes da tabela:** agora acrescenta (ou tira) uma coluna no fim / uma linha antes do rodapé, com a escrita acompanhando a célula dela. Antes só redividia a largura e a escrita ficava parada, metade numa coluna e metade em outra. Se a coluna/linha que vai sair tiver escrita, ele pergunta antes.
+- Título, rodapé e coluna única se estendem sozinhos quando entra coluna ou linha nova no fim.
+
 ## Novidades da v1.44.2
 
 - **Redimensionar a tabela pelo canto:** a tabela inteira aumenta ou diminui na mesma proporção, **com a escrita junto** (título e tudo o que está nas células encolhe ou cresce do mesmo jeito). Pelos lados, continua esticando só a tabela. Com o segundo dedo, o canto estica livre, como antes.

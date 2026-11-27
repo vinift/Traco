@@ -98,6 +98,26 @@ const Tables = {
     const v = rv || cv; if (v && v !== this.tone(e.bc, 0.18)) n.hColor = v;
     return n;
   },
+  /* v1.44.3: acrescentar/tirar UMA coluna ou linha no fim (contagem dos Ajustes), respeitando as peças: coluna nova entra no fim
+     e o título/rodapé de ponta a ponta se estendem; linha nova entra antes do rodapé e a coluna única se estende. A escrita
+     acompanha as células (Editor.tableOp → relayout) — antes a contagem só redividia a largura e a escrita ficava parada. */
+  addCol(e) {
+    const res = this.insertCols(e, e.cols, 1); for (const m of res.n.merges) if (m.c === 0 && m.cs === e.cols && e.cols > 1) m.cs = res.n.cols;
+    return res;
+  },
+  delCol(e) { const P = this.parts(e); if (e.cols - 1 < P.s + 1) return null; return this.deleteCols(e, e.cols - 1, e.cols - 1); },
+  addRow(e) {
+    const P = this.parts(e), at = e.rows - P.f, res = this.insertRows(e, at, 1);
+    for (const m of res.n.merges) if (P.s && m.c === 0 && m.cs === 1 && m.r === P.t && m.r + m.rs === at) m.rs += 1;
+    if (P.s && !(res.n.merges || []).some((m) => m.c === 0 && m.cs === 1 && m.r === P.t) && res.n.rows - P.t - P.f > 1) res.n.merges.push({ r: P.t, c: 0, rs: res.n.rows - P.t - P.f, cs: 1 });
+    return res;
+  },
+  delRow(e) { const P = this.parts(e), r = e.rows - P.f - 1; if (r < P.t + 1) return null; return this.deleteRows(e, r, r); },
+  /* há escrita na última coluna / na última linha do corpo? (para confirmar antes de tirar) */
+  hasInkAt(page, e, k) {
+    const P = this.parts(e), c = e.cols - 1, r = e.rows - P.f - 1;
+    return this.attached(page, e).some((x) => { const b = elBBox(x), cell = this.cellAt(e, b.x + b.w / 2, b.y + b.h / 2); return cell && (k === 'c' ? cell.c === c : cell.r === r); });
+  },
   /* liga/desliga uma peça numa tabela pronta: devolve {n, rowMap, colMap} para o Editor.tableOp (a escrita acompanha as células) */
   setPart(e, k, on, st) {
     const P = this.parts(e); if (!!P[k] === !!on) return null;
@@ -135,7 +155,7 @@ const Tables = {
     const { cw, rh } = this.dims(e), hNew = rh[Math.min(Math.max(at - 1, 0), rh.length - 1)];
     const rowMap = this.ident(e.rows).map((r) => (r >= at ? r + count : r));
     const n = this.remap(e, rowMap, this.ident(e.cols), e.rows + count, e.cols);
-    for (const m of n.merges) { const orig = (e.merges || []).find((o) => o.c === m.c && o.cs === m.cs && o.r < at && o.r + o.rs > at); if (orig && m.r < at) m.rs += count; } // linha nova dentro de um bloco mesclado
+    { const P = e.tParts || {}; if (P.s && at === e.rows - (P.f ? 1 : 0)) for (const m of n.merges) if (m.c === 0 && m.cs === 1 && m.r === (P.t ? 1 : 0) && m.r + m.rs === at) m.rs += count; } /* v1.44.3: coluna única acompanha a linha nova no fim do corpo */
     const nrh = rh.slice(); nrh.splice(at, 0, ...Array(count).fill(hNew));
     n.rowH = nrh; n.colW = cw; n.h = e.h + hNew * count; return { n, rowMap, colMap: null };
   },
@@ -143,7 +163,8 @@ const Tables = {
     const { cw, rh } = this.dims(e), wNew = cw[Math.min(Math.max(at - 1, 0), cw.length - 1)];
     const colMap = this.ident(e.cols).map((c) => (c >= at ? c + count : c));
     const n = this.remap(e, this.ident(e.rows), colMap, e.rows, e.cols + count);
-    for (const m of n.merges) { const orig = (e.merges || []).find((o) => o.r === m.r && o.rs === m.rs && o.c < at && o.c + o.cs > at); if (orig && m.c < at) m.cs += count; }
+    /* v1.44.3: a mesclagem que atravessa o ponto de inserção já sai do remap cobrindo a coluna nova (mín/máx dos índices); o antigo "+count" aqui a alargava 2× e a escrita caía nas células erradas */
+    if (at === e.cols && e.cols > 1) for (const m of n.merges) if (m.c === 0 && m.cs === e.cols) m.cs += count; /* v1.44.3: título/rodapé de ponta a ponta acompanham a coluna nova no fim */
     const ncw = cw.slice(); ncw.splice(at, 0, ...Array(count).fill(wNew));
     n.colW = ncw; n.rowH = rh; n.w = e.w + wNew * count; return { n, rowMap: null, colMap };
   },
