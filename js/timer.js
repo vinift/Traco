@@ -276,15 +276,8 @@ const StudyTimer = {
   fmtDur(ms) { const m = Math.round(ms / 60000); if (m < 1) return ms > 0 ? '<1 min' : '0 min'; const h = Math.floor(m / 60); return h ? `${h}h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') + 'min' : ''}` : m + ' min'; },
   display(t = Date.now()) { return this.fmt(this.hasTarget() ? this.remaining(t) : this.elapsed(t)); },
   phaseName() { const s = this.st; return s.mode === 'stopwatch' ? 'Cronômetro' : s.mode === 'countdown' ? 'Temporizador' : s.phase === 'focus' ? 'Foco' : s.phase === 'long' ? 'Pausa longa' : 'Pausa'; },
-  /* v1.45.1: botão de pausar/continuar logo abaixo do botão de tela cheia (o do topo ou o de sair da tela cheia) */
-  placePP() {
-    const pp = document.getElementById('noteTimerPP'), ed = document.getElementById('editor'); if (!pp || !ed || pp.classList.contains('hidden')) return;
-    const ex = document.getElementById('btnFullExit'), fb = document.getElementById('btnFull');
-    const a = ed.classList.contains('immersive') && ex ? ex : fb; if (!a) return;
-    const r = a.getBoundingClientRect(), er = ed.getBoundingClientRect(); if (!r.width) return;
-    const sz = 46, l = Math.round(Math.min(r.left + r.width / 2 - sz / 2 - er.left, er.width - sz - 10)), t = Math.round(r.bottom + 16 - er.top);
-    if (pp._pl !== l + ',' + t) { pp._pl = l + ',' + t; pp.style.left = l + 'px'; pp.style.top = t + 'px'; }
-  },
+  /* v1.45.2: o botão fica sempre no canto de cima à direita, embaixo do lugar do botão de sair da tela cheia (posição pelo CSS) */
+  placePP() {},
   paint() {
     this.sysSync(); this.armEnd();
     const s = this.st, show = !this.idle(), txt = this.display(), brk = s.mode === 'pomodoro' && s.phase !== 'focus';

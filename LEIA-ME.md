@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.45.2
+
+- O botão de pausar/continuar o cronômetro fica no mesmo lugar dentro e fora da tela cheia: no canto de cima à direita, logo abaixo da barra.
+
 ## Novidades da v1.45.1
 
 - **Esconder cartões da paleta:** cada paleta pronta (e os Recentes) tem um × no canto para esconder. No fim da aba aparece "Mostrar cartões escondidos" para trazer todos de volta.
