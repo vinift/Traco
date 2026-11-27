@@ -51,7 +51,7 @@ const Fades = {
     const P = e.pts, kind = penKind(e), r = penRadii(P, e.width, kind), q = Array.from(P); for (let i = 0; i < r.length; i++) q[i * 3 + 2] = r[i];
     const sp = splinePts(q), n = sp.length / 3, d = new Float32Array(n); let same = true;
     for (let i = 1; i < n; i++) { d[i] = d[i - 1] + Math.hypot(sp[i * 3] - sp[i * 3 - 3], sp[i * 3 + 1] - sp[i * 3 - 2]); if (Math.abs(sp[i * 3 + 2] - sp[2]) > 1e-6) same = false; }
-    g = { pts: e.pts, sp, d, n, same, k: d[n - 1] / Math.max(1e-6, this.len(P)) }; this._geo.set(e, g); return g;
+    g = { pts: e.pts, sp, d, n, same, k: 1 }; const L = this.len(P); if (L > 0.01 && d[n - 1] > 0.01) g.k = d[n - 1] / L; /* v1.42.14: ponto (comprimento 0) dava 0/0 → cor NaN → preto */ this._geo.set(e, g); return g;
   },
   draw(ctx, e) {
     const f = e.fade, o = f.o || 0, kind = penKind(e);
@@ -60,7 +60,7 @@ const Fades = {
     ctx.globalAlpha = e.opacity ?? 1; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const piece = (s, t) => { /* pontos s..t da curva, cor no meio do pedaço (distância medida no traço original) */
       ctx.fillStyle = ctx.strokeStyle = this.mix(f.c, (o + (d[s] + d[t]) / 2 / g.k) / f.p);
-      if (g.same) { const p = new Path2D(); p.moveTo(sp[s * 3], sp[s * 3 + 1]); for (let i = s + 1; i <= t; i++) p.lineTo(sp[i * 3], sp[i * 3 + 1]); if (t === s) p.lineTo(sp[s * 3] + 0.01, sp[s * 3 + 1]); ctx.lineWidth = sp[2] * 2; ctx.stroke(p); }
+      if (g.same) { const p = new Path2D(); p.moveTo(sp[s * 3], sp[s * 3 + 1]); for (let i = s + 1; i <= t; i++) p.lineTo(sp[i * 3], sp[i * 3 + 1]); if (d[t] - d[s] < 0.01) p.lineTo(sp[s * 3] + 0.01, sp[s * 3 + 1]); /* ponto: traço de tamanho zero o navegador ignora */ ctx.lineWidth = sp[2] * 2; ctx.stroke(p); }
       else { const q = sp.slice(s * 3, (t + 1) * 3), rr = []; for (let i = 2; i < q.length; i += 3) rr.push(q[i]); ctx.fill(buildRadiiPath(q, rr), 'nonzero'); }
     };
     let start = 0, cur = Math.floor((o + 0) / band);
