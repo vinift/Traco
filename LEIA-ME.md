@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.45.3
+
+- **Cabeçalho das questões completo:** o assunto fica numa linha (ou duas, se for longo) e a banca/órgão/ano/cargo inteiro na linha de baixo — nada mais cortado com "…".
+- **Questões da Polícia Federal em destaque:** cartão com borda dourada, cabeçalho amarelado, número em azul-marinho e a etiqueta "PF" antes da banca.
+- Os cadernos que você já tem são refeitos sozinhos uma vez ao abrir (mesmos números, respostas, dúvidas e escrita).
+
 ## Novidades da v1.45.2
 
 - O botão de pausar/continuar o cronômetro fica no mesmo lugar dentro e fora da tela cheia: no canto de cima à direita, logo abaixo da barra.

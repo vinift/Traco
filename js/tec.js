@@ -15,7 +15,7 @@ const Tec = {
   async check(note) {
     if (!note || this._no.has(note.id) || this._busy.has(note.id)) return;
     this.bankBar(note && note.bank ? note : null); /* v1.26 */
-    if (note.tec) { this.reg(note); try { this.upDoubt(note); this.redrawMarks(note); } catch (e) { logError(e, 'dúvidas antigas'); } this.reconcile(note); if (note.tec.built && (note.tec.hv || 1) < 2) setTimeout(() => this.rebuild(note).catch((e) => logError(e, 'cabeçalho')), 300); if (!(note.tec.v >= 2)) await this.upgrade(note); if (!note.bank) this.repeats(note); return; } /* v1.27: no caderno de erros tudo já foi feito — sem etiquetas */ if (note.tec !== undefined) return;
+    if (note.tec) { this.reg(note); try { this.upDoubt(note); this.redrawMarks(note); } catch (e) { logError(e, 'dúvidas antigas'); } this.reconcile(note); if (note.tec.built && (note.tec.hv || 1) < this.HV) setTimeout(() => this.rebuild(note).catch((e) => logError(e, 'cabeçalho')), 300); if (!(note.tec.v >= 2)) await this.upgrade(note); if (!note.bank) this.repeats(note); return; } /* v1.27: no caderno de erros tudo já foi feito — sem etiquetas */ if (note.tec !== undefined) return;
     const P = note.pages.filter((p) => p.pdf); if (!P.length) return;
     this._busy.add(note.id);
     try {
@@ -341,23 +341,29 @@ const Tec = {
       if (a[0] === z[0]) parts.push([a[0], y0, y1]); else { parts.push([a[0], y0, ftOf(a[0])]); for (let pg = a[0] + 1; pg < z[0]; pg++) parts.push([pg, hbOf(pg), ftOf(pg)]); parts.push([z[0], hbOf(z[0]), y1]); }
       /* v1.40: nota da dúvida (caderno de erros) — caixa âmbar arredondada entre o cabeçalho e o enunciado, cresce com o texto */
       const nt = notes && notes[q.id], noteH = nt ? 17 : 0; /* v1.40.1: só uma faixa para a pílula recolhida (ela é item do app, abre por cima) */
-      const left = Math.max(8, a[1] - 8), hTot = HB + 6 + noteH + (noteH ? 6 : 0) + parts.reduce((s, [, u, v]) => s + (v - u) * K, 0);
+      /* v1.45.3: cabeçalho em até 3 linhas (assunto em 1–2 linhas + banca inteira), nada cortado; PF em destaque */
+      const pf = this.isPF(q.banca), bs = this.bancaShort(q.banca), tecT = `TEC nº ${num}  >`, tecW = font.widthOfTextAtSize(tecT, 8), nW0 = bold.widthOfTextAtSize(String(keep ? (keep[q.id] || k + 1) : k + 1), 9) + 14;
+      const txW = cwPt + 16 - nW0 - tecW - 50, wrap = (t, f, sz, w, max) => { const ws = ansi(t).split(/\s+/).filter(Boolean), L = []; let cur = ''; for (const wd of ws) { const tt = cur ? cur + ' ' + wd : wd; if (f.widthOfTextAtSize(tt, sz) <= w || !cur) cur = tt; else { L.push(cur); cur = wd; } } if (cur) L.push(cur); if (L.length > max) { const keepL = L.slice(0, max - 1); keepL.push(fit(L.slice(max - 1).join(' '), f, sz, w)); return keepL; } return L.map((l) => fit(l, f, sz, w)); };
+      const assL = wrap(q.ass || q.mat || '', font, 8.5, txW, 2), bsL = wrap((pf ? 'PF  ·  ' : '') + bs, font, 8, txW + tecW + 20, 2), HBq = 10 + assL.length * 11 + bsL.length * 10;
+      const left = Math.max(8, a[1] - 8), hTot = HBq + 6 + noteH + (noteH ? 6 : 0) + parts.reduce((s, [, u, v]) => s + (v - u) * K, 0);
       if (!page || (y + hTot + 18 + (spPt ? spPt + 6 : 0) > H - 24 && y > TOP)) newPage();
       /* v1.23: cartão no estilo do app — borda suave arredondada, cabeçalho em pílula lilás, número em etiqueta roxa
          (tocar nela = dúvida), assunto · banca e "abrir no TEC ›" em roxo */
-      const yTop = y, cx = M - 8, cw = cwPt + 16, hdY = yTop + 5, hdH = HB - 2, ACC = PL.rgb(0.486, 0.227, 0.929);
+      const yTop = y, cx = M - 8, cw = cwPt + 16, hdY = yTop + 5, hdH = HBq - 2, ACC = PL.rgb(0.486, 0.227, 0.929);
       const rr = (x0, y0, w, h, r) => `M ${x0 + r} ${y0} H ${x0 + w - r} Q ${x0 + w} ${y0} ${x0 + w} ${y0 + r} V ${y0 + h - r} Q ${x0 + w} ${y0 + h} ${x0 + w - r} ${y0 + h} H ${x0 + r} Q ${x0} ${y0 + h} ${x0} ${y0 + h - r} V ${y0 + r} Q ${x0} ${y0} ${x0 + r} ${y0} Z`;
-      const cardH = HB + 10 + (noteH ? noteH + 6 : 0) + parts.reduce((s2, [, u, v]) => s2 + (v - u) * K, 0) + 8;
-      page.drawSvgPath(rr(0, 0, cw, cardH, 10), { x: cx, y: H - yTop, color: PL.rgb(1, 1, 1), borderColor: PL.rgb(0.88, 0.89, 0.92), borderWidth: 0.8 });
-      page.drawSvgPath(rr(0, 0, cw - 10, hdH, 7), { x: cx + 5, y: H - hdY, color: PL.rgb(0.953, 0.937, 0.992) });
-      const nT = n, nW = bold.widthOfTextAtSize(nT, 9), bW = nW + 14, bx = cx + 10, by = hdY + 3.5, bH = hdH - 7;
-      page.drawSvgPath(rr(0, 0, bW, bH, bH / 2), { x: bx, y: H - by, color: ACC });
+      const cardH = HBq + 10 + (noteH ? noteH + 6 : 0) + parts.reduce((s2, [, u, v]) => s2 + (v - u) * K, 0) + 8;
+      const GOLD = PL.rgb(0.79, 0.6, 0.11), NAVY = PL.rgb(0.07, 0.19, 0.42);
+      page.drawSvgPath(rr(0, 0, cw, cardH, 10), { x: cx, y: H - yTop, color: PL.rgb(1, 1, 1), borderColor: pf ? GOLD : PL.rgb(0.88, 0.89, 0.92), borderWidth: pf ? 1.6 : 0.8 });
+      page.drawSvgPath(rr(0, 0, cw - 10, hdH, 7), { x: cx + 5, y: H - hdY, color: pf ? PL.rgb(0.996, 0.957, 0.85) : PL.rgb(0.953, 0.937, 0.992) });
+      const nT = n, nW = bold.widthOfTextAtSize(nT, 9), bW = nW + 14, bx = cx + 10, by = hdY + 3.5, bH = 15;
+      page.drawSvgPath(rr(0, 0, bW, bH, bH / 2), { x: bx, y: H - by, color: pf ? NAVY : ACC });
       page.drawText(nT, { x: bx + 7, y: H - by - bH + 3.6, size: 9, font: bold, color: PL.rgb(1, 1, 1) });
-      const bs = this.bancaShort(q.banca), tecT = `TEC nº ${num}  >`, /* v1.24: posição da questão no caderno impresso do TEC (o número original) */ tecW = font.widthOfTextAtSize(tecT, 8);
-      page.drawText(fit(`${q.ass || q.mat}  ·  ${bs}`, font, 8.5, cw - bW - tecW - 50), { x: bx + bW + 9, y: H - hdY - hdH + 6.6, size: 8.5, font, color: PL.rgb(0.29, 0.33, 0.39) });
-      page.drawText(tecT, { x: cx + cw - 14 - tecW, y: H - hdY - hdH + 6.6, size: 8, font: bold, color: ACC });
+      let ly = hdY + 11.5; for (const l of assL) { page.drawText(l, { x: bx + bW + 9, y: H - ly, size: 8.5, font, color: PL.rgb(0.22, 0.25, 0.31) }); ly += 11; }
+      for (let i = 0; i < bsL.length; i++) { let l = bsL[i], x0 = bx + bW + 9; if (pf && i === 0 && /^PF · /.test(l)) { const tw = bold.widthOfTextAtSize('PF', 7.5) + 10; page.drawSvgPath(rr(0, 0, tw, 10.5, 5.25), { x: x0, y: H - (ly - 8.2), color: NAVY }); page.drawText('PF', { x: x0 + 5, y: H - ly + 0.4, size: 7.5, font: bold, color: PL.rgb(1, 0.85, 0.35) }); x0 += tw + 5; l = l.slice(5); }
+        page.drawText(l, { x: x0, y: H - ly, size: 8, font: pf ? bold : font, color: pf ? NAVY : PL.rgb(0.42, 0.45, 0.5) }); ly += 10; }
+      page.drawText(tecT, { x: cx + cw - 14 - tecW, y: H - hdY - 11.5, size: 8, font: bold, color: ACC });
       const badge = [pgN, Math.round(bx / K * 10) / 10, Math.round(by / K * 10) / 10, Math.round(bW / K * 10) / 10, Math.round(bH / K * 10) / 10];
-      y += HB + 10;
+      y += HBq + 10;
       let ntAt = null; if (nt) { ntAt = [pgN, Math.round(M / K * 10) / 10, Math.round(y / K * 10) / 10]; y += noteH + 6; }
       const map = {}, put = (r) => { if (!r) return null; const P = map[r[0]]; if (!P) return null; for (const [u, v, yy] of P) if (r[2] >= u - 2 && r[2] <= v + 2) return [pgN, Math.round((M / K + r[1] - left) * 10) / 10, Math.round((yy / K + r[2] - u) * 10) / 10, r[3], r[4]]; return null; };
       for (const [pg, u, v] of parts) {
@@ -381,7 +387,7 @@ const Tec = {
       gab[n] = g; y = yTop + cardH + GAP;
       if (spPt) { const s0 = yTop + cardH + 6, gh = Math.min(spPt, H - 24 - s0); if (gh >= 40) { this.drawSpace(page, PL, rr, cx, s0, cw, gh, H, font); tq[n].sp = [pgN, Math.round(s0 / K * 10) / 10, Math.round(gh / K * 10) / 10]; y = s0 + gh + GAP; } }
     }
-    return { matCount, bytes: await out.save(), tec: { v: 3, hv: 2, sp, built: 1, gab, q: tq, ans: {}, d: {}, gb: null, vis, mx: M / K, srcs: srcs.map((x) => ({ name: x.name, blobId: x.blobId })) }, total: items.length, n: list.length };
+    return { matCount, bytes: await out.save(), tec: { v: 3, hv: this.HV, sp, built: 1, gab, q: tq, ans: {}, d: {}, gb: null, vis, mx: M / K, srcs: srcs.map((x) => ({ name: x.name, blobId: x.blobId })) }, total: items.length, n: list.length };
   },
   /* v1.40: nota da dúvida no caderno de erros. Texto = o motivo escolhido ou escrito no "Outro…" (StudyTimer.log.errs[].why, o mais recente por questão) */
   /* v1.40: texto da dúvida por questão = o motivo escolhido ou escrito no "Outro…" (StudyTimer.log.errs[].why, o mais recente por id do TEC) */
@@ -634,6 +640,10 @@ const Tec = {
   },
   /* v1.38.2: cabeçalho "banca · órgão ano · cargo (área)". Ex.: "CEBRASPE (CESPE) - PCF/PF/Área 1/2018" → "CEBRASPE · PF 2018 · PCF (Área 1)".
      Antes só as 2 últimas partes ("Área 1/2018") — o órgão e o cargo sumiam. Áreas genéricas ("Sem Área", "Qualquer Área de Formação") saem. */
+  /* v1.45.3: versão do cabeçalho (cadernos mais antigos são remontados uma vez, mesmos números) */
+  HV: 3,
+  /* v1.45.3: questão da Polícia Federal (carreira do usuário) — destaque no cabeçalho */
+  isPF(s) { s = String(s || ''); const i = s.indexOf(' - '), segs = (i > 0 ? s.slice(i + 3) : s).split('/').map((x) => x.trim()); return segs.some((x) => /^(PF|DPF|DPF\s.*|Pol[ií]cia Federal.*)$/i.test(x)) || /pol[ií]cia federal|\(PF\)|\bDPF\b/i.test(s); },
   bancaShort(s) {
     s = String(s || '').trim(); const i = s.indexOf(' - '), org0 = (i > 0 ? s.slice(0, i) : s).replace(/\s*\([^)]*\)/g, '').trim();
     const segs = (i > 0 ? s.slice(i + 3) : '').split('/').map((x) => x.replace(/["“”]/g, '').trim()).filter(Boolean); if (!segs.length) return org0;
@@ -643,8 +653,8 @@ const Tec = {
   },
   /* cadernos montados antes da v1.38.2: refaz o PDF uma vez com o cabeçalho novo, mesmos números, respostas e escrita */
   async rebuild(note) {
-    const T = note && note.tec; if (!T || !T.built || this._mounting || (T.hv || 1) >= 2) return;
-    if (!Object.keys(T.q).length) { T.hv = 2; T.sp = this.spOf(T); Editor.markChanged(); return; }
+    const T = note && note.tec; if (!T || !T.built || this._mounting || (T.hv || 1) >= this.HV) return;
+    if (!Object.keys(T.q).length) { T.hv = this.HV; T.sp = this.spOf(T); Editor.markChanged(); return; }
     return this._reorder(note, this.ordOf(T), true, this.spOf(T));
   },
   async _reorder(note, ord, keepNums, sp, dropSide) {
@@ -671,7 +681,7 @@ const Tec = {
       await Store.putNote(note); if (oldBlob && !srcs.some((x) => x.blobId === oldBlob)) { try { await DB.del('blobs', oldBlob); } catch (_) {} }
       App._busy = false; await App.openNote(note.id);
       toast(keepNums ? '' : ord === 'seq' ? 'Questões em ordem' : 'Questões embaralhadas', 1600);
-    } catch (e) { logError(e, 'ordem do caderno'); if (keepNums) { T.hv = 2; T.sp = T.sp || 'none'; Editor.markChanged(); toast('', 1); } else toast('Não deu para mudar a ordem: ' + e.message, 6000); }
+    } catch (e) { logError(e, 'ordem do caderno'); if (keepNums) { T.hv = this.HV; T.sp = T.sp || 'none'; Editor.markChanged(); toast('', 1); } else toast('Não deu para mudar a ordem: ' + e.message, 6000); }
     finally { this._mounting = false; }
   },
   async addFlow(note) {
