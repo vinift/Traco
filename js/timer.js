@@ -276,6 +276,15 @@ const StudyTimer = {
   fmtDur(ms) { const m = Math.round(ms / 60000); if (m < 1) return ms > 0 ? '<1 min' : '0 min'; const h = Math.floor(m / 60); return h ? `${h}h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') + 'min' : ''}` : m + ' min'; },
   display(t = Date.now()) { return this.fmt(this.hasTarget() ? this.remaining(t) : this.elapsed(t)); },
   phaseName() { const s = this.st; return s.mode === 'stopwatch' ? 'Cronômetro' : s.mode === 'countdown' ? 'Temporizador' : s.phase === 'focus' ? 'Foco' : s.phase === 'long' ? 'Pausa longa' : 'Pausa'; },
+  /* v1.45.1: botão de pausar/continuar logo abaixo do botão de tela cheia (o do topo ou o de sair da tela cheia) */
+  placePP() {
+    const pp = document.getElementById('noteTimerPP'), ed = document.getElementById('editor'); if (!pp || !ed || pp.classList.contains('hidden')) return;
+    const ex = document.getElementById('btnFullExit'), fb = document.getElementById('btnFull');
+    const a = ed.classList.contains('immersive') && ex ? ex : fb; if (!a) return;
+    const r = a.getBoundingClientRect(), er = ed.getBoundingClientRect(); if (!r.width) return;
+    const sz = 46, l = Math.round(Math.min(r.left + r.width / 2 - sz / 2 - er.left, er.width - sz - 10)), t = Math.round(r.bottom + 16 - er.top);
+    if (pp._pl !== l + ',' + t) { pp._pl = l + ',' + t; pp.style.left = l + 'px'; pp.style.top = t + 'px'; }
+  },
   paint() {
     this.sysSync(); this.armEnd();
     const s = this.st, show = !this.idle(), txt = this.display(), brk = s.mode === 'pomodoro' && s.phase !== 'focus';
@@ -287,9 +296,9 @@ const StudyTimer = {
       n.innerHTML = icon('timer') + (eq ? '<i class="tm-qtag">' + (eq === 'r' ? 'E' : eq === 'v' ? 'R' : 'Q') + '</i>' : '') + '<b>' + txt + '</b>'; n.classList.toggle('paused', !s.running); n.classList.toggle('brk', brk); n.classList.toggle('qmode', !!s.q);
       n.title = `${this.phaseName()}${s.running ? '' : ' (pausado)'} · toque para abrir`;
     }
-    const pp = document.getElementById('noteTimerPP'); /* v1.39.1: pausar/continuar com um toque (só na tela cheia, pelo CSS) */
-    if (pp) { pp.classList.toggle('hidden', !show); const k = show ? (s.running ? 'r' : 'p') : ''; if (pp._k !== k) { pp._k = k; pp.classList.toggle('paused', !s.running);
-      pp.innerHTML = s.running ? '<svg viewBox="0 0 24 24" width="14" height="14"><rect x="6" y="5" width="4.2" height="14" rx="1.3" fill="currentColor"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.3" fill="currentColor"/></svg>' : '<svg viewBox="0 0 24 24" width="14" height="14"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l10.6-6.8a1 1 0 0 0 0-1.72L9.5 4.34A1 1 0 0 0 8 5.2Z" fill="currentColor"/></svg>';
+    const pp = document.getElementById('noteTimerPP'); /* v1.39.1: pausar/continuar com um toque; v1.45.1: sempre na nota, embaixo do botão de tela cheia */
+    if (pp) { pp.classList.toggle('hidden', !show); if (show) this.placePP(); const k = show ? (s.running ? 'r' : 'p') : ''; if (pp._k !== k) { pp._k = k; pp.classList.toggle('paused', !s.running);
+      pp.innerHTML = s.running ? '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="6" y="5" width="4.2" height="14" rx="1.3" fill="currentColor"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.3" fill="currentColor"/></svg>' : '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l10.6-6.8a1 1 0 0 0 0-1.72L9.5 4.34A1 1 0 0 0 8 5.2Z" fill="currentColor"/></svg>';
       pp.title = s.running ? 'Pausar' : 'Continuar'; } }
     const ct = document.querySelector('.ch-title'); if (ct) ct.classList.toggle('has-timer', show);
     if (typeof QuizPad !== 'undefined') QuizPad.sync();

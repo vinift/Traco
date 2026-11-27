@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.45.1
+
+- **Esconder cartões da paleta:** cada paleta pronta (e os Recentes) tem um × no canto para esconder. No fim da aba aparece "Mostrar cartões escondidos" para trazer todos de volta.
+- **Botão de pausar/continuar maior e sempre à mão:** com o cronômetro ligado, aparece na nota um botão redondo logo abaixo do botão de tela cheia (fora e dentro da tela cheia). Roxo = rodando (toque pausa), laranja = pausado (toque continua).
+
 ## Novidades da v1.45.0
 
 - **Seletor de cores mais organizado:** na aba Paleta, cada grupo de cores fica num cartão próprio com título. O "Grupo atual" (com o nome do grupo) vem destacado em roxo, e logo abaixo ficam os "Recentes". No Espectro e na Roda, os Recentes também aparecem num cartão.

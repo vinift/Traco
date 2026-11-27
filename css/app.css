@@ -1724,10 +1724,6 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 .tq-why-chip.add{background:transparent;border-style:dashed}
 
 /* v1.39.1: botão redondo de pausar/continuar o cronômetro, à direita da bateria, só na tela cheia */
-.note-pp{display:none}
-#editor.immersive .ch-title .note-pp:not(.hidden){display:inline-flex;align-items:center;justify-content:center;flex:none;width:30px;height:30px;padding:0;margin:0 8px 0 0;border:0;border-radius:50%;background:var(--chacc,#7c3aed);color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);pointer-events:auto;cursor:pointer;visibility:visible;text-shadow:none}
-#editor.immersive .ch-title .note-pp.paused{background:#b45309}
-#editor.immersive .ch-title .note-pp:active{transform:scale(.9)}
 
 /* v1.41: padrão do hífen por nota (telinha do atalho → Cor) */
 .qk-note{margin-top:10px;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--accent,#7c3aed) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent,#7c3aed) 18%,transparent)}
@@ -1789,3 +1785,13 @@ button.tm-bar{border:0;background:none;padding:0;font:inherit;color:inherit;curs
 :root[data-theme="dark"] .cpk-card .cdot{box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .cpk-card .cdot{box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)} }
 .cpk-card .cdot.sel{box-shadow:0 0 0 2px var(--ch),0 0 0 4px var(--chacc)!important}
+/* v1.45.1: pausar/continuar sempre na nota, embaixo do botão de tela cheia */
+.note-pp{position:absolute;z-index:9;width:46px;height:46px;padding:0;margin:0;border:0;border-radius:50%;display:grid;place-items:center;background:var(--chacc,#7c3aed);color:#fff;box-shadow:0 3px 12px rgba(0,0,0,.22);cursor:pointer;touch-action:manipulation;transition:transform .12s}
+.note-pp.hidden{display:none}
+.note-pp.paused{background:#b45309}
+.note-pp:active{transform:scale(.9)}
+.cpk-acts{display:flex;align-items:center;gap:4px}
+.cpk-x{width:24px;height:24px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted,#888);display:grid;place-items:center;cursor:pointer;opacity:.7}
+.cpk-x:hover,.cpk-x:active{background:var(--line);opacity:1}
+.cpk-x svg.ic{width:14px;height:14px}
+.cpk-unhide{align-self:center;font-size:12px;height:30px;padding:0 12px}

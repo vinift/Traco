@@ -61,12 +61,15 @@ function colorPop(anchor, current, onPick, palette = PALETTE, opts = {}) {
   if (opts.alpha) { alphaR = el('input', { type: 'range', min: 5, max: 100, step: 1, class: 'cpk-alpha' }); alphaR.addEventListener('input', () => { st.a = +alphaR.value / 100; sync(); }); root.append(el('div', { class: 'cpk-row' }, el('span', { class: 'lbl-sm' }, 'Opacidade'), alphaR)); }
   /* v1.45: cada grupo de cores num cartão com título; a cor atual marcada em todos */
   const cur = (current || '').toLowerCase();
-  const card = (title, cols, extra, cls = '') => {
+  /* v1.45.1: cartões que o usuário pode esconder (×), lista em S.hidePal; "Mostrar paletas escondidas" no fim */
+  const hid = () => S.hidePal || [];
+  const xBtn = (key) => { const b = el('button', { class: 'cpk-x', title: 'Esconder este cartão', onclick: (ev) => { ev.stopPropagation(); S.hidePal = [...new Set([...hid(), key])]; Store.saveSettings(); build(); } }); b.innerHTML = icon('x'); return b; };
+  const card = (title, cols, extra, cls = '', key) => {
     const g = el('div', { class: 'cpk-sw' }); for (const c of cols) g.append(el('button', { class: 'cdot' + (c.toLowerCase() === cur ? ' sel' : ''), style: { background: c }, title: c, onclick: () => pick(c) }));
-    return el('div', { class: 'cpk-card ' + cls }, el('div', { class: 'cpk-pal' }, title, extra || null), g);
+    return el('div', { class: 'cpk-card ' + cls }, el('div', { class: 'cpk-pal' }, title, el('span', { class: 'cpk-acts' }, extra || null, key ? xBtn(key) : null)), g);
   };
   const rec = (S.recentColors || []).slice(0, 16);
-  const recCard = () => rec.length ? card(el('span', { class: 'lbl-sm' }, 'Recentes'), rec, null, 'rec') : null;
+  const recCard = () => rec.length && !hid().includes('Recentes') ? card(el('span', { class: 'lbl-sm' }, 'Recentes'), rec, null, 'rec', 'Recentes') : null;
   const recOut = el('div', { class: 'cpk-recout' }); root.append(recOut);
 
   let draw = () => {};
@@ -89,10 +92,12 @@ function colorPop(anchor, current, onPick, palette = PALETTE, opts = {}) {
         body.append(card(el('span', { class: 'lbl-sm' }, 'Grupo atual', gn ? el('b', {}, ' · ' + gn) : null), gc, null, 'grp')); }
       { const r = recCard(); if (r) body.append(r); }
       if (palette !== PALETTE && palette.length) body.append(card(el('span', { class: 'lbl-sm' }, 'Sugestões'), palette)); /* paletas próprias de quem chamou (pasta, post-it, células…) */
-      for (const [name, cols] of READY_PALETTES) {
+      for (const [name, cols] of READY_PALETTES) { if (hid().includes(name)) continue;
         const add = opts.tool && UI.colorList ? el('button', { class: 'btn ghost cpk-addall', title: 'Adicionar todas estas cores à barra', onclick: () => { let n = 0; for (const c of cols) n += UI.addColorTo(opts.tool, c) ? 1 : 0; UI.save(); UI.renderOptions(); toast(n ? `${n} cor(es) adicionadas à barra` : 'Essas cores já estão na barra', 1500); } }, '+ barra') : null;
-        body.append(card(el('span', { class: 'lbl-sm' }, name), cols, add));
+        body.append(card(el('span', { class: 'lbl-sm' }, name), cols, add, '', name));
       }
+      const nh = hid().filter((k) => k === 'Recentes' || READY_PALETTES.some(([n]) => n === k)).length;
+      if (nh) body.append(el('button', { class: 'btn ghost cpk-unhide', onclick: () => { S.hidePal = []; Store.saveSettings(); build(); } }, `Mostrar cartões escondidos (${nh})`));
     } else if (tab === 'spec') {
       const sv = el('canvas', { class: 'cpk-sv', width: 260, height: 170 }), hue = el('canvas', { class: 'cpk-hue', width: 260, height: 18 });
       body.append(sv, hue);
