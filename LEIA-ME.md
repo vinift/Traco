@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.42.10
+
+- **Dá para ver o que está selecionado.** Cada traço selecionado ganha um brilho roxo em volta da própria tinta, além da caixa tracejada. Assim fica claro quais palavras, letras e acentos entraram, e o que ficou de fora. Vale para toda seleção: segurar o dedo nas palavras, laço, etc. Enquanto você move a seleção, o brilho some e volta ao soltar.
+
 ## Novidades da v1.42.9
 
 - **Painel do cronômetro:** a lista de matérias embaixo do gráfico agora mostra só **um dia**. Ao abrir, é o dia de hoje. Toque numa barra dos últimos 7 dias para ver as matérias daquele dia; a barra escolhida fica destacada e o título mostra o dia e o total.

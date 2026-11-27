@@ -333,6 +333,19 @@ const Editor = {
     const a = this.toScreen(x1 + o.x, y1 + o.y), c = this.toScreen(x2 + o.x, y2 + o.y);
     return { x: a.x - 6, y: a.y - 6, w: c.x - a.x + 12, h: c.y - a.y + 12, local: b };
   },
+  /* v1.42.10: contorno brilhante em cada item selecionado — 1ª passada só a sombra (o item vai para longe com translate e a sombra volta
+     pelo shadowOffset), 2ª passada o item por cima, nítido. Até 800 itens (a sombra é cara). */
+  drawSelGlow() {
+    const page = this.pageById(this.sel.pageId); if (!page) return; const pi = this.pageIdx(page); if (pi < 0 || !this.layout[pi]) return;
+    const els = page.elements.filter((e) => this.sel.ids.has(e.id)); if (!els.length || els.length > 800) return;
+    const ctx = this.ctx, z = this.cam.z, d = this.dpr, K = 100000;
+    try {
+      ctx.save(); this.pageTf(ctx, pi); ctx.translate(-K, 0);
+      ctx.shadowColor = 'rgba(124,58,237,.85)'; ctx.shadowBlur = 7 * d; ctx.shadowOffsetX = K * z * d; ctx.shadowOffsetY = 0;
+      for (let k = 0; k < 2; k++) for (const e of els) drawElement(ctx, e);
+      ctx.restore(); ctx.save(); this.pageTf(ctx, pi); for (const e of els) drawElement(ctx, e); ctx.restore();
+    } catch (err) { try { ctx.restore(); } catch (_) {} }
+  },
   drawSelection() {
     const bar = $('#selBar');
     if (this.crop) { bar.classList.add('hidden'); this.drawCropUI(); return; }
@@ -347,6 +360,8 @@ const Editor = {
       ctx.save(); ctx.strokeStyle = '#0d9488'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]); ctx.restore();
       if (!this.selTf && !this.tPreview) this.drawTableOverlay(box);
     } else {
+    if (!this.selTf) this.drawSelGlow(); /* v1.42.10: halo nos próprios traços selecionados */
+    ctx.setTransform(d, 0, 0, d, 0, 0);
     ctx.save(); ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.strokeRect(box.x, box.y, box.w, box.h); ctx.setLineDash([]);
     for (const [h, x, y] of this.selHandles(box)) { /* v0.22: alças em todos os cantos e lados */
       /* v0.26.1: alças menores (a área de toque continua a mesma) */
