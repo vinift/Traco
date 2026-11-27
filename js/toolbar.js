@@ -153,33 +153,39 @@ const UI = {
   },
   /* v1.42.3: tela "Limpar cores" — todas as cores de todos os grupos, com em quantos grupos cada uma está; marcar e tirar de todos */
   cleanColors(t = 'pen') {
-    /* v1.42.5: escopo 'grp' (só o grupo atual, padrão) ou 'all' (todos os grupos) */
-    const G = Store.settings.presetGroups || [], cur = this.group(), sel = new Set(), body = el('div', { class: 'cc-body' }); let k = t === 'highlighter' ? 'highlighter' : 'pen', sc = 'grp', go = null;
+    /* v1.42.6: gerenciador de cores — escolhe o grupo (ou todos), marca e tira várias, adiciona cor */
+    const S = Store.settings, G = S.presetGroups || [], sel = new Set(), body = el('div', { class: 'cc-body' });
+    let k = t === 'highlighter' ? 'highlighter' : 'pen', gid = this.group().id, go = null; /* gid '*' = todos os grupos */
+    const grp = () => G.find((g) => g.id === gid) || this.group();
+    const listOf = (g) => { g.colors = g.colors || {}; return g.colors[k] || (g.colors[k] = []); };
     const stats = () => { const m = new Map(); for (const g of G) for (const c of ((g.colors || {})[k] || [])) { if (Fades.isKey(c)) continue; const l = c.toLowerCase(); m.set(l, (m.get(l) || 0) + 1); } return m; };
-    const mine = () => ((cur.colors || {})[k] || []).filter((c) => !Fades.isKey(c)).map((c) => c.toLowerCase());
-    const label = () => sc === 'grp' ? `Tirar de "${cur.name}"` : 'Tirar de todos os grupos';
+    const label = () => gid === '*' ? 'Tirar de todos os grupos' : `Tirar de "${grp().name}"`;
+    const done = () => { this.save(); this.refresh(); render(); };
     const render = () => {
-      const m = stats(), all = G.length, list = sc === 'grp' ? [...new Set(mine())] : [...m.keys()]; body.innerHTML = '';
+      const m = stats(), all = G.length, list = gid === '*' ? [...m.keys()] : [...new Set(listOf(grp()).filter((c) => !Fades.isKey(c)).map((c) => c.toLowerCase()))]; body.innerHTML = '';
       for (const c of [...sel]) if (!list.includes(c)) sel.delete(c);
-      const segB = (arr, v, set) => el('div', { class: 'cc-seg' }, ...arr.map(([x, l]) => el('button', { class: 'seg-b' + (v === x ? ' on' : ''), onclick: () => { set(x); sel.clear(); render(); } }, l)));
-      const tools = el('div', { class: 'cc-tools' },
+      const chip = (v, l, on, f, cls = '') => el('button', { class: 'seg-b ' + cls + (on ? ' on' : ''), onclick: () => { f(v); sel.clear(); render(); } }, l);
+      const groups = all > 1 ? el('div', { class: 'cc-seg cc-groups' }, ...this.groupTree().map(([g, d]) => chip(g.id, (d ? '› '.repeat(d) : '') + g.name, gid === g.id, (v) => { gid = v; })), chip('*', 'Todos os grupos', gid === '*', (v) => { gid = v; }, 'cc-allg')) : null;
+      const kinds = el('div', { class: 'cc-seg' }, chip('pen', 'Caneta', k === 'pen', (v) => { k = v; }), chip('highlighter', 'Marca-texto', k === 'highlighter', (v) => { k = v; }));
+      const add = el('button', { class: 'btn cc-add', onclick: () => colorPop(add, '#2563eb', (c) => {
+        const targets = gid === '*' ? G : [grp()]; for (const g of targets) { const l = listOf(g); if (!l.some((x) => x.toLowerCase() === c.toLowerCase())) l.push(c); } done();
+      }) }, gid === '*' ? '+ Adicionar cor a todos' : `+ Adicionar cor a "${grp().name}"`);
+      const tools = el('div', { class: 'cc-tools' }, add,
         el('button', { class: 'btn ghost', onclick: () => { for (const c of list) sel.add(c); render(); } }, 'Marcar tudo'),
-        sc === 'all' && all > 1 ? el('button', { class: 'btn ghost', onclick: () => { for (const [c, n] of m) if (n === all) sel.add(c); render(); } }, `Marcar as que estão nos ${all} grupos`) : null,
-        el('button', { class: 'btn ghost', onclick: () => { sel.clear(); render(); } }, 'Desmarcar tudo'));
+        gid === '*' && all > 1 ? el('button', { class: 'btn ghost', onclick: () => { for (const [c, n] of m) if (n === all) sel.add(c); render(); } }, `Marcar as que estão nos ${all}`) : null,
+        el('button', { class: 'btn ghost', onclick: () => { sel.clear(); render(); } }, 'Desmarcar'));
       const grid = el('div', { class: 'cc-grid' });
       for (const c of list) { const n = m.get(c) || 0; grid.append(el('button', { class: 'cc-it' + (sel.has(c) ? ' on' : ''), title: c, onclick: () => { if (sel.has(c)) sel.delete(c); else sel.add(c); render(); } }, el('i', { class: 'cc-dot', style: { background: c } }), el('small', {}, all < 2 ? '' : n === all ? 'em todos' : `em ${n} de ${all}`))); }
-      body.append(
-        G.length > 1 ? segB([['grp', `Só "${cur.name}"`], ['all', 'Todos os grupos']], sc, (x) => { sc = x; }) : null,
-        segB([['pen', 'Caneta'], ['highlighter', 'Marca-texto']], k, (x) => { k = x; }),
-        el('p', { class: 'tm-hint' }, sc === 'grp' ? `Cores do grupo "${cur.name}". Marque as que quer tirar; os outros grupos não mudam. Degradês não aparecem aqui.` : 'Todas as cores de todos os grupos. Marque e tire de todos de uma vez. Degradês não aparecem aqui.'),
+      body.append(groups, kinds,
+        el('p', { class: 'tm-hint' }, gid === '*' ? 'Todas as cores de todos os grupos: o que você adicionar ou tirar aqui vale para todos. Degradês não aparecem aqui.' : `Cores do grupo "${grp().name}": adicione ou marque e tire; os outros grupos não mudam. Troque o grupo acima para mexer em outro.`),
         tools, list.length ? grid : el('p', { class: 'tm-hint' }, 'Nenhuma cor aqui.'));
       if (go) { go.textContent = sel.size ? `${label()} (${sel.size})` : label(); go.disabled = !sel.size; }
     };
     render();
     const p = openModal({ title: 'Gerenciar cores', body, wide: true, buttons: [{ label: 'Fechar' }, { label: 'Tirar', cls: 'primary', action: () => {
       if (!sel.size) return false;
-      if (sc === 'all') this.dropColor(k, [...sel]); else { const l = (cur.colors || {})[k] || []; for (let i = l.length - 1; i >= 0; i--) if (!Fades.isKey(l[i]) && sel.has(l[i].toLowerCase())) l.splice(i, 1); }
-      sel.clear(); this.save(); this.refresh(); render(); return false; } }] });
+      if (gid === '*') this.dropColor(k, [...sel]); else { const l = listOf(grp()); for (let i = l.length - 1; i >= 0; i--) if (!Fades.isKey(l[i]) && sel.has(l[i].toLowerCase())) l.splice(i, 1); }
+      sel.clear(); done(); return false; } }] });
     go = [...document.querySelectorAll('#modalRoot .modal-back')].pop().querySelector('.mf .primary'); render();
     return p;
   },

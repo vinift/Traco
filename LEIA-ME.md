@@ -153,6 +153,14 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.42.6
+
+- **"Gerenciar cores" virou o gerenciador geral de cores.**
+  - **Escolher o grupo:** no topo aparecem todos os grupos (os subgrupos com "›") e "Todos os grupos". Toque em um para mexer nele.
+  - **Adicionar:** "+ Adicionar cor" abre o seletor de cor de sempre (paleta, espectro e roda). A cor entra no grupo escolhido, ou em todos se "Todos os grupos" estiver marcado.
+  - **Tirar:** marque várias cores e toque em "Tirar de …".
+  - **Caneta e marca-texto** ficam em abas separadas.
+
 ## Novidades da v1.42.5
 
 - **"Gerenciar cores"** (era "Limpar cores") agora abre no **grupo atual**. Marque várias cores e toque em **"Tirar de "<grupo>""**: elas saem só desse grupo e os outros não mudam. Use **"Marcar tudo"** e **"Desmarcar tudo"** para marcar mais rápido. Para tirar de todos os grupos de uma vez, toque em **"Todos os grupos"** no topo da tela.
