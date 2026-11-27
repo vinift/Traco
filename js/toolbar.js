@@ -143,11 +143,37 @@ const UI = {
     if (all && t !== 'text') for (const g of Store.settings.presetGroups || []) { g.colors = g.colors || {}; const l = g.colors[k] || (g.colors[k] = []); if (l !== cur && !has(l)) { l.push(c); n++; } }
     return n;
   },
+  /* v1.42.3: tira as cores (minúsculas ou não) da lista da ferramenta em TODOS os grupos; devolve quantas saíram */
+  dropColor(t, cols) {
+    const k = t === 'highlighter' ? 'highlighter' : 'pen', set = new Set(cols.map((c) => c.toLowerCase())); let n = 0;
+    for (const g of Store.settings.presetGroups || []) { const l = (g.colors || {})[k]; if (!l) continue; for (let i = l.length - 1; i >= 0; i--) if (!Fades.isKey(l[i]) && set.has(l[i].toLowerCase())) { l.splice(i, 1); n++; } }
+    return n;
+  },
+  /* v1.42.3: tela "Limpar cores" — todas as cores de todos os grupos, com em quantos grupos cada uma está; marcar e tirar de todos */
+  cleanColors(t = 'pen') {
+    const G = Store.settings.presetGroups || [], sel = new Set(), body = el('div', { class: 'cc-body' }); let k = t === 'highlighter' ? 'highlighter' : 'pen', go = null;
+    const stats = () => { const m = new Map(); for (const g of G) for (const c of ((g.colors || {})[k] || [])) { if (Fades.isKey(c)) continue; const l = c.toLowerCase(); m.set(l, (m.get(l) || 0) + 1); } return m; };
+    const render = () => {
+      const m = stats(), all = G.length; body.innerHTML = '';
+      const seg = el('div', { class: 'cc-seg' }, ...[['pen', 'Caneta'], ['highlighter', 'Marca-texto']].map(([v, l]) => el('button', { class: 'seg-b' + (k === v ? ' on' : ''), onclick: () => { k = v; sel.clear(); render(); } }, l)));
+      const tools = el('div', { class: 'cc-tools' },
+        all > 1 ? el('button', { class: 'btn ghost', onclick: () => { for (const [c, n] of m) if (n === all) sel.add(c); render(); } }, `Marcar as que estão nos ${all} grupos`) : null,
+        el('button', { class: 'btn ghost', onclick: () => { sel.clear(); render(); } }, 'Desmarcar tudo'));
+      const grid = el('div', { class: 'cc-grid' });
+      for (const [c, n] of m) grid.append(el('button', { class: 'cc-it' + (sel.has(c) ? ' on' : ''), title: c, onclick: () => { if (sel.has(c)) sel.delete(c); else sel.add(c); render(); } }, el('i', { class: 'cc-dot', style: { background: c } }), el('small', {}, n === all && all > 1 ? 'todos' : `${n} de ${all}`)));
+      body.append(el('p', { class: 'tm-hint' }, 'Toque nas cores que quer tirar e depois em "Tirar de todos os grupos". Embaixo de cada cor: em quantos grupos ela está. Degradês não aparecem aqui.'), seg, tools, m.size ? grid : el('p', { class: 'tm-hint' }, 'Nenhuma cor nesta ferramenta.'));
+      if (go) { go.textContent = sel.size ? `Tirar de todos os grupos (${sel.size})` : 'Tirar de todos os grupos'; go.disabled = !sel.size; }
+    };
+    render();
+    const p = openModal({ title: 'Limpar cores dos grupos', body, wide: true, buttons: [{ label: 'Fechar' }, { label: 'Tirar de todos os grupos', cls: 'primary', action: () => { if (!sel.size) return false; this.dropColor(k, [...sel]); sel.clear(); this.save(); this.refresh(); render(); return false; } }] });
+    go = [...document.querySelectorAll('#modalRoot .modal-back')].pop().querySelector('.mf .primary'); render();
+    return p;
+  },
   /* linha "também nos outros grupos" para o seletor de cor (só com mais de 1 grupo) */
   allGroupsRow() {
     const S = Store.settings; if ((S.presetGroups || []).length < 2) return null;
     const cb = el('input', { type: 'checkbox' }); cb.checked = !!S.colorAllGroups; cb.onchange = () => { S.colorAllGroups = cb.checked; Store.saveSettings(); };
-    return el('label', { class: 'cpk-allg' }, cb, el('span', {}, 'Adicionar também aos outros grupos (' + (S.presetGroups.length - 1) + ')'));
+    return el('div', { class: 'cpk-allrow' }, el('label', { class: 'cpk-allg' }, cb, el('span', {}, 'Adicionar também aos outros grupos (' + (S.presetGroups.length - 1) + ')')), el('button', { class: 'btn ghost cpk-clean', onclick: () => { closePop(); this.cleanColors(Editor.tool === 'highlighter' ? 'highlighter' : 'pen'); } }, 'Limpar cores…'));
   },
   groupColors() { try { return [...new Set([...this.colorList('pen'), ...this.colorList('highlighter')].filter((c) => !Fades.isKey(c)).map((c) => c.toLowerCase()))]; } catch (_) { return []; } },
   widthList(t) { const g = this.group(); g.widths = g.widths || {}; return g.widths[t] || (g.widths[t] = (Store.settings.widthPresets[t] || []).slice()); },
@@ -203,6 +229,7 @@ const UI = {
     items.push({ label: 'Novo subgrupo dentro de "' + cur.name + '"…', icon: 'folder', run: () => mk(cur.id, 'Novo subgrupo de "' + cur.name + '"') });
     if (cur.parentId) items.push({ label: 'Tirar "' + cur.name + '" de dentro do grupo', icon: 'up', run: () => { const p = S.presetGroups.find((g) => g.id === cur.parentId); cur.parentId = p && p.parentId ? p.parentId : undefined; if (!cur.parentId) delete cur.parentId; this.save(); this.refresh(); } });
     items.push({ label: 'Organizar grupos e subgrupos…', icon: 'list', run: () => this.groupManager() });
+    items.push({ label: 'Limpar cores dos grupos…', icon: 'trash', run: () => this.cleanColors(Editor.tool === 'highlighter' ? 'highlighter' : 'pen') });
     items.push({ label: 'Renomear "' + cur.name + '"…', icon: 'pen', run: async () => { const n = await askText('Renomear grupo', cur.name); if (n) { cur.name = n; this.save(); this.refresh(); } } });
     if (folder) items.push({ label: 'Usar como padrão da pasta "' + folder.name + '"', icon: 'folder', run: async () => { folder.groupId = cur.id; delete note.groupId; await Store.saveFolders(); Editor.markChanged(); toast('Padrão da pasta atualizado', 1300); } });
     if (cur.id !== 'default') items.push({ label: 'Excluir "' + cur.name + '"', icon: 'trash', danger: true, run: async () => {
@@ -348,7 +375,7 @@ const UI = {
       const fk = Fades.isKey(c), fd = fk && Fades.get(Fades.idOf(c)); /* v0.38: degradê na lista de cores */
       const on = fk ? !!fa && st.fade === Fades.idOf(c) : !fa && st.color.toLowerCase() === c.toLowerCase();
       const d = el('button', { class: 'cdot' + (fk ? ' fdot-g' : '') + (on ? ' sel' : ''), style: { background: fk ? Fades.css(fd) : c }, title: (fk ? 'Degradê · toque de novo para configurar' : c) + ' · arraste para reordenar' }); d.dataset.i = i;
-      if (this.editMode) d.append(el('span', { class: 'xbadge', onclick: (e) => { e.stopPropagation(); list.splice(i, 1); this.save(); this.renderOptions(); } }, '×'));
+      if (this.editMode) d.append(el('span', { class: 'xbadge', onclick: (e) => { e.stopPropagation(); list.splice(i, 1); const n = !fk && Store.settings.colorAllGroups ? this.dropColor(t, [c]) : 0; /* v1.42.3: com "também nos outros grupos" ligado, o × tira de todos */ if (n) toast('Tirada também dos outros grupos', 1500); this.save(); this.renderOptions(); } }, '×'));
       box.append(d);
     });
     makeSortable(box, '.cdot', list, () => { this.save(); this.renderOptions(); }, {
