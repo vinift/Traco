@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.42.9
+
+- **Painel do cronômetro:** a lista de matérias embaixo do gráfico agora mostra só **um dia**. Ao abrir, é o dia de hoje. Toque numa barra dos últimos 7 dias para ver as matérias daquele dia; a barra escolhida fica destacada e o título mostra o dia e o total.
+
 ## Novidades da v1.42.8
 
 - O registro de "iniciou/pausou/saiu do app" agora é gravado na hora. Antes, ele só era salvo junto com o próximo trecho de estudo, e por isso a recuperação da v1.42.7 não achou o início do seu estudo de ontem.

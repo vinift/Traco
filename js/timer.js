@@ -297,7 +297,7 @@ const StudyTimer = {
   },
 
   /* ---------- painel ---------- */
-  open(anchor) { const box = el('div', { class: 'tm-pop' }); this.pop = box; this.renderPanel(true); openPop(anchor, box, { onClose: () => { if (this.pop === box) this.pop = null; } }); this.pop = box; this.fitPop(); },
+  open(anchor) { this._statSel = null; /* v1.42.9: abre sempre no dia de hoje */ const box = el('div', { class: 'tm-pop' }); this.pop = box; this.renderPanel(true); openPop(anchor, box, { onClose: () => { if (this.pop === box) this.pop = null; } }); this.pop = box; this.fitPop(); },
   /* mantém o painel dentro da tela (largura e altura) */
   fitPop() {
     const box = this.pop, pop = box && box.closest('.pop'); if (!pop) return;
@@ -373,8 +373,12 @@ const StudyTimer = {
     const t = Date.now(), map = StudyReport.dayMap(), goal = StudyReport.goalMs(), today = this.dayMs(t), aw = ((this.log.away || {})[this.dayKey(t)]) || 0;
     const days = []; for (let i = 6; i >= 0; i--) { const d = new Date(t); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); days.push({ k: this.dayKey(d.getTime()), d }); }
     const R = StudyReport, gl = R.goalCur(Date.parse('2024-01-03T12:00')), vals = days.map((x) => R.sum(map[x.k])), max = Math.max(...vals, gl, 1), week = vals.reduce((a, b) => a + b, 0);
-    const subj = new Map(); for (const { k } of days) for (const [id, v] of Object.entries(map[k] || {})) { const sb = subjectOfNote(id), c = subj.get(sb.key) || { ...sb, v: 0 }; c.v += v; subj.set(sb.key, c); }
-    const top = [...subj.values()].sort((a, b) => b.v - a.v).slice(0, 5);
+    /* v1.42.9: as matérias são só do dia escolhido nas barras (padrão: hoje) */
+    const selK = days.some((x) => x.k === this._statSel) ? this._statSel : days[6].k, selI = days.findIndex((x) => x.k === selK);
+    const subj = new Map(); for (const [id, v] of Object.entries(map[selK] || {})) { const sb = subjectOfNote(id), c = subj.get(sb.key) || { ...sb, v: 0 }; c.v += v; subj.set(sb.key, c); }
+    const top = [...subj.values()].sort((a, b) => b.v - a.v);
+    const selLab = selI === 6 ? 'Hoje' : selI === 5 ? 'Ontem' : days[selI].d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' }).replace(/^./, (c) => c.toUpperCase());
+    const pick = (k) => { this._statSel = k; const st = this.pop && this.pop.querySelector('.tm-stats'); if (st) { this._statT = Date.now(); st.replaceWith(this.statsEl()); } };
     const WD = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
     const rep = el('button', { class: 'btn primary sr-open', onclick: () => { closePop(); StudyReport.open(); } }, 'Abrir relatório');
     return el('div', { class: 'tm-stats' },
@@ -384,8 +388,9 @@ const StudyTimer = {
         aw >= 60000 ? el('small', { class: 'tm-away' }, `${this.fmtDur(aw)} hoje com o app fora da tela não contaram`) : null),
       (typeof StudyPlan !== 'undefined' && StudyPlan.dayItems(t) ? StudyPlan.todayEl() : StudyReport.qTodayEl()),
       el('div', { class: 'tm-tot' }, el('span', {}, 'Últimos 7 dias'), el('b', {}, this.fmtDur(week))),
-      el('div', { class: 'tm-bars' }, el('div', { class: 'tm-gl', style: { bottom: `calc(14px + (100% - 14px) * ${gl / max})` } }), ...days.map((x, i) => el('div', { class: 'tm-bar' + (i === 6 ? ' today' : '') + (R.dayHit(x.k, vals[i]) === 1 ? ' hit' : ''), title: `${x.d.toLocaleDateString('pt-BR')}: ${this.fmtDur(vals[i])}` }, el('i', { style: { height: Math.round((vals[i] / max) * 100) + '%' } }), el('small', {}, WD[x.d.getDay()])))),
-      top.length ? el('div', { class: 'tm-notes' }, ...top.map((x) => el('div', { class: 'tm-row' }, el('span', { class: 'tm-subj' }, el('i', { class: 'sr-dot', style: { background: x.color } }), x.name), el('b', {}, this.fmtDur(x.v))))) : el('p', { class: 'tm-hint' }, 'O tempo estudado aparece aqui, por dia e por matéria.'),
+      el('div', { class: 'tm-bars' }, el('div', { class: 'tm-gl', style: { bottom: `calc(14px + (100% - 14px) * ${gl / max})` } }), ...days.map((x, i) => el('button', { class: 'tm-bar' + (i === 6 ? ' today' : '') + (x.k === selK ? ' sel' : '') + (R.dayHit(x.k, vals[i]) === 1 ? ' hit' : ''), title: `${x.d.toLocaleDateString('pt-BR')}: ${this.fmtDur(vals[i])}`, onclick: () => pick(x.k) }, el('i', { style: { height: Math.round((vals[i] / max) * 100) + '%' } }), el('small', {}, WD[x.d.getDay()])))),
+      el('div', { class: 'tm-tot tm-daysel' }, el('span', {}, selLab), el('b', {}, this.fmtDur(vals[selI]))),
+      top.length ? el('div', { class: 'tm-notes' }, ...top.map((x) => el('div', { class: 'tm-row' }, el('span', { class: 'tm-subj' }, el('i', { class: 'sr-dot', style: { background: x.color } }), x.name), el('b', {}, this.fmtDur(x.v))))) : el('p', { class: 'tm-hint' }, selI === 6 ? 'Nada estudado hoje ainda. Toque numa barra para ver outro dia.' : 'Nada estudado neste dia.'),
       rep);
   },
 };
