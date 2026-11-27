@@ -149,6 +149,26 @@ class InkView(ctx: Context) : SurfaceView(ctx), CanvasFrontBufferedRenderer.Call
     }
     fun endFrom(id: Int, x: Float, y: Float) { main.post { val c = ending; if (c != null && c.id == id) finalizeEnd(c, floatArrayOf(x, y)) } }
 
+    /* v1.43.2: a página grava os pontos que o Android desenhou. O WebView às vezes entrega menos amostras à página
+       (relatório: 79 amostras no Android, 50 pontos na página) e o traço "mudava de formato" quando a tinta nativa saía. */
+    fun ptsJson(id: Int): String {
+        val latch = CountDownLatch(1); var out = ""
+        main.post {
+            try {
+                val c = listOfNotNull(ending, cur).firstOrNull { it.id == id } ?: done.firstOrNull { it.id == id }
+                if (c != null && !c.dead) {
+                    val P = c.f.pts; val sb = StringBuilder("{\"pts\":[")
+                    var i = 0; while (i < P.size) { if (i > 0) sb.append(','); sb.append(P[i]).append(',').append(P[i + 1]).append(',').append(P[i + 2]); i += 3 }
+                    sb.append(']'); c.f.raw()?.let { sb.append(",\"raw\":[").append(it[0]).append(',').append(it[1]).append(']') }
+                    out = sb.append('}').toString()
+                }
+            } catch (_: Exception) {}
+            latch.countDown()
+        }
+        latch.await(80, TimeUnit.MILLISECONDS)
+        return out
+    }
+
     private fun kill(c: Stroke) { c.dead = true; done.remove(c); r?.cancel(); r?.renderMultiBufferedLayer(emptyList()) }
 
     /* ---------- pedidos da web (outra linha de execução) ---------- */

@@ -41,6 +41,20 @@ const Native = {
       return TracoNative.inkGo(JSON.stringify({ color: a.color, w: a.width * z, pen: a.pen, sens: S.pressureSens ?? 0.6, stab: a.stab ?? 10, dpr: devicePixelRatio || 1, clip: cl })) | 0;
     } catch (e) { console.warn('tinta nativa', e); return 0; }
   },
+  /* v1.43.2: no fim do traço, adota os pontos que o Android desenhou (mesmo filtro da web), se o começo bate com o da página.
+     O WebView às vezes entrega menos amostras à página e o traço gravado saía diferente da tinta ("mudava de formato"). */
+  inkAdopt(ed, a) {
+    try {
+      if (!a.nat || !TracoNative.inkPts || a.snap || !a.pts.length) return false;
+      const j = TracoNative.inkPts(a.nat); if (!j) return false; const o = JSON.parse(j), N = o.pts; if (!N || N.length < 6) return false;
+      const z = ed.cam.z, r = ed.stage.getBoundingClientRect(), L = ed.layout[a.pi]; if (!L) return false;
+      const lx = (X) => (X - r.left) / z + ed.cam.x - L.x, ly = (Y) => (Y - r.top) / z + ed.cam.y - L.y;
+      const P = []; for (let i = 0; i + 2 < N.length; i += 3) P.push(lx(N[i]), ly(N[i + 1]), N[i + 2]);
+      if (P.length < a.pts.length * 0.8 || Math.hypot(P[0] - a.pts[0], P[1] - a.pts[1]) * z > 3) return false; /* não é o mesmo traço */
+      a.pts = P; if (o.raw) a.raw = { x: lx(o.raw[0]), y: ly(o.raw[1]) };
+      return true;
+    } catch (e) { console.warn('tinta: pontos do Android', e); return false; }
+  },
   /* v1.2.3: diagnóstico — os últimos traços como a página gravou (px CSS da tela) para comparar com os que o Android desenhou */
   inkLog: [],
   inkNote(ed, a, el) {

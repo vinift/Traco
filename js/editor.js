@@ -843,6 +843,7 @@ const Editor = {
     const page = this.note.pages[a.pi];
     if (a.shape && a.shape.bk) { const st = bracketStyleOf(a.shape); if (st) { Store.settings.bracketStyle = st; Store.saveSettings(); } const { bk, ...rest } = a.shape; a.shape = rest; } /* v0.31: lembra o estilo do colchete; a marca bk não fica salva */
     if (a.shape && !(a.straight && Math.hypot(a.shape.x2 - a.shape.x1, a.shape.y2 - a.shape.y1) < 2)) { this.recAdd(page, a.tool === 'highlighter' ? this.hlLine(a) : (a.fade && typeof Fades !== 'undefined' ? Fades.endShape(a, a.shape) : a.shape)); this.opCommit(); return; } /* v1.42.15: forma com degradê */
+    if (a.nat && !a.shape && typeof Native !== 'undefined' && Native.inkAdopt) Native.inkAdopt(this, a); /* v1.43.2: grava os pontos que o Android desenhou */
     if (a.raw && !a.snap) { const n = a.pts.length; if (Math.hypot(a.pts[n - 3] - a.raw.x, a.pts[n - 2] - a.raw.y) > 0.5) a.pts.push(a.raw.x, a.raw.y, a.pts[n - 1]); }
     if (!a.pts.length) return;
     if (this.penTap(a, page)) return; // toque da caneta: caixinha ☐ ou toque duplo num texto

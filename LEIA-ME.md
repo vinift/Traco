@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.43.2
+
+- **Escrita que mudava de formato ao levantar a caneta (Traço Nativo):** às vezes o Android passava menos pontos para a página do que desenhava na tela, e o traço gravado saía "cortando caminho". Agora a página grava exatamente os pontos que o Android desenhou. Precisa do **APK novo** (Configurações → Sobre → baixar o app).
+
 ## Novidades da v1.43.1
 
 - **Selecionar escrita em degradê com o dedo:** segurar o dedo numa palavra em degradê seleciona a palavra inteira (antes cada letra contava como uma palavra separada e, ao arrastar, algumas letras ficavam para trás).

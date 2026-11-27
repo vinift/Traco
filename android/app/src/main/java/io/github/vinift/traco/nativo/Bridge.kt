@@ -38,6 +38,7 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun inkGo(style: String): Int = a.ink.go(style)
     @JavascriptInterface fun inkClear(ids: String) = a.ink.clear(ids)
     @JavascriptInterface fun inkDebug(): String = a.ink.debugJson()
+    @JavascriptInterface fun inkPts(id: Int): String = a.ink.ptsJson(id)
     @JavascriptInterface fun inkEnd(id: Int, x: Double, y: Double) = a.ink.endFrom(id, x.toFloat(), y.toFloat())
 
     /* ---- arquivos para fora: a web manda em pedaços base64 ---- */

@@ -45,6 +45,9 @@ class StrokeFilter(stab: Int, private val sens: Float) {
         return true
     }
 
+    /** v1.43.2: onde a caneta realmente está (px CSS) — a web usa para completar o traço gravado */
+    fun raw(): FloatArray? = if (rawX.isNaN()) null else floatArrayOf(rawX, rawY)
+
     /** fim do traço: completa até onde a caneta realmente está (como o endDraw da web) */
     fun finish(): Boolean {
         val n = pts.size; if (n == 0 || rawX.isNaN()) return false
