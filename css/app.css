@@ -287,7 +287,7 @@ code.k{background:var(--panel2);padding:2px 6px;border-radius:6px;font-size:12px
 .subrail .scol{display:flex;flex-direction:column;align-items:center;gap:6px}
 .subrail .srow{display:flex;gap:4px;align-items:center}
 .subrail .addb{width:36px;height:36px}
-.wchip,.cdot{touch-action:none}
+.wchip,.cdot{touch-action:pan-x pan-y} /* v1.43.3: rolar por cima das cores/espessuras; o arrasto para reordenar (depois de segurar) barra a rolagem no makeSortable */
 .wchip.dragging,.cdot.dragging{opacity:.55;transform:scale(1.12);z-index:2}
 
 /* ===== v0.5: tela inicial estilo Notewise ===== */
@@ -1444,7 +1444,7 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 .rp-srow.sub{margin-left:22px;width:calc(100% - 22px);opacity:.92}
 
 /* v1.11 — carimbo de texto: carimbos salvos na barra de baixo e prévia no painel */
-.stamp-chip{position:relative;touch-action:none;flex:none;max-width:170px;height:calc(var(--cb,40px) - 4px);padding:0 12px;border:0;border-radius:calc(var(--cb,40px) / 2);background:transparent;font-size:15px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.stamp-chip{position:relative;touch-action:pan-x pan-y;flex:none;max-width:170px;height:calc(var(--cb,40px) - 4px);padding:0 12px;border:0;border-radius:calc(var(--cb,40px) / 2);background:transparent;font-size:15px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .stamp-chip.sel{background:var(--chacc-soft);box-shadow:inset 0 0 0 2px var(--chacc)}
 .stamp-prev{padding:12px;border-radius:14px;background:var(--ch2);margin:4px 0 12px;white-space:pre-wrap;word-break:break-word;line-height:1.25}
 .stamp-chip.dragging{opacity:.55;transform:scale(1.08);z-index:2}

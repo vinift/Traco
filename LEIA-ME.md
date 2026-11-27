@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.43.3
+
+- **Rolar por cima das cores:** nas barras e painéis com muitas cores (e espessuras e carimbos), arrastar o dedo por cima das bolinhas agora rola a lista. Para reordenar, continua igual: segure um instante e arraste.
+
 ## Novidades da v1.43.2
 
 - **Escrita que mudava de formato ao levantar a caneta (Traço Nativo):** às vezes o Android passava menos pontos para a página do que desenhava na tela, e o traço gravado saía "cortando caminho". Agora a página grava exatamente os pontos que o Android desenhou. Precisa do **APK novo** (Configurações → Sobre → baixar o app).

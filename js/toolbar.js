@@ -75,6 +75,8 @@ function makeSortable(container, selector, list, onDone, { tap, long }) {
     if (s0.drag) { const order = $$(selector, container).map((x) => list[+x.dataset.i]); list.splice(0, list.length, ...order); onDone(); }
     else if (!s0.longDone && !s0.moved && e.type === 'pointerup') tap && tap(+s0.it.dataset.i);
   };
+  /* v1.43.3: os itens deixam a lista/painel rolar (touch-action pan); depois de segurar (pronto para arrastar), o touchmove é barrado para a rolagem não roubar o arrasto */
+  container.addEventListener('touchmove', (e) => { if (st && (st.ready || st.drag)) e.preventDefault(); }, { passive: false });
   container.addEventListener('pointerup', end); container.addEventListener('pointercancel', end);
   container._sortEnd = (e) => { if (st && e.pointerId === st.id) end(e); };
 }
