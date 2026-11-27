@@ -812,7 +812,7 @@ const Editor = {
   },
   drawLiveStroke() {
     this.liveOn(); const a = this.action, c = this.lctx;
-    if (a.shape) { this.clearLive(); this.pageTf(c, a.pi); drawElement(c, a.tool === 'highlighter' ? this.hlLine(a) : a.shape); return; }
+    if (a.shape) { this.clearLive(); this.pageTf(c, a.pi); drawElement(c, a.tool === 'highlighter' ? this.hlLine(a) : (a.fade ? { ...a.shape, fade: { c: a.fade.c, p: a.fade.p, o: a.fade.o } } : a.shape)); return; }
     this.pageTf(c, a.pi);
     if (a.fade) { this.clearLive(); this.pageTf(c, a.pi); drawElement(c, { type: 'stroke', tool: 'pen', pen: a.pen, nib: a.nib, color: a.color, width: a.width, dash: a.dash !== 'solid' ? a.dash : undefined, pts: a.pts, fade: a.fade }); return; } /* v0.38: degradê */
     if (a.tool === 'pen' && a.dash !== 'solid') {
@@ -842,7 +842,7 @@ const Editor = {
     if (a.nat) { (this._natPend || (this._natPend = [])).push(a.nat); this.requestRender(); } /* v1.0: tinta nativa sai junto, sem piscar */
     const page = this.note.pages[a.pi];
     if (a.shape && a.shape.bk) { const st = bracketStyleOf(a.shape); if (st) { Store.settings.bracketStyle = st; Store.saveSettings(); } const { bk, ...rest } = a.shape; a.shape = rest; } /* v0.31: lembra o estilo do colchete; a marca bk não fica salva */
-    if (a.shape && !(a.straight && Math.hypot(a.shape.x2 - a.shape.x1, a.shape.y2 - a.shape.y1) < 2)) { this.recAdd(page, a.tool === 'highlighter' ? this.hlLine(a) : a.shape); this.opCommit(); return; }
+    if (a.shape && !(a.straight && Math.hypot(a.shape.x2 - a.shape.x1, a.shape.y2 - a.shape.y1) < 2)) { this.recAdd(page, a.tool === 'highlighter' ? this.hlLine(a) : (a.fade && typeof Fades !== 'undefined' ? Fades.endShape(a, a.shape) : a.shape)); this.opCommit(); return; } /* v1.42.15: forma com degradê */
     if (a.raw && !a.snap) { const n = a.pts.length; if (Math.hypot(a.pts[n - 3] - a.raw.x, a.pts[n - 2] - a.raw.y) > 0.5) a.pts.push(a.raw.x, a.raw.y, a.pts[n - 1]); }
     if (!a.pts.length) return;
     if (this.penTap(a, page)) return; // toque da caneta: caixinha ☐ ou toque duplo num texto

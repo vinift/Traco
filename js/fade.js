@@ -67,6 +67,46 @@ const Fades = {
     for (let i = 1; i < n; i++) { const b = Math.floor((o + d[i] / g.k) / band); if (b !== cur) { piece(start, i); start = i; cur = b; } }
     if (start < n - 1 || n === 1) piece(start, n - 1);
   },
+  /* v1.42.15: formas (reta, retângulo, círculo, linha com cantos, seta…) feitas com a caneta em degradê também levam o degradê.
+     Contorno da forma em pontos (na ordem do desenho), adensado a cada ~2 un., cortado em pedaços de p/64 como o traço. */
+  shapeOutline(e) {
+    const g = shapeGeom(e), cx = (g.x1 + g.x2) / 2, cy = (g.y1 + g.y2) / 2; let q;
+    switch (e.kind) {
+      case 'line': case 'arrow': q = [[e.x1, e.y1], [e.x2, e.y2]]; break;
+      case 'rect': q = [[g.x1, g.y1], [g.x2, g.y1], [g.x2, g.y2], [g.x1, g.y2], [g.x1, g.y1]]; break;
+      case 'ellipse': { q = []; const N = 96; for (let i = 0; i <= N; i++) { const t = -Math.PI / 2 + (i / N) * Math.PI * 2; q.push([cx + (g.w / 2) * Math.cos(t), cy + (g.h / 2) * Math.sin(t)]); } break; }
+      case 'triangle': q = [[cx, g.y1], [g.x2, g.y2], [g.x1, g.y2], [cx, g.y1]]; break;
+      case 'diamond': q = [[cx, g.y1], [g.x2, cy], [cx, g.y2], [g.x1, cy], [cx, g.y1]]; break;
+      case 'path': q = pathSamples(e).map((v) => [v[0], v[1]]); break;
+      case 'poly': { q = []; for (let i = 0; i < e.pts.length; i += 2) q.push([e.pts[i], e.pts[i + 1]]); if (e.closed && q.length) q.push(q[0]); break; }
+      default: return null;
+    }
+    const out = [q[0]]; /* adensa: pedaços de cor também no meio de lados longos */
+    for (let i = 1; i < q.length; i++) { const [x0, y0] = q[i - 1], [x1, y1] = q[i], m = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 2)); for (let j = 1; j <= m; j++) out.push([x0 + (x1 - x0) * j / m, y0 + (y1 - y0) * j / m]); }
+    return out;
+  },
+  shapeLen(e) { const q = this.shapeOutline(e); let l = 0; if (q) for (let i = 1; i < q.length; i++) l += Math.hypot(q[i][0] - q[i - 1][0], q[i][1] - q[i - 1][1]); return l; },
+  drawShape(ctx, e) { /* chamado por drawElement depois do preenchimento; ctx já com globalAlpha/rot */
+    const f = e.fade, o = f.o || 0, q = this.shapeOutline(e); if (!q || !q.length) return false;
+    const n = q.length, d = new Float32Array(n); for (let i = 1; i < n; i++) d[i] = d[i - 1] + Math.hypot(q[i][0] - q[i - 1][0], q[i][1] - q[i - 1][1]);
+    const band = Math.max(0.4, f.p / 64), dash = e.dash && e.dash !== 'solid' ? dashPattern(e.dash, e.width) : null;
+    ctx.lineWidth = e.width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const piece = (s, t) => {
+      ctx.strokeStyle = this.mix(f.c, (o + (d[s] + d[t]) / 2) / f.p); const p = new Path2D(); p.moveTo(q[s][0], q[s][1]); for (let i = s + 1; i <= t; i++) p.lineTo(q[i][0], q[i][1]);
+      if (dash) { ctx.setLineDash(dash); ctx.lineDashOffset = d[s]; } ctx.stroke(p);
+    };
+    let start = 0, cur = Math.floor(o / band);
+    for (let i = 1; i < n; i++) { const b = Math.floor((o + d[i]) / band); if (b !== cur) { piece(start, i); start = i; cur = b; } }
+    if (start < n - 1) piece(start, n - 1);
+    if (e.kind === 'arrow') { ctx.setLineDash([]); ctx.strokeStyle = this.mix(f.c, (o + d[n - 1]) / f.p); const a = Math.atan2(e.y2 - e.y1, e.x2 - e.x1), L = Math.max(10, e.width * 4.5), h = new Path2D();
+      h.moveTo(e.x2 - L * Math.cos(a - 0.45), e.y2 - L * Math.sin(a - 0.45)); h.lineTo(e.x2, e.y2); h.lineTo(e.x2 - L * Math.cos(a + 0.45), e.y2 - L * Math.sin(a + 0.45)); ctx.stroke(h); }
+    return true;
+  },
+  /* endDraw de forma: grava o degradê e avança a posição pelo comprimento do contorno */
+  endShape(a, sh) {
+    if (!a.fade || sh.type !== 'shape') return sh; sh = { ...sh, fade: { c: a.fade.c, p: a.fade.p, o: Math.round(a.fade.o * 10) / 10 } };
+    const cyc = a.fade.p * a.fade.c.length; a.fadeDef.o = (a.fade.o + this.shapeLen(sh)) % cyc; Store.saveSettings(); return sh;
+  },
   /* caneta fina/caligrafia: pedaços como antes (agora de 1/48 da troca) */
   drawOld(ctx, e) {
     const P = e.pts, n = P.length / 3, f = e.fade, band = Math.max(0.75, f.p / 48);

@@ -89,7 +89,8 @@ function drawElement(ctx, e) {
   } else if (e.type === 'shape') {
     const p = elPath(e); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.globalAlpha = e.opacity ?? 1;
     if (e.fill && e.kind !== 'line' && e.kind !== 'arrow') { ctx.fillStyle = e.fill; ctx.fill(p); }
-    if (e.width > 0) {
+    if (e.width > 0 && e.fade && e.fade.c && typeof Fades !== 'undefined' && Fades.drawShape(ctx, e)) { /* v1.42.15: forma em degradê */ }
+    else if (e.width > 0) {
       ctx.strokeStyle = e.color; ctx.lineWidth = e.width;
       if (e.dash && e.dash !== 'solid') { ctx.setLineDash(dashPattern(e.dash, e.width)); if (e.kind === 'arrow') { ctx.stroke(buildShapePath({ ...e, kind: 'line' })); ctx.setLineDash([]); ctx.stroke(arrowHead(e)); } else ctx.stroke(p); }
       else ctx.stroke(p);

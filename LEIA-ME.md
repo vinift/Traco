@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.43.0
+
+- **Formas com degradê:** com a caneta em degradê, o que vira forma ao segurar (reta, retângulo, círculo, triângulo, linha com cantos, colchete, seta) também fica em degradê, ao longo do contorno. O próximo traço continua a cor de onde a forma terminou.
+
 ## Novidades da v1.42.14
 
 - **Pontos com degradê:** o pingo do i e outros pontos saíam pretos (ou nem apareciam) com a cor em degradê. Agora saem na cor do degradê naquele trecho — inclusive os que já estão nas notas.
