@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.42.8
+
+- O registro de "iniciou/pausou/saiu do app" agora é gravado na hora. Antes, ele só era salvo junto com o próximo trecho de estudo, e por isso a recuperação da v1.42.7 não achou o início do seu estudo de ontem.
+
 ## Novidades da v1.42.7
 
 - **Corrigido: estudo que não era contado.** Se o app fosse atualizado ("Verificar atualização") ou fechado com o cronômetro **pausado**, ele ficava marcado como "fora da tela". Ao tocar em Iniciar/Continuar, o cronômetro andava, mas o relatório não gravava nada até você sair do app e voltar. Agora isso é corrigido na hora.

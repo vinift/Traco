@@ -178,7 +178,7 @@ const StudyTimer = {
     else if (!want && this._wl) { const l = this._wl; this._wl = null; l.release().catch(() => {}); }
   },
   /* v1.42.2: diário curto do cronômetro (h = saiu da tela, v = voltou, s = iniciou, p = pausou) para explicar os vãos entre trechos no relatório */
-  evt(c, t = Date.now()) { const E = this.log.evts || (this.log.evts = []); E.push([t, c]); if (E.length > 400) E.splice(0, E.length - 400); },
+  evt(c, t = Date.now()) { const E = this.log.evts || (this.log.evts = []); E.push([t, c]); if (E.length > 400) E.splice(0, E.length - 400); this.saveLog(); /* v1.42.8: grava já — antes só ia junto com o próximo trecho e podia se perder */ },
   save() { DB.put('meta', clone(this.st), 'studyTimer').catch(() => {}); },
   saveLog() { DB.put('meta', this.log, 'studyLog').catch(() => {}); },
 
