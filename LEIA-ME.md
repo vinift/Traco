@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.42.4
+
+- **"Adicionar também aos outros grupos" vale só quando você marca.** A caixa agora começa sempre desmarcada. Marcada, ela vale só para a cor escolhida naquela janela; na próxima vez, volta desmarcada.
+- **O × tira a cor só do grupo atual**, como antes. Para tirar de todos os grupos de uma vez, use "Limpar cores…".
+
 ## Novidades da v1.42.3
 
 - **Limpar cores dos grupos.** Uma tela nova mostra todas as cores de todos os grupos e, embaixo de cada uma, em quantos grupos ela está ("todos", "1 de 5"…). Toque nas cores que quer tirar e depois em **"Tirar de todos os grupos"**. O botão "Marcar as que estão nos N grupos" marca de uma vez as que foram para todos os grupos. Há uma aba para a caneta e outra para o marca-texto. Para abrir: toque no nome do grupo (na barra da esquerda) → "Limpar cores dos grupos…", ou no "+" de cor → "Limpar cores…", ao lado de "Adicionar também aos outros grupos".

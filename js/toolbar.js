@@ -137,7 +137,9 @@ const UI = {
   colorList(t) { const g = this.group(); const k = t === 'highlighter' ? 'highlighter' : 'pen'; g.colors = g.colors || {}; return g.colors[k] || (g.colors[k] = []); },
   /* v0.28: cores do grupo atual (caneta + marca-texto), para aparecerem em todos os seletores de cor */
   /* v1.20: adicionar cor à barra — com S.colorAllGroups liga, entra também em todos os outros grupos/subgrupos (mesma ferramenta) */
-  addColorTo(t, c, all = Store.settings.colorAllGroups) {
+  /* v1.42.4: "também nos outros grupos" vale só para a cor escolhida com a caixa marcada NESTA janela (começa desmarcada) */
+  allOnce() { const cb = this._allCb; return !!(cb && cb.isConnected && cb.checked); },
+  addColorTo(t, c, all = this.allOnce()) {
     const k = t === 'highlighter' ? 'highlighter' : 'pen', has = (l) => l.some((x) => x.toLowerCase() === c.toLowerCase()); let n = 0;
     const cur = this.colorList(t); if (!has(cur)) { cur.push(c); n++; }
     if (all && t !== 'text') for (const g of Store.settings.presetGroups || []) { g.colors = g.colors || {}; const l = g.colors[k] || (g.colors[k] = []); if (l !== cur && !has(l)) { l.push(c); n++; } }
@@ -172,7 +174,7 @@ const UI = {
   /* linha "também nos outros grupos" para o seletor de cor (só com mais de 1 grupo) */
   allGroupsRow() {
     const S = Store.settings; if ((S.presetGroups || []).length < 2) return null;
-    const cb = el('input', { type: 'checkbox' }); cb.checked = !!S.colorAllGroups; cb.onchange = () => { S.colorAllGroups = cb.checked; Store.saveSettings(); };
+    const cb = el('input', { type: 'checkbox' }); cb.checked = false; this._allCb = cb; if ('colorAllGroups' in S) { delete S.colorAllGroups; Store.saveSettings(); }
     return el('div', { class: 'cpk-allrow' }, el('label', { class: 'cpk-allg' }, cb, el('span', {}, 'Adicionar também aos outros grupos (' + (S.presetGroups.length - 1) + ')')), el('button', { class: 'btn ghost cpk-clean', onclick: () => { closePop(); this.cleanColors(Editor.tool === 'highlighter' ? 'highlighter' : 'pen'); } }, 'Limpar cores…'));
   },
   groupColors() { try { return [...new Set([...this.colorList('pen'), ...this.colorList('highlighter')].filter((c) => !Fades.isKey(c)).map((c) => c.toLowerCase()))]; } catch (_) { return []; } },
@@ -375,7 +377,7 @@ const UI = {
       const fk = Fades.isKey(c), fd = fk && Fades.get(Fades.idOf(c)); /* v0.38: degradê na lista de cores */
       const on = fk ? !!fa && st.fade === Fades.idOf(c) : !fa && st.color.toLowerCase() === c.toLowerCase();
       const d = el('button', { class: 'cdot' + (fk ? ' fdot-g' : '') + (on ? ' sel' : ''), style: { background: fk ? Fades.css(fd) : c }, title: (fk ? 'Degradê · toque de novo para configurar' : c) + ' · arraste para reordenar' }); d.dataset.i = i;
-      if (this.editMode) d.append(el('span', { class: 'xbadge', onclick: (e) => { e.stopPropagation(); list.splice(i, 1); const n = !fk && Store.settings.colorAllGroups ? this.dropColor(t, [c]) : 0; /* v1.42.3: com "também nos outros grupos" ligado, o × tira de todos */ if (n) toast('Tirada também dos outros grupos', 1500); this.save(); this.renderOptions(); } }, '×'));
+      if (this.editMode) d.append(el('span', { class: 'xbadge', onclick: (e) => { e.stopPropagation(); list.splice(i, 1); /* v1.42.4: o × tira só deste grupo (para todos: "Limpar cores…") */ this.save(); this.renderOptions(); } }, '×'));
       box.append(d);
     });
     makeSortable(box, '.cdot', list, () => { this.save(); this.renderOptions(); }, {
@@ -386,7 +388,7 @@ const UI = {
       long: () => { this.editMode = !this.editMode; this.renderOptions(); if (this.editMode) hint('editx', 'Toque no × para remover', 1500); },
     });
     const add = el('button', { class: 'cbtn addb', title: 'Adicionar cor' }); add.innerHTML = icon('plus');
-    add.onclick = () => colorPop(add, st.color, (c) => { const n = this.addColorTo(t, c); st.color = c; st.fade = null; this.save(); this.refresh(); if (Store.settings.colorAllGroups && n > 1) toast('Cor adicionada a todos os grupos', 1500); }, t === 'highlighter' ? HL_PALETTE.concat(PALETTE.slice(4, 14)) : PALETTE, { alpha: t !== 'highlighter', tool: t, allGroups: true });
+    add.onclick = () => colorPop(add, st.color, (c) => { const n = this.addColorTo(t, c); st.color = c; st.fade = null; this.save(); this.refresh(); if (n > 1) toast('Cor adicionada a todos os grupos', 1500); }, t === 'highlighter' ? HL_PALETTE.concat(PALETTE.slice(4, 14)) : PALETTE, { alpha: t !== 'highlighter', tool: t, allGroups: true });
     box.append(add);
     if (t === 'pen') { const fb = el('button', { class: 'cbtn addb fd-new', title: 'Nova cor em degradê', onclick: () => { const id = Fades.create(st.color); list.push('fade:' + id); Fades.select(st, id); this.save(); this.refresh(); Fades.edit(id, () => this.renderOptions()).then((r) => { if (r === 'del') { list.splice(list.indexOf('fade:' + id), 1); delete Fades.all()[id]; st.fade = null; st.color = st.fadeBase || st.color; } this.save(); this.renderOptions(); }); } }); fb.append(el('span', { class: 'fd-ico' }), el('b', {}, '+')); box.append(fb); } /* v0.38 */
     box.append(this.editBtn('cores'));
