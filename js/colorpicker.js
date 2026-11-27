@@ -1,12 +1,12 @@
 'use strict';
 /* ===== Seletor de cores: paleta, espectro, roda, conta-gotas, opacidade, recentes e paletas prontas ===== */
-const READY_PALETTES = [
+const READY_PALETTES = [ /* v1.45: Vibrante, Terra, Marca-texto e a básica sem nome saíram; novas paletas harmoniosas */
   ['Notewise', ['#000000', '#5f6368', '#d10000', '#ff7d2e', '#fec800', '#6ea300', '#008939', '#0081ff', '#0009d1', '#9700ff', '#d1005e', '#ff0073']],
+  ['Canetas de estudo', ['#0f172a', '#1e3a8a', '#0f766e', '#14532d', '#7f1d1d', '#9d174d', '#4c1d95', '#78350f', '#334155', '#1d4ed8', '#0e7490', '#15803d', '#b91c1c', '#c2410c', '#6d28d9', '#a16207']],
+  ['Suaves', ['#5b7b8f', '#6f8f8a', '#7d9a85', '#c9a96e', '#c08068', '#b07a8c', '#8a7fa8', '#9b8577', '#a9bccb', '#b3cbc6', '#b7c9bb', '#e6d2a8', '#e4b8a5', '#dcb6c2', '#c4bdd9', '#cbbfb5']],
+  ['Natureza / Outono', ['#e0a526', '#c47a2c', '#a8442a', '#7a2e1f', '#8a8a2e', '#4f6b2a', '#2f4f3a', '#6b4a2f']],
   ['Pastel', ['#fecaca', '#fed7aa', '#fef08a', '#bbf7d0', '#a5f3fc', '#bfdbfe', '#ddd6fe', '#fbcfe8']],
-  ['Vibrante', ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899']],
   ['Tons de cinza', ['#000000', '#1f2937', '#374151', '#6b7280', '#9ca3af', '#d1d5db', '#e5e7eb', '#ffffff']],
-  ['Terra', ['#7c2d12', '#9a3412', '#a16207', '#4d7c0f', '#365314', '#78350f', '#57534e', '#292524']],
-  ['Marca-texto', ['#fde047', '#fdba74', '#f9a8d4', '#86efac', '#7dd3fc', '#c4b5fd', '#fca5a5', '#d4d4d8']],
 ];
 /* conversões */
 function hexToRgba(h) {
@@ -59,9 +59,15 @@ function colorPop(anchor, current, onPick, palette = PALETTE, opts = {}) {
   // opacidade
   let alphaR = null;
   if (opts.alpha) { alphaR = el('input', { type: 'range', min: 5, max: 100, step: 1, class: 'cpk-alpha' }); alphaR.addEventListener('input', () => { st.a = +alphaR.value / 100; sync(); }); root.append(el('div', { class: 'cpk-row' }, el('span', { class: 'lbl-sm' }, 'Opacidade'), alphaR)); }
-  // recentes
-  const rec = (S.recentColors || []).slice(0, 14);
-  if (rec.length) { const r = el('div', { class: 'cpk-sw' }); for (const c of rec) r.append(el('button', { class: 'cdot', style: { background: c }, title: c, onclick: () => pick(c) })); root.append(el('div', { class: 'lbl-sm cpk-lab' }, 'Recentes'), r); }
+  /* v1.45: cada grupo de cores num cartão com título; a cor atual marcada em todos */
+  const cur = (current || '').toLowerCase();
+  const card = (title, cols, extra, cls = '') => {
+    const g = el('div', { class: 'cpk-sw' }); for (const c of cols) g.append(el('button', { class: 'cdot' + (c.toLowerCase() === cur ? ' sel' : ''), style: { background: c }, title: c, onclick: () => pick(c) }));
+    return el('div', { class: 'cpk-card ' + cls }, el('div', { class: 'cpk-pal' }, title, extra || null), g);
+  };
+  const rec = (S.recentColors || []).slice(0, 16);
+  const recCard = () => rec.length ? card(el('span', { class: 'lbl-sm' }, 'Recentes'), rec, null, 'rec') : null;
+  const recOut = el('div', { class: 'cpk-recout' }); root.append(recOut);
 
   let draw = () => {};
   function sync() {
@@ -76,16 +82,16 @@ function colorPop(anchor, current, onPick, palette = PALETTE, opts = {}) {
   };
   function build() {
     body.innerHTML = ''; draw = () => {};
+    recOut.innerHTML = ''; if (tab !== 'pal') { const r = recCard(); if (r) recOut.append(r); }
     if (tab === 'pal') {
-      { const gc = typeof UI !== 'undefined' && UI.groupColors ? UI.groupColors() : []; /* v0.28: cores do grupo atual primeiro */
-        if (gc.length) { const r = el('div', { class: 'cpk-sw' }); for (const c of gc) r.append(el('button', { class: 'cdot' + (c === (current || '').toLowerCase() ? ' sel' : ''), style: { background: c }, title: c, onclick: () => pick(c) })); body.append(el('div', { class: 'cpk-pal' }, el('span', { class: 'lbl-sm' }, 'Grupo atual')), r); } }
-      const g = el('div', { class: 'cpk-sw' }); for (const c of palette) g.append(el('button', { class: 'cdot' + (c.toLowerCase() === (current || '').toLowerCase() ? ' sel' : ''), style: { background: c }, title: c, onclick: () => pick(c) }));
-      body.append(g);
+      const gc = typeof UI !== 'undefined' && UI.groupColors ? UI.groupColors() : []; /* v0.28: cores do grupo atual primeiro */
+      if (gc.length) { let gn = ''; try { gn = (UI.group() || {}).name || ''; } catch (_) {}
+        body.append(card(el('span', { class: 'lbl-sm' }, 'Grupo atual', gn ? el('b', {}, ' · ' + gn) : null), gc, null, 'grp')); }
+      { const r = recCard(); if (r) body.append(r); }
+      if (palette !== PALETTE && palette.length) body.append(card(el('span', { class: 'lbl-sm' }, 'Sugestões'), palette)); /* paletas próprias de quem chamou (pasta, post-it, células…) */
       for (const [name, cols] of READY_PALETTES) {
-        const row = el('div', { class: 'cpk-sw' }); for (const c of cols) row.append(el('button', { class: 'cdot', style: { background: c }, title: c, onclick: () => pick(c) }));
-        const head = el('div', { class: 'cpk-pal' }, el('span', { class: 'lbl-sm' }, name));
-        if (opts.tool && UI.colorList) head.append(el('button', { class: 'btn ghost cpk-addall', title: 'Adicionar todas estas cores à barra', onclick: () => { let n = 0; for (const c of cols) n += UI.addColorTo(opts.tool, c) ? 1 : 0; UI.save(); UI.renderOptions(); toast(n ? `${n} cor(es) adicionadas à barra` : 'Essas cores já estão na barra', 1500); } }, '+ barra'));
-        body.append(head, row);
+        const add = opts.tool && UI.colorList ? el('button', { class: 'btn ghost cpk-addall', title: 'Adicionar todas estas cores à barra', onclick: () => { let n = 0; for (const c of cols) n += UI.addColorTo(opts.tool, c) ? 1 : 0; UI.save(); UI.renderOptions(); toast(n ? `${n} cor(es) adicionadas à barra` : 'Essas cores já estão na barra', 1500); } }, '+ barra') : null;
+        body.append(card(el('span', { class: 'lbl-sm' }, name), cols, add));
       }
     } else if (tab === 'spec') {
       const sv = el('canvas', { class: 'cpk-sv', width: 260, height: 170 }), hue = el('canvas', { class: 'cpk-hue', width: 260, height: 18 });

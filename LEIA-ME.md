@@ -153,6 +153,12 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.45.0
+
+- **Seletor de cores mais organizado:** na aba Paleta, cada grupo de cores fica num cartão próprio com título. O "Grupo atual" (com o nome do grupo) vem destacado em roxo, e logo abaixo ficam os "Recentes". No Espectro e na Roda, os Recentes também aparecem num cartão.
+- **Paletas novas:** saíram a Vibrante, a Terra, a Marca-texto e a grade sem nome que se confundia com o grupo. Entraram "Canetas de estudo" (tons escuros e legíveis para escrever), "Suaves" (cores apagadas e elegantes, em versão forte e clara) e "Natureza / Outono" (mostarda, ferrugem, oliva, musgo…). Notewise, Pastel e Tons de cinza continuam.
+- A cor atual aparece marcada em qualquer cartão em que estiver.
+
 ## Novidades da v1.44.3
 
 - **Inserir coluna ou linha não embaralha mais a escrita:** pela barra de editar células, a mesclagem (título, rodapé, coluna única) crescia o dobro e a escrita caía nas células erradas. Corrigido.
