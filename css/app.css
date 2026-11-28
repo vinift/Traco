@@ -1699,8 +1699,8 @@ input[type=range]:not(.cpk-alpha):focus-visible{outline:2px solid var(--accent);
 .toast.tin{animation:toastIn .18s ease-out}
 @keyframes toastIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 /* v1.36 — barras de ferramentas em vidro transparente na tela cheia (S.glassBars; #editor.noglass desliga) */
-#editor.immersive:not(.noglass) :is(.rail,.subrail,.hbar){background:color-mix(in srgb,var(--ch) 26%,transparent)!important;
-  -webkit-backdrop-filter:blur(10px) saturate(1.35);backdrop-filter:blur(10px) saturate(1.35);
+#editor.immersive:not(.noglass) :is(.rail,.subrail,.hbar){background:color-mix(in srgb,var(--ch) 34%,transparent)!important;
+  -webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px); /* v1.46.3 "vidro leve": benchmark no tablet — blur 10 + saturate custava 2–3 ms por quadro e dobrava os quadros travados; menos desfoque e um pouco mais de cor no fundo para compensar */
   border-color:color-mix(in srgb,#fff 38%,transparent)!important;box-shadow:0 4px 18px rgba(0,0,0,.07),inset 0 1px 0 rgba(255,255,255,.4)!important}
 #editor.immersive:not(.noglass) :is(.rail,.subrail,.hbar) svg.ic{filter:drop-shadow(0 0 1.5px color-mix(in srgb,var(--ch) 80%,transparent))} /* v1.36.2: só um halo claro nos ícones (sem sombra escura); espessuras e números limpos */
 #editor.immersive:not(.noglass) :is(.rail,.subrail) .sep{background:color-mix(in srgb,var(--chfg,#111) 22%,transparent)}
