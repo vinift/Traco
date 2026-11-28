@@ -35,6 +35,24 @@ class Bridge(private val a: MainActivity) {
         .put("ink", a.ink.supported()).toString()
 
     /* ---- tinta ---- */
+    /* v1.45.10: diagnóstico de memória para o relatório de bug — lido numa thread a cada 2,5 s (getMemoryInfo é lento); a web lê o último */
+    @Volatile private var memJson = "{}"
+    @Volatile private var memAt = 0L
+    @JavascriptInterface fun memStat(): String {
+        val now = System.currentTimeMillis()
+        if (now - memAt > 2500) { memAt = now; Thread { memJson = readMem() }.start() }
+        return memJson
+    }
+    private fun readMem(): String = try {
+        val mi = android.os.Debug.MemoryInfo(); android.os.Debug.getMemoryInfo(mi)
+        val am = a.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val si = android.app.ActivityManager.MemoryInfo(); am.getMemoryInfo(si)
+        fun st(k: String): Long = (mi.getMemoryStat(k)?.toLongOrNull() ?: -1024L) / 1024L
+        JSONObject().put("gfx", st("summary.graphics")).put("pss", st("summary.total-pss")).put("java", st("summary.java-heap"))
+            .put("nat", st("summary.native-heap")).put("livre", si.availMem / 1048576L).put("baixa", si.lowMemory)
+            .put("limite", si.threshold / 1048576L).put("t", System.currentTimeMillis()).toString()
+    } catch (e: Exception) { JSONObject().put("erro", e.message ?: "?").toString() }
+
     @JavascriptInterface fun inkGo(style: String): Int = a.ink.go(style)
     @JavascriptInterface fun inkClear(ids: String) = a.ink.clear(ids)
     @JavascriptInterface fun inkDebug(): String = a.ink.debugJson()

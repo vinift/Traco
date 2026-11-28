@@ -11,6 +11,12 @@ const BugRec = {
     const t = Date.now(); this.ev.push(Object.assign({ t, k }, d || {}));
     if (this.ev.length > this.MAX || (this.ev.length && t - this.ev[0].t > this.KEEP)) { const lim = t - this.KEEP; let i = 0; while (i < this.ev.length - 1 && (this.ev[i].t < lim || this.ev.length - i > this.MAX)) i++; this.ev.splice(0, i); }
   },
+  /* v1.45.10: memória vista pelo Android (só no app nativo com APK novo): gfx = memória de desenho do app (a que enche e faz as barras
+     piscarem), pss = total do app, livre = livre no aparelho, baixa = o sistema diz que está com pouca memória (todos em MB) */
+  nmem() { try { if (typeof Native === 'undefined' || !Native.on || !TracoNative.memStat) return {}; const m = JSON.parse(TracoNative.memStat()); return m.t ? { gfx: m.gfx, pss: m.pss, livre: m.livre, baixa: m.baixa ? 1 : 0 } : {}; } catch (_) { return {}; } },
+  /* v1.45.10: tela de desenho (canvas) descartada pelo navegador (memória da GPU acabou) — juntadas por 250 ms */
+  lostAt(cv, back) { const k = cv.id || String(cv.className || 'canvas').split(' ')[0] || 'canvas', q = this._lq || (this._lq = {}); q[(back ? '+' : '-') + k] = (q[(back ? '+' : '-') + k] || 0) + 1; if (back) this.restoredN++; else this.lostN++; clearTimeout(this._lt); this._lt = setTimeout(() => { this.push('ctx', this._lq); this._lq = null; }, 250); },
+  lostN: 0, restoredN: 0,
   edOpen() { return typeof Editor !== 'undefined' && !!Editor.note; },
   canvasMB() {
     const r = {}; let tot = 0;
@@ -30,7 +36,7 @@ const BugRec = {
   sample() {
     if (document.hidden || !this.edOpen()) return;
     const m = this.canvasMB(), ed = document.getElementById('editor');
-    this.push('s', { mb: m.tot, tiles: Editor.tiles ? Editor.tiles.size : null, z: Math.round(Editor.cam.z * 1000) / 1000, bars: this.bars(), cls: ed ? ed.className : '', heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null });
+    this.push('s', { ...this.nmem(), mb: m.tot, tiles: Editor.tiles ? Editor.tiles.size : null, z: Math.round(Editor.cam.z * 1000) / 1000, bars: this.bars(), cls: ed ? ed.className : '', heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null });
   },
   /* amostra com barra escondida SEM motivo (fora de "escrevendo"/tela cheia; o botão de sair da tela cheia não conta) */
   oddHidden(x) { return !/\b(writing|immersive)\b/.test(x.cls || '') && /:0/.test((x.bars || '').replace(/exit:\S+/, '')); },
@@ -62,7 +68,7 @@ const BugRec = {
       tela: { w: innerWidth, h: innerHeight, dpr: devicePixelRatio, vv: window.visualViewport ? [Math.round(visualViewport.width), Math.round(visualViewport.height)] : null, modo: mm('(display-mode: fullscreen)') ? 'fullscreen' : mm('(display-mode: standalone)') ? 'standalone' : 'browser', safe: ['--sat', '--sar', '--sab', '--sal'].map((v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim()) },
       nota: n ? { paginas: n.pages.length, pagina: E.currentPageIndex ? E.currentPageIndex() + 1 : null, modo: n.mode || 'pages', elementos: n.pages.reduce((a, p) => a + ((p.elements && p.elements.length) || 0), 0), pdf: n.pages.some((p) => !!p.pdf) } : null,
       editor: E && n ? { z: E.cam.z, cam: [Math.round(E.cam.x), Math.round(E.cam.y)], ferramenta: E.tool, classes: document.getElementById('editor').className, blocos: E.tiles ? E.tiles.size : null, dividida: !!(S.split && S.split.id) } : null,
-      memoria: m, nos: document.getElementsByTagName('*').length, heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null, barras: this.bars(),
+      memoria: Object.assign(m, { android: this.nmem(), telasPerdidas: this.lostN, telasVoltaram: this.restoredN, canvases: document.querySelectorAll('canvas').length }), nos: document.getElementsByTagName('*').length, heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null, barras: this.bars(),
       config: { zoomQuality: S.zoomQuality || 'eco', barSize: S.barSize, barScale: S.barScale, hideWhileWriting: S.hideWhileWriting !== false, writeHideSec: S.writeHideSec, lowLatency: !!S.lowLatency, palmGuard: S.palmGuard, palmSize: S.palmSize, palmZone: S.palmZone, hand: S.hand, theme: S.theme },
       erros: typeof readErrors === 'function' ? readErrors().slice(-10) : [],
       marcaTexto: typeof PdfText !== 'undefined' && PdfText._last ? PdfText._last : undefined, /* v1.18.1: última marcação grudada na escrita (palavras + traços em volta) */
@@ -73,10 +79,11 @@ const BugRec = {
   async capture(src) {
     this.sample(); const now = Date.now(), ev = this.ev.filter((x) => x.t >= now - 30000).map((x) => Object.assign({}, x, { t: x.t - now }));
     const rep = { id: uid(), at: now, src, desc: '', estado: this.state(), eventos: ev };
+    const tr = ev.filter((x) => x.k === 'trim').length, cx = ev.filter((x) => x.k === 'ctx').length;
     const g = ev.filter((x) => x.k === 'fr'), slow = g.reduce((a, x) => a + x.slow, 0), hid = ev.filter((x) => x.k === 's' && this.oddHidden(x)).length;
     const ta = el('textarea', { class: 'br-desc', rows: 3, placeholder: 'O que você viu? (ex.: a barra da direita sumiu ao dar zoom)' });
     const ok = await openModal({ title: 'Relatar problema visual', body: el('div', { class: 'br-new' },
-      el('p', {}, `Gravado: últimos 30 s (${ev.length} registros, ${g.length} gesto${g.length === 1 ? '' : 's'}, ${slow} quadro${slow === 1 ? '' : 's'} lento${slow === 1 ? '' : 's'}${hid ? `, barra escondida em ${hid} amostra${hid === 1 ? '' : 's'}` : ''}) + estado atual.`),
+      el('p', {}, `Gravado: últimos 30 s (${ev.length} registros, ${g.length} gesto${g.length === 1 ? '' : 's'}, ${slow} quadro${slow === 1 ? '' : 's'} lento${slow === 1 ? '' : 's'}${hid ? `, barra escondida em ${hid} amostra${hid === 1 ? '' : 's'}` : ''}${tr ? `, ${tr} aviso${tr === 1 ? '' : 's'} de memória do Android` : ''}${cx ? ', telas de desenho perdidas' : ''}) + estado atual.`),
       ta, el('small', {}, 'Fica em Configurações → Avançado → Diagnóstico, para compartilhar ou copiar.')),
       buttons: [{ label: 'Descartar', value: false }, { label: 'Salvar', cls: 'primary', value: true }] });
     if (!ok) return;
@@ -112,3 +119,5 @@ const BugRec = {
   },
 };
 BugRec.init();
+/* v1.45.10: avisa quando o navegador descarta uma tela de desenho (contextlost) — liga em toda tela na 1ª vez que alguém pede o contexto */
+(function () { try { const P = HTMLCanvasElement.prototype, g = P.getContext; P.getContext = function (t, o) { const c = g.call(this, t, o); if (c && !this._brw) { this._brw = 1; this.addEventListener('contextlost', () => BugRec.lostAt(this)); this.addEventListener('contextrestored', () => BugRec.lostAt(this, true)); } return c; }; } catch (_) {} })();

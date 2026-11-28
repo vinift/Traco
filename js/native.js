@@ -27,6 +27,7 @@ const Native = {
     try {
       if (type === 'timer') StudyTimer.onSysAction(data);
       else if (type === 'inbox') this.inbox();
+      else if (type === 'trim' && typeof BugRec !== 'undefined') BugRec.push('trim', { nivel: +data, ...BugRec.nmem() }); /* v1.45.10 */
     } catch (e) { console.warn('nativo', type, e); }
   },
 

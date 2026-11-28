@@ -141,6 +141,8 @@ class MainActivity : ComponentActivity() {
        com o app visível por baixo de uma sobreposição (Gemini/Assistente, cortina de notificações, diálogo) — e o estudo parava de contar */
     override fun onStart() { super.onStart(); web.onResume() }
     override fun onStop() { web.onPause(); super.onStop() }
+    /* v1.45.10: aviso de memória do sistema vai para o relatório de bug (5 moderada, 10 baixa, 15 crítica, 20 app escondido…) */
+    override fun onTrimMemory(level: Int) { super.onTrimMemory(level); if (::bridge.isInitialized && loaded) bridge.event("trim", level.toString()) }
 
     /* tela cheia "fixa": as barras do sistema aparecem por cima ao puxar da borda e somem sozinhas (sem empurrar a tela) */
     private fun immersive() {

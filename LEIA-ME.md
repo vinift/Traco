@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.45.10
+
+- Relatório de problema visual mais completo. No Traço Nativo (precisa baixar o APK novo), ele passa a gravar a cada segundo quanto de memória de desenho o app usa segundo o Android, a memória total do app e quanto sobra no aparelho. Grava também os avisos de "memória baixa" que o Android manda. Em qualquer versão, ele registra quando uma tela de desenho é descartada por falta de memória. Quando a tela piscar, faça o toque com 4 dedos logo em seguida.
+
 ## Novidades da v1.45.9
 
 - Tabela: arrastar para selecionar várias células (no modo de editar células) voltou a funcionar. Desde a v1.44.1 esse arrasto dava erro e a seleção não crescia.
