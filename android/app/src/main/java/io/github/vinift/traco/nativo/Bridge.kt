@@ -32,7 +32,7 @@ class Bridge(private val a: MainActivity) {
 
     @JavascriptInterface fun info(): String = JSONObject()
         .put("app", "nativo").put("ver", BuildConfigLite.version(a)).put("sdk", Build.VERSION.SDK_INT)
-        .put("ink", a.ink.supported()).toString()
+        .put("ink", a.ink.supported()).put("page", a.pageOk).toString()
 
     /* ---- tinta ---- */
     /* v1.45.10: diagnóstico de memória para o relatório de bug — lido numa thread a cada 2,5 s (getMemoryInfo é lento); a web lê o último */
@@ -53,6 +53,14 @@ class Bridge(private val a: MainActivity) {
             .put("limite", si.threshold / 1048576L).put("t", System.currentTimeMillis()).toString()
     } catch (e: Exception) { JSONObject().put("erro", e.message ?: "?").toString() }
 
+    /* v1.46: desenho nativo da nota (page/PageView.kt; os pixels chegam pelo canal binário criado no MainActivity.pgChannel) */
+    @JavascriptInterface fun pgPlace(id: Int, L: Double, x: Double, y: Double) = a.page.place(id, L, x.toFloat(), y.toFloat())
+    @JavascriptInterface fun pgPrev(pid: String, id: Int) = a.page.prev(pid, id)
+    @JavascriptInterface fun pgFree(id: Int) = a.page.free(id)
+    @JavascriptInterface fun pgFrames(json: String) = a.page.frames(json)
+    @JavascriptInterface fun pgScene(json: String) = a.page.scene(json)
+    @JavascriptInterface fun pgClear() = a.page.clear()
+    @JavascriptInterface fun pgStat(): String = a.page.stat()
     @JavascriptInterface fun inputLog(): String = synchronized(a.inLog) { JSONArray(a.inLog.toList()).toString() }
     @JavascriptInterface fun inkGo(style: String): Int = a.ink.go(style)
     @JavascriptInterface fun inkClear(ids: String) = a.ink.clear(ids)

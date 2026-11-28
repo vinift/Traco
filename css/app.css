@@ -1797,3 +1797,5 @@ button.tm-bar{border:0;background:none;padding:0;font:inherit;color:inherit;curs
 .cpk-unhide{align-self:center;font-size:12px;height:30px;padding:0 12px}
 /* v1.45.2: mesmo lugar dentro e fora da tela cheia */
 .note-pp{right:max(10px,var(--sar,0px));top:calc(max(10px,var(--sat,0px)) + var(--cb,40px) + 16px);left:auto}
+/* v1.46: desenho nativo da nota — a página fica numa camada do Android ATRÁS do WebView; com a nota aberta, o fundo da página web fica transparente */
+html.natpage:has(#editor:not(.hidden)),html.natpage:has(#editor:not(.hidden)) body,html.natpage #editor,html.natpage #stage{background:transparent!important}

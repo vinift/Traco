@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.46.0
+
+- **Desenho nativo da nota (1ª etapa, Traço Nativo, precisa do APK novo).** A página da nota passa a ser mostrada pelo Android, numa camada atrás do app, e não mais dentro do navegador. O desenho e a qualidade continuam iguais. A ideia é que botões, barras, Configurações e canetas parem de piscar: eles disputavam a memória de desenho do navegador com a nota.
+- Interruptor em Configurações → "Desenho nativo da nota". Se a página aparecer errada (fora do lugar, faltando pedaço, em branco), desligue e me mande um relatório.
+
 ## Novidades da v1.45.12
 
 - Correção: o APK da v1.45.11 não compilou (erro de escrita no código do Android). Este é o APK com o diário de toques da v1.45.11.

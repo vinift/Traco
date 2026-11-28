@@ -19,14 +19,15 @@ Object.assign(Editor, {
   tileCap() { const big = (navigator.deviceMemory || 4) >= 8, scr = ((this._pw || 1000) * (this._ph || 700) * 4) / 1048576, hiN = clamp(Math.floor(170 - 2 * scr - 16), 64, big ? 200 : 110), n = this.ultraQ() ? clamp(Math.floor(300 - 2 * scr - 84), 96, 280) : this.hiQ() ? hiN : (big ? 64 : 48); /* v0.58.3: Alta com limite — cabe num total de ~170 MB (blocos de 1 MB + 2 telas cheias + ~16 MB de miniaturas); no Pad 7 ≈ 102 blocos em vez de 200 (relatório do usuário: 267 MB e barras piscando) */ /* v0.28: econômica 90/60 → 64/48 (no Pad 7 as barras ainda sumiam em parte na pinça: memória de desenho cheia) */ /* v0.25.1: tela dividida = editor menor e o outro lado também usa memória */ const k = innerWidth ? clamp(this.W / innerWidth, 0.5, 1) : 1; return Math.round(n * (k < 0.95 ? Math.max(0.55, k) : 1)); },
   previewCap() { const n = this.ultraQ() ? 14 : this.hiQ() && (navigator.deviceMemory || 4) >= 8 ? 18 : this.hiQ() ? 10 : 6; return innerWidth && this.W < innerWidth * 0.95 ? Math.min(n, 6) : n; },
   pfMargin: 0.35, tileBudgetMs: 10,
-  freeCanvas(c) { if (c) { if (c.parentNode) c.remove(); c.width = 0; c.height = 0; } }, // devolve a memória na hora (sem esperar a coleta de lixo)
+  freeCanvas(c) { if (c) { if (c._nid) NatPage.free(c); if (c.parentNode) c.remove(); c.width = 0; c.height = 0; } }, /* v1.46: o bloco nativo sai junto */ // devolve a memória na hora (sem esperar a coleta de lixo)
   resetTiles() {
+    const nat = NatPage.on(); if (nat) { NatPage.clear(); NatPage._bulk = true; } /* v1.46: limpa a camada nativa de uma vez (sem um pgFree por bloco) */
     if (this.tiles) for (const t of this.tiles.values()) this.freeCanvas(t.cv);
     if (this.pcache) for (const pc of this.pcache.values()) { if (pc.preview) this.freeCanvas(pc.preview.cv); if (pc.pjob) this.freeCanvas(pc.pjob.cv); }
     this.tiles = new Map(); this.pcache = new Map(); this.imgEpoch = (this.imgEpoch || 0) + 1;
     if (this.wLevels) { for (const b of this.wLevels.values()) b.remove(); this.wLevels.clear(); }
     if (this.wFrames) { this.wFrames.innerHTML = ''; this._frSig = null; this._frDivs = new Map(); }
-    this._curLvl = null; this._fbLvl = null; this._ovLvl = null; this._ovNext = null;
+    this._curLvl = null; this._fbLvl = null; this._ovLvl = null; this._ovNext = null; NatPage._bulk = false; this._natMode = nat;
   },
   putTile(lv, t) { // guarda um bloco novo e libera o antigo que ele substitui
     const k = t.pid + '|' + t.lvl + '|' + t.key, prev = this.tiles.get(k);
@@ -73,14 +74,14 @@ Object.assign(Editor, {
     return pc;
   },
   paintOnTile(t, page, lvl, key, els) {
-    const [tx, ty] = key.split(',').map(Number), c = t.cv.getContext('2d'), vis = { x: (tx * TILE) / lvl, y: (ty * TILE) / lvl, w: TILE / lvl, h: TILE / lvl };
+    t.cv._nd = true; /* v1.46: manda de novo para a camada nativa */ const [tx, ty] = key.split(',').map(Number), c = t.cv.getContext('2d'), vis = { x: (tx * TILE) / lvl, y: (ty * TILE) / lvl, w: TILE / lvl, h: TILE / lvl };
     c.save(); c.setTransform(lvl, 0, 0, lvl, -tx * TILE, -ty * TILE);
     if (this.note.mode !== 'infinite') { c.beginPath(); c.rect(0, 0, page.w, page.h); c.clip(); }
     for (const e of els) if (rectsHit(elBBox(e), vis)) drawElement(c, e);
     c.restore();
   },
   paintOnPreview(pv, page, els) {
-    const c = pv.cv.getContext('2d'); c.save(); c.setTransform(pv.s, 0, 0, pv.s, 0, 0);
+    pv.cv._nd = true; const c = pv.cv.getContext('2d'); c.save(); c.setTransform(pv.s, 0, 0, pv.s, 0, 0);
     if (this.note.mode !== 'infinite') { c.beginPath(); c.rect(0, 0, page.w, page.h); c.clip(); }
     for (const e of els) drawElement(c, e);
     c.restore();
@@ -88,7 +89,7 @@ Object.assign(Editor, {
   elMap(page) { const m = new Map(); for (const e of page.elements) m.set(oid(e), e); return m; },
   newCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; },
   renderTile(page, pi, s, tx, ty) {
-    const cv = this.newCanvas(TILE, TILE), c = cv.getContext('2d'), inf = this.note.mode === 'infinite';
+    const cv = this.newCanvas(TILE, TILE), c = cv.getContext('2d', NatPage.ctxOpt()), inf = this.note.mode === 'infinite';
     c.setTransform(s, 0, 0, s, -tx * TILE, -ty * TILE);
     const vis = { x: (tx * TILE) / s, y: (ty * TILE) / s, w: TILE / s, h: TILE / s };
     if (!inf) { c.beginPath(); c.rect(0, 0, page.w, page.h); c.clip(); }
@@ -101,7 +102,7 @@ Object.assign(Editor, {
     const t0 = performance.now(), n = page.elements.length;
     let J = pc.pjob;
     if (!J) {
-      const s = this.ultraQ() ? Math.min(1.6, 1440 / Math.max(page.w, page.h)) : Math.min(1.2, 960 / Math.max(page.w, page.h)), cv = this.newCanvas(Math.ceil(page.w * s), Math.ceil(page.h * s)), c = cv.getContext('2d');
+      const s = this.ultraQ() ? Math.min(1.6, 1440 / Math.max(page.w, page.h)) : Math.min(1.2, 960 / Math.max(page.w, page.h)), cv = this.newCanvas(Math.ceil(page.w * s), Math.ceil(page.h * s)), c = cv.getContext('2d', NatPage.ctxOpt());
       c.setTransform(s, 0, 0, s, 0, 0); drawPageContent(c, this.note, page, { x: 0, y: 0, w: page.w, h: page.h }, s, { dpr: 1, range: [0, 0] });
       J = pc.pjob = { cv, c, s, i: 0 };
     }
@@ -206,6 +207,7 @@ Object.assign(Editor, {
   placeTile(t, pi) { // posição do bloco em px de tela no nível em que foi desenhado (alinhado aos pixels)
     const o = this.layout[pi]; if (!o) return; const L = t.lvl, d = this.dpr, inf = this.note.mode === 'infinite';
     const [tx, ty] = t.key.split(',').map(Number), bx = inf ? 0 : Math.round(o.x * L), by = inf ? 0 : Math.round(o.y * L);
+    if (this._natMode) return NatPage.place(t, (bx + tx * TILE) / d, (by + ty * TILE) / d); /* v1.46: bloco na camada nativa */
     const st = t.cv.style; st.left = (bx + tx * TILE) / d + 'px'; st.top = (by + ty * TILE) / d + 'px'; st.width = st.height = TILE / d + 'px';
     t.cv.className = 'wt'; if (t.cv.parentNode !== this.levelBox(L)) this.levelBox(L).append(t.cv);
   },
@@ -216,7 +218,8 @@ Object.assign(Editor, {
     if (sig !== this._frSig) {
       this._frSig = sig; this.wFrames.innerHTML = ''; this._frDivs = new Map();
       this.stage.style.background = inf ? (n.template && n.template.paper) || '#fff' : '';
-      if (!inf) n.pages.forEach((p, i) => {
+      if (this._natMode) NatPage.frames(inf ? [] : n.pages.map((p, i) => { const o = this.layout[i], tpl = p.template || n.template; return [p.id, o.x, o.y, p.w, p.h, p.pdf ? '#ffffff' : (tpl && tpl.paper) || '#ffffff']; })); /* v1.46: molduras na camada nativa */
+      else if (!inf) n.pages.forEach((p, i) => {
         const o = this.layout[i], tpl = p.template || n.template, f = document.createElement('div'); f.className = 'pgf';
         Object.assign(f.style, { left: o.x + 'px', top: o.y + 'px', width: p.w + 'px', height: p.h + 'px', background: p.pdf ? '#fff' : (tpl && tpl.paper) || '#fff' });
         this.wFrames.append(f); this._frDivs.set(p.id, f);
@@ -224,10 +227,11 @@ Object.assign(Editor, {
       for (const t of this.tiles.values()) { const pi = n.pages.findIndex((p) => p.id === t.pid); if (pi >= 0) this.placeTile(t, pi); } // páginas mudaram de lugar
     }
   },
-  attachPreview(page, pc) { const f = this._frDivs.get(page.id); if (!f || !pc.preview) return; pc.preview.used = this.frameNo; const cv = pc.preview.cv; if (cv.parentNode !== f) { cv.className = 'pgprev'; f.append(cv); } }, // a velha fica até a nova ficar pronta
+  attachPreview(page, pc) { if (this._natMode) { if (pc.preview) { pc.preview.used = this.frameNo; NatPage.preview(page.id, pc.preview.cv); } return; } const f = this._frDivs.get(page.id); if (!f || !pc.preview) return; pc.preview.used = this.frameNo; const cv = pc.preview.cv; if (cv.parentNode !== f) { cv.className = 'pgprev'; f.append(cv); } }, // a velha fica até a nova ficar pronta
   /* um quadro na camada de composição: só ajusta transformações e encaixa os blocos que faltam (dentro do orçamento) */
   drawDom(vis, st, skipPages) {
-    this.domInit(); this.world.style.display = '';
+    this.domInit(); if (this._natMode !== NatPage.on()) this.resetTiles(); /* v1.46: o modo nativo ligou/desligou → refaz os blocos no lugar certo */
+    this.world.style.display = this._natMode ? 'none' : ''; document.documentElement.classList.toggle('natpage', !!this._natMode);
     const z = this.cam.z, d = this.dpr, s = z * d, n = this.note, inf = n.mode === 'infinite';
     this.syncFrames();
     this.world.style.transform = `translate3d(${Math.round(-this.cam.x * s) / d}px,${Math.round(-this.cam.y * s) / d}px,0)`;
@@ -256,7 +260,7 @@ Object.assign(Editor, {
       const want = [];
       for (let ty = Math.floor((y0 * s) / TILE); ty <= Math.floor((y1 * s - 0.001) / TILE); ty++) for (let tx = Math.floor((x0 * s) / TILE); tx <= Math.floor((x1 * s - 0.001) / TILE); tx++) {
         const key = tx + ',' + ty, t = lv.get(key);
-        if (t && !t.stale && (!page.pdf || t.pdfB === PdfCache.bitmap(page.pdf, s))) { t.used = this.frameNo; if (!t.cv.parentNode) this.placeTile(t, i); } else want.push([tx, ty, key]);
+        if (t && !t.stale && (!page.pdf || t.pdfB === PdfCache.bitmap(page.pdf, s))) { t.used = this.frameNo; if (this._natMode || !t.cv.parentNode) this.placeTile(t, i); } else want.push([tx, ty, key]);
       }
       if (want.length > 1) { const cx = (vis.x + vis.w / 2 - o.x) * s, cy = (vis.y + vis.h / 2 - o.y) * s, dd = (w) => Math.hypot((w[0] + 0.5) * TILE - cx, (w[1] + 0.5) * TILE - cy); want.sort((a, b) => dd(a) - dd(b)); }
       const mustSync = pc.changed, moving = !!(this.gesture || this._inertia);
@@ -270,6 +274,7 @@ Object.assign(Editor, {
     if (!fbNeeded && lvl != null) this._curDone = true;
     if (!fbNeeded && this._fbLvl != null && lvl != null) { const b = this.wLevels.get(this._fbLvl); if (b) b.style.display = 'none'; this._fbLvl = null; } // nível novo completo: some o antigo
     /* E) durante zoom/rolagem: monta aos poucos a miniatura das páginas que entram na tela sem ter uma (fundo para não aparecer página em branco) */
+    if (this._natMode) this.natScene(s, lvl); /* v1.46 */
     if (needPrev.length) { const t0 = performance.now(); for (const [page, pc] of needPrev) { const left = 4 - (performance.now() - t0); if (left <= 0.5) { allDone = false; break; } if (this.previewStep(page, pc, left)) this.attachPreview(page, pc); else allDone = false; } }
     return allDone;
   },
@@ -314,6 +319,14 @@ Object.assign(Editor, {
     });
     if (!missing && !n && this._ovLvl !== L) { this._ovLvl = L; this._ovNext = null; this.requestRender(); } // completa: passa a ser a camada de baixo
     return n || (missing ? 1 : 0);
+  },
+  /* v1.46: cena do quadro para a camada nativa — mesma conta do DOM: translação da folha (px CSS, alinhada ao pixel), zoom das molduras e,
+     por nível visível (atual, reserva, afastada), a escala s/L e a ordem (zIndex do DOM) */
+  natScene(s, lvl) {
+    const d = this.dpr, r = this.rect || this.stage.getBoundingClientRect(), inf = this.note.mode === 'infinite', lv = [];
+    const add = (L, zi) => { if (L == null || lv.some((x) => x[0] === L)) return; lv.push([L, Math.abs(s / L - 1) < 1e-6 ? 1 : s / L, zi]); };
+    add(this._curLvl, lvl != null ? 3 : 2); add(this._fbLvl, 2); add(this._ovLvl, 1);
+    NatPage.scene({ on: 1, sl: r.left, st: r.top, sw: r.width, sh: r.height, d, desk: inf ? (this.note.template && this.note.template.paper) || '#ffffff' : this.desk, tx: Math.round(-this.cam.x * s) / d, ty: Math.round(-this.cam.y * s) / d, z: this.cam.z, inf: inf ? 1 : 0, lv });
   },
   /* blocos da reserva que estão na tela e a miniatura não podem ser descartados da memória enquanto aparecem */
   keepVisible(pc, page, o, vis) {

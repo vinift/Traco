@@ -8,6 +8,9 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.HandlerThread
+import android.graphics.Color
 import android.view.MotionEvent
 import android.view.WindowManager
 import android.webkit.ValueCallback
@@ -27,6 +30,10 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.webkit.ServiceWorkerClientCompat
+import androidx.webkit.WebMessageCompat
+import androidx.webkit.WebMessagePortCompat
+import androidx.webkit.WebViewCompat
+import io.github.vinift.traco.nativo.page.PageView
 import androidx.webkit.ServiceWorkerControllerCompat
 import androidx.webkit.WebViewFeature
 import io.github.vinift.traco.nativo.ink.InkView
@@ -46,6 +53,10 @@ class MainActivity : ComponentActivity() {
     lateinit var web: WebView
     lateinit var ink: InkView
     lateinit var bridge: Bridge
+    lateinit var page: PageView
+    var pageOk = false
+    private var pgPort: WebMessagePortCompat? = null
+    private val pgThread by lazy { HandlerThread("traco-pg").apply { start() } }
     val inbox by lazy { Inbox(this) }
     private var loaded = false
 
@@ -78,8 +89,13 @@ class MainActivity : ComponentActivity() {
         web = WebView(this)
         ink = InkView(this)
         bridge = Bridge(this)
+        page = PageView(this)
+        pageOk = WebViewFeature.isFeatureSupported(WebViewFeature.CREATE_WEB_MESSAGE_CHANNEL) && WebViewFeature.isFeatureSupported(WebViewFeature.POST_WEB_MESSAGE) &&
+            WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_ARRAY_BUFFER) && WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_PORT_SET_MESSAGE_CALLBACK)
         val root = FrameLayout(this)
+        root.addView(page, FrameLayout.LayoutParams(-1, -1)) // v1.46: a página da nota fica atrás do WebView (transparente com a nota aberta)
         root.addView(web, FrameLayout.LayoutParams(-1, -1))
+        if (pageOk) web.setBackgroundColor(Color.TRANSPARENT)
         root.addView(ink, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
 
@@ -102,7 +118,7 @@ class MainActivity : ComponentActivity() {
                 openExternal(u.toString()); return true // Drive, GitHub, etc.: fora do app
             }
             override fun shouldInterceptRequest(view: WebView, req: WebResourceRequest): WebResourceResponse? = inbox.intercept(req.url)
-            override fun onPageFinished(view: WebView, url: String) { loaded = true; if (inbox.hasAny()) bridge.event("inbox", null) }
+            override fun onPageFinished(view: WebView, url: String) { loaded = true; pgChannel(); if (inbox.hasAny()) bridge.event("inbox", null) }
         }
         if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_SHOULD_INTERCEPT_REQUEST)) {
             ServiceWorkerControllerCompat.getInstance().setServiceWorkerClient(object : ServiceWorkerClientCompat() {
@@ -152,6 +168,22 @@ class MainActivity : ComponentActivity() {
     }
 
     /* a caneta passa primeiro pela tinta nativa e depois segue normalmente para a página */
+    /* v1.46: canal binário para os pixels dos blocos da nota (ArrayBuffer sem base64) — refeito a cada carga da página */
+    private fun pgChannel() {
+        if (!pageOk) return
+        try {
+            pgPort?.close(); page.reset()
+            val ports = WebViewCompat.createWebMessageChannel(web)
+            ports[0].setWebMessageCallback(Handler(pgThread.looper), object : WebMessagePortCompat.WebMessageCallbackCompat() {
+                override fun onMessage(port: WebMessagePortCompat, message: WebMessageCompat?) {
+                    if (message != null && message.type == WebMessageCompat.TYPE_ARRAY_BUFFER) page.pixels(message.arrayBuffer)
+                }
+            })
+            pgPort = ports[0]
+            WebViewCompat.postWebMessage(web, WebMessageCompat("traco-pg", arrayOf(ports[1])), Uri.parse("*"))
+        } catch (e: Exception) { pageOk = false }
+    }
+
     /* v1.45.11: diário curto da entrada que o ANDROID entrega ao app (dedo encostou/soltou/cancelado, caneta encostou/soltou, caneta
        chegou perto/saiu de perto) — vai no relatório de bug para saber se um toque do dedo nem chegou ao app (o sistema descartou) */
     val inLog = ArrayDeque<String>()

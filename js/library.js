@@ -431,6 +431,7 @@ async function openSettings(focus) {
       UI.slider('Melhorar escrita automático (ao levantar a caneta)', 0, 10, 1, autoBeautifyLevel(), (v) => { S.autoBeautify = v; Store.saveSettings(); }, (v) => (v === 0 ? 'desligado' : String(v))),
       el('p', { class: 'muted' }, 'Arredonda as curvas e tira o tremido sem apagar os cantos das letras.'),
       Native.on ? UI.check('Tinta nativa do Android (a escrita aparece com o mínimo de atraso; desligue se algo parecer estranho ao escrever)', S.nativeInk !== false, (v) => { S.nativeInk = v; Store.saveSettings(); }) : null, /* v1.0 */
+      Native.on && Native.info && Native.info.page ? UI.check('Desenho nativo da nota (a página é mostrada pelo Android, fora do navegador: os botões e barras não piscam por falta de memória; desligue se a página aparecer errada)', S.nativePage !== false, (v) => { S.nativePage = v; Store.saveSettings(); if (typeof Editor !== 'undefined' && Editor.note) Editor.requestRender(); }) : null, /* v1.46 */
       Native.on ? null : UI.check('Modo de baixa latência para a caneta (a tinta aparece mais rápido; reabra o app depois de mudar)', S.lowLatency === true, (v) => { S.lowLatency = v; Store.saveSettings(); toast('Reabra o app para aplicar'); }),
       )));
   body.append(el('div', { class: 'set-sec' }, el('h3', {}, 'Formas ao segurar'), el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
