@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.46.10
+
+- Palma: volta ao jeito de antes. Toque do lado da mão que escreve (à direita e abaixo da caneta) é ignorado por inteiro, mesmo se a palma escorregar, e o tempo volta a contar também da caneta perto da tela. Agora vale por até 30 s depois da última vez que a caneta foi vista. Os dedos da outra mão (lado oposto) funcionam normalmente.
+
 ## Novidades da v1.46.9
 
 - Palma ao posicionar a mão ANTES de escrever: com a caneta perto da tela (pairando), um toque à direita e abaixo da ponta é ignorado; só vira dedo se arrastar bastante. Dedos da outra mão continuam normais.

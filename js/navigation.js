@@ -198,7 +198,7 @@ const Palm = {
   zoneHit(e) {
     const S = Store.settings, Z = S.palmZone; if (!Z || !Z.on || (S.hand || 'right') === 'none' || typeof Editor === 'undefined' || !Editor.note) return false;
     const now = performance.now(), hov = !this.pen.down && now - this.pen.t < 400; /* v1.46.9: caneta pairando perto (mão chegando para escrever) */
-    const dt = now - this.ct; if (dt > this.LONG_MS && !hov) return false; /* v1.46.8: depois do prazo curto (Z.ms), a zona continua valendo até LONG_MS (palma apoiada à direita/abaixo depois de escrever — relatório de 28/11) */
+    const dt = now - Math.max(this.ct, this.pen.t); if (dt > this.LONG_MS && !hov) return false; /* v1.46.10: o prazo volta a contar também do pairar (como até a v1.45.4) */ /* v1.46.8: depois do prazo curto (Z.ms), a zona continua valendo até LONG_MS (palma apoiada à direita/abaixo depois de escrever — relatório de 28/11) */
     const dx = (e.clientX - this.pen.x) * (S.hand === 'left' ? -1 : 1), dy = e.clientY - this.pen.y;
     if (!(dx >= (Z.dx ?? -40) && dy >= (Z.dy ?? -120))) return false;
     return hov || dt > (Z.ms || 600) ? 2 : 1; /* 2 = zona longa: precisa arrastar mais (HOLD_LONG) para virar dedo */
@@ -214,7 +214,7 @@ const Palm = {
       if (e.pointerType !== 'touch' || this.pass.has(e.pointerId)) return; this.last = Math.round(Math.max(e.width || 0, e.height || 0));
       const why = !this.on() ? '' : this.big(e.width, e.height) ? 'tamanho' : this.penDown() ? 'caneta' : (this._zk = this.zoneHit(e)) ? 'zona' : '';
       if (typeof BugRec !== 'undefined' && typeof Editor !== 'undefined' && Editor.note) BugRec.push('tch', { why: why || 'ok', w: this.last, dc: Math.round(performance.now() - this.ct), dh: Math.round(performance.now() - this.pen.t), dx: Math.round(e.clientX - this.pen.x), dy: Math.round(e.clientY - this.pen.y) }); /* v1.45.5: diagnóstico do toque barrado */
-      if (why === 'zona') { this.hold.set(e.pointerId, { x: e.clientX, y: e.clientY, tg: e.target, w: e.width, h: e.height, prim: e.isPrimary, px: this._zk === 2 ? this.HOLD_LONG : this.HOLD_PX }); stop(e); return; } /* v1.45.8: em espera — vira dedo se arrastar */
+      if (why === 'zona' && this.PROMOTE) { this.hold.set(e.pointerId, { x: e.clientX, y: e.clientY, tg: e.target, w: e.width, h: e.height, prim: e.isPrimary, px: this._zk === 2 ? this.HOLD_LONG : this.HOLD_PX }); stop(e); return; } /* v1.45.8: em espera — vira dedo se arrastar */
       if (why) { this.ids.add(e.pointerId); stop(e); }
     }, true);
     addEventListener('pointermove', (e) => {
@@ -235,6 +235,7 @@ const Palm = {
   },
   /* v1.45.8: toque barrado pela zona da mão fica em espera (hold); se andar HOLD_PX, recebe um pointerdown no ponto onde começou
      (o gesto anda tudo, sem perder o começo) e os próximos eventos passam. Parado (palma apoiada) continua ignorado. */
+  PROMOTE: false, /* v1.46.10: "arrastou = dedo" desligado (a palma escorregando mexia a tela); toque na zona da mão fica barrado como até a v1.45.7 */
   HOLD_PX: 22, HOLD_LONG: 70, LONG_MS: 30000, hold: new Map(), pass: new Set(), /* v1.46.8: zona longa (até 30 s do último contato) só vira dedo com 70 px de arrasto */
   promote(id, hd) {
     this.hold.delete(id); this.pass.add(id);
