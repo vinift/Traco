@@ -72,6 +72,7 @@ const BugRec = {
       config: { zoomQuality: S.zoomQuality || 'eco', barSize: S.barSize, barScale: S.barScale, hideWhileWriting: S.hideWhileWriting !== false, writeHideSec: S.writeHideSec, lowLatency: !!S.lowLatency, palmGuard: S.palmGuard, palmSize: S.palmSize, palmZone: S.palmZone, hand: S.hand, theme: S.theme },
       erros: typeof readErrors === 'function' ? readErrors().slice(-10) : [],
       marcaTexto: typeof PdfText !== 'undefined' && PdfText._last ? PdfText._last : undefined, /* v1.18.1: última marcação grudada na escrita (palavras + traços em volta) */
+      entradaAndroid: (() => { try { if (typeof Native === 'undefined' || !Native.on || !TracoNative.inputLog) return undefined; const now = Date.now(); return JSON.parse(TracoNative.inputLog()).map((l) => { const [t, k, x, y] = l.split(','); return [+t - now, k, +x, +y]; }).filter((x) => x[0] > -30000); } catch (_) { return undefined; } })(), /* v1.45.11: [ms antes do relatório, o que, x, y] em px do aparelho */
       tinta: typeof Native !== 'undefined' && Native.on ? Native.inkReport() : undefined, /* v1.2.3: últimos traços da tinta nativa × da página */
     };
   },

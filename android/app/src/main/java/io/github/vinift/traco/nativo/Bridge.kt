@@ -53,6 +53,7 @@ class Bridge(private val a: MainActivity) {
             .put("limite", si.threshold / 1048576L).put("t", System.currentTimeMillis()).toString()
     } catch (e: Exception) { JSONObject().put("erro", e.message ?: "?").toString() }
 
+    @JavascriptInterface fun inputLog(): String = synchronized(a.inLog) { JSONArray(a.inLog.toList()).toString() }
     @JavascriptInterface fun inkGo(style: String): Int = a.ink.go(style)
     @JavascriptInterface fun inkClear(ids: String) = a.ink.clear(ids)
     @JavascriptInterface fun inkDebug(): String = a.ink.debugJson()

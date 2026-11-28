@@ -152,7 +152,31 @@ class MainActivity : ComponentActivity() {
     }
 
     /* a caneta passa primeiro pela tinta nativa e depois segue normalmente para a página */
+    /* v1.45.11: diário curto da entrada que o ANDROID entrega ao app (dedo encostou/soltou/cancelado, caneta encostou/soltou, caneta
+       chegou perto/saiu de perto) — vai no relatório de bug para saber se um toque do dedo nem chegou ao app (o sistema descartou) */
+    val inLog = ArrayDeque<String>()
+    private var hovering = false
+    fun logIn(k: String, ev: MotionEvent, i: Int = ev.actionIndex) {
+        val s = "${System.currentTimeMillis()},$k,${ev.getX(i).toInt()},${ev.getY(i).toInt()}"
+        synchronized(inLog) { inLog.addLast(s); while (inLog.size > 240) inLog.removeFirst() }
+    }
+    override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {
+        if (ev.pointerCount > 0 && ev.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS) when (ev.actionMasked) {
+            MotionEvent.ACTION_HOVER_ENTER -> { hovering = true; logIn("perto", ev) }
+            MotionEvent.ACTION_HOVER_EXIT -> { hovering = false; logIn("longe", ev) }
+        }
+        return super.dispatchGenericMotionEvent(ev)
+    }
+
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        try {
+            val i = ev.actionIndex, ft = ev.getToolType(i) == MotionEvent.TOOL_TYPE_FINGER
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> logIn(if (ft) "dedo+" else "caneta+", ev)
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> logIn(if (ft) "dedo-" else "caneta-", ev)
+                MotionEvent.ACTION_CANCEL -> logIn(if (ft) "dedoX" else "canetaX", ev)
+            }
+        } catch (_: Exception) {}
         if (ev.pointerCount > 0 && ev.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS) {
             if (ev.actionMasked == MotionEvent.ACTION_DOWN) web.requestUnbufferedDispatch(ev) // pontos chegam assim que o sensor lê, sem esperar o quadro
             ink.onPen(ev)
