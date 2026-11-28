@@ -32,7 +32,7 @@ class Bridge(private val a: MainActivity) {
 
     @JavascriptInterface fun info(): String = JSONObject()
         .put("app", "nativo").put("ver", BuildConfigLite.version(a)).put("sdk", Build.VERSION.SDK_INT)
-        .put("ink", a.ink.supported()).put("page", a.pageOk).toString()
+        .put("ink", a.ink.supported()).put("page", a.pageOk).put("page2", a.pageOk).toString()
 
     /* ---- tinta ---- */
     /* v1.45.10: diagnóstico de memória para o relatório de bug — lido numa thread a cada 2,5 s (getMemoryInfo é lento); a web lê o último */

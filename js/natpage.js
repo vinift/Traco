@@ -27,17 +27,34 @@ const NatPage = {
     const w = cv.width, h = cv.height; if (!w || !h || !this.port) return;
     const id = cv._nid || (cv._nid = this.nid++);
     let im; try { im = cv.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h); } catch (e) { return; }
-    const buf = new ArrayBuffer(16 + w * h * 4), hd = new Int32Array(buf, 0, 4); hd[0] = id; hd[1] = w; hd[2] = h; hd[3] = 0;
-    new Uint8Array(buf, 16).set(im.data);
-    try { this.port.postMessage(buf); this.sent++; } catch (e) { console.warn('natpage send', e); }
+    try {
+      if (Native.info && Native.info.page2) { this.port.postMessage(new Int32Array([id, w, h, 3]).buffer); this.port.postMessage(im.data.buffer); } /* v1.46.6: cabeçalho + pixels em 2 mensagens, sem a cópia de 1 MB (APK ≥ 1.0.22) */
+      else { const buf = new ArrayBuffer(16 + w * h * 4), hd = new Int32Array(buf, 0, 4); hd[0] = id; hd[1] = w; hd[2] = h; hd[3] = 0; new Uint8Array(buf, 16).set(im.data); this.port.postMessage(buf); }
+      this.sent++;
+    } catch (e) { console.warn('natpage send', e); }
     cv._ns = true; cv._nd = false;
   },
-  sync(cv) { if (!cv._ns || cv._nd) this.send(cv); },
+  /* v1.46.6: durante rolagem/zoom/inércia os envios vão para uma fila (_sq) e saem com até ~6 ms por quadro (benchmark no tablet:
+     envio p95 16–24 ms no meio do gesto). O id é dado na hora (o pgPlace precisa dele); a camada nativa mostra o bloco anterior/a
+     reserva até o novo chegar. Os apagar (_fq) só saem depois da fila vazia, para o bloco velho não sumir antes do novo chegar. */
+  _sq: [], _sqT: 0,
+  busy() { return typeof Editor !== 'undefined' && !!(Editor.gesture || Editor._inertia); },
+  sync(cv) {
+    if (cv._ns && !cv._nd) return; if (!cv._nid) cv._nid = this.nid++;
+    if (this.busy() || this._sq.length) { if (!cv._nq) { cv._nq = 1; this._sq.push(cv); } this.drainLater(); return; }
+    this.send(cv);
+  },
+  drainLater() { if (!this._sqT) this._sqT = requestAnimationFrame(() => { this._sqT = 0; this.drain(); }); },
+  drain() {
+    const t0 = performance.now(), lim = this.busy() ? 6 : 30;
+    while (this._sq.length && performance.now() - t0 < lim) { const cv = this._sq.shift(); cv._nq = 0; if (cv._nid && cv.width && (!cv._ns || cv._nd)) this.send(cv); }
+    if (this._sq.length) this.drainLater(); else this.flush();
+  },
   /* apagar vai pelo MESMO canal dos pixels e só depois deles (fila _fq, enviada no fim do quadro): o bloco velho continua na tela
      até o novo chegar — pela ponte, o apagar chegava antes dos pixels e o pedaço piscava (só a miniatura por um instante) */
   free(cv) { if (cv && cv._nid) { if (!this._bulk) this._fq.push(cv._nid); cv._nid = 0; cv._ns = false; } },
   ctl(kind, ids) { if (!this.port) return; const a = new Int32Array(4 + ids.length); a[3] = kind; a.set(ids, 4); try { this.port.postMessage(a.buffer); } catch (e) { console.warn('natpage ctl', e); } },
-  flush() { if (this._fq.length) { this.ctl(1, this._fq); this._fq = []; } },
+  flush() { if (this._fq.length && !this._sq.length) { this.ctl(1, this._fq); this._fq = []; } },
   /* bloco: posição (px CSS dentro do nível L, como o placeTile do DOM) — só chama o Android se mudou */
   place(t, left, top) {
     this.sync(t.cv); const k = t.lvl + '|' + left + '|' + top;
@@ -47,7 +64,7 @@ const NatPage = {
   frames(list) { const s = JSON.stringify(list); if (s !== this._frames) { this._frames = s; this.call('pgFrames', s); } },
   scene(o) { this.flush(); const s = JSON.stringify(o); if (s !== this._scene) { this._scene = s; this.call('pgScene', s); } },
   /* limpar: a cena/molduras/posições saem na hora (ponte); os bitmaps com id < nid saem pelo canal, na ordem dos pixels */
-  clear() { this._scene = ''; this._frames = ''; this._fq = []; if (this.port) { this.call('pgClear'); this.ctl(2, [this.nid]); } },
+  clear() { this._scene = ''; this._frames = ''; this._fq = []; for (const cv of this._sq) cv._nq = 0; this._sq = []; if (this.port) { this.call('pgClear'); this.ctl(2, [this.nid]); } },
   stat() { try { return JSON.parse(TracoNative.pgStat()); } catch (_) { return null; } },
 };
 NatPage.init();

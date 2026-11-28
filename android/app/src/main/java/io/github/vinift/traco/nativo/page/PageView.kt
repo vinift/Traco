@@ -46,15 +46,28 @@ class PageView(ctx: Context) : View(ctx) {
     private fun color(s: String?, def: Int): Int = try { if (s.isNullOrBlank()) def else Color.parseColor(s.trim()) } catch (_: Exception) { def }
 
     /* chega numa thread própria (Handler do canal), nunca na da tela */
-    fun pixels(b: ByteArray) { try { pixels0(b) } catch (_: Throwable) {} } // erro aqui não pode derrubar o app
+    /* v1.46.6: modo de 2 mensagens (sem a cópia de 1 MB na página): cabeçalho [id, w, h, 3] e, logo depois, só os pixels RGBA */
+    private var hdr: IntArray? = null
+    fun pixels(b: ByteArray) {
+        try {
+            val h = hdr
+            if (h != null) { hdr = null; if (b.size == h[1] * h[2] * 4) { bitmapFrom(h[0], h[1], h[2], b, 0); return } }
+            pixels0(b)
+        } catch (_: Throwable) {} // erro aqui não pode derrubar o app
+    }
     private fun pixels0(b: ByteArray) {
         if (b.size < 16) return
         val bb = ByteBuffer.wrap(b).order(ByteOrder.LITTLE_ENDIAN)
         val id = bb.getInt(0); val w = bb.getInt(4); val h = bb.getInt(8); val kind = bb.getInt(12)
         if (kind == 1 || kind == 2) { control(kind, bb, b.size); return } // apagar (na ordem dos pixels)
+        if (kind == 3) { if (b.size == 16 && w > 0 && h > 0) hdr = intArrayOf(id, w, h); return }
         if (w <= 0 || h <= 0 || b.size < 16 + w * h * 4) return
+        bitmapFrom(id, w, h, b, 16)
+    }
+
+    private fun bitmapFrom(id: Int, w: Int, h: Int, b: ByteArray, off: Int) {
         synchronized(lock) { if (freed.contains(id)) { freed.remove(id); return } }
-        var i = 16; val end = 16 + w * h * 4
+        var i = off; val end = off + w * h * 4
         while (i < end) { // pré-multiplica (o Canvas do Android só desenha bitmaps pré-multiplicados); quase tudo é opaco
             val a = b[i + 3].toInt() and 255
             if (a != 255) {
@@ -64,7 +77,7 @@ class PageView(ctx: Context) : View(ctx) {
             i += 4
         }
         val sw = try { Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888) } catch (_: Throwable) { return }
-        sw.copyPixelsFromBuffer(ByteBuffer.wrap(b, 16, w * h * 4))
+        sw.copyPixelsFromBuffer(ByteBuffer.wrap(b, off, w * h * 4))
         /* v1.46.2: bitmap de HARDWARE (fica na GPU, enviado uma vez só). Com ~130 bitmaps comuns, o Android reenviava as texturas e o
            benchmark no Pad 7 mostrou quase todos os quadros lentos por "Slow issue draw commands". Se a cópia falhar, fica o comum. */
         val hw = try { sw.copy(Bitmap.Config.HARDWARE, false) } catch (_: Throwable) { null }

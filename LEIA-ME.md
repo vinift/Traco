@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.46.6
+
+- Rolagem e zoom mais leves no Traço Nativo (APK novo): durante o gesto, os pedaços da página que ficam prontos são entregues ao Android aos poucos (sem travar o quadro), e cada pedaço vai sem uma cópia extra de 1 MB. Enquanto um pedaço novo não chega, aparece o anterior por um instante.
+
 ## Novidades da v1.46.5
 
 - Zoom mais leve no Traço Nativo (APK novo): a sombra das páginas agora é desenhada com contornos simples. Antes, a cada quadro do zoom, o Android recalculava uma sombra desfocada do tamanho da página inteira. O visual é praticamente o mesmo.
