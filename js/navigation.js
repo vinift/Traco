@@ -197,9 +197,10 @@ const Palm = {
      (dx ≥ Z.dx e dy ≥ Z.dy em px de tela, em relação à ponta; espelhado para canhoto) é palma. Só com uma nota aberta. */
   zoneHit(e) {
     const S = Store.settings, Z = S.palmZone; if (!Z || !Z.on || (S.hand || 'right') === 'none' || typeof Editor === 'undefined' || !Editor.note) return false;
-    if (performance.now() - this.ct > (Z.ms || 600)) return false; /* v1.45.5: o prazo conta do último contato; pairar perto da tela não renova (renovava sem parar e barrava o dedo depois de escrever) */
+    const dt = performance.now() - this.ct; if (dt > this.LONG_MS) return false; /* v1.46.8: depois do prazo curto (Z.ms), a zona continua valendo até LONG_MS (palma apoiada à direita/abaixo depois de escrever — relatório de 28/11) */
     const dx = (e.clientX - this.pen.x) * (S.hand === 'left' ? -1 : 1), dy = e.clientY - this.pen.y;
-    return dx >= (Z.dx ?? -40) && dy >= (Z.dy ?? -120);
+    if (!(dx >= (Z.dx ?? -40) && dy >= (Z.dy ?? -120))) return false;
+    return dt > (Z.ms || 600) ? 2 : 1; /* 2 = zona longa: precisa arrastar mais (HOLD_LONG) para virar dedo */
   },
   size() { return +Store.settings.palmSize || 40; },
   big(w, h) { return w >= this.size() || h >= this.size(); },
@@ -210,9 +211,9 @@ const Palm = {
     for (const t of ['pointermove', 'pointerdown', 'pointerup']) addEventListener(t, penSeen, { capture: true, passive: true });
     addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'touch' || this.pass.has(e.pointerId)) return; this.last = Math.round(Math.max(e.width || 0, e.height || 0));
-      const why = !this.on() ? '' : this.big(e.width, e.height) ? 'tamanho' : this.penDown() ? 'caneta' : this.zoneHit(e) ? 'zona' : '';
+      const why = !this.on() ? '' : this.big(e.width, e.height) ? 'tamanho' : this.penDown() ? 'caneta' : (this._zk = this.zoneHit(e)) ? 'zona' : '';
       if (typeof BugRec !== 'undefined' && typeof Editor !== 'undefined' && Editor.note) BugRec.push('tch', { why: why || 'ok', w: this.last, dc: Math.round(performance.now() - this.ct), dh: Math.round(performance.now() - this.pen.t), dx: Math.round(e.clientX - this.pen.x), dy: Math.round(e.clientY - this.pen.y) }); /* v1.45.5: diagnóstico do toque barrado */
-      if (why === 'zona') { this.hold.set(e.pointerId, { x: e.clientX, y: e.clientY, tg: e.target, w: e.width, h: e.height, prim: e.isPrimary }); stop(e); return; } /* v1.45.8: em espera — vira dedo se arrastar */
+      if (why === 'zona') { this.hold.set(e.pointerId, { x: e.clientX, y: e.clientY, tg: e.target, w: e.width, h: e.height, prim: e.isPrimary, px: this._zk === 2 ? this.HOLD_LONG : this.HOLD_PX }); stop(e); return; } /* v1.45.8: em espera — vira dedo se arrastar */
       if (why) { this.ids.add(e.pointerId); stop(e); }
     }, true);
     addEventListener('pointermove', (e) => {
@@ -220,7 +221,7 @@ const Palm = {
       const hd = this.hold.get(e.pointerId);
       if (hd) {
         if (!this.on() || this.penDown() || this.big(e.width, e.height)) { this.hold.delete(e.pointerId); this.ids.add(e.pointerId); return stop(e); }
-        if (Math.hypot(e.clientX - hd.x, e.clientY - hd.y) < this.HOLD_PX) return stop(e);
+        if (Math.hypot(e.clientX - hd.x, e.clientY - hd.y) < (hd.px || this.HOLD_PX)) return stop(e);
         this.promote(e.pointerId, hd); /* arrastou de verdade: entrega ao app como um toque normal que começou lá atrás; este move segue */
       }
       if (this.on() && this.big(e.width, e.height)) { this.ids.add(e.pointerId); this.cancel(e); stop(e); }
@@ -233,7 +234,7 @@ const Palm = {
   },
   /* v1.45.8: toque barrado pela zona da mão fica em espera (hold); se andar HOLD_PX, recebe um pointerdown no ponto onde começou
      (o gesto anda tudo, sem perder o começo) e os próximos eventos passam. Parado (palma apoiada) continua ignorado. */
-  HOLD_PX: 22, hold: new Map(), pass: new Set(),
+  HOLD_PX: 22, HOLD_LONG: 70, LONG_MS: 30000, hold: new Map(), pass: new Set(), /* v1.46.8: zona longa (até 30 s do último contato) só vira dedo com 70 px de arrasto */
   promote(id, hd) {
     this.hold.delete(id); this.pass.add(id);
     if (typeof BugRec !== 'undefined') BugRec.push('tch', { why: 'zona→dedo' });

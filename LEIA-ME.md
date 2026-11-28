@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.46.8
+
+- Palma: depois de escrever, a mão apoiada à direita e abaixo de onde a caneta escreveu continua sendo ignorada por até 30 segundos (antes, só por cerca de 1 segundo). Nesse período, um toque ali só vira dedo se for uma rolagem de verdade (arrastar bem mais que um escorregão). Os dedos da outra mão, na metade oposta, funcionam como sempre.
+
 ## Novidades da v1.46.7
 
 - Correção (APK novo): ao tirar o zoom de uma vez a partir do zoom máximo, podiam aparecer quadrados escuros, da cor de fora da nota, até a página carregar. A camada nativa liberava a memória de um pedaço trocado enquanto o Android ainda o desenhava. Agora espera um instante antes de liberar.
