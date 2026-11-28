@@ -505,7 +505,7 @@ const Editor = {
         if (!(e.width > 48 || e.height > 48)) { rec.noSnap = true; this.action.noSnap = (this.action.noSnap || 0) + 1; const ap = this.pointers.get(this.action.pid); if (ap) this.moveAction([], { clientX: ap.x + this.rect.left, clientY: ap.y + this.rect.top }); }
         return;
       }
-      if (Store.settings.palmGuard && (this.penDown || performance.now() - this.lastPenSeen < 300)) { rec.ignored = true; if (typeof BugRec !== 'undefined') BugRec.push('tch', { why: 'logo depois da caneta', ms: Math.round(performance.now() - this.lastPenSeen), pd: this.penDown ? 1 : 0 }); return; } /* v1.3.2: 500 → 300 ms; a palma grande já é barrada pelo tamanho (Palm) */
+      if (Store.settings.palmGuard && (this.penDown || (performance.now() - this.lastPenSeen < 300 && this.palmSide(e)))) { rec.ignored = true; if (typeof BugRec !== 'undefined') BugRec.push('tch', { why: 'logo depois da caneta', ms: Math.round(performance.now() - this.lastPenSeen), pd: this.penDown ? 1 : 0 }); return; } /* v1.3.2: 500 → 300 ms; a palma grande já é barrada pelo tamanho (Palm) */
       const drawingTouch = this.action && this.action.ptype === 'touch';
       if (!this.gesture && !drawingTouch && this.touchIds().length === 1 && this.sel && !this.readOnly) { // dedo também move, redimensiona e gira a seleção
         const k = this.tableFingerLock() && this.selElements().some((x) => x.type === 'table') ? null : this.selHit(p); /* v1.4.1: tabela travada para o dedo no zoom alto */
@@ -525,6 +525,13 @@ const Editor = {
     const p = this.pt(e); rec.x = p.x; rec.y = p.y; this.lastPenSeen = performance.now(); this.lastInput = Date.now(); a.raw2 = true;
     const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
     this.moveAction(evs && evs.length ? evs : [e], e);
+  },
+  /* v1.45.7: a janela de 300 ms depois da caneta só barra toque do lado da mão que escreve. Com a zona da mão calibrada, o Palm
+     (tamanho + zona) já cuida disso e a janela não barra nada; sem ela, toque a mais de 100 px do outro lado da ponta é dedo. */
+  palmSide(e) {
+    const S = Store.settings; if (typeof Palm === 'undefined') return true; if (S.palmZone && S.palmZone.on) return false;
+    if ((S.hand || 'right') === 'none') return true;
+    return (e.clientX - Palm.pen.x) * (S.hand === 'left' ? -1 : 1) > -100;
   },
   onMove(e) {
     if (e.buttons || e.pressure) this.lastInput = Date.now();
