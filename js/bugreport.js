@@ -80,6 +80,8 @@ const BugRec = {
   async capture(src) {
     this.sample(); const now = Date.now(), ev = this.ev.filter((x) => x.t >= now - 30000).map((x) => Object.assign({}, x, { t: x.t - now }));
     const rep = { id: uid(), at: now, src, desc: '', estado: this.state(), eventos: ev };
+    /* v1.46.1: print da tela no app nativo, tirado ANTES da janela abrir (vai junto para o Drive e no Compartilhar) */
+    const shotP = typeof Native !== 'undefined' && Native.on && typeof TracoNative !== 'undefined' && TracoNative.screenshot ? Promise.race([Native.ask('screenshot', 0.5), new Promise((r) => setTimeout(() => r({}), 4000))]).catch(() => ({})) : Promise.resolve({});
     const tr = ev.filter((x) => x.k === 'trim').length, cx = ev.filter((x) => x.k === 'ctx').length;
     const g = ev.filter((x) => x.k === 'fr'), slow = g.reduce((a, x) => a + x.slow, 0), hid = ev.filter((x) => x.k === 's' && this.oddHidden(x)).length;
     const ta = el('textarea', { class: 'br-desc', rows: 3, placeholder: 'O que você viu? (ex.: a barra da direita sumiu ao dar zoom)' });
@@ -89,22 +91,33 @@ const BugRec = {
       buttons: [{ label: 'Descartar', value: false }, { label: 'Salvar', cls: 'primary', value: true }] });
     if (!ok) return;
     rep.desc = ta.value.trim();
+    const sh = await shotP; if (sh && sh.jpg) rep.print = sh.jpg;
     const list = (await DB.get('meta', 'bugReports')) || []; list.unshift(rep); await DB.put('meta', list.slice(0, 20), 'bugReports');
-    toast('Relatório salvo · Configurações → Avançado → Diagnóstico', 2600);
+    if (this.driveOn()) { toast('Relatório salvo · enviando ao Drive…', 2600); this.toDrive(rep); }
+    else toast('Relatório salvo · Configurações → Avançado → Diagnóstico', 2600);
   },
-  fname(r) { const d = new Date(r.at), f = (x) => String(x).padStart(2, '0'); return `traco-bug-${d.getFullYear()}-${f(d.getMonth() + 1)}-${f(d.getDate())}-${f(d.getHours())}${f(d.getMinutes())}.json`; },
+  fname(r) { const d = new Date(r.at), f = (x) => String(x).padStart(2, '0'); return `traco-bug-${d.getFullYear()}-${f(d.getMonth() + 1)}-${f(d.getDate())}-${f(d.getHours())}${f(d.getMinutes())}${f(d.getSeconds())}-${String(r.id).slice(-4)}.json`; },
+  /* v1.46.1: envio automático ao Google Drive (S.bugDrive, padrão ligado; só com o backup no Drive conectado) */
+  driveOn() { return Store.settings.bugDrive !== false && typeof Drive !== 'undefined' && Drive.configured() && Drive.hasAuth(); },
+  async toDrive(r, quiet) {
+    const { print, ...data } = r;
+    try { await Drive.uploadReport(data, print); await this.mark(r.id, 'ok'); if (!quiet) toast('Relatório enviado ao Drive', 1800); return true; }
+    catch (e) { await this.mark(r.id, 'erro'); toast('Não deu para enviar o relatório ao Drive: ' + (e.message || e) + ' — use Compartilhar', 5000); return false; }
+  },
+  async mark(id, st) { const list = (await DB.get('meta', 'bugReports')) || []; const x = list.find((y) => y.id === id); if (x) { x.drive = st; await DB.put('meta', list, 'bugReports'); } },
   async share(r) {
     const txt = JSON.stringify(r, null, 1), file = new File([txt], this.fname(r), { type: 'application/json' });
     try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Traço — problema visual' }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
     downloadBlob(file, file.name);
   },
-  async copy(r) { const txt = JSON.stringify(r); try { await navigator.clipboard.writeText(txt); toast('Relatório copiado — cole na conversa', 2000); } catch (_) { openModal({ title: 'Relatório', wide: true, body: el('textarea', { style: { width: '100%', height: '300px' } }, txt), buttons: [{ label: 'Fechar', cls: 'primary' }] }); } },
+  async copy(r) { const { print, ...rest } = r; const txt = JSON.stringify(rest); /* v1.46.1: sem o print (texto grande demais para colar) */ try { await navigator.clipboard.writeText(txt); toast('Relatório copiado — cole na conversa', 2000); } catch (_) { openModal({ title: 'Relatório', wide: true, body: el('textarea', { style: { width: '100%', height: '300px' } }, txt), buttons: [{ label: 'Fechar', cls: 'primary' }] }); } },
   /* lista para as Configurações */
   listEl() {
     const box = el('div', { class: 'br-list' });
     const render = async () => {
       const list = (await DB.get('meta', 'bugReports')) || []; box.innerHTML = '';
       box.append(el('h4', { class: 'set-sub' }, 'Relatórios de problema visual'));
+      box.append(UI.check('Enviar cada relatório ao Google Drive (Traço Notas › Relatórios de problema; precisa do backup no Drive conectado)', Store.settings.bugDrive !== false, (v) => { Store.settings.bugDrive = v; Store.saveSettings(); })); /* v1.46.1 */
       if (!list.length) { box.append(el('p', {}, 'Nenhum ainda. Na nota: ⋯ → "Relatar problema visual" ou toque com 4 dedos na hora em que notar algo.')); return; }
       for (const r of list) {
         const ev = r.eventos || [], slow = ev.filter((x) => x.k === 'fr').reduce((a, x) => a + x.slow, 0);
@@ -113,6 +126,7 @@ const BugRec = {
           el('div', { class: 'br-btns' },
             el('button', { class: 'btn', onclick: () => this.share(r) }, 'Compartilhar'),
             el('button', { class: 'btn', onclick: () => this.copy(r) }, 'Copiar'),
+            el('button', { class: 'btn', title: 'Enviar ao Google Drive', onclick: async () => { if (!Drive.configured() || !Drive.hasAuth()) { toast('Conecte o backup no Drive primeiro', 2500); return; } toast('Enviando…', 1200); if (await this.toDrive(r)) render(); } }, r.drive === 'ok' ? '☁ No Drive' : 'Drive'),
             el('button', { class: 'btn ghost danger', onclick: async () => { const l = ((await DB.get('meta', 'bugReports')) || []).filter((x) => x.id !== r.id); await DB.put('meta', l, 'bugReports'); render(); } }, 'Excluir'))));
       }
     };

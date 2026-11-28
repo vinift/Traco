@@ -61,6 +61,29 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun pgScene(json: String) = a.page.scene(json)
     @JavascriptInterface fun pgClear() = a.page.clear()
     @JavascriptInterface fun pgStat(): String = a.page.stat()
+    /* v1.46.1: print da janela inteira (WebView + página nativa; a tinta ao vivo, que é outra superfície, não entra) para o relatório de bug.
+       Responde {jpg: base64} (escala 0,1–1, JPEG 72) ou {error} */
+    @JavascriptInterface fun screenshot(id: Int, scale: Double) {
+        a.runOnUiThread {
+            try {
+                val v = a.window.decorView; val w = v.width; val h = v.height
+                if (w <= 0 || h <= 0) { reply(id, JSONObject().put("error", "sem tela")); return@runOnUiThread }
+                val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+                android.view.PixelCopy.request(a.window, bmp, { r ->
+                    if (r != android.view.PixelCopy.SUCCESS) { bmp.recycle(); reply(id, JSONObject().put("error", "PixelCopy $r")); return@request }
+                    Thread {
+                        try {
+                            val k = scale.coerceIn(0.1, 1.0); val sc = android.graphics.Bitmap.createScaledBitmap(bmp, (w * k).toInt().coerceAtLeast(1), (h * k).toInt().coerceAtLeast(1), true)
+                            val out = java.io.ByteArrayOutputStream(); sc.compress(android.graphics.Bitmap.CompressFormat.JPEG, 72, out)
+                            if (sc !== bmp) sc.recycle(); bmp.recycle()
+                            reply(id, JSONObject().put("jpg", Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)))
+                        } catch (e: Throwable) { reply(id, JSONObject().put("error", e.message ?: "erro")) }
+                    }.start()
+                }, android.os.Handler(android.os.Looper.getMainLooper()))
+            } catch (e: Throwable) { reply(id, JSONObject().put("error", e.message ?: "erro")) }
+        }
+    }
+
     @JavascriptInterface fun inputLog(): String = synchronized(a.inLog) { JSONArray(a.inLog.toList()).toString() }
     @JavascriptInterface fun inkGo(style: String): Int = a.ink.go(style)
     @JavascriptInterface fun inkClear(ids: String) = a.ink.clear(ids)

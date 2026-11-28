@@ -309,6 +309,22 @@ const Drive = {
   /* v0.57: PDF exportado (qualidade escolhida) vai para a pasta da nota no Drive no lugar do PDF do backup (mesma chave 'p:<id>').
      Tira o PDF pendente do backup dessa nota para ele não sobrescrever logo em seguida; na próxima edição o backup gera de novo
      com a qualidade das Configurações (escolha do usuário). Arquivo > 5 MB → envio em partes (uploadResumable cria um novo e o antigo vai para a lixeira). */
+  /* v1.46.1: relatório de problema → Traço Notas › Relatórios de problema (json + print jpg). Arquivos novos a cada vez (não entram no driveMap, só a pasta 'bugs').
+     Outra conta do Claude com o conector do Google Drive lê esses arquivos; sem ele, os relatórios continuam saindo por Compartilhar/Copiar. */
+  async uploadReport(rep, jpg) {
+    if (!this.configured() || !this.hasAuth()) throw new Error('Drive não conectado');
+    const job = async () => {
+      const root = await this.ensureFolder(); let e = this.entry('bugs'), dir = e && e.id;
+      if (dir) { try { const f = await this.api('GET', `https://www.googleapis.com/drive/v3/files/${dir}?fields=id,trashed`); if (f.trashed) dir = null; } catch (er) { if (er.status !== 404) throw er; dir = null; } }
+      if (!dir) { dir = (await this.createFolder('Relatórios de problema', root, { traco: 'bugs' })).id; await this.setEntry('bugs', { id: dir, parent: root }); }
+      const create = (name, mime, data) => { const b = 'traco' + uid(), body = new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name, parents: [dir], mimeType: mime, appProperties: { traco: 'bug', bugId: rep.id } })}\r\n--${b}\r\nContent-Type: ${mime}\r\n\r\n`, data, `\r\n--${b}--`]); return this.api('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { body, headers: { 'Content-Type': 'multipart/related; boundary=' + b } }); };
+      const base = BugRec.fname(rep).replace(/\.json$/, '');
+      const f = await create(base + '.json', 'application/json', JSON.stringify(rep, null, 1));
+      if (jpg) { const bin = atob(jpg), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); await create(base + '.jpg', 'image/jpeg', new Blob([u], { type: 'image/jpeg' })); }
+      return f.id;
+    };
+    return navigator.locks ? navigator.locks.request('traco-drive', job) : job();
+  },
   async uploadExportPdf(note, blob) {
     if (!this.configured() || !this.hasAuth()) throw new Error('Drive não conectado');
     const job = async () => {

@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.46.1
+
+- Os relatórios de problema (toque com 4 dedos) vão sozinhos para o seu Google Drive, na pasta "Traço Notas › Relatórios de problema". No Traço Nativo (APK novo), cada um leva também um print da tela do momento. Não precisa mais copiar e colar. Dá para desligar em Configurações → Avançado → Diagnóstico, onde também há um botão "Drive" para mandar os relatórios antigos. "Compartilhar" e "Copiar" continuam lá.
+
 ## Novidades da v1.46.0
 
 - **Desenho nativo da nota (1ª etapa, Traço Nativo, precisa do APK novo).** A página da nota passa a ser mostrada pelo Android, numa camada atrás do app, e não mais dentro do navegador. O desenho e a qualidade continuam iguais. A ideia é que botões, barras, Configurações e canetas parem de piscar: eles disputavam a memória de desenho do navegador com a nota.
