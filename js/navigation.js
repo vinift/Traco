@@ -197,10 +197,11 @@ const Palm = {
      (dx ≥ Z.dx e dy ≥ Z.dy em px de tela, em relação à ponta; espelhado para canhoto) é palma. Só com uma nota aberta. */
   zoneHit(e) {
     const S = Store.settings, Z = S.palmZone; if (!Z || !Z.on || (S.hand || 'right') === 'none' || typeof Editor === 'undefined' || !Editor.note) return false;
-    const dt = performance.now() - this.ct; if (dt > this.LONG_MS) return false; /* v1.46.8: depois do prazo curto (Z.ms), a zona continua valendo até LONG_MS (palma apoiada à direita/abaixo depois de escrever — relatório de 28/11) */
+    const now = performance.now(), hov = !this.pen.down && now - this.pen.t < 400; /* v1.46.9: caneta pairando perto (mão chegando para escrever) */
+    const dt = now - this.ct; if (dt > this.LONG_MS && !hov) return false; /* v1.46.8: depois do prazo curto (Z.ms), a zona continua valendo até LONG_MS (palma apoiada à direita/abaixo depois de escrever — relatório de 28/11) */
     const dx = (e.clientX - this.pen.x) * (S.hand === 'left' ? -1 : 1), dy = e.clientY - this.pen.y;
     if (!(dx >= (Z.dx ?? -40) && dy >= (Z.dy ?? -120))) return false;
-    return dt > (Z.ms || 600) ? 2 : 1; /* 2 = zona longa: precisa arrastar mais (HOLD_LONG) para virar dedo */
+    return hov || dt > (Z.ms || 600) ? 2 : 1; /* 2 = zona longa: precisa arrastar mais (HOLD_LONG) para virar dedo */
   },
   size() { return +Store.settings.palmSize || 40; },
   big(w, h) { return w >= this.size() || h >= this.size(); },
