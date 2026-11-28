@@ -212,22 +212,28 @@ const Palm = {
     for (const t of ['pointermove', 'pointerdown', 'pointerup']) addEventListener(t, penSeen, { capture: true, passive: true });
     addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'touch' || this.pass.has(e.pointerId)) return; this.ids.delete(e.pointerId); this.hold.delete(e.pointerId); /* v1.46.12: id reaproveitado = o toque antigo já acabou (se o fim dele se perdeu, o id ficava barrado e o toque novo travava no editor) */ this.last = Math.round(Math.max(e.width || 0, e.height || 0));
-      const why = !this.on() ? '' : this.big(e.width, e.height) ? 'tamanho' : this.penDown() ? 'caneta' : (this._zk = this.zoneHit(e)) ? 'zona' : '';
+      let why = !this.on() ? '' : this.big(e.width, e.height) ? 'tamanho' : this.penDown() ? 'caneta' : (this._zk = this.zoneHit(e)) ? 'zona' : '';
+      const now = performance.now();
+      /* v1.46.13: vários dedos ao mesmo tempo (pinça, 2/3/4 dedos) com um deles FORA da zona da mão = gesto de dedos, não palma.
+         Relatório de 28/11: o toque de 4 dedos tinha 1 dedo "ok" e 3 na zona (até 30 s depois de escrever) → o relatório não abria e parecia travado */
+      if (why === 'zona' && this.okDown.size && now - this.okT < this.BURST_MS) { why = ''; if (typeof BugRec !== 'undefined') BugRec.push('tch', { why: 'zona→gesto' }); }
       if (typeof BugRec !== 'undefined' && typeof Editor !== 'undefined' && Editor.note) BugRec.push('tch', { why: why || 'ok', w: this.last, dc: Math.round(performance.now() - this.ct), dh: Math.round(performance.now() - this.pen.t), dx: Math.round(e.clientX - this.pen.x), dy: Math.round(e.clientY - this.pen.y) }); /* v1.45.5: diagnóstico do toque barrado */
-      if (why === 'zona' && this.PROMOTE) { this.hold.set(e.pointerId, { x: e.clientX, y: e.clientY, tg: e.target, w: e.width, h: e.height, prim: e.isPrimary, px: this._zk === 2 ? this.HOLD_LONG : this.HOLD_PX }); stop(e); return; } /* v1.45.8: em espera — vira dedo se arrastar */
-      if (why) { this.ids.add(e.pointerId); stop(e); }
+      if (why === 'zona') { this.hold.set(e.pointerId, { t: now, x: e.clientX, y: e.clientY, tg: e.target, w: e.width, h: e.height, prim: e.isPrimary, px: this._zk === 2 ? this.HOLD_LONG : this.HOLD_PX }); stop(e); return; } /* em espera: vira dedo se um dedo de fora da zona encostar junto (v1.46.13) ou, com PROMOTE, se arrastar (v1.45.8) */
+      if (why) { this.ids.add(e.pointerId); stop(e); return; }
+      this.okDown.add(e.pointerId); this.okT = now;
+      for (const [id, hd] of [...this.hold]) if (now - hd.t < this.BURST_MS) { if (typeof BugRec !== 'undefined') BugRec.push('tch', { why: 'zona→gesto' }); this.promote(id, hd); } /* os da zona que encostaram logo antes deste dedo */
     }, true);
     addEventListener('pointermove', (e) => {
       if (e.pointerType !== 'touch') return; if (this.ids.has(e.pointerId)) return stop(e);
       const hd = this.hold.get(e.pointerId);
       if (hd) {
         if (!this.on() || this.penDown() || this.big(e.width, e.height)) { this.hold.delete(e.pointerId); this.ids.add(e.pointerId); return stop(e); }
-        if (Math.hypot(e.clientX - hd.x, e.clientY - hd.y) < (hd.px || this.HOLD_PX)) return stop(e);
+        if (!this.PROMOTE || Math.hypot(e.clientX - hd.x, e.clientY - hd.y) < (hd.px || this.HOLD_PX)) return stop(e);
         this.promote(e.pointerId, hd); /* arrastou de verdade: entrega ao app como um toque normal que começou lá atrás; este move segue */
       }
       if (this.on() && this.big(e.width, e.height)) { this.ids.add(e.pointerId); this.cancel(e); stop(e); }
     }, true);
-    for (const t of ['pointerup', 'pointercancel']) addEventListener(t, (e) => { this.pass.delete(e.pointerId); if (this.hold.has(e.pointerId)) { this.hold.delete(e.pointerId); this.lastUp = performance.now(); return stop(e); } if (!this.ids.has(e.pointerId)) return; this.ids.delete(e.pointerId); this.lastUp = performance.now(); stop(e); }, true);
+    for (const t of ['pointerup', 'pointercancel']) addEventListener(t, (e) => { this.pass.delete(e.pointerId); this.okDown.delete(e.pointerId); if (this.hold.has(e.pointerId)) { this.hold.delete(e.pointerId); this.lastUp = performance.now(); return stop(e); } if (!this.ids.has(e.pointerId)) return; this.ids.delete(e.pointerId); this.lastUp = performance.now(); stop(e); }, true);
     /* o clique que o navegador gera no fim do toque da palma, e a rolagem nativa (listas da biblioteca, janelas) */
     addEventListener('click', (e) => { if (this.ids.size || performance.now() - this.lastUp < 500) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
     /* v1.46.12: rede de segurança — com TODOS os dedos fora da tela, nenhum toque pode continuar "encostado" no app (um fim de toque perdido
@@ -240,6 +246,7 @@ const Palm = {
   },
   /* v1.45.8: toque barrado pela zona da mão fica em espera (hold); se andar HOLD_PX, recebe um pointerdown no ponto onde começou
      (o gesto anda tudo, sem perder o começo) e os próximos eventos passam. Parado (palma apoiada) continua ignorado. */
+  BURST_MS: 150, okDown: new Set(), okT: -1e9, /* v1.46.13: dedos "ok" encostados agora e a hora do último */
   PROMOTE: false, /* v1.46.10: "arrastou = dedo" desligado (a palma escorregando mexia a tela); toque na zona da mão fica barrado como até a v1.45.7 */
   HOLD_PX: 22, HOLD_LONG: 70, LONG_MS: 30000, hold: new Map(), pass: new Set(), /* v1.46.8: zona longa (até 30 s do último contato) só vira dedo com 70 px de arrasto */
   promote(id, hd) {
@@ -249,7 +256,7 @@ const Palm = {
     try { tg.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, pointerId: id, pointerType: 'touch', isPrimary: !!hd.prim, clientX: hd.x, clientY: hd.y, screenX: hd.x, screenY: hd.y, width: hd.w || 1, height: hd.h || 1, pressure: 0.5, button: 0, buttons: 1 })); } catch (err) { logError(err, 'palma'); }
   },
   sweep() {
-    this.ids.clear(); this.hold.clear(); this.pass.clear();
+    this.ids.clear(); this.hold.clear(); this.pass.clear(); this.okDown.clear();
     try {
       if (typeof Editor === 'undefined' || !Editor.pointers) return; let n = 0;
       for (const [id, r] of [...Editor.pointers]) if (r && r.type === 'touch') { n++; this.cancel({ pointerId: id, clientX: (r.x || 0) + ((Editor.rect && Editor.rect.left) || 0), clientY: (r.y || 0) + ((Editor.rect && Editor.rect.top) || 0), width: 0, height: 0 }); Editor.pointers.delete(id); }

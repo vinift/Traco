@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.46.13
+
+- Gestos com vários dedos (4 dedos para o relatório, pinça, 2/3 dedos para desfazer/refazer) voltam a funcionar logo depois de escrever: se pelo menos um dos dedos está fora da área da mão, os outros contam como dedos, não como palma. A palma sozinha continua ignorada.
+
 ## Novidades da v1.46.12
 
 - Toque "preso": se o fim de um toque se perder (o app passava a achar que um dedo continuava na tela, e aí nada rolava nem o relatório de 4 dedos funcionava), agora basta tirar todos os dedos da tela que o app solta o toque fantasma sozinho.
