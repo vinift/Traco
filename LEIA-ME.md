@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.46.5
+
+- Zoom mais leve no Traço Nativo (APK novo): a sombra das páginas agora é desenhada com contornos simples. Antes, a cada quadro do zoom, o Android recalculava uma sombra desfocada do tamanho da página inteira. O visual é praticamente o mesmo.
+
 ## Novidades da v1.46.4
 
 - Menos trabalho à toa depois de rolar ou dar zoom (APK novo). Logo depois de um gesto, o app prepara em segundo plano os pedaços da página em volta da tela. Antes, cada pedaço pronto fazia a tela inteira ser redesenhada, mesmo quando ele estava fora da vista. No teste no tablet isso dava uns 38 quadros por segundo de desenho inútil por alguns segundos, refazendo o vidro da tela cheia toda vez. Agora só redesenha quando o pedaço aparece. Parado de verdade, o app já não desenhava nada (0 quadros, medido no tablet).

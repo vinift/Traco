@@ -37,8 +37,9 @@ class PageView(ctx: Context) : View(ctx) {
     private var scene: Scene? = null
     private val pBmp = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val pPaper = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val pShadow = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val pShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val r = RectF()
+    private val sr = RectF()
 
     init { setWillNotDraw(false) }
 
@@ -159,8 +160,13 @@ class PageView(ctx: Context) : View(ctx) {
             for (f in frames) { // papel + sombra (como o box-shadow do .pgf, que também escala com o zoom) + miniatura
                 r.set(f.x * k, f.y * k, (f.x + f.w) * k, (f.y + f.h) * k)
                 if (c.quickReject(r.left - 12f * k, r.top - 12f * k, r.right + 12f * k, r.bottom + 12f * k, Canvas.EdgeType.AA)) continue // fora da tela
-                pShadow.color = Color.WHITE; pShadow.setShadowLayer(8f * k / 2f, 0f, 1f * k, 0x29000000)
-                c.drawRect(r, pShadow)
+                /* v1.46.5: sombra em 4 contornos translúcidos (antes setShadowLayer com desfoque: a cada quadro de zoom o tamanho mudava
+                   e o Android refazia o desfoque da página inteira). Mesmo visual do box-shadow 0 1px 8px rgba(0,0,0,.16), sem desfoque. */
+                val sd = (2.2f * k).coerceIn(1f, 14f); pShadow.strokeWidth = sd
+                for (j in 4 downTo 1) {
+                    val e = sd * (j - 0.5f); pShadow.color = Color.argb(8 + (4 - j) * 7, 0, 0, 0) // só anéis (contorno), sem preencher a página 4 vezes
+                    sr.set(r.left - e, r.top - e + sd * 0.5f, r.right + e, r.bottom + e + sd * 0.5f); c.drawRoundRect(sr, e, e, pShadow)
+                }
                 pPaper.color = f.color; c.drawRect(r, pPaper)
                 val pb = prevOf[f.pid]?.let { bmps[it] } ?: prevLast[f.pid]?.let { bmps[it] }
                 if (pb != null && !pb.isRecycled) c.drawBitmap(pb, null, r, pBmp)
