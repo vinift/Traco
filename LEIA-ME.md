@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.46.11
+
+- Desenho nativo da nota: ao tirar (ou dar) o zoom de uma vez, a imagem anterior fica na tela até os pedaços novos chegarem, em vez de aparecerem quadrados escuros (o papel sem a grade) por um instante. Precisa do Traço Nativo novo (baixe o APK de novo).
+
 ## Novidades da v1.46.10
 
 - Palma: volta ao jeito de antes. Toque do lado da mão que escreve (à direita e abaixo da caneta) é ignorado por inteiro, mesmo se a palma escorregar, e o tempo volta a contar também da caneta perto da tela. Agora vale por até 30 s depois da última vez que a caneta foi vista. Os dedos da outra mão (lado oposto) funcionam normalmente.

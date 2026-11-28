@@ -48,7 +48,7 @@ const NatPage = {
   drain() {
     const t0 = performance.now(), lim = this.busy() ? 6 : 30;
     while (this._sq.length && performance.now() - t0 < lim) { const cv = this._sq.shift(); cv._nq = 0; if (cv._nid && cv.width && (!cv._ns || cv._nd)) this.send(cv); }
-    if (this._sq.length) this.drainLater(); else this.flush();
+    if (this._sq.length) this.drainLater(); else { this.flush(); if (typeof Editor !== 'undefined' && Editor.note && Editor._fbLvl != null) Editor.requestRender(); } /* v1.46.11: fila vazia → a página pode tirar a reserva */
   },
   /* apagar vai pelo MESMO canal dos pixels e só depois deles (fila _fq, enviada no fim do quadro): o bloco velho continua na tela
      até o novo chegar — pela ponte, o apagar chegava antes dos pixels e o pedaço piscava (só a miniatura por um instante) */

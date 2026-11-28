@@ -35,6 +35,12 @@ class PageView(ctx: Context) : View(ctx) {
     private val freed = LinkedHashSet<Int>()
     private var frames: List<Frame> = emptyList()
     private var scene: Scene? = null
+    /* v1.46.11: níveis que saíram da cena continuam sendo desenhados (por baixo) enquanto algum bloco visível dos níveis novos ainda
+       não chegou, no máximo LINGER_MS. A página tira a reserva assim que DESENHA os blocos novos, mas os pixels chegam aqui alguns
+       quadros depois (outro canal/thread) → nesse vão aparecia só o papel: "quadrados escuros ao tirar o zoom, depois carrega" */
+    private var linger: List<Double> = emptyList()
+    private var lingerT = 0L
+    private val LINGER_MS = 1500L
     private val pBmp = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val pPaper = Paint(Paint.ANTI_ALIAS_FLAG)
     private val pShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
@@ -149,18 +155,30 @@ class PageView(ctx: Context) : View(ctx) {
             lv.sortBy { it.third }
             Scene(o.optDouble("sl").toFloat(), o.optDouble("st").toFloat(), o.optDouble("sw").toFloat(), o.optDouble("sh").toFloat(), o.optDouble("d", 1.0).toFloat(), color(o.optString("desk"), Color.LTGRAY), o.optDouble("tx").toFloat(), o.optDouble("ty").toFloat(), o.optDouble("z", 1.0).toFloat(), lv)
         } catch (_: Exception) { null }
-        synchronized(lock) { scene = sc }
+        var later = false
+        synchronized(lock) {
+            val old = scene
+            if (sc != null && old != null) {
+                val now = sc.lv.map { it.first }.toSet()
+                val gone = old.lv.map { it.first }.filter { it !in now }
+                val keep = linger.filter { it !in now }
+                if (gone.isNotEmpty()) { linger = (gone + keep).distinct().take(3); lingerT = android.os.SystemClock.uptimeMillis(); later = true }
+                else linger = keep
+            } else linger = emptyList()
+            scene = sc
+        }
         postInvalidateOnAnimation()
+        if (later) postInvalidateDelayed(LINGER_MS + 50)
     }
 
     fun clear() {
-        synchronized(lock) { places.clear(); prevOf.clear(); prevLast.clear(); frames = emptyList(); scene = null } // os bitmaps saem pelo canal (tipo 2), na ordem dos pixels
+        synchronized(lock) { places.clear(); prevOf.clear(); prevLast.clear(); frames = emptyList(); scene = null; linger = emptyList() } // os bitmaps saem pelo canal (tipo 2), na ordem dos pixels
         postInvalidateOnAnimation()
     }
 
     fun reset() {
         val olds: List<Bitmap>
-        synchronized(lock) { olds = bmps.values.toList(); bmps.clear(); freed.clear(); places.clear(); prevOf.clear(); prevLast.clear(); frames = emptyList(); scene = null }
+        synchronized(lock) { olds = bmps.values.toList(); bmps.clear(); freed.clear(); places.clear(); prevOf.clear(); prevLast.clear(); frames = emptyList(); scene = null; linger = emptyList() }
         for (b in olds) retire(b)
         postInvalidateOnAnimation()
     }
@@ -194,19 +212,31 @@ class PageView(ctx: Context) : View(ctx) {
                 val pb = prevOf[f.pid]?.let { bmps[it] } ?: prevLast[f.pid]?.let { bmps[it] }
                 if (pb != null && !pb.isRecycled) c.drawBitmap(pb, null, r, pBmp)
             }
-            for ((L, sc, _) in s.lv) {
-                c.save(); if (sc != 1f) c.scale(sc, sc)
-                for ((id, p) in places) {
-                    if (p.L != L) continue
-                    val b = bmps[id] ?: continue
-                    if (b.isRecycled) continue
-                    val x = p.x * d; val y = p.y * d
-                    if (c.quickReject(x, y, x + b.width, y + b.height, Canvas.EdgeType.AA)) continue // v1.46.2: bloco fora da tela não é desenhado (antes iam os ~130 a cada quadro)
-                    c.drawBitmap(b, x, y, pBmp)
+            if (linger.isNotEmpty()) { // v1.46.11: reserva antiga por baixo, só enquanto falta bloco visível dos níveis atuais
+                var missing = false
+                for ((L, sc, _) in s.lv) {
+                    if (missing) break
+                    c.save(); if (sc != 1f) c.scale(sc, sc)
+                    for ((id, p) in places) { if (p.L != L || bmps[id] != null) continue; val x = p.x * d; val y = p.y * d; if (!c.quickReject(x, y, x + 512f, y + 512f, Canvas.EdgeType.AA)) { missing = true; break } }
+                    c.restore()
                 }
-                c.restore()
+                if (!missing || android.os.SystemClock.uptimeMillis() - lingerT > LINGER_MS) linger = emptyList()
+                else for (L in linger) drawLevel(c, L, (s.z * d / L).toFloat(), d)
             }
+            for ((L, sc, _) in s.lv) drawLevel(c, L, sc, d)
             c.restore()
         }
+    }
+    private fun drawLevel(c: Canvas, L: Double, sc: Float, d: Float) {
+        c.save(); if (sc != 1f) c.scale(sc, sc)
+        for ((id, p) in places) {
+            if (p.L != L) continue
+            val b = bmps[id] ?: continue
+            if (b.isRecycled) continue
+            val x = p.x * d; val y = p.y * d
+            if (c.quickReject(x, y, x + b.width, y + b.height, Canvas.EdgeType.AA)) continue // v1.46.2: bloco fora da tela não é desenhado (antes iam os ~130 a cada quadro)
+            c.drawBitmap(b, x, y, pBmp)
+        }
+        c.restore()
     }
 }

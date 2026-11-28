@@ -272,7 +272,7 @@ Object.assign(Editor, {
       if (!want.length || want.every((w) => { const t = lv.get(w[2]); return t && !t.stale; })) { pc.changed = false; pc.lastLevel = lvl; } else { allDone = false; fbNeeded = true; }
     });
     if (!fbNeeded && lvl != null) this._curDone = true;
-    if (!fbNeeded && this._fbLvl != null && lvl != null) { const b = this.wLevels.get(this._fbLvl); if (b) b.style.display = 'none'; this._fbLvl = null; } // nível novo completo: some o antigo
+    if (!fbNeeded && this._fbLvl != null && lvl != null && !(this._natMode && NatPage._sq.length)) { /* v1.46.11: no nativo, a reserva só sai depois que os blocos novos foram enviados */ const b = this.wLevels.get(this._fbLvl); if (b) b.style.display = 'none'; this._fbLvl = null; } // nível novo completo: some o antigo
     /* E) durante zoom/rolagem: monta aos poucos a miniatura das páginas que entram na tela sem ter uma (fundo para não aparecer página em branco) */
     if (this._natMode) this.natScene(s, lvl); /* v1.46 */
     if (needPrev.length) { const t0 = performance.now(); for (const [page, pc] of needPrev) { const left = 4 - (performance.now() - t0); if (left <= 0.5) { allDone = false; break; } if (this.previewStep(page, pc, left)) this.attachPreview(page, pc); else allDone = false; } }
