@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.46.7
+
+- Correção (APK novo): ao tirar o zoom de uma vez a partir do zoom máximo, podiam aparecer quadrados escuros, da cor de fora da nota, até a página carregar. A camada nativa liberava a memória de um pedaço trocado enquanto o Android ainda o desenhava. Agora espera um instante antes de liberar.
+
 ## Novidades da v1.46.6
 
 - Rolagem e zoom mais leves no Traço Nativo (APK novo): durante o gesto, os pedaços da página que ficam prontos são entregues ao Android aos poucos (sem travar o quadro), e cada pedaço vai sem uma cópia extra de 1 MB. Enquanto um pedaço novo não chega, aparece o anterior por um instante.

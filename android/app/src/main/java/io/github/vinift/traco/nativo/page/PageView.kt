@@ -38,6 +38,16 @@ class PageView(ctx: Context) : View(ctx) {
     private val pBmp = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val pPaper = Paint(Paint.ANTI_ALIAS_FLAG)
     private val pShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    /* v1.46.7: bitmap trocado/apagado só é liberado (recycle) ~0,6 s depois. Com bitmaps de HARDWARE (v1.46.2), liberar na hora
+       podia acontecer enquanto o Android ainda desenhava o quadro anterior com ele → quadrados escuros ao tirar o zoom rápido */
+    private val retired = ArrayDeque<Pair<Long, Bitmap>>()
+    private fun retire(b: Bitmap?) {
+        val now = android.os.SystemClock.uptimeMillis()
+        synchronized(retired) {
+            if (b != null) retired.addLast(now to b)
+            while (retired.isNotEmpty() && now - retired.first().first > 600) retired.removeFirst().second.recycle()
+        }
+    }
     private val r = RectF()
     private val sr = RectF()
 
@@ -87,7 +97,7 @@ class PageView(ctx: Context) : View(ctx) {
             if (freed.contains(id)) { freed.remove(id); bmp.recycle(); return }
             old = bmps.put(id, bmp); vis = shownLocked(id, bmp.width, bmp.height)
         }
-        old?.recycle()
+        retire(old)
         if (vis) postInvalidateOnAnimation()
     }
 
@@ -108,7 +118,7 @@ class PageView(ctx: Context) : View(ctx) {
             if (kind == 1) { var o = 16; while (o + 4 <= size) { val id = bb.getInt(o); o += 4; if (!vis && shownLocked(id)) vis = true; places.remove(id); bmps.remove(id)?.let { olds.add(it) } } }
             else { vis = true; val lim = bb.getInt(16); val it = bmps.entries.iterator(); while (it.hasNext()) { val e = it.next(); if (e.key < lim) { olds.add(e.value); it.remove() } } }
         }
-        for (x in olds) x.recycle()
+        for (x in olds) retire(x)
         if (vis) postInvalidateOnAnimation()
     }
 
@@ -121,7 +131,7 @@ class PageView(ctx: Context) : View(ctx) {
             places.remove(id); old = bmps.remove(id)
             if (old == null) { freed.add(id); while (freed.size > 4000) freed.remove(freed.first()) } // os pixels ainda não chegaram: descarta quando chegarem
         }
-        old?.recycle()
+        retire(old)
         postInvalidateOnAnimation()
     }
 
@@ -151,7 +161,7 @@ class PageView(ctx: Context) : View(ctx) {
     fun reset() {
         val olds: List<Bitmap>
         synchronized(lock) { olds = bmps.values.toList(); bmps.clear(); freed.clear(); places.clear(); prevOf.clear(); prevLast.clear(); frames = emptyList(); scene = null }
-        for (b in olds) b.recycle()
+        for (b in olds) retire(b)
         postInvalidateOnAnimation()
     }
 
