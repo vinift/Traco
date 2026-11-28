@@ -541,7 +541,7 @@ const UI = {
     const page = this.tableEdit && Editor.sel ? Editor.pageById(Editor.sel.pageId) : null;
     const cur = () => (page ? page.elements.find((e) => e.id === this.tableEdit) : null);
     if (this.tableEdit && !cur()) { this.tableEdit = null; return this.closePanel(); }
-    { const e0 = cur(), nn = e0 && Tables.norm(e0); if (nn) { const u = Editor.undoStack.length; Editor.recReplace(page, e0, nn); Editor.opCommit(); if (Editor.undoStack.length > u) Editor.undoStack.pop(); } } /* v1.44.1: tabela da v1.44.0 → cabeçalho reconhecido */
+    { const e0 = cur(), nn = e0 && Tables.normTable(e0); if (nn) { const u = Editor.undoStack.length; Editor.recReplace(page, e0, nn); Editor.opCommit(); if (Editor.undoStack.length > u) Editor.undoStack.pop(); } } /* v1.44.1: tabela da v1.44.0 → cabeçalho reconhecido */
     const get = () => (cur() || st);
     const set = (patch) => {
       const e = cur();

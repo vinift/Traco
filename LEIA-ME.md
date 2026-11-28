@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.45.9
+
+- Tabela: arrastar para selecionar várias células (no modo de editar células) voltou a funcionar. Desde a v1.44.1 esse arrasto dava erro e a seleção não crescia.
+
 ## Novidades da v1.45.8
 
 - Dedo logo depois de escrever, perto da caneta: antes, a "zona da mão" (calibração da palma) descartava esse toque. Agora ele fica em espera. Se você arrastar (ou fizer pinça), ele vale como dedo e a folha anda desde o ponto onde o dedo encostou. Se ficar parado, como a palma apoiada, continua ignorado.

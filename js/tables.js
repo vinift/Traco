@@ -84,7 +84,7 @@ const Tables = {
   },
   /* v1.44.1: peças de uma tabela pronta (tParts). Tabelas da v1.44.0 tinham o cabeçalho só pintado (cellFill) — norm converte. */
   parts(e) { const p = e.tParts || {}; return { t: p.t ? 1 : 0, f: p.f ? 1 : 0, s: p.s ? 1 : 0 }; },
-  norm(e) {
+  normTable(e) {
     if (e.tParts || !e.merges || !e.merges.length) return null;
     const C = e.cols, R = e.rows, M = e.merges, has = (r, c, rs, cs) => M.some((m) => m.r === r && m.c === c && m.rs === rs && m.cs === cs);
     const T = C > 1 && has(0, 0, 1, C) ? 1 : 0, F = C > 1 && R > 1 && has(R - 1, 0, 1, C) ? 1 : 0, Sd = M.some((m) => m.c === 0 && m.cs === 1 && m.r === T && m.rs === R - T - F && m.rs > 1) ? 1 : 0;
