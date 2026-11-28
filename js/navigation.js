@@ -195,13 +195,11 @@ const Palm = {
   on() { return !this.paused && Store.settings.palmGuard !== false; },
   /* v1.9: "zona da mão" (calibração) — toque que começa logo depois da caneta ser vista (S.palmZone.ms) e do lado da mão que escreve
      (dx ≥ Z.dx e dy ≥ Z.dy em px de tela, em relação à ponta; espelhado para canhoto) é palma. Só com uma nota aberta. */
-  zoneHit(e) {
+  zoneHit(e) { /* v1.46.14: de volta à regra da v1.45.4, a pedido (o prazo longo de 30 s e o pairar barravam demais): palma = toque do lado da mão até Z.ms depois da caneta ser vista (encostada ou pairando) */
     const S = Store.settings, Z = S.palmZone; if (!Z || !Z.on || (S.hand || 'right') === 'none' || typeof Editor === 'undefined' || !Editor.note) return false;
-    const now = performance.now(), hov = !this.pen.down && now - this.pen.t < 400; /* v1.46.9: caneta pairando perto (mão chegando para escrever) */
-    const dt = now - Math.max(this.ct, this.pen.t); if (dt > this.LONG_MS && !hov) return false; /* v1.46.10: o prazo volta a contar também do pairar (como até a v1.45.4) */ /* v1.46.8: depois do prazo curto (Z.ms), a zona continua valendo até LONG_MS (palma apoiada à direita/abaixo depois de escrever — relatório de 28/11) */
+    if (performance.now() - this.pen.t > (Z.ms || 600)) return false;
     const dx = (e.clientX - this.pen.x) * (S.hand === 'left' ? -1 : 1), dy = e.clientY - this.pen.y;
-    if (!(dx >= (Z.dx ?? -40) && dy >= (Z.dy ?? -120))) return false;
-    return hov || dt > (Z.ms || 600) ? 2 : 1; /* 2 = zona longa: precisa arrastar mais (HOLD_LONG) para virar dedo */
+    return (dx >= (Z.dx ?? -40) && dy >= (Z.dy ?? -120)) ? 1 : false;
   },
   size() { return +Store.settings.palmSize || 40; },
   big(w, h) { return w >= this.size() || h >= this.size(); },

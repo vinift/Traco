@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.46.14
+
+- Palma: volta ao jeito de antes das mudanças de 28/11. A mão do lado em que você escreve só é ignorada por um instante logo depois da caneta (o tempo da calibração), não mais por 30 segundos. Continuam valendo os gestos com vários dedos (relatório de 4 dedos, pinça) e a correção do toque preso.
+
 ## Novidades da v1.46.13
 
 - Gestos com vários dedos (4 dedos para o relatório, pinça, 2/3 dedos para desfazer/refazer) voltam a funcionar logo depois de escrever: se pelo menos um dos dedos está fora da área da mão, os outros contam como dedos, não como palma. A palma sozinha continua ignorada.
