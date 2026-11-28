@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
     var pageOk = false
     private var pgPort: WebMessagePortCompat? = null
     private val pgThread by lazy { HandlerThread("traco-pg").apply { start() } }
+    val pgHandler by lazy { Handler(pgThread.looper) } /* v1.46.15: mesma fila dos pixels da página (o Bridge.inkClear passa por ela) */
     val inbox by lazy { Inbox(this) }
     private var loaded = false
 
@@ -174,7 +175,7 @@ class MainActivity : ComponentActivity() {
         try {
             pgPort?.close(); page.reset()
             val ports = WebViewCompat.createWebMessageChannel(web)
-            ports[0].setWebMessageCallback(Handler(pgThread.looper), object : WebMessagePortCompat.WebMessageCallbackCompat() {
+            ports[0].setWebMessageCallback(pgHandler, object : WebMessagePortCompat.WebMessageCallbackCompat() {
                 override fun onMessage(port: WebMessagePortCompat, message: WebMessageCompat?) {
                     if (message != null && message.type == WebMessageCompat.TYPE_ARRAY_BUFFER) page.pixels(message.arrayBuffer)
                 }

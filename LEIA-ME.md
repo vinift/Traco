@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.46.15
+
+- Letras piscando logo depois de escrever (com o desenho nativo da nota): a tinta da caneta agora só sai da tela depois que a página com a letra nova já chegou na camada nativa. Precisa do Traço Nativo novo (baixe o APK de novo).
+
 ## Novidades da v1.46.14
 
 - Palma: volta ao jeito de antes das mudanças de 28/11. A mão do lado em que você escreve só é ignorada por um instante logo depois da caneta (o tempo da calibração), não mais por 30 segundos. Continuam valendo os gestos com vários dedos (relatório de 4 dedos, pinça) e a correção do toque preso.

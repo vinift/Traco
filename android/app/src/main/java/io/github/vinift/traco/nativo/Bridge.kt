@@ -86,7 +86,12 @@ class Bridge(private val a: MainActivity) {
 
     @JavascriptInterface fun inputLog(): String = synchronized(a.inLog) { JSONArray(a.inLog.toList()).toString() }
     @JavascriptInterface fun inkGo(style: String): Int = a.ink.go(style)
-    @JavascriptInterface fun inkClear(ids: String) = a.ink.clear(ids)
+    /* v1.46.15: com o desenho nativo da nota, a tinta ao vivo só sai DEPOIS que a fila da página processou os pixels já enviados
+       (o bloco com a letra nova) e a PageView desenhou 2 quadros com ele. Antes a tinta saía primeiro → a letra piscava (relatório 28/11) */
+    @JavascriptInterface fun inkClear(ids: String) {
+        if (!a.pageOk || ids == "all") { a.ink.clear(ids); return }
+        try { a.pgHandler.post { a.page.postOnAnimation { a.page.postOnAnimation { a.ink.clear(ids) } } } } catch (_: Throwable) { a.ink.clear(ids) }
+    }
     @JavascriptInterface fun inkDebug(): String = a.ink.debugJson()
     @JavascriptInterface fun inkPts(id: Int): String = a.ink.ptsJson(id)
     @JavascriptInterface fun inkEnd(id: Int, x: Double, y: Double) = a.ink.endFrom(id, x.toFloat(), y.toFloat())
