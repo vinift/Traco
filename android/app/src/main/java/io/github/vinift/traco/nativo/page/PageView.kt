@@ -62,8 +62,12 @@ class PageView(ctx: Context) : View(ctx) {
             }
             i += 4
         }
-        val bmp = try { Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888) } catch (_: Throwable) { return }
-        bmp.copyPixelsFromBuffer(ByteBuffer.wrap(b, 16, w * h * 4))
+        val sw = try { Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888) } catch (_: Throwable) { return }
+        sw.copyPixelsFromBuffer(ByteBuffer.wrap(b, 16, w * h * 4))
+        /* v1.46.2: bitmap de HARDWARE (fica na GPU, enviado uma vez só). Com ~130 bitmaps comuns, o Android reenviava as texturas e o
+           benchmark no Pad 7 mostrou quase todos os quadros lentos por "Slow issue draw commands". Se a cópia falhar, fica o comum. */
+        val hw = try { sw.copy(Bitmap.Config.HARDWARE, false) } catch (_: Throwable) { null }
+        val bmp = if (hw != null) { sw.recycle(); hw } else sw
         val old: Bitmap?
         synchronized(lock) {
             if (freed.contains(id)) { freed.remove(id); bmp.recycle(); return }
@@ -144,7 +148,7 @@ class PageView(ctx: Context) : View(ctx) {
             val k = s.z * d
             for (f in frames) { // papel + sombra (como o box-shadow do .pgf, que também escala com o zoom) + miniatura
                 r.set(f.x * k, f.y * k, (f.x + f.w) * k, (f.y + f.h) * k)
-                if (c.quickReject(r.left - 12f * k, r.top - 12f * k, r.right + 12f * k, r.bottom + 12f * k)) continue // fora da tela
+                if (c.quickReject(r.left - 12f * k, r.top - 12f * k, r.right + 12f * k, r.bottom + 12f * k, Canvas.EdgeType.AA)) continue // fora da tela
                 pShadow.color = Color.WHITE; pShadow.setShadowLayer(8f * k / 2f, 0f, 1f * k, 0x29000000)
                 c.drawRect(r, pShadow)
                 pPaper.color = f.color; c.drawRect(r, pPaper)
@@ -157,7 +161,9 @@ class PageView(ctx: Context) : View(ctx) {
                     if (p.L != L) continue
                     val b = bmps[id] ?: continue
                     if (b.isRecycled) continue
-                    c.drawBitmap(b, p.x * d, p.y * d, pBmp)
+                    val x = p.x * d; val y = p.y * d
+                    if (c.quickReject(x, y, x + b.width, y + b.height, Canvas.EdgeType.AA)) continue // v1.46.2: bloco fora da tela não é desenhado (antes iam os ~130 a cada quadro)
+                    c.drawBitmap(b, x, y, pBmp)
                 }
                 c.restore()
             }
