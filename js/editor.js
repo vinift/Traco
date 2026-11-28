@@ -539,7 +539,7 @@ const Editor = {
       const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
       this.moveAction(evs && evs.length ? evs : [e], e); return;
     }
-    if (this.gesture) this.moveGesture();
+    if (this.gesture) { this._evT = e.timeStamp || 0; this.moveGesture(); }
   },
   onUp(e, cancel = false) {
     if (!this.note) return;
@@ -549,6 +549,7 @@ const Editor = {
     if (rec.noSnap && this.action && this.action.noSnap) { this.action.noSnap--; const ap = this.pointers.get(this.action.pid); if (ap) this.moveAction([], { clientX: ap.x + this.rect.left, clientY: ap.y + this.rect.top }); }
     if (this.action && this.action.pid === e.pointerId) { if (cancel) this.cancelAction(); else this.endAction(e); return; }
     if (this.gesture) {
+      this._upT = e.timeStamp || 0; /* v1.45.6: hora do evento (não a do processamento) */
       if (!this.touchIds().length) this.endGesture(); else this.rebaseGesture();
     }
   },
@@ -619,7 +620,7 @@ const Editor = {
       const ex = g.lock === 'free' && this.hScrollable() ? dx - (g.xoff || 0) : 0; /* v0.25.1: folha cabe entre as margens → só rolagem vertical */
       this.cam = { z: g.cam.z, x: g.cam.x - ex / g.cam.z, y: g.cam.y - dy / g.cam.z };
     }
-    if (P.length === 1) { const now = performance.now(); (g.vs = g.vs || []).push([now, this.cam.x, this.cam.y]); while (g.vs.length > 2 && now - g.vs[0][0] > 90) g.vs.shift(); } else g.vs = null;
+    if (P.length === 1) { const now = this._evT || performance.now(); this._evT = 0; /* v1.45.6: hora em que o dedo mexeu (o app ocupado logo depois do traço atrasava o processamento e matava a inércia) */ (g.vs = g.vs || []).push([now, this.cam.x, this.cam.y]); while (g.vs.length > 2 && now - g.vs[0][0] > 90) g.vs.shift(); } else g.vs = null;
     const over = P.length === 1 && g.atEnd ? (this.cam.y - this.camMaxBase()) * this.cam.z : 0; // passou do fim da última página (v0.23.6: só se o gesto começou já parado no fim)
     this.setPull(over > 0 ? over : 0);
     this.clampCam(); this._pinching = false; this.requestRender(); if (P.length >= 2) Instruments.redraw();
@@ -627,7 +628,9 @@ const Editor = {
   endGesture() {
     const g = this.gesture; this.gesture = null; if (!g) return; clearTimeout(g.holdT); if (g.wsel) return this.wordSelEnd(g); if (g.held) return;
     if (this.pull) this.releasePull();
-    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && performance.now() - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v' || !this.hScrollable());
+    else if (g.moved && g.max === 1 && g.vs && g.vs.length >= 2 && (this._upT || performance.now()) - g.vs[g.vs.length - 1][0] < 60) this.startInertia(g.vs, g.lock === 'v' || !this.hScrollable());
+    if (typeof BugRec !== 'undefined' && g.vs && g.vs.length) { const v0 = g.vs[0], v1 = g.vs[g.vs.length - 1]; BugRec.push('gi', { inercia: this._inertia ? 1 : 0, gap: Math.round((this._upT || performance.now()) - v1[0]), atraso: Math.round(performance.now() - (this._upT || performance.now())), dx: Math.round((v1[1] - v0[1]) * this.cam.z), dy: Math.round((v1[2] - v0[2]) * this.cam.z) }); } /* v1.45.6: diagnóstico do arrasto */
+    this._upT = 0;
     const dt = performance.now() - g.t0;
     /* v0.23: destro → toques de 2/3 dedos só valem na metade esquerda (a palma apoia na direita); canhoto → o contrário */
     const hand = Store.settings.hand || 'right', half = this.W / 2, sideOk = hand === 'none' || (hand === 'right' ? g.maxX < half : g.minX > half);
