@@ -211,7 +211,7 @@ const Palm = {
     const penSeen = (e) => { if (e.pointerType !== 'pen') return; const t = performance.now(), dn = !!(e.buttons & 1); this.pen = { t, x: e.clientX, y: e.clientY, down: dn }; if (dn || e.type !== 'pointermove') this.ct = t; };
     for (const t of ['pointermove', 'pointerdown', 'pointerup']) addEventListener(t, penSeen, { capture: true, passive: true });
     addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'touch' || this.pass.has(e.pointerId)) return; this.last = Math.round(Math.max(e.width || 0, e.height || 0));
+      if (e.pointerType !== 'touch' || this.pass.has(e.pointerId)) return; this.ids.delete(e.pointerId); this.hold.delete(e.pointerId); /* v1.46.12: id reaproveitado = o toque antigo já acabou (se o fim dele se perdeu, o id ficava barrado e o toque novo travava no editor) */ this.last = Math.round(Math.max(e.width || 0, e.height || 0));
       const why = !this.on() ? '' : this.big(e.width, e.height) ? 'tamanho' : this.penDown() ? 'caneta' : (this._zk = this.zoneHit(e)) ? 'zona' : '';
       if (typeof BugRec !== 'undefined' && typeof Editor !== 'undefined' && Editor.note) BugRec.push('tch', { why: why || 'ok', w: this.last, dc: Math.round(performance.now() - this.ct), dh: Math.round(performance.now() - this.pen.t), dx: Math.round(e.clientX - this.pen.x), dy: Math.round(e.clientY - this.pen.y) }); /* v1.45.5: diagnóstico do toque barrado */
       if (why === 'zona' && this.PROMOTE) { this.hold.set(e.pointerId, { x: e.clientX, y: e.clientY, tg: e.target, w: e.width, h: e.height, prim: e.isPrimary, px: this._zk === 2 ? this.HOLD_LONG : this.HOLD_PX }); stop(e); return; } /* v1.45.8: em espera — vira dedo se arrastar */
@@ -230,6 +230,11 @@ const Palm = {
     for (const t of ['pointerup', 'pointercancel']) addEventListener(t, (e) => { this.pass.delete(e.pointerId); if (this.hold.has(e.pointerId)) { this.hold.delete(e.pointerId); this.lastUp = performance.now(); return stop(e); } if (!this.ids.has(e.pointerId)) return; this.ids.delete(e.pointerId); this.lastUp = performance.now(); stop(e); }, true);
     /* o clique que o navegador gera no fim do toque da palma, e a rolagem nativa (listas da biblioteca, janelas) */
     addEventListener('click', (e) => { if (this.ids.size || performance.now() - this.lastUp < 500) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+    /* v1.46.12: rede de segurança — com TODOS os dedos fora da tela, nenhum toque pode continuar "encostado" no app (um fim de toque perdido
+       deixava um dedo fantasma: todo toque novo virava o 2º dedo, sem rolar e sem relatório de 4 dedos) */
+    const sweep = (e) => { if (e.touches && e.touches.length) return; clearTimeout(this._swT); this._swT = setTimeout(() => this.sweep(), 120); };
+    addEventListener('touchend', sweep, true); addEventListener('touchcancel', sweep, true);
+    addEventListener('touchstart', () => clearTimeout(this._swT), true);
     addEventListener('touchstart', (e) => { if (!this.on()) return; for (const t of e.changedTouches) if (this.big((t.radiusX || 0) * 2, (t.radiusY || 0) * 2) || this.penDown()) { if (e.cancelable) e.preventDefault(); return; } }, { capture: true, passive: false });
     addEventListener('touchmove', (e) => { if (!this.on()) return; for (const t of e.touches) if (this.big((t.radiusX || 0) * 2, (t.radiusY || 0) * 2)) { if (e.cancelable) e.preventDefault(); return; } }, { capture: true, passive: false });
   },
@@ -242,6 +247,14 @@ const Palm = {
     if (typeof BugRec !== 'undefined') BugRec.push('tch', { why: 'zona→dedo' });
     const tg = hd.tg && hd.tg.isConnected ? hd.tg : (document.elementFromPoint(hd.x, hd.y) || document.body);
     try { tg.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, pointerId: id, pointerType: 'touch', isPrimary: !!hd.prim, clientX: hd.x, clientY: hd.y, screenX: hd.x, screenY: hd.y, width: hd.w || 1, height: hd.h || 1, pressure: 0.5, button: 0, buttons: 1 })); } catch (err) { logError(err, 'palma'); }
+  },
+  sweep() {
+    this.ids.clear(); this.hold.clear(); this.pass.clear();
+    try {
+      if (typeof Editor === 'undefined' || !Editor.pointers) return; let n = 0;
+      for (const [id, r] of [...Editor.pointers]) if (r && r.type === 'touch') { n++; this.cancel({ pointerId: id, clientX: (r.x || 0) + ((Editor.rect && Editor.rect.left) || 0), clientY: (r.y || 0) + ((Editor.rect && Editor.rect.top) || 0), width: 0, height: 0 }); Editor.pointers.delete(id); }
+      if (n) { if (!Editor.pointers.size) Editor.gesture = null; if (typeof BugRec !== 'undefined') BugRec.push('tch', { why: 'toque preso solto', n }); Editor.requestRender(); }
+    } catch (err) { logError(err, 'palma'); }
   },
   /* virou palma no meio do gesto: o editor e o lado passivo largam esse toque */
   cancel(e) {
