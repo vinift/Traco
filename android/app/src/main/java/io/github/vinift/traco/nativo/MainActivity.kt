@@ -170,7 +170,7 @@ class MainActivity : ComponentActivity() {
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         try {
-            val i = ev.actionIndex, ft = ev.getToolType(i) == MotionEvent.TOOL_TYPE_FINGER
+            val i = ev.actionIndex; val ft = ev.getToolType(i) == MotionEvent.TOOL_TYPE_FINGER
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> logIn(if (ft) "dedo+" else "caneta+", ev)
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> logIn(if (ft) "dedo-" else "caneta-", ev)

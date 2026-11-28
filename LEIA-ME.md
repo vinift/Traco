@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.45.12
+
+- Correção: o APK da v1.45.11 não compilou (erro de escrita no código do Android). Este é o APK com o diário de toques da v1.45.11.
+
 ## Novidades da v1.45.11
 
 - Relatório de problema visual (Traço Nativo, APK novo): agora ele também grava o que o Android entrega ao app nos últimos 30 s: dedo encostou/soltou/cancelado, caneta encostou/soltou, caneta chegou perto/saiu de perto. É para descobrir se o dedo que não rola com a caneta por perto chega ao app ou se o próprio sistema o descarta.
