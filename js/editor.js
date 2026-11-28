@@ -311,7 +311,9 @@ const Editor = {
     if (!drawing && (this._inkHide || this._liveClear || this._natPend) && (allDone || performance.now() - (this._liveT || 0) > 600)) {
       if (this._natPend) { const ids = this._natPend; this._natPend = null; const t0 = performance.now(), go = () => { if (typeof NatPage !== 'undefined' && NatPage.on() && NatPage._sq.length && performance.now() - t0 < 1500) return requestAnimationFrame(go); Native.inkClear(ids); }; requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(go, 70))); /* v1.46.15: no desenho nativo, espera a fila de envio dos blocos esvaziar */ } /* v1.0.4: o WebView leva alguns quadros para mostrar os blocos na tela — tirar a tinta nativa na hora deixava um quadro sem o traço (piscava) */
       if (this._inkHide) { this._inkHide = false; this.inkHide(); }
-      if (this._liveClear) { this._liveClear = false; this.clearLive(); }
+      if (this._liveClear) { this._liveClear = false;
+        if (typeof NatPage !== 'undefined' && NatPage.on()) { const tok = this._lcTok = (this._lcTok || 0) + 1; NatPage.fence().then(() => { if (this._lcTok !== tok || !this.note || (this.action && this.action.kind === 'draw')) return; this.clearLive(); }); } /* v1.46.16: no desenho nativo, a prévia (degradê, marca-texto, etc.) só sai depois que a camada nativa já mostra o traço */
+        else this.clearLive(); }
     }
     this.idleCanvases(this._wantMain); /* v0.58.3: agenda liberar as telas paradas (depois de limpar a prévia do traço) */
     this.drawSelection(); this.drawFlash(ctx); this.drawGuides(); this.updateHud(); this.positionText(); this.placePull(); this.updateScroll();

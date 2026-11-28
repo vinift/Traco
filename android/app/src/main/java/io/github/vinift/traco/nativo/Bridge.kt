@@ -92,6 +92,12 @@ class Bridge(private val a: MainActivity) {
         if (!a.pageOk || ids == "all") { a.ink.clear(ids); return }
         try { a.pgHandler.post { a.page.postOnAnimation { a.page.postOnAnimation { a.ink.clear(ids) } } } } catch (_: Throwable) { a.ink.clear(ids) }
     }
+    /* v1.46.16: "cerca" da camada nativa: responde depois que a fila dos pixels processou o que já chegou e a PageView desenhou 2 quadros
+       (a página só tira a prévia do traço — degradê, marca-texto — depois disso; antes a letra sumia por alguns quadros) */
+    @JavascriptInterface fun pgFence(id: Int) {
+        if (!a.pageOk) { reply(id, JSONObject().put("ok", 0)); return }
+        try { a.pgHandler.post { a.page.postOnAnimation { a.page.postOnAnimation { a.page.postDelayed({ reply(id, JSONObject().put("ok", 1)) }, 24) } } } } catch (_: Throwable) { reply(id, JSONObject().put("ok", 0)) }
+    }
     @JavascriptInterface fun inkDebug(): String = a.ink.debugJson()
     @JavascriptInterface fun inkPts(id: Int): String = a.ink.ptsJson(id)
     @JavascriptInterface fun inkEnd(id: Int, x: Double, y: Double) = a.ink.endFrom(id, x.toFloat(), y.toFloat())

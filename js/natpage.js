@@ -65,6 +65,18 @@ const NatPage = {
   scene(o) { this.flush(); const s = JSON.stringify(o); if (s !== this._scene) { this._scene = s; this.call('pgScene', s); } },
   /* limpar: a cena/molduras/posições saem na hora (ponte); os bitmaps com id < nid saem pelo canal, na ordem dos pixels */
   clear() { this._scene = ''; this._frames = ''; this._fq = []; for (const cv of this._sq) cv._nq = 0; this._sq = []; if (this.port) { this.call('pgClear'); this.ctl(2, [this.nid]); } },
+  /* v1.46.16: resolve quando os blocos já enviados estão na tela nativa — fila vazia + resposta do Android (pgFence, APK ≥ 1.0.26), que passa
+     pela mesma fila dos pixels e espera 2 quadros da PageView; APK antigo: 150 ms. Limite de 600 ms depois da fila vazia. */
+  fence() {
+    return new Promise((res) => {
+      const t0 = performance.now(), step = () => {
+        if (this._sq.length && performance.now() - t0 < 1500) return requestAnimationFrame(step);
+        let done = false; const fin = () => { if (!done) { done = true; res(); } }; setTimeout(fin, 600);
+        if (typeof TracoNative !== 'undefined' && TracoNative.pgFence) Native.ask('pgFence').then(fin, fin); else setTimeout(fin, 150);
+      };
+      step();
+    });
+  },
   stat() { try { return JSON.parse(TracoNative.pgStat()); } catch (_) { return null; } },
 };
 NatPage.init();

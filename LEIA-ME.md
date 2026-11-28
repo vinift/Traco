@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.46.16
+
+- Escrita em degradê (e outros traços desenhados pela página, como o marca-texto) não pisca mais ao levantar a caneta com o desenho nativo da nota: o traço provisório só sai depois que a camada nativa já mostra a letra. Precisa do Traço Nativo 1.0.26.
+
 ## Novidades da v1.46.15
 
 - Letras piscando logo depois de escrever (com o desenho nativo da nota): a tinta da caneta agora só sai da tela depois que a página com a letra nova já chegou na camada nativa. Precisa do Traço Nativo novo (baixe o APK de novo).
