@@ -153,6 +153,11 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.45.5
+
+- **Dedo travado depois de escrever:** com a calibração da palma ligada ("zona da mão"), a caneta só pairando perto da tela fazia o app achar que o dedo era a palma — o primeiro arrasto para rolar era ignorado. Agora o prazo conta só a partir do último toque da caneta na tela.
+- Se ainda acontecer, faça um relatório (toque com 4 dedos) logo em seguida: ele agora registra por que cada toque foi ignorado.
+
 ## Novidades da v1.45.4
 
 - As questões da **PRF** também ficam em destaque (mesmo visual da PF, com a etiqueta "PRF"). Os cadernos já existentes são refeitos sozinhos uma vez ao abrir.

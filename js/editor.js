@@ -505,7 +505,7 @@ const Editor = {
         if (!(e.width > 48 || e.height > 48)) { rec.noSnap = true; this.action.noSnap = (this.action.noSnap || 0) + 1; const ap = this.pointers.get(this.action.pid); if (ap) this.moveAction([], { clientX: ap.x + this.rect.left, clientY: ap.y + this.rect.top }); }
         return;
       }
-      if (Store.settings.palmGuard && (this.penDown || performance.now() - this.lastPenSeen < 300)) { rec.ignored = true; return; } /* v1.3.2: 500 → 300 ms; a palma grande já é barrada pelo tamanho (Palm) */
+      if (Store.settings.palmGuard && (this.penDown || performance.now() - this.lastPenSeen < 300)) { rec.ignored = true; if (typeof BugRec !== 'undefined') BugRec.push('tch', { why: 'logo depois da caneta', ms: Math.round(performance.now() - this.lastPenSeen), pd: this.penDown ? 1 : 0 }); return; } /* v1.3.2: 500 → 300 ms; a palma grande já é barrada pelo tamanho (Palm) */
       const drawingTouch = this.action && this.action.ptype === 'touch';
       if (!this.gesture && !drawingTouch && this.touchIds().length === 1 && this.sel && !this.readOnly) { // dedo também move, redimensiona e gira a seleção
         const k = this.tableFingerLock() && this.selElements().some((x) => x.type === 'table') ? null : this.selHit(p); /* v1.4.1: tabela travada para o dedo no zoom alto */

@@ -63,7 +63,7 @@ const BugRec = {
       nota: n ? { paginas: n.pages.length, pagina: E.currentPageIndex ? E.currentPageIndex() + 1 : null, modo: n.mode || 'pages', elementos: n.pages.reduce((a, p) => a + ((p.elements && p.elements.length) || 0), 0), pdf: n.pages.some((p) => !!p.pdf) } : null,
       editor: E && n ? { z: E.cam.z, cam: [Math.round(E.cam.x), Math.round(E.cam.y)], ferramenta: E.tool, classes: document.getElementById('editor').className, blocos: E.tiles ? E.tiles.size : null, dividida: !!(S.split && S.split.id) } : null,
       memoria: m, nos: document.getElementsByTagName('*').length, heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null, barras: this.bars(),
-      config: { zoomQuality: S.zoomQuality || 'eco', barSize: S.barSize, barScale: S.barScale, hideWhileWriting: S.hideWhileWriting !== false, writeHideSec: S.writeHideSec, lowLatency: !!S.lowLatency, palmGuard: S.palmGuard, theme: S.theme },
+      config: { zoomQuality: S.zoomQuality || 'eco', barSize: S.barSize, barScale: S.barScale, hideWhileWriting: S.hideWhileWriting !== false, writeHideSec: S.writeHideSec, lowLatency: !!S.lowLatency, palmGuard: S.palmGuard, palmSize: S.palmSize, palmZone: S.palmZone, hand: S.hand, theme: S.theme },
       erros: typeof readErrors === 'function' ? readErrors().slice(-10) : [],
       marcaTexto: typeof PdfText !== 'undefined' && PdfText._last ? PdfText._last : undefined, /* v1.18.1: última marcação grudada na escrita (palavras + traços em volta) */
       tinta: typeof Native !== 'undefined' && Native.on ? Native.inkReport() : undefined, /* v1.2.3: últimos traços da tinta nativa × da página */
