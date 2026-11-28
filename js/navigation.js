@@ -209,20 +209,36 @@ const Palm = {
     const penSeen = (e) => { if (e.pointerType !== 'pen') return; const t = performance.now(), dn = !!(e.buttons & 1); this.pen = { t, x: e.clientX, y: e.clientY, down: dn }; if (dn || e.type !== 'pointermove') this.ct = t; };
     for (const t of ['pointermove', 'pointerdown', 'pointerup']) addEventListener(t, penSeen, { capture: true, passive: true });
     addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'touch') return; this.last = Math.round(Math.max(e.width || 0, e.height || 0));
+      if (e.pointerType !== 'touch' || this.pass.has(e.pointerId)) return; this.last = Math.round(Math.max(e.width || 0, e.height || 0));
       const why = !this.on() ? '' : this.big(e.width, e.height) ? 'tamanho' : this.penDown() ? 'caneta' : this.zoneHit(e) ? 'zona' : '';
       if (typeof BugRec !== 'undefined' && typeof Editor !== 'undefined' && Editor.note) BugRec.push('tch', { why: why || 'ok', w: this.last, dc: Math.round(performance.now() - this.ct), dh: Math.round(performance.now() - this.pen.t), dx: Math.round(e.clientX - this.pen.x), dy: Math.round(e.clientY - this.pen.y) }); /* v1.45.5: diagnóstico do toque barrado */
+      if (why === 'zona') { this.hold.set(e.pointerId, { x: e.clientX, y: e.clientY, tg: e.target, w: e.width, h: e.height, prim: e.isPrimary }); stop(e); return; } /* v1.45.8: em espera — vira dedo se arrastar */
       if (why) { this.ids.add(e.pointerId); stop(e); }
     }, true);
     addEventListener('pointermove', (e) => {
       if (e.pointerType !== 'touch') return; if (this.ids.has(e.pointerId)) return stop(e);
+      const hd = this.hold.get(e.pointerId);
+      if (hd) {
+        if (!this.on() || this.penDown() || this.big(e.width, e.height)) { this.hold.delete(e.pointerId); this.ids.add(e.pointerId); return stop(e); }
+        if (Math.hypot(e.clientX - hd.x, e.clientY - hd.y) < this.HOLD_PX) return stop(e);
+        this.promote(e.pointerId, hd); /* arrastou de verdade: entrega ao app como um toque normal que começou lá atrás; este move segue */
+      }
       if (this.on() && this.big(e.width, e.height)) { this.ids.add(e.pointerId); this.cancel(e); stop(e); }
     }, true);
-    for (const t of ['pointerup', 'pointercancel']) addEventListener(t, (e) => { if (!this.ids.has(e.pointerId)) return; this.ids.delete(e.pointerId); this.lastUp = performance.now(); stop(e); }, true);
+    for (const t of ['pointerup', 'pointercancel']) addEventListener(t, (e) => { this.pass.delete(e.pointerId); if (this.hold.has(e.pointerId)) { this.hold.delete(e.pointerId); this.lastUp = performance.now(); return stop(e); } if (!this.ids.has(e.pointerId)) return; this.ids.delete(e.pointerId); this.lastUp = performance.now(); stop(e); }, true);
     /* o clique que o navegador gera no fim do toque da palma, e a rolagem nativa (listas da biblioteca, janelas) */
     addEventListener('click', (e) => { if (this.ids.size || performance.now() - this.lastUp < 500) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
     addEventListener('touchstart', (e) => { if (!this.on()) return; for (const t of e.changedTouches) if (this.big((t.radiusX || 0) * 2, (t.radiusY || 0) * 2) || this.penDown()) { if (e.cancelable) e.preventDefault(); return; } }, { capture: true, passive: false });
     addEventListener('touchmove', (e) => { if (!this.on()) return; for (const t of e.touches) if (this.big((t.radiusX || 0) * 2, (t.radiusY || 0) * 2)) { if (e.cancelable) e.preventDefault(); return; } }, { capture: true, passive: false });
+  },
+  /* v1.45.8: toque barrado pela zona da mão fica em espera (hold); se andar HOLD_PX, recebe um pointerdown no ponto onde começou
+     (o gesto anda tudo, sem perder o começo) e os próximos eventos passam. Parado (palma apoiada) continua ignorado. */
+  HOLD_PX: 22, hold: new Map(), pass: new Set(),
+  promote(id, hd) {
+    this.hold.delete(id); this.pass.add(id);
+    if (typeof BugRec !== 'undefined') BugRec.push('tch', { why: 'zona→dedo' });
+    const tg = hd.tg && hd.tg.isConnected ? hd.tg : (document.elementFromPoint(hd.x, hd.y) || document.body);
+    try { tg.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, pointerId: id, pointerType: 'touch', isPrimary: !!hd.prim, clientX: hd.x, clientY: hd.y, screenX: hd.x, screenY: hd.y, width: hd.w || 1, height: hd.h || 1, pressure: 0.5, button: 0, buttons: 1 })); } catch (err) { logError(err, 'palma'); }
   },
   /* virou palma no meio do gesto: o editor e o lado passivo largam esse toque */
   cancel(e) {

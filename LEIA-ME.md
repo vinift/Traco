@@ -153,6 +153,10 @@ Para mudar o código, substitua os arquivos no repositório do GitHub. O tablet 
 
 Para não esperar, toque em **Verificar atualização** (ao lado do número da versão, embaixo da barra lateral da tela inicial): o app confere o GitHub, salva a nota aberta e reinicia já na versão nova.
 
+## Novidades da v1.45.8
+
+- Dedo logo depois de escrever, perto da caneta: antes, a "zona da mão" (calibração da palma) descartava esse toque. Agora ele fica em espera. Se você arrastar (ou fizer pinça), ele vale como dedo e a folha anda desde o ponto onde o dedo encostou. Se ficar parado, como a palma apoiada, continua ignorado.
+
 ## Novidades da v1.45.7
 
 - **Dedo logo depois de soltar a caneta:** o app ignorava qualquer toque até 0,3 s depois da caneta (proteção antiga contra a palma) — o arrasto feito logo em seguida era perdido inteiro. Agora essa proteção só vale do lado da mão que escreve; com a palma calibrada, quem decide é a calibração (tamanho e zona da mão). O dedo da outra mão mexe a folha na hora.
