@@ -68,27 +68,37 @@ class PageView(ctx: Context) : View(ctx) {
            benchmark no Pad 7 mostrou quase todos os quadros lentos por "Slow issue draw commands". Se a cópia falhar, fica o comum. */
         val hw = try { sw.copy(Bitmap.Config.HARDWARE, false) } catch (_: Throwable) { null }
         val bmp = if (hw != null) { sw.recycle(); hw } else sw
-        val old: Bitmap?
+        val old: Bitmap?; val vis: Boolean
         synchronized(lock) {
             if (freed.contains(id)) { freed.remove(id); bmp.recycle(); return }
-            old = bmps.put(id, bmp)
+            old = bmps.put(id, bmp); vis = shownLocked(id, bmp.width, bmp.height)
         }
         old?.recycle()
-        postInvalidateOnAnimation()
+        if (vis) postInvalidateOnAnimation()
+    }
+
+    /* v1.46.4: só redesenha quando o bloco que chegou/mudou APARECE na tela. Depois de um gesto, a página prepara em segundo plano os
+       blocos em volta (fora da tela); antes cada um redesenhava a janela inteira (~38 quadros/s por alguns segundos, refazendo o vidro) */
+    private fun shownLocked(id: Int, w: Int = 512, h: Int = 512): Boolean {
+        val s = scene ?: return false; val p = places[id] ?: return false
+        val lv = s.lv.firstOrNull { it.first == p.L } ?: return false
+        val d = s.d; val k = lv.second; val ox = (s.sl + s.tx) * d; val oy = (s.st + s.ty) * d
+        val x0 = ox + k * p.x * d; val y0 = oy + k * p.y * d; val x1 = x0 + k * w; val y1 = y0 + k * h
+        return x1 > s.sl * d && x0 < (s.sl + s.sw) * d && y1 > s.st * d && y0 < (s.st + s.sh) * d
     }
 
     /* 1 = apagar os ids da lista; 2 = apagar todos os bitmaps com id menor que o informado (depois de um "limpar") */
     private fun control(kind: Int, bb: ByteBuffer, size: Int) {
-        val olds = ArrayList<Bitmap>()
+        val olds = ArrayList<Bitmap>(); var vis = false
         synchronized(lock) {
-            if (kind == 1) { var o = 16; while (o + 4 <= size) { val id = bb.getInt(o); o += 4; places.remove(id); bmps.remove(id)?.let { olds.add(it) } } }
-            else { val lim = bb.getInt(16); val it = bmps.entries.iterator(); while (it.hasNext()) { val e = it.next(); if (e.key < lim) { olds.add(e.value); it.remove() } } }
+            if (kind == 1) { var o = 16; while (o + 4 <= size) { val id = bb.getInt(o); o += 4; if (!vis && shownLocked(id)) vis = true; places.remove(id); bmps.remove(id)?.let { olds.add(it) } } }
+            else { vis = true; val lim = bb.getInt(16); val it = bmps.entries.iterator(); while (it.hasNext()) { val e = it.next(); if (e.key < lim) { olds.add(e.value); it.remove() } } }
         }
         for (x in olds) x.recycle()
-        postInvalidateOnAnimation()
+        if (vis) postInvalidateOnAnimation()
     }
 
-    fun place(id: Int, L: Double, x: Float, y: Float) { synchronized(lock) { places[id] = Place(L, x, y) }; postInvalidateOnAnimation() }
+    fun place(id: Int, L: Double, x: Float, y: Float) { val vis: Boolean; synchronized(lock) { val was = shownLocked(id); places[id] = Place(L, x, y); vis = was || (bmps.containsKey(id) && shownLocked(id)) }; if (vis) postInvalidateOnAnimation() }
     fun prev(pid: String, id: Int) { synchronized(lock) { prevOf[pid]?.let { if (it != id && bmps.containsKey(it)) prevLast[pid] = it }; prevOf[pid] = id }; postInvalidateOnAnimation() }
 
     fun free(id: Int) {
